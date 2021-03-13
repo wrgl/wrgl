@@ -9,6 +9,20 @@ import (
 	"github.com/wrgl/core/pkg/kv"
 )
 
+func readAllRowHashes(t *testing.T, reader RowHashReader) [][2]string {
+	t.Helper()
+	result := [][2]string{}
+	for {
+		pkh, rh, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		result = append(result, [2]string{string(pkh), string(rh)})
+	}
+	return result
+}
+
 func TestInMemoryStoreInsertRow(t *testing.T) {
 	db := kv.NewMockStore(false)
 	columns := []string{"a", "b", "c"}
@@ -51,20 +65,6 @@ func TestInMemoryStoreInsertRow(t *testing.T) {
 	assert.Equal(t, kv.KeyNotFoundError, err)
 }
 
-func readAllRowHashes(t *testing.T, reader RowHashReader) [][2][]byte {
-	t.Helper()
-	result := [][2][]byte{}
-	for {
-		pkh, rh, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-		result = append(result, [2][]byte{pkh, rh})
-	}
-	return result
-}
-
 func TestInMemoryStoreNewRowHashReader(t *testing.T) {
 	db := kv.NewMockStore(false)
 	columns := []string{"a", "b", "c"}
@@ -81,26 +81,56 @@ func TestInMemoryStoreNewRowHashReader(t *testing.T) {
 	err = ts.InsertRow(1, []byte("d"), []byte("4"), []byte("l,m,n"))
 	require.NoError(t, err)
 
-	rhReader := ts.NewRowHashReader(0, 2)
-	sl := readAllRowHashes(t, rhReader)
-	assert.Equal(t, [][2][]byte{
-		{[]byte("a"), []byte("1")},
-		{[]byte("d"), []byte("4")},
-	}, sl)
-
-	rhReader = ts.NewRowHashReader(2, 2)
-	sl = readAllRowHashes(t, rhReader)
-	assert.Equal(t, [][2][]byte{
-		{[]byte("b"), []byte("2")},
-		{[]byte("c"), []byte("3")},
-	}, sl)
-
-	rhReader = ts.NewRowHashReader(0, 0)
-	sl = readAllRowHashes(t, rhReader)
-	assert.Equal(t, [][2][]byte{
-		{[]byte("a"), []byte("1")},
-		{[]byte("d"), []byte("4")},
-		{[]byte("b"), []byte("2")},
-		{[]byte("c"), []byte("3")},
-	}, sl)
+	for _, c := range []struct {
+		offset      int
+		size        int
+		rows        [][2]string
+		rowContents [][2]string
+	}{
+		{
+			0, 2,
+			[][2]string{
+				{"a", "1"},
+				{"d", "4"},
+			},
+			[][2]string{
+				{"1", "a,b,c"},
+				{"4", "l,m,n"},
+			},
+		},
+		{
+			2, 2,
+			[][2]string{
+				{"b", "2"},
+				{"c", "3"},
+			},
+			[][2]string{
+				{"2", "d,e,f"},
+				{"3", "g,h,j"},
+			},
+		},
+		{
+			4, 2,
+			[][2]string{},
+			[][2]string{},
+		},
+		{
+			0, 0,
+			[][2]string{
+				{"a", "1"},
+				{"d", "4"},
+				{"b", "2"},
+				{"c", "3"},
+			},
+			[][2]string{
+				{"1", "a,b,c"},
+				{"4", "l,m,n"},
+				{"2", "d,e,f"},
+				{"3", "g,h,j"},
+			},
+		},
+	} {
+		assert.Equal(t, c.rows, readAllRowHashes(t, ts.NewRowHashReader(c.offset, c.size)))
+		assert.Equal(t, c.rowContents, readAllRowHashes(t, ts.NewRowReader(c.offset, c.size)))
+	}
 }

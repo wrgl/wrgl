@@ -39,6 +39,9 @@ func TestBatchDecodeStrings(t *testing.T) {
 	for _, r := range rows {
 		b, err := EncodeStrings(r)
 		require.NoError(t, err)
+		s, err := DecodeStrings(b)
+		require.NoError(t, err)
+		assert.Equal(t, r, s)
 		m = append(m, b)
 	}
 	m2, err := BatchDecodeStrings(m)

@@ -15,6 +15,11 @@ func SaveRow(s kv.DB, k, v []byte) error {
 	return s.Set(rowKey(h), v)
 }
 
+func GetRow(s kv.DB, k []byte) ([]byte, error) {
+	hStr := hex.EncodeToString(k)
+	return s.Get(rowKey(hStr))
+}
+
 func GetRows(s kv.DB, keys [][]byte) ([][]byte, error) {
 	result := [][]byte{}
 	for _, k := range keys {

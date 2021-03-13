@@ -3,7 +3,6 @@ package encoding
 import (
 	"bytes"
 	"encoding/csv"
-	"io/ioutil"
 )
 
 func EncodeStrings(s []string) ([]byte, error) {
@@ -14,11 +13,13 @@ func EncodeStrings(s []string) ([]byte, error) {
 		return nil, err
 	}
 	writer.Flush()
-	b, err := ioutil.ReadAll(buf)
-	if err != nil {
-		return nil, err
-	}
-	return b[:len(b)-1], nil
+	return buf.Bytes(), nil
+}
+
+func DecodeStrings(h []byte) ([]string, error) {
+	buf := bytes.NewBuffer(h)
+	reader := csv.NewReader(buf)
+	return reader.Read()
 }
 
 func BatchDecodeStrings(s [][]byte) ([][]string, error) {

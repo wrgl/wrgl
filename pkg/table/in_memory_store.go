@@ -89,6 +89,26 @@ func (r *inMemoryRowHashReader) Read() (pkHash, rowHash []byte, err error) {
 	return []byte(kh.K), kh.V, nil
 }
 
+type inMemoryRowReader struct {
+	store  *InMemoryStore
+	offset int
+	size   int
+	n      int
+}
+
+func (r *inMemoryRowReader) Read() (rowHash, rowContent []byte, err error) {
+	r.n++
+	if r.n >= r.size {
+		return nil, nil, io.EOF
+	}
+	kh := r.store.table.Rows[r.offset+r.n]
+	rc, err := GetRow(r.store.db, kh.V)
+	if err != nil {
+		return nil, nil, io.EOF
+	}
+	return kh.V, rc, nil
+}
+
 type InMemoryStore struct {
 	db      kv.DB
 	table   *inMemoryTable
@@ -133,15 +153,33 @@ func (s *InMemoryStore) NumRows() int {
 	return s.table.NumRows()
 }
 
-func (s *InMemoryStore) NewRowHashReader(offset, size int) RowHashReader {
+func (s *InMemoryStore) capSize(offset, size int) (int, int) {
 	l := s.table.NumRows()
+	if offset < 0 {
+		offset = 0
+	}
 	if size == 0 || l < offset+size {
 		size = l - offset
 	}
 	if size < 0 {
 		size = 0
 	}
+	return offset, size
+}
+
+func (s *InMemoryStore) NewRowHashReader(offset, size int) RowHashReader {
+	offset, size = s.capSize(offset, size)
 	return &inMemoryRowHashReader{
+		store:  s,
+		offset: offset,
+		size:   size,
+		n:      -1,
+	}
+}
+
+func (s *InMemoryStore) NewRowReader(offset, size int) RowReader {
+	offset, size = s.capSize(offset, size)
+	return &inMemoryRowReader{
 		store:  s,
 		offset: offset,
 		size:   size,
