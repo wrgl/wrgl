@@ -197,8 +197,8 @@ func (s *MockStore) FilterKey(prefix []byte) ([]string, error) {
 	return result, nil
 }
 
-func (s *MockStore) RunInTransaction(cb func(Txn) error) error {
-	return cb(s)
+func (s *MockStore) NewTransaction() Txn {
+	return s
 }
 
 func (s *MockStore) PartialCommit() error {
@@ -207,6 +207,20 @@ func (s *MockStore) PartialCommit() error {
 		return args.Error(0)
 	}
 	return nil
+}
+
+func (s *MockStore) Commit() error {
+	if s.EnableMock {
+		args := s.Called()
+		return args.Error(0)
+	}
+	return nil
+}
+
+func (s *MockStore) Discard() {
+	if s.EnableMock {
+		s.Called()
+	}
 }
 
 func (s *MockStore) GarbageCollect(dur time.Duration) {

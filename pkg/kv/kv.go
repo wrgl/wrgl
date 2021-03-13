@@ -17,11 +17,13 @@ type Store interface {
 	BatchSet(map[string][]byte) error
 	Clear([]byte) error
 	BatchExist(keys [][]byte) ([]bool, error)
-	RunInTransaction(cb func(Txn) error) error
+	NewTransaction() Txn
 	GarbageCollect(dur time.Duration)
 }
 
 type Txn interface {
 	DB
 	PartialCommit() error
+	Commit() error
+	Discard()
 }

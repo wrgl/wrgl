@@ -79,14 +79,8 @@ func (t *badgerTxn) Discard() {
 	t.txn.Discard()
 }
 
-func (s *BadgerStore) RunInTransaction(cb func(Txn) error) error {
-	t := newBadgerTxn(s.db)
-	defer t.Discard()
-	err := cb(t)
-	if err != nil {
-		return err
-	}
-	return t.Commit()
+func (s *BadgerStore) NewTransaction() Txn {
+	return newBadgerTxn(s.db)
 }
 
 func (t *badgerTxn) Filter(prefix []byte) (map[string][]byte, error) {
