@@ -2,6 +2,7 @@ package kv
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -133,16 +134,65 @@ func (s *MockStore) BatchGet(keys [][]byte) ([][]byte, error) {
 	return result, nil
 }
 
-func (s *MockStore) ReadSeeker(k []byte) (io.ReadSeeker, error) {
+type bytesReadSeekCloser struct {
+	r *bytes.Buffer
+}
+
+func (r *bytesReadSeekCloser) Read(b []byte) (int, error) {
+	return r.r.Read(b)
+}
+
+func (r *bytesReadSeekCloser) Close() error {
+	return nil
+}
+
+func (r *bytesReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
+	if whence != io.SeekStart {
+		return 0, fmt.Errorf("whence other than io.SeekStart not supported")
+	}
+	b := make([]byte, offset)
+	_, err := r.r.Read(b)
+	if err != nil {
+		return 0, err
+	}
+	return offset, nil
+}
+
+func (s *MockStore) ReadSeeker(k []byte) (io.ReadSeekCloser, error) {
 	if s.EnableMock {
 		args := s.Called(k)
-		return args.Get(0).(io.ReadSeeker), args.Error(1)
+		return args.Get(0).(io.ReadSeekCloser), args.Error(1)
 	}
 	v, ok := s.store[string(k)]
 	if !ok {
 		return nil, KeyNotFoundError
 	}
-	return bytes.NewReader(v), nil
+	return &bytesReadSeekCloser{
+		r: bytes.NewBuffer(v),
+	}, nil
+}
+
+type mockStoreWriter struct {
+	s   *MockStore
+	buf *bytes.Buffer
+	key string
+}
+
+func (w *mockStoreWriter) Write(b []byte) (int, error) {
+	return w.buf.Write(b)
+}
+
+func (w *mockStoreWriter) Close() error {
+	w.s.store[w.key] = w.buf.Bytes()
+	return nil
+}
+
+func (s *MockStore) Writer(k []byte) (io.WriteCloser, error) {
+	return &mockStoreWriter{
+		s:   s,
+		key: string(k),
+		buf: bytes.NewBufferString(""),
+	}, nil
 }
 
 func (s *MockStore) BatchSet(data map[string][]byte) error {

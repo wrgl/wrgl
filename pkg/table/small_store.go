@@ -9,7 +9,7 @@ import (
 	"github.com/wrgl/core/pkg/slice"
 )
 
-func inMemoryTableKey(hash string) []byte {
+func smallTableKey(hash string) []byte {
 	return []byte("tables/" + hash)
 }
 
@@ -18,13 +18,13 @@ type KeyHash struct {
 	V []byte
 }
 
-type inMemoryTable struct {
+type smallTable struct {
 	Columns     []string
 	PrimaryKeys []int
 	Rows        []KeyHash
 }
 
-func (t *inMemoryTable) InsertRow(n int, pkHash, rowHash []byte) {
+func (t *smallTable) InsertRow(n int, pkHash, rowHash []byte) {
 	kh := KeyHash{
 		K: string(pkHash),
 		V: rowHash,
@@ -36,7 +36,7 @@ func (t *inMemoryTable) InsertRow(n int, pkHash, rowHash []byte) {
 	t.Rows[n] = kh
 }
 
-func (t *inMemoryTable) RowsMap() map[string][]byte {
+func (t *smallTable) RowsMap() map[string][]byte {
 	res := make(map[string][]byte, len(t.Rows))
 	for _, r := range t.Rows {
 		res[r.K] = r.V
@@ -44,15 +44,15 @@ func (t *inMemoryTable) RowsMap() map[string][]byte {
 	return res
 }
 
-func (t *inMemoryTable) NumRows() int {
+func (t *smallTable) NumRows() int {
 	return len(t.Rows)
 }
 
-func (t *inMemoryTable) PrimaryKeyStrings() []string {
+func (t *smallTable) PrimaryKeyStrings() []string {
 	return slice.IndicesToValues(t.Columns, t.PrimaryKeys)
 }
 
-func (t *inMemoryTable) encode() ([]byte, error) {
+func (t *smallTable) encode() ([]byte, error) {
 	buf := bytes.NewBuffer([]byte{})
 	encoder := gob.NewEncoder(buf)
 	err := encoder.Encode(t)
@@ -62,10 +62,10 @@ func (t *inMemoryTable) encode() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func decodeInMemoryTable(data []byte) (*inMemoryTable, error) {
+func decodeSmallTable(data []byte) (*smallTable, error) {
 	buf := bytes.NewBuffer(data)
 	decoder := gob.NewDecoder(buf)
-	t := &inMemoryTable{}
+	t := &smallTable{}
 	err := decoder.Decode(t)
 	if err != nil {
 		return nil, err
@@ -73,14 +73,14 @@ func decodeInMemoryTable(data []byte) (*inMemoryTable, error) {
 	return t, nil
 }
 
-type inMemoryRowHashReader struct {
-	store  *InMemoryStore
+type smallRowHashReader struct {
+	store  *SmallStore
 	offset int
 	size   int
 	n      int
 }
 
-func (r *inMemoryRowHashReader) Read() (pkHash, rowHash []byte, err error) {
+func (r *smallRowHashReader) Read() (pkHash, rowHash []byte, err error) {
 	r.n++
 	if r.n >= r.size {
 		return nil, nil, io.EOF
@@ -89,14 +89,18 @@ func (r *inMemoryRowHashReader) Read() (pkHash, rowHash []byte, err error) {
 	return []byte(kh.K), kh.V, nil
 }
 
-type inMemoryRowReader struct {
-	store  *InMemoryStore
+func (r *smallRowHashReader) Close() error {
+	return nil
+}
+
+type smallRowReader struct {
+	store  *SmallStore
 	offset int
 	size   int
 	n      int
 }
 
-func (r *inMemoryRowReader) Read() (rowHash, rowContent []byte, err error) {
+func (r *smallRowReader) Read() (rowHash, rowContent []byte, err error) {
 	r.n++
 	if r.n >= r.size {
 		return nil, nil, io.EOF
@@ -109,17 +113,21 @@ func (r *inMemoryRowReader) Read() (rowHash, rowContent []byte, err error) {
 	return kh.V, rc, nil
 }
 
-type InMemoryStore struct {
+func (r *smallRowReader) Close() error {
+	return nil
+}
+
+type SmallStore struct {
 	db      kv.DB
-	table   *inMemoryTable
+	table   *smallTable
 	rowsMap map[string][]byte
 	seed    uint64
 }
 
-func NewInMemoryStore(db kv.DB, columns []string, primaryKeyIndices []int, seed uint64) Store {
-	return &InMemoryStore{
+func NewSmallStore(db kv.DB, columns []string, primaryKeyIndices []int, seed uint64) Store {
+	return &SmallStore{
 		db: db,
-		table: &inMemoryTable{
+		table: &smallTable{
 			Columns:     columns,
 			PrimaryKeys: primaryKeyIndices,
 			Rows:        []KeyHash{},
@@ -128,20 +136,20 @@ func NewInMemoryStore(db kv.DB, columns []string, primaryKeyIndices []int, seed 
 	}
 }
 
-func (s *InMemoryStore) Columns() []string {
+func (s *SmallStore) Columns() []string {
 	return s.table.Columns
 }
 
-func (s *InMemoryStore) PrimaryKey() []string {
+func (s *SmallStore) PrimaryKey() []string {
 	return s.table.PrimaryKeyStrings()
 }
 
-func (s *InMemoryStore) InsertRow(n int, pkHash, rowHash, rowContent []byte) error {
+func (s *SmallStore) InsertRow(n int, pkHash, rowHash, rowContent []byte) error {
 	s.table.InsertRow(n, pkHash, rowHash)
 	return SaveRow(s.db, rowHash, rowContent)
 }
 
-func (s *InMemoryStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
+func (s *SmallStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 	if s.rowsMap == nil {
 		s.rowsMap = s.table.RowsMap()
 	}
@@ -149,12 +157,11 @@ func (s *InMemoryStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 	return
 }
 
-func (s *InMemoryStore) NumRows() int {
-	return s.table.NumRows()
+func (s *SmallStore) NumRows() (int, error) {
+	return s.table.NumRows(), nil
 }
 
-func (s *InMemoryStore) capSize(offset, size int) (int, int) {
-	l := s.table.NumRows()
+func capSize(l, offset, size int) (int, int) {
 	if offset < 0 {
 		offset = 0
 	}
@@ -167,28 +174,35 @@ func (s *InMemoryStore) capSize(offset, size int) (int, int) {
 	return offset, size
 }
 
-func (s *InMemoryStore) NewRowHashReader(offset, size int) RowHashReader {
-	offset, size = s.capSize(offset, size)
-	return &inMemoryRowHashReader{
+func (s *SmallStore) NewRowHashReader(offset, size int) (RowHashReader, error) {
+	l := s.table.NumRows()
+	offset, size = capSize(l, offset, size)
+	return &smallRowHashReader{
 		store:  s,
 		offset: offset,
 		size:   size,
 		n:      -1,
-	}
+	}, nil
 }
 
-func (s *InMemoryStore) NewRowReader(offset, size int) RowReader {
-	offset, size = s.capSize(offset, size)
-	return &inMemoryRowReader{
+func (s *SmallStore) NewRowReader(offset, size int) (RowReader, error) {
+	l := s.table.NumRows()
+	offset, size = capSize(l, offset, size)
+	return &smallRowReader{
 		store:  s,
 		offset: offset,
 		size:   size,
 		n:      -1,
-	}
+	}, nil
 }
 
-func (s *InMemoryStore) Save() (string, error) {
-	sum, err := hashTable(s.seed, s.table.Columns, s.table.PrimaryKeys, s.NewRowHashReader(0, 0))
+func (s *SmallStore) Save() (string, error) {
+	r, err := s.NewRowHashReader(0, 0)
+	if err != nil {
+		return "", err
+	}
+	defer r.Close()
+	sum, err := hashTable(s.seed, s.table.Columns, s.table.PrimaryKeys, r)
 	if err != nil {
 		return "", err
 	}
@@ -196,26 +210,26 @@ func (s *InMemoryStore) Save() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return sum, s.db.Set(inMemoryTableKey(sum), v)
+	return sum, s.db.Set(smallTableKey(sum), v)
 }
 
-func ReadInMemoryStore(s kv.DB, seed uint64, hash string) (*InMemoryStore, error) {
-	v, err := s.Get(inMemoryTableKey(hash))
+func ReadSmallStore(s kv.DB, seed uint64, hash string) (*SmallStore, error) {
+	v, err := s.Get(smallTableKey(hash))
 	if err != nil {
 		return nil, err
 	}
-	var t *inMemoryTable
-	t, err = decodeInMemoryTable(v)
+	var t *smallTable
+	t, err = decodeSmallTable(v)
 	if err != nil {
 		return nil, err
 	}
-	return &InMemoryStore{
+	return &SmallStore{
 		db:    s,
 		table: t,
 		seed:  seed,
 	}, nil
 }
 
-func DeleteInMemoryStore(db kv.DB, hash string) error {
-	return db.Delete(inMemoryTableKey(hash))
+func DeleteSmallStore(db kv.DB, hash string) error {
+	return db.Delete(smallTableKey(hash))
 }

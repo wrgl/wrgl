@@ -2,10 +2,12 @@ package table
 
 type RowHashReader interface {
 	Read() (pkHash, rowHash []byte, err error)
+	Close() error
 }
 
 type RowReader interface {
 	Read() (rowHash, rowContent []byte, err error)
+	Close() error
 }
 
 type Store interface {
@@ -13,8 +15,8 @@ type Store interface {
 	Columns() []string
 	PrimaryKey() []string
 	GetRowHash(pkHash []byte) (rowHash []byte, ok bool)
-	NumRows() int
-	NewRowHashReader(offset, size int) RowHashReader
-	NewRowReader(offset, size int) RowReader
+	NumRows() (int, error)
+	NewRowHashReader(offset, size int) (RowHashReader, error)
+	NewRowReader(offset, size int) (RowReader, error)
 	Save() (string, error)
 }

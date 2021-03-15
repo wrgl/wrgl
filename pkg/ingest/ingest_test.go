@@ -123,12 +123,12 @@ func TestIngest(t *testing.T) {
 			assert.Equal(t, c.ExpectedError, err)
 			continue
 		}
-		ts := table.NewInMemoryStore(db, columns, pk, seed)
+		ts := table.NewSmallStore(db, columns, pk, seed)
 		sum, err := Ingest(seed, 1, reader, pk, ts)
 		if c.ExpectedError != nil {
 			assert.Equal(t, c.ExpectedError, err)
 		} else {
-			ts2, err := table.ReadInMemoryStore(db, seed, sum)
+			ts2, err := table.ReadSmallStore(db, seed, sum)
 			require.NoError(t, err)
 			assert.Equal(t, c.ExpecteColumns, ts2.Columns())
 			if c.PrimaryKeys == nil {
@@ -136,8 +136,12 @@ func TestIngest(t *testing.T) {
 			} else {
 				assert.Equal(t, c.PrimaryKeys, ts2.PrimaryKey())
 			}
-			assert.Equal(t, c.ExpectedRows, readAllRowHashes(t, ts2.NewRowHashReader(0, 0)))
-			assert.Equal(t, c.ExpectedRowContent, readAllRowContents(t, ts2.NewRowReader(0, 0)))
+			rhr, err := ts2.NewRowHashReader(0, 0)
+			require.NoError(t, err)
+			assert.Equal(t, c.ExpectedRows, readAllRowHashes(t, rhr))
+			rr, err := ts2.NewRowReader(0, 0)
+			require.NoError(t, err)
+			assert.Equal(t, c.ExpectedRowContent, readAllRowContents(t, rr))
 		}
 	}
 }

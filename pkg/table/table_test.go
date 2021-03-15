@@ -22,6 +22,10 @@ func (r *MockRowHashReader) Read() (pkHash, rowHash []byte, err error) {
 	return row[0], row[1], nil
 }
 
+func (r *MockRowHashReader) Close() error {
+	return nil
+}
+
 func TestHashTable(t *testing.T) {
 	var seed uint64 = 0
 	columns := []string{"a", "b", "c"}
