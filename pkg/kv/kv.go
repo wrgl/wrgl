@@ -19,6 +19,7 @@ type Store interface {
 	BatchExist(keys [][]byte) ([]bool, error)
 	NewTransaction() Txn
 	GarbageCollect(dur time.Duration)
+	Close() error
 }
 
 type Txn interface {

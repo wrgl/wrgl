@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"sync"
 
 	"github.com/wrgl/core/pkg/kv"
 )
@@ -69,6 +70,7 @@ func (r *bigRowReader) Close() error {
 }
 
 type bigRowStore struct {
+	mu          sync.Mutex
 	size        int
 	offset      int
 	idxSl       []int
@@ -107,6 +109,8 @@ func (s *bigRowStore) flushRowListFile(i int) error {
 }
 
 func (s *bigRowStore) InsertRow(n int, pkHash, rowHash []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	i := sort.SearchInts(s.idxSl, n)
 	b := append(pkHash, rowHash...)
 	if i == len(s.idxSl) {

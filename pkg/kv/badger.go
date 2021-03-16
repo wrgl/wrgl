@@ -182,6 +182,10 @@ func (s *BadgerStore) GarbageCollect(dur time.Duration) {
 	}
 }
 
+func (s *BadgerStore) Close() error {
+	return s.db.Close()
+}
+
 func ExposeBadgerToPrometheus() error {
 	badgerExpvarCollector := prometheus.NewExpvarCollector(map[string]*prometheus.Desc{
 		"badger_v2_blocked_puts_total":   prometheus.NewDesc("badger_blocked_puts_total", "Blocked Puts", nil, nil),

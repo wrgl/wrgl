@@ -4,8 +4,13 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"math"
+	"strings"
 	"sync"
+	"time"
+	"unicode/utf8"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
 )
@@ -15,7 +20,7 @@ type row struct {
 	Record []string
 }
 
-func insertRows(primaryKeyIndices []int, seed uint64, ts table.Store, rows <-chan row, errChan chan<- error, wg *sync.WaitGroup) {
+func insertRows(primaryKeyIndices []int, seed uint64, ts table.Store, rows <-chan row, errChan chan<- error, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
 	defer wg.Done()
 	rh := NewRowHasher(primaryKeyIndices, seed)
 	for r := range rows {
@@ -25,6 +30,11 @@ func insertRows(primaryKeyIndices []int, seed uint64, ts table.Store, rows <-cha
 			return
 		}
 		err = ts.InsertRow(r.Index, pkHash, rowHash, rowContent)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		err = bar.Add(1)
 		if err != nil {
 			errChan <- err
 			return
@@ -47,13 +57,41 @@ func ReadColumns(file io.Reader, primaryKeys []string) (reader *csv.Reader, colu
 	return
 }
 
-func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []int, ts table.Store) (string, error) {
+func printSpinner(out io.Writer, description string) chan bool {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	done := make(chan bool)
+	startTime := time.Now()
+	maxLineWidth := utf8.RuneCountInString(description) + 2
+	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				// clear current line
+				fmt.Fprintf(out, "\r%s\r", strings.Repeat(" ", maxLineWidth))
+				// print spinner and description
+				fmt.Fprintf(out, "%s %s",
+					spinner[int(math.Round(math.Mod(float64(time.Since(startTime).Milliseconds()/100), float64(len(spinner)))))],
+					description)
+			}
+		}
+	}()
+	return done
+}
+
+func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []int, ts table.Store, out io.Writer) (string, error) {
 	errChan := make(chan error)
 	rows := make(chan row, 1000)
 	var wg sync.WaitGroup
+	bar := progressbar.NewOptions(-1,
+		progressbar.OptionSetWriter(out),
+		progressbar.OptionSetDescription("Inserting rows using up to %d threads..."),
+	)
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		go insertRows(primaryKeyIndices, seed, ts, rows, errChan, &wg)
+		go insertRows(primaryKeyIndices, seed, ts, rows, errChan, &wg, bar)
 	}
 
 	n := 0
@@ -77,5 +115,7 @@ outer:
 	}
 
 	wg.Wait()
+	done := printSpinner(out, "Saving table...")
+	defer close(done)
 	return ts.Save()
 }

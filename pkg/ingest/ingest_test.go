@@ -124,7 +124,7 @@ func TestIngest(t *testing.T) {
 			continue
 		}
 		ts := table.NewSmallStore(db, columns, pk, seed)
-		sum, err := Ingest(seed, 1, reader, pk, ts)
+		sum, err := Ingest(seed, 1, reader, pk, ts, io.Discard)
 		if c.ExpectedError != nil {
 			assert.Equal(t, c.ExpectedError, err)
 		} else {

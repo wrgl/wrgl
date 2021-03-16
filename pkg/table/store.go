@@ -1,5 +1,12 @@
 package table
 
+type StoreType int
+
+const (
+	Small StoreType = iota
+	Big
+)
+
 type RowHashReader interface {
 	Read() (pkHash, rowHash []byte, err error)
 	Close() error

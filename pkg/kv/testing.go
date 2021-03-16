@@ -104,6 +104,14 @@ func (s *MockStore) Delete(k []byte) error {
 	return nil
 }
 
+func (s *MockStore) Close() error {
+	if s.EnableMock {
+		args := s.Called()
+		return args.Error(0)
+	}
+	return nil
+}
+
 func (s *MockStore) Clear(prefix []byte) error {
 	if s.EnableMock {
 		args := s.Called(prefix)
