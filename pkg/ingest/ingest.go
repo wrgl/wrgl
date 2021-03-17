@@ -59,11 +59,12 @@ func ReadColumns(file io.Reader, primaryKeys []string) (reader *csv.Reader, colu
 }
 
 func printSpinner(out io.Writer, description string) chan bool {
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(65 * time.Millisecond)
 	done := make(chan bool)
 	startTime := time.Now()
 	maxLineWidth := utf8.RuneCountInString(description) + 2
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	fmt.Fprintf(out, "\n")
 	go func() {
 		for {
 			select {

@@ -28,7 +28,8 @@ func (d *repoDir) KVPath() string {
 }
 
 func (d *repoDir) OpenKVStore() (kv.Store, error) {
-	badgerDB, err := badger.Open(badger.DefaultOptions(d.KVPath()))
+	opts := badger.DefaultOptions(d.KVPath()).WithLoggingLevel(badger.ERROR)
+	badgerDB, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
 	}
