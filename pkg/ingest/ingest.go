@@ -87,7 +87,10 @@ func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices [
 	var wg sync.WaitGroup
 	bar := progressbar.NewOptions(-1,
 		progressbar.OptionSetWriter(out),
-		progressbar.OptionSetDescription("Inserting rows using up to %d threads..."),
+		progressbar.OptionSpinnerType(14),
+		progressbar.OptionShowCount(),
+		progressbar.OptionShowIts(),
+		progressbar.OptionSetDescription(fmt.Sprintf("Inserting rows using up to %d threads...", numWorkers)),
 	)
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)

@@ -1,20 +1,27 @@
 package table
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 	"sort"
 	"sync"
 
+	"github.com/google/uuid"
+	"github.com/mmcloughlin/meow"
 	"github.com/wrgl/core/pkg/kv"
 )
 
-func rowListKey(id string) []byte {
-	return []byte("row_list/" + id)
+func rowListKey(id []byte) []byte {
+	return []byte("rowl/" + hex.EncodeToString(id))
 }
 
-func rowMapKey(id string, pkSum []byte) []byte {
-	return append([]byte(fmt.Sprintf("row_map/%s/", id)), pkSum...)
+func rowMapPrefix(id []byte) []byte {
+	return append(append([]byte("rowm/"), id...), "/"[0])
+}
+
+func rowMapKey(id []byte, pkSum []byte) []byte {
+	return append(rowMapPrefix(id), pkSum...)
 }
 
 type bigRowHashReader struct {
@@ -77,11 +84,11 @@ type bigRowStore struct {
 	rowSl       [][]byte
 	fs          kv.FileStore
 	db          kv.Store
-	id          string
+	id          []byte
 	rowListFile io.WriteCloser
 }
 
-func newBigRowStore(db kv.Store, fs kv.FileStore, id string, size int) (*bigRowStore, error) {
+func newBigRowStore(db kv.Store, fs kv.FileStore, id []byte, size int) (*bigRowStore, error) {
 	rlf, err := fs.Writer(rowListKey(id))
 	if err != nil {
 		return nil, err
@@ -201,9 +208,33 @@ func (s *bigRowStore) NewRowReader(offset, size int) (RowReader, error) {
 }
 
 func (s *bigRowStore) Delete() error {
-	err := s.db.Clear(rowMapKey(s.id, nil))
+	err := s.db.Clear(rowMapPrefix(s.id))
 	if err != nil {
 		return err
 	}
 	return s.fs.Delete(rowListKey(s.id))
+}
+
+func i32tob(val uint32) []byte {
+	r := make([]byte, 4)
+	for i := uint32(0); i < 4; i++ {
+		r[i] = byte((val >> (8 * i)) & 0xff)
+	}
+	return r
+}
+
+func newRowStoreID() []byte {
+	id := uuid.New().String()
+	return i32tob(meow.Checksum32(0, []byte(id)))
+}
+
+func generateRowStoreID(db kv.DB) ([]byte, error) {
+	maxAttempts := 100
+	for i := 0; i < maxAttempts; i++ {
+		b := newRowStoreID()
+		if !db.Exist(rowListKey(b)) {
+			return b, nil
+		}
+	}
+	return nil, fmt.Errorf("%d collisions when attempting to generate row store id", maxAttempts)
 }

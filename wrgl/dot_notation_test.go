@@ -13,6 +13,11 @@ func TestSetWithDotNotation(t *testing.T) {
 		Beta  struct {
 			Gamma int
 		}
+		Delta *struct {
+			Nu struct {
+				Xi bool
+			}
+		}
 	}
 	i := &myType{
 		Alpha: "abc",
@@ -33,4 +38,10 @@ func TestSetWithDotNotation(t *testing.T) {
 	err = SetWithDotNotation(i, "beta.gamma", 10)
 	require.NoError(t, err)
 	assert.Equal(t, 10, i.Beta.Gamma)
+
+	_, err = GetWithDotNotation(i, "delta.nu.xi")
+	assert.Equal(t, `field "Delta" is zero`, err.Error())
+	err = SetWithDotNotation(i, "delta.nu.xi", true)
+	require.NoError(t, err)
+	assert.True(t, i.Delta.Nu.Xi)
 }

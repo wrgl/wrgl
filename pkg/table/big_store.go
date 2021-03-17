@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 
-	"github.com/google/uuid"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/slice"
 )
@@ -18,7 +17,7 @@ func bigTableKey(hash string) []byte {
 type bigTable struct {
 	Columns     []string
 	PrimaryKeys []int
-	RowStoreID  string
+	RowStoreID  []byte
 }
 
 func (t *bigTable) PrimaryKeyStrings() []string {
@@ -54,7 +53,10 @@ type BigStore struct {
 }
 
 func NewBigStore(db kv.Store, fs kv.FileStore, columns []string, primaryKeyIndices []int, seed uint64) (Store, error) {
-	rlID := uuid.New().String()
+	rlID, err := generateRowStoreID(db)
+	if err != nil {
+		return nil, err
+	}
 	rs, err := newBigRowStore(db, fs, rlID, bufferSize)
 	if err != nil {
 		return nil, err

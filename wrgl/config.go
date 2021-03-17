@@ -153,8 +153,9 @@ func aggregateConfig(out io.Writer) (*Config, error) {
 	localConfig.path = ""
 	if localConfig.User == nil || localConfig.User.Email == "" {
 		fmt.Fprintln(out, "User config not set. Set your user config with like this:")
-		fmt.Fprintln(out, `  wrgl config user.email "john-doe@domain.com"`)
-		fmt.Fprintln(out, `  wrgl config user.name "John Doe"`)
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, `  wrgl config --global user.email "john-doe@domain.com"`)
+		fmt.Fprintln(out, `  wrgl config --global user.name "John Doe"`)
 		os.Exit(1)
 	}
 	return localConfig, nil
