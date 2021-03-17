@@ -74,11 +74,11 @@ func TestBigStoreNewRowHashReader(t *testing.T) {
 	dir, err := ioutil.TempDir("", "file_store_test")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
-	fs := kv.NewFileStore(dir)
+	filestore := kv.NewFileStore(dir)
 	columns := []string{"a", "b", "c"}
 	pk := []int{0}
 	var seed uint64 = 0
-	ts, err := NewBigStore(db, fs, columns, pk, seed)
+	ts, err := NewBigStore(db, filestore, columns, pk, seed)
 	require.NoError(t, err)
 
 	pkHashes := [][]byte{}

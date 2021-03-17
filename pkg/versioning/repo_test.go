@@ -10,11 +10,10 @@ import (
 
 func TestRepo(t *testing.T) {
 	db := kv.NewMockStore(false)
-	var seed uint64 = 0
 	r := &Repo{
 		CommitHash: "abcd1234",
 	}
-	err := r.Save(db, seed)
+	err := r.Save(db)
 	require.NoError(t, err)
 	r2, err := GetRepo(db)
 	require.NoError(t, err)
