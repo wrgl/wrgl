@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -81,17 +82,30 @@ func printSpinner(out io.Writer, description string) chan bool {
 	return done
 }
 
+func pbar(max int64, desc string, out io.Writer) *progressbar.ProgressBar {
+	bar := progressbar.NewOptions64(
+		max,
+		progressbar.OptionSetDescription(desc),
+		progressbar.OptionSetWriter(out),
+		progressbar.OptionSetWidth(10),
+		progressbar.OptionThrottle(65*time.Millisecond),
+		progressbar.OptionShowCount(),
+		progressbar.OptionShowIts(),
+		progressbar.OptionOnCompletion(func() {
+			fmt.Fprint(os.Stderr, "\n")
+		}),
+		progressbar.OptionSpinnerType(14),
+		progressbar.OptionFullWidth(),
+	)
+	bar.RenderBlank()
+	return bar
+}
+
 func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []int, ts table.Store, out io.Writer) (string, error) {
 	errChan := make(chan error)
 	rows := make(chan row, 1000)
 	var wg sync.WaitGroup
-	bar := progressbar.NewOptions(-1,
-		progressbar.OptionSetWriter(out),
-		progressbar.OptionSpinnerType(14),
-		progressbar.OptionShowCount(),
-		progressbar.OptionShowIts(),
-		progressbar.OptionSetDescription(fmt.Sprintf("Inserting rows using up to %d threads...", numWorkers)),
-	)
+	bar := pbar(-1, fmt.Sprintf("Inserting rows using up to %d threads...", numWorkers), out)
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go insertRows(primaryKeyIndices, seed, ts, rows, errChan, &wg, bar)
