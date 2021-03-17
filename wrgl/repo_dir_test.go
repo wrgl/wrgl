@@ -27,7 +27,7 @@ func TestRepoDirInit(t *testing.T) {
 
 	_, err = os.Stat(rd.KVPath())
 	require.NoError(t, err)
-	kvs, err := rd.OpenKVStore()
+	kvs, err := rd.OpenKVStore(false, false)
 	require.NoError(t, err)
 	defer kvs.Close()
 	repo, err := versioning.GetRepo(kvs)
@@ -65,7 +65,7 @@ func TestInitBigRepoDir(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, err)
-	kvs, err := rd.OpenKVStore()
+	kvs, err := rd.OpenKVStore(false, false)
 	require.NoError(t, err)
 	defer kvs.Close()
 	repo, err := versioning.GetRepo(kvs)

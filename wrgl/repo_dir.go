@@ -27,8 +27,13 @@ func (d *repoDir) KVPath() string {
 	return filepath.Join(d.fullPath(), "kv")
 }
 
-func (d *repoDir) OpenKVStore() (kv.Store, error) {
+func (d *repoDir) OpenKVStore(badgerLogDebug, badgerLogInfo bool) (kv.Store, error) {
 	opts := badger.DefaultOptions(d.KVPath()).WithLoggingLevel(badger.ERROR)
+	if badgerLogDebug {
+		opts = opts.WithLoggingLevel(badger.DEBUG)
+	} else if badgerLogInfo {
+		opts = opts.WithLoggingLevel(badger.INFO)
+	}
 	badgerDB, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
@@ -54,7 +59,7 @@ func (d *repoDir) Init(useBigTableStore bool) error {
 	if err != nil {
 		return err
 	}
-	kvStore, err := d.OpenKVStore()
+	kvStore, err := d.OpenKVStore(false, false)
 	if err != nil {
 		return err
 	}

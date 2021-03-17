@@ -32,15 +32,25 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return commit(cmd, csvFilePath, message, rootDir, reponame, primaryKey, numWorkers)
+			badgerLogInfo, err := cmd.Flags().GetBool("badger-log-info")
+			if err != nil {
+				return err
+			}
+			badgerLogDebug, err := cmd.Flags().GetBool("badger-log-debug")
+			if err != nil {
+				return err
+			}
+			return commit(cmd, csvFilePath, message, rootDir, reponame, primaryKey, numWorkers, badgerLogDebug, badgerLogInfo)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
+	cmd.Flags().Bool("badger-log-info", false, "set Badger log level to INFO")
+	cmd.Flags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
 	return cmd
 }
 
-func commit(cmd *cobra.Command, csvFilePath, message, rootDir, reponame string, primaryKey []string, numWorkers int) error {
+func commit(cmd *cobra.Command, csvFilePath, message, rootDir, reponame string, primaryKey []string, numWorkers int, badgerLogDebug, badgerLogInfo bool) error {
 	var seed uint64 = 0
 	c, err := aggregateConfig(cmd.ErrOrStderr())
 	if err != nil {
@@ -55,7 +65,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, rootDir, reponame string, 
 		cmd.PrintErrf("  wrgl init %s", reponame)
 		os.Exit(1)
 	}
-	kvStore, err := rd.OpenKVStore()
+	kvStore, err := rd.OpenKVStore(badgerLogDebug, badgerLogInfo)
 	if err != nil {
 		return err
 	}
