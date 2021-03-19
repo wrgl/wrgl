@@ -108,7 +108,7 @@ func (r *smallRowReader) Read() (rowHash, rowContent []byte, err error) {
 	kh := r.store.table.Rows[r.offset+r.n]
 	rc, err := GetRow(r.store.db, kh.V)
 	if err != nil {
-		return nil, nil, io.EOF
+		return nil, nil, err
 	}
 	return kh.V, rc, nil
 }

@@ -1,44 +1,25 @@
 package table
 
 import (
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-type MockRowHashReader struct {
-	rows [][2][]byte
-	n    int
-}
-
-func (r *MockRowHashReader) Read() (pkHash, rowHash []byte, err error) {
-	if r.n >= len(r.rows) {
-		return nil, nil, io.EOF
-	}
-	r.n++
-	row := r.rows[r.n-1]
-	return row[0], row[1], nil
-}
-
-func (r *MockRowHashReader) Close() error {
-	return nil
-}
-
 func TestHashTable(t *testing.T) {
 	var seed uint64 = 0
 	columns := []string{"a", "b", "c"}
 	primaryKeyIndices := []int{0}
 	rowHashReader := &MockRowHashReader{
-		rows: [][2][]byte{
+		rows: [][2]string{
 			{
-				[]byte("abc"),
-				[]byte("123"),
+				"abc",
+				"123",
 			},
 			{
-				[]byte("def"),
-				[]byte("456"),
+				"def",
+				"456",
 			},
 		},
 	}
@@ -48,10 +29,10 @@ func TestHashTable(t *testing.T) {
 	assert.Equal(t, "d687c6c2440dfefb6661475edef9c11b", sum)
 
 	rowHashReader = &MockRowHashReader{
-		rows: [][2][]byte{
+		rows: [][2]string{
 			{
-				[]byte("abc"),
-				[]byte("123"),
+				"abc",
+				"123",
 			},
 		},
 	}
