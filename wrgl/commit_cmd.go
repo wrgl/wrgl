@@ -1,29 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"regexp"
 	"runtime"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/ingest"
+	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 )
 
 func newCommitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "commit CSV_FILE_PATH REPO_NAME MESSAGE",
+		Use:   "commit BRANCH CSV_FILE_PATH MESSAGE",
 		Short: "Commit CSV file to a repo",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			csvFilePath := args[0]
-			reponame := args[1]
+			branchName := args[0]
+			csvFilePath := args[1]
 			message := args[2]
-			rootDir, err := cmd.Flags().GetString("root-dir")
-			if err != nil {
-				return err
-			}
 			primaryKey, err := cmd.Flags().GetStringSlice("primary-key")
 			if err != nil {
 				return err
@@ -32,47 +31,95 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			badgerLogInfo, err := cmd.Flags().GetBool("badger-log-info")
+			bigTable, err := cmd.Flags().GetBool("big-table")
 			if err != nil {
 				return err
 			}
-			badgerLogDebug, err := cmd.Flags().GetBool("badger-log-debug")
+			smallTable, err := cmd.Flags().GetBool("small-table")
 			if err != nil {
 				return err
 			}
-			return commit(cmd, csvFilePath, message, rootDir, reponame, primaryKey, numWorkers, badgerLogDebug, badgerLogInfo)
+			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers, bigTable, smallTable)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
-	cmd.Flags().Bool("badger-log-info", false, "set Badger log level to INFO")
-	cmd.Flags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
+	cmd.Flags().Bool("small-table", false, "use small table store. This is the default table store.")
+	cmd.Flags().Bool("big-table", false, "use big table store. Big table store is great when dealing with files that are a few GiB or more.")
 	return cmd
 }
 
-func commit(cmd *cobra.Command, csvFilePath, message, rootDir, reponame string, primaryKey []string, numWorkers int, badgerLogDebug, badgerLogInfo bool) error {
-	var seed uint64 = 0
+func decideTableStoreType(db kv.DB, branch *versioning.Branch, bigTable, smallTable bool) (table.StoreType, error) {
+	if bigTable {
+		return table.Big, nil
+	} else if smallTable {
+		return table.Small, nil
+	}
+	if branch.CommitHash != "" {
+		prevCommit, err := versioning.GetCommit(db, branch.CommitHash)
+		if err != nil {
+			return 0, err
+		}
+		return prevCommit.TableStoreType, nil
+	}
+	return table.Small, nil
+}
+
+func getRepoDir(cmd *cobra.Command) *repoDir {
+	rootDir, err := cmd.Flags().GetString("root-dir")
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+	badgerLogInfo, err := cmd.Flags().GetBool("badger-log-info")
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+	badgerLogDebug, err := cmd.Flags().GetBool("badger-log-debug")
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+	rd := &repoDir{
+		rootDir:        rootDir,
+		badgerLogInfo:  badgerLogInfo,
+		badgerLogDebug: badgerLogDebug,
+	}
+	if !rd.Exist() {
+		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rootDir)
+		cmd.PrintErrln("  wrgl init")
+		os.Exit(1)
+	}
+	return rd
+}
+
+func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, bigTable, smallTable bool) error {
+	pat := regexp.MustCompile(`^[-_0-9a-zA-Z]+$`)
+	if !pat.MatchString(branchName) {
+		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
+	}
 	c, err := aggregateConfig(cmd.ErrOrStderr())
 	if err != nil {
 		return err
 	}
-	rd := &repoDir{
-		rootDir: rootDir,
-		name:    reponame,
-	}
-	if !rd.Exist() {
-		cmd.PrintErrf("Repository with name \"%s\" does not exist. Create with this command:\n", reponame)
-		cmd.PrintErrf("  wrgl init %s", reponame)
-		os.Exit(1)
-	}
-	kvStore, err := rd.OpenKVStore(badgerLogDebug, badgerLogInfo)
+	rd := getRepoDir(cmd)
+	kvStore, err := rd.OpenKVStore()
 	if err != nil {
 		return err
 	}
-	repo, err := versioning.GetRepo(kvStore)
+	defer kvStore.Close()
+
+	// detect table store type
+	branch, err := versioning.GetBranch(kvStore, branchName)
+	if err != nil {
+		branch = &versioning.Branch{}
+	}
+	tsType, err := decideTableStoreType(kvStore, branch, bigTable, smallTable)
 	if err != nil {
 		return err
 	}
+
 	f, err := os.Open(csvFilePath)
 	if err != nil {
 		return err
@@ -83,7 +130,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, rootDir, reponame string, 
 		return err
 	}
 	var ts table.Store
-	if repo.TableStoreType == table.Big {
+	if tsType == table.Big {
 		fileStore := rd.OpenFileStore()
 		ts, err = table.NewBigStore(kvStore, fileStore, columns, primaryKeyIndices, seed)
 		if err != nil {
@@ -99,7 +146,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, rootDir, reponame string, 
 	commit := &versioning.Commit{
 		ContentHash:    sum,
 		Message:        message,
-		PrevCommitHash: repo.CommitHash,
+		PrevCommitHash: branch.CommitHash,
 		Timestamp:      time.Now(),
 		Author: &versioning.Author{
 			Email: c.User.Email,
@@ -110,8 +157,8 @@ func commit(cmd *cobra.Command, csvFilePath, message, rootDir, reponame string, 
 	if err != nil {
 		return err
 	}
-	repo.CommitHash = commitSum
-	err = repo.Save(kvStore)
+	branch.CommitHash = commitSum
+	err = branch.Save(kvStore, branchName)
 	if err != nil {
 		return err
 	}

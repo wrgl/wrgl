@@ -10,12 +10,13 @@ import (
 
 func TestRepo(t *testing.T) {
 	db := kv.NewMockStore(false)
-	r := &Repo{
+	r := &Branch{
 		CommitHash: "abcd1234",
 	}
-	err := r.Save(db)
+	name := "abc"
+	err := r.Save(db, name)
 	require.NoError(t, err)
-	r2, err := GetRepo(db)
+	r2, err := GetBranch(db, name)
 	require.NoError(t, err)
 	assert.Equal(t, r.CommitHash, r2.CommitHash)
 }

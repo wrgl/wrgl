@@ -9,6 +9,7 @@ import (
 	"github.com/mmcloughlin/meow"
 
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/table"
 )
 
 type Author struct {
@@ -22,6 +23,7 @@ type Commit struct {
 	ContentHash    string
 	PrevCommitHash string
 	Timestamp      time.Time
+	TableStoreType table.StoreType
 }
 
 func (c *Commit) encode() ([]byte, error) {
@@ -32,6 +34,13 @@ func (c *Commit) encode() ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func (c *Commit) GetTable(db kv.Store, fs kv.FileStore, seed uint64) (table.Store, error) {
+	if c.TableStoreType == table.Big {
+		return table.ReadBigStore(db, fs, seed, c.ContentHash)
+	}
+	return table.ReadSmallStore(db, seed, c.ContentHash)
 }
 
 func commitPrefix() []byte {

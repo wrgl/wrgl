@@ -26,10 +26,14 @@ func newRootCmd() *cobra.Command {
 		os.Exit(1)
 	}
 	rootCmd.PersistentFlags().StringP("root-dir", "d", wd, "parent directory of repo, default to current working directory.")
+	rootCmd.PersistentFlags().Bool("badger-log-info", false, "set Badger log level to INFO")
+	rootCmd.PersistentFlags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
 	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newCommitCmd())
 	rootCmd.AddCommand(newVersionCmd())
+	rootCmd.AddCommand(newLogCmd())
+	rootCmd.AddCommand(newPreviewCmd())
 	return rootCmd
 }
 

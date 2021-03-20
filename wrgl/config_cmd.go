@@ -12,9 +12,13 @@ func newConfigCmd() *cobra.Command {
 		Use:   "config PROPERTY [VALUE]",
 		Short: "Read or write config",
 		Example: strings.Join([]string{
+			`  # set user email to "john-doe@domain.com"`,
 			`  wrgl config user.email "john-doe@domain.com"`,
+			`  # get user email`,
 			`  wrgl config user.email`,
+			`  # set user name to "John Doe"`,
 			`  wrgl config user.name "John Doe"`,
+			`  # get user name`,
 			`  wrgl config user.name`,
 		}, "\n"),
 		Args: cobra.RangeArgs(1, 2),

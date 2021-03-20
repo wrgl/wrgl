@@ -5,17 +5,17 @@ import (
 	"encoding/gob"
 
 	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/table"
 )
 
-type Repo struct {
-	TableStoreType table.StoreType
-	CommitHash     string
+type Branch struct {
+	CommitHash string
 }
 
-const repoKey = "repo"
+func branchKey(name string) []byte {
+	return []byte("branch/" + name)
+}
 
-func (c *Repo) encode() ([]byte, error) {
+func (c *Branch) encode() ([]byte, error) {
 	buf := bytes.NewBuffer([]byte{})
 	encoder := gob.NewEncoder(buf)
 	err := encoder.Encode(c)
@@ -25,22 +25,22 @@ func (c *Repo) encode() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (r *Repo) Save(s kv.DB) error {
+func (r *Branch) Save(s kv.DB, name string) error {
 	v, err := r.encode()
 	if err != nil {
 		return err
 	}
-	err = s.Set([]byte(repoKey), v)
+	err = s.Set([]byte(branchKey(name)), v)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func decodeRepo(data []byte) (*Repo, error) {
+func decodeBranch(data []byte) (*Branch, error) {
 	buf := bytes.NewBuffer(data)
 	decoder := gob.NewDecoder(buf)
-	t := &Repo{}
+	t := &Branch{}
 	err := decoder.Decode(t)
 	if err != nil {
 		return nil, err
@@ -48,13 +48,13 @@ func decodeRepo(data []byte) (*Repo, error) {
 	return t, nil
 }
 
-func GetRepo(s kv.DB) (*Repo, error) {
-	v, err := s.Get([]byte(repoKey))
+func GetBranch(s kv.DB, name string) (*Branch, error) {
+	v, err := s.Get([]byte(branchKey(name)))
 	if err != nil {
 		return nil, err
 	}
-	var r *Repo
-	r, err = decodeRepo(v)
+	var r *Branch
+	r, err = decodeBranch(v)
 	if err != nil {
 		return nil, err
 	}
