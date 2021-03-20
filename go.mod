@@ -8,9 +8,12 @@ require (
 	github.com/gdamore/tcell/v2 v2.2.0 // indirect
 	github.com/google/uuid v1.0.0
 	github.com/imdario/mergo v0.3.12
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/mmcloughlin/meow v0.0.0-20200201185800-3501c7c05d21
 	github.com/prometheus/client_golang v1.9.0
 	github.com/rivo/tview v0.0.0-20210312174852-ae9464cc3598 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/schollz/progressbar/v3 v3.7.6
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
