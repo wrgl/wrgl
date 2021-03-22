@@ -2,15 +2,13 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/widgets"
 )
 
 func newPreviewCmd() *cobra.Command {
@@ -44,7 +42,7 @@ func newPreviewCmd() *cobra.Command {
 }
 
 func previewTable(cmd *cobra.Command, hash string, commit *versioning.Commit, ts table.Store) error {
-	app := tview.NewApplication()
+	app := tview.NewApplication().EnableMouse(true)
 
 	// create title bar
 	titleBar := tview.NewTextView().SetDynamicColors(true)
@@ -55,34 +53,11 @@ func previewTable(cmd *cobra.Command, hash string, commit *versioning.Commit, ts
 	fmt.Fprintf(titleBar, "[yellow]%s[white]  ([teal]%d[white] x [teal]%d[white])", hash, nRows, len(ts.Columns()))
 
 	// create table
-	tv := tview.NewTable().SetBorders(false)
-	for c, text := range ts.Columns() {
-		tv.SetCell(0, c, tview.NewTableCell(text).SetAlign(tview.AlignLeft).SetTextColor(tcell.ColorLightYellow))
-	}
-	rowReader, err := ts.NewRowReader(0, 80)
+	rowReader, err := ts.NewRowReader()
 	if err != nil {
 		return err
 	}
-	r := 1
-	for {
-		_, rowContent, err := rowReader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		values, err := encoding.DecodeStrings(rowContent)
-		if err != nil {
-			return err
-		}
-		for c, text := range values {
-			tv.SetCell(r, c, tview.NewTableCell(text).SetAlign(tview.AlignLeft))
-		}
-		r++
-	}
-	tv.SetFixed(1, 0)
-
+	tv := widgets.NewBufferedTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleBar, 1, 1, false).
 		AddItem(tv, 0, 1, true)

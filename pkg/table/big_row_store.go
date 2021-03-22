@@ -47,35 +47,6 @@ func (r *bigRowHashReader) Close() error {
 	return r.r.Close()
 }
 
-type bigRowReader struct {
-	db   kv.Store
-	r    io.ReadCloser
-	n    int
-	size int
-}
-
-func (r *bigRowReader) Read() (rowHash, rowContent []byte, err error) {
-	if r.n >= r.size {
-		return nil, nil, io.EOF
-	}
-	sl := make([]byte, 32)
-	_, err = r.r.Read(sl)
-	if err != nil {
-		return nil, nil, err
-	}
-	r.n++
-	rowHash = sl[16:]
-	rowContent, err = r.db.Get(rowKey(rowHash))
-	if err != nil {
-		return nil, nil, err
-	}
-	return
-}
-
-func (r *bigRowReader) Close() error {
-	return r.r.Close()
-}
-
 type bigRowStore struct {
 	mu          sync.Mutex
 	size        int
@@ -179,7 +150,7 @@ func (s *bigRowStore) NewRowHashReader(offset, size int) (RowHashReader, error) 
 		return nil, err
 	}
 	offset, size = capSize(l, offset, size)
-	r, err := s.fs.ReadSeeker(rowListKey(s.id))
+	r, err := s.fs.Reader(rowListKey(s.id))
 	if err != nil {
 		return nil, err
 	}
@@ -190,21 +161,16 @@ func (s *bigRowStore) NewRowHashReader(offset, size int) (RowHashReader, error) 
 	return &bigRowHashReader{r: r, size: size}, nil
 }
 
-func (s *bigRowStore) NewRowReader(offset, size int) (RowReader, error) {
+func (s *bigRowStore) NewRowReader() (RowReader, error) {
 	l, err := s.NumRows()
 	if err != nil {
 		return nil, err
 	}
-	offset, size = capSize(l, offset, size)
-	r, err := s.fs.ReadSeeker(rowListKey(s.id))
+	r, err := s.fs.Reader(rowListKey(s.id))
 	if err != nil {
 		return nil, err
 	}
-	_, err = r.Seek(int64(offset*32), io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-	return &bigRowReader{r: r, size: size, db: s.db}, nil
+	return &bigRowReader{r: r, limit: l, db: s.db}, nil
 }
 
 func (s *bigRowStore) Delete() error {

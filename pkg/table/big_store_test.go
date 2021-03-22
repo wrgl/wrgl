@@ -30,6 +30,7 @@ func TestBigStoreInsertRow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, columns, ts.Columns())
 	assert.Equal(t, []string{"a"}, ts.PrimaryKey())
+	assert.Equal(t, pk, ts.PrimaryKeyIndices())
 
 	pkh1 := mustDecodeHex(t, "52fdfc072182654f163f5f0f9a621d72")
 	rh1 := mustDecodeHex(t, "2f8282cbe2f9696f3144c0aa4ced56db")
@@ -100,20 +101,15 @@ func TestBigStoreNewRowHashReader(t *testing.T) {
 	require.NoError(t, err)
 
 	for i, c := range []struct {
-		offset      int
-		size        int
-		rows        [][2]string
-		rowContents [][2]string
+		offset int
+		size   int
+		rows   [][2]string
 	}{
 		{
 			0, 2,
 			[][2]string{
 				{string(pkHashes[0]), string(rowHashes[0])},
 				{string(pkHashes[3]), string(rowHashes[3])},
-			},
-			[][2]string{
-				{string(rowHashes[0]), "a,b,c"},
-				{string(rowHashes[3]), "l,m,n"},
 			},
 		},
 		{
@@ -122,14 +118,9 @@ func TestBigStoreNewRowHashReader(t *testing.T) {
 				{string(pkHashes[1]), string(rowHashes[1])},
 				{string(pkHashes[2]), string(rowHashes[2])},
 			},
-			[][2]string{
-				{string(rowHashes[1]), "d,e,f"},
-				{string(rowHashes[2]), "g,h,j"},
-			},
 		},
 		{
 			4, 2,
-			[][2]string{},
 			[][2]string{},
 		},
 		{
@@ -140,19 +131,10 @@ func TestBigStoreNewRowHashReader(t *testing.T) {
 				{string(pkHashes[1]), string(rowHashes[1])},
 				{string(pkHashes[2]), string(rowHashes[2])},
 			},
-			[][2]string{
-				{string(rowHashes[0]), "a,b,c"},
-				{string(rowHashes[3]), "l,m,n"},
-				{string(rowHashes[1]), "d,e,f"},
-				{string(rowHashes[2]), "g,h,j"},
-			},
 		},
 	} {
 		rhr, err := ts.NewRowHashReader(c.offset, c.size)
 		require.NoError(t, err)
 		assert.Equal(t, c.rows, readAllRowHashes(t, rhr), "case %d", i)
-		rr, err := ts.NewRowReader(c.offset, c.size)
-		require.NoError(t, err)
-		assert.Equal(t, c.rowContents, readAllRowHashes(t, rr), "case %d", i)
 	}
 }

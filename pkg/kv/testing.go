@@ -2,7 +2,7 @@ package kv
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"strings"
 	"time"
@@ -142,41 +142,64 @@ func (s *MockStore) BatchGet(keys [][]byte) ([][]byte, error) {
 	return result, nil
 }
 
-type bytesReadSeekCloser struct {
-	r *bytes.Buffer
+type mockFile struct {
+	b   []byte
+	off int
 }
 
-func (r *bytesReadSeekCloser) Read(b []byte) (int, error) {
-	return r.r.Read(b)
+func (f *mockFile) Read(p []byte) (n int, err error) {
+	if f.off >= len(f.b) {
+		return 0, io.EOF
+	}
+	n = copy(p, f.b[f.off:])
+	f.off += n
+	return
 }
 
-func (r *bytesReadSeekCloser) Close() error {
+func (f *mockFile) Close() error {
 	return nil
 }
 
-func (r *bytesReadSeekCloser) Seek(offset int64, whence int) (int64, error) {
-	if whence != io.SeekStart {
-		return 0, fmt.Errorf("whence other than io.SeekStart not supported")
+func (f *mockFile) Seek(offset int64, whence int) (int64, error) {
+	switch whence {
+	default:
+		return 0, errors.New("Seek: invalid whence")
+	case io.SeekStart:
+		break
+	case io.SeekCurrent:
+		offset += int64(f.off)
+	case io.SeekEnd:
+		offset += int64(len(f.b))
 	}
-	b := make([]byte, offset)
-	_, err := r.r.Read(b)
-	if err != nil {
-		return 0, err
+	if offset < 0 {
+		return 0, errors.New("Seek: invalid offset")
 	}
+	f.off = int(offset)
 	return offset, nil
 }
 
-func (s *MockStore) ReadSeeker(k []byte) (io.ReadSeekCloser, error) {
+func (f *mockFile) ReadAt(p []byte, off int64) (n int, err error) {
+	if off < 0 || off >= int64(len(f.b)) {
+		return 0, io.EOF
+	}
+	n = copy(p, f.b[off:])
+	if max := len(f.b) - int(off); len(p) > max {
+		return n, io.EOF
+	}
+	return n, nil
+}
+
+func (s *MockStore) Reader(k []byte) (File, error) {
 	if s.EnableMock {
 		args := s.Called(k)
-		return args.Get(0).(io.ReadSeekCloser), args.Error(1)
+		return args.Get(0).(File), args.Error(1)
 	}
 	v, ok := s.store[string(k)]
 	if !ok {
 		return nil, KeyNotFoundError
 	}
-	return &bytesReadSeekCloser{
-		r: bytes.NewBuffer(v),
+	return &mockFile{
+		b: v,
 	}, nil
 }
 

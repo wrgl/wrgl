@@ -37,7 +37,7 @@ func TestRepoDirInit(t *testing.T) {
 	content := []byte("abc123")
 	w.Write(content)
 	w.Close()
-	r, err := fs.ReadSeeker(key)
+	r, err := fs.Reader(key)
 	require.NoError(t, err)
 	defer r.Close()
 	b, err := ioutil.ReadAll(r)

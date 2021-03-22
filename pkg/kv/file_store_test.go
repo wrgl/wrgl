@@ -19,7 +19,7 @@ func setFileStore(t *testing.T, s FileStore, k, v []byte) {
 }
 
 func getFileStore(s FileStore, k []byte) ([]byte, error) {
-	r, err := s.ReadSeeker(k)
+	r, err := s.Reader(k)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func TestFileStore(t *testing.T) {
 	assert.True(t, s.Exist([]byte("proj2/asd")))
 	assert.True(t, s.Exist([]byte("proj2/qwe")))
 
-	r, err := s.ReadSeeker([]byte("proj2/asd"))
+	r, err := s.Reader([]byte("proj2/asd"))
 	require.NoError(t, err)
 	b, err := ioutil.ReadAll(r)
 	require.NoError(t, err)

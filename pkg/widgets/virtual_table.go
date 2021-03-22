@@ -44,14 +44,19 @@ type VirtualTable struct {
 	// or Backtab.
 	done func(key tcell.Key)
 
+	// This function is called to get the underlying table cell at any position
 	getCell func(row, column int) *TableCell
+
+	// If this is not -1, always try to keep this column in view
+	keptInViewColumn int
 }
 
 func NewVirtualTable() *VirtualTable {
 	return &VirtualTable{
-		Box:          tview.NewBox(),
-		bordersColor: tview.Styles.GraphicsColor,
-		separator:    ' ',
+		Box:              tview.NewBox(),
+		bordersColor:     tview.Styles.GraphicsColor,
+		keptInViewColumn: -1,
+		separator:        ' ',
 	}
 }
 
@@ -80,6 +85,11 @@ func (t *VirtualTable) SetBorders(show bool) *VirtualTable {
 // SetBordersColor sets the color of the cell borders.
 func (t *VirtualTable) SetBordersColor(color tcell.Color) *VirtualTable {
 	t.bordersColor = color
+	return t
+}
+
+func (t *VirtualTable) KeepColumnInView(column int) *VirtualTable {
+	t.keptInViewColumn = column
 	return t
 }
 
@@ -138,6 +148,7 @@ func (t *VirtualTable) ScrollToEnd() *VirtualTable {
 	return t
 }
 
+// SetGetCellFunc set function to get table cell at a position
 func (t *VirtualTable) SetGetCellFunc(getCell func(row, column int) *TableCell) *VirtualTable {
 	t.getCell = getCell
 	return t
@@ -237,6 +248,16 @@ ColumnLoop:
 			if column < t.fixedColumns {
 				break ColumnLoop // We're in the fixed area. We're done.
 			}
+			if t.keptInViewColumn != -1 && t.keptInViewColumn-skipped == t.fixedColumns {
+				break ColumnLoop // The selected column reached the leftmost point before disappearing.
+			}
+			if t.keptInViewColumn != -1 && skipped >= t.columnOffset &&
+				(t.keptInViewColumn < column && lastTableWidth < width-1 && tableWidth < width-1 || t.keptInViewColumn < column-1) {
+				break ColumnLoop // We've skipped as many as requested and the selection is visible.
+			}
+			if t.keptInViewColumn == -1 && skipped >= t.columnOffset {
+				break ColumnLoop // There is no selection and we've already reached the offset.
+			}
 			if len(columns) <= t.fixedColumns {
 				break // Nothing to skip.
 			}
@@ -253,8 +274,7 @@ ColumnLoop:
 		// What's this column's width (without expansion)?
 		maxWidth := -1
 		expansion := 0
-		evaluationRows := rows
-		for _, row := range evaluationRows {
+		for _, row := range rows {
 			if cell := t.getCell(row, column); cell != nil {
 				_, _, _, _, _, _, cellWidth := decomposeString(cell.Text, true, false)
 				if cell.MaxWidth > 0 && cell.MaxWidth < cellWidth {

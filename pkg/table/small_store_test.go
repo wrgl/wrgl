@@ -32,34 +32,39 @@ func TestSmallStoreInsertRow(t *testing.T) {
 	ts := NewSmallStore(db, columns, pk, seed)
 	assert.Equal(t, columns, ts.Columns())
 	assert.Equal(t, []string{"a"}, ts.PrimaryKey())
+	assert.Equal(t, pk, ts.PrimaryKeyIndices())
 
-	err := ts.InsertRow(0, []byte("bcd"), []byte("234"), []byte("q,w,e"))
+	pkh1 := mustDecodeHex(t, "52fdfc072182654f163f5f0f9a621d72")
+	rh1 := mustDecodeHex(t, "2f8282cbe2f9696f3144c0aa4ced56db")
+	pkh2 := mustDecodeHex(t, "85fbe72b6064289004a531f967898df5")
+	rh2 := mustDecodeHex(t, "e2807d9c1dce26af00ca81d4fe11c23e")
+	err := ts.InsertRow(0, pkh1, rh1, []byte("q,w,e"))
 	require.NoError(t, err)
-	err = ts.InsertRow(1, []byte("abc"), []byte("123"), []byte("d,e,f"))
+	err = ts.InsertRow(1, pkh2, rh2, []byte("d,e,f"))
 	require.NoError(t, err)
 	sum, err := ts.Save()
 	require.NoError(t, err)
-	assert.Equal(t, "b1705f1896bb3a2b0e0b0efa6d25c832", sum)
+	assert.Equal(t, "df0167a307d078f008cbd26b59d03522", sum)
 	n, err := ts.NumRows()
 	require.NoError(t, err)
 	assert.Equal(t, 2, n)
-	rowHash, ok := ts.GetRowHash([]byte("abc"))
+	rowHash, ok := ts.GetRowHash(pkh1)
 	assert.True(t, ok)
-	assert.Equal(t, []byte("123"), rowHash)
-	rowHash, ok = ts.GetRowHash([]byte("bcd"))
+	assert.Equal(t, rh1, rowHash)
+	rowHash, ok = ts.GetRowHash(pkh2)
 	assert.True(t, ok)
-	assert.Equal(t, []byte("234"), rowHash)
+	assert.Equal(t, rh2, rowHash)
 	_, ok = ts.GetRowHash([]byte("non-existent"))
 	assert.False(t, ok)
 
 	ts2, err := ReadSmallStore(db, seed, sum)
 	require.NoError(t, err)
-	rowHash, ok = ts2.GetRowHash([]byte("abc"))
+	rowHash, ok = ts2.GetRowHash(pkh1)
 	assert.True(t, ok)
-	assert.Equal(t, []byte("123"), rowHash)
-	rowHash, ok = ts2.GetRowHash([]byte("bcd"))
+	assert.Equal(t, rh1, rowHash)
+	rowHash, ok = ts2.GetRowHash(pkh2)
 	assert.True(t, ok)
-	assert.Equal(t, []byte("234"), rowHash)
+	assert.Equal(t, rh2, rowHash)
 
 	err = DeleteSmallStore(db, sum)
 	require.NoError(t, err)
@@ -84,20 +89,15 @@ func TestSmallStoreNewRowHashReader(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, c := range []struct {
-		offset      int
-		size        int
-		rows        [][2]string
-		rowContents [][2]string
+		offset int
+		size   int
+		rows   [][2]string
 	}{
 		{
 			0, 2,
 			[][2]string{
 				{"a", "1"},
 				{"d", "4"},
-			},
-			[][2]string{
-				{"1", "a,b,c"},
-				{"4", "l,m,n"},
 			},
 		},
 		{
@@ -106,14 +106,9 @@ func TestSmallStoreNewRowHashReader(t *testing.T) {
 				{"b", "2"},
 				{"c", "3"},
 			},
-			[][2]string{
-				{"2", "d,e,f"},
-				{"3", "g,h,j"},
-			},
 		},
 		{
 			4, 2,
-			[][2]string{},
 			[][2]string{},
 		},
 		{
@@ -124,19 +119,10 @@ func TestSmallStoreNewRowHashReader(t *testing.T) {
 				{"b", "2"},
 				{"c", "3"},
 			},
-			[][2]string{
-				{"1", "a,b,c"},
-				{"4", "l,m,n"},
-				{"2", "d,e,f"},
-				{"3", "g,h,j"},
-			},
 		},
 	} {
 		rhr, err := ts.NewRowHashReader(c.offset, c.size)
 		require.NoError(t, err)
 		assert.Equal(t, c.rows, readAllRowHashes(t, rhr))
-		rr, err := ts.NewRowReader(c.offset, c.size)
-		require.NoError(t, err)
-		assert.Equal(t, c.rowContents, readAllRowHashes(t, rr))
 	}
 }

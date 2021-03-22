@@ -6,11 +6,16 @@ import (
 	"path/filepath"
 )
 
+type File interface {
+	io.ReadSeekCloser
+	io.ReaderAt
+}
+
 type FileStore interface {
 	Delete([]byte) error
 	Exist([]byte) bool
 	Writer(k []byte) (io.WriteCloser, error)
-	ReadSeeker([]byte) (io.ReadSeekCloser, error)
+	Reader([]byte) (File, error)
 	Clear([]byte) error
 	Size(k []byte) (uint64, error)
 }
@@ -38,7 +43,7 @@ func (s *fileStore) Writer(k []byte) (io.WriteCloser, error) {
 	return os.Create(s.path(k))
 }
 
-func (s *fileStore) ReadSeeker(k []byte) (io.ReadSeekCloser, error) {
+func (s *fileStore) Reader(k []byte) (File, error) {
 	r, err := os.Open(s.path(k))
 	if err != nil {
 		return nil, KeyNotFoundError

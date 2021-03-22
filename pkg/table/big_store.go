@@ -81,6 +81,10 @@ func (s *BigStore) PrimaryKey() []string {
 	return s.table.PrimaryKeyStrings()
 }
 
+func (s *BigStore) PrimaryKeyIndices() []int {
+	return s.table.PrimaryKeys
+}
+
 func (s *BigStore) InsertRow(n int, pkHash, rowHash, rowContent []byte) error {
 	err := s.rs.InsertRow(n, pkHash, rowHash)
 	if err != nil {
@@ -101,8 +105,8 @@ func (s *BigStore) NewRowHashReader(offset, size int) (RowHashReader, error) {
 	return s.rs.NewRowHashReader(offset, size)
 }
 
-func (s *BigStore) NewRowReader(offset, size int) (RowReader, error) {
-	return s.rs.NewRowReader(offset, size)
+func (s *BigStore) NewRowReader() (RowReader, error) {
+	return s.rs.NewRowReader()
 }
 
 func (s *BigStore) Save() (string, error) {

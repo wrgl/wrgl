@@ -93,30 +93,6 @@ func (r *smallRowHashReader) Close() error {
 	return nil
 }
 
-type smallRowReader struct {
-	store  *SmallStore
-	offset int
-	size   int
-	n      int
-}
-
-func (r *smallRowReader) Read() (rowHash, rowContent []byte, err error) {
-	r.n++
-	if r.n >= r.size {
-		return nil, nil, io.EOF
-	}
-	kh := r.store.table.Rows[r.offset+r.n]
-	rc, err := GetRow(r.store.db, kh.V)
-	if err != nil {
-		return nil, nil, err
-	}
-	return kh.V, rc, nil
-}
-
-func (r *smallRowReader) Close() error {
-	return nil
-}
-
 type SmallStore struct {
 	db      kv.DB
 	table   *smallTable
@@ -142,6 +118,10 @@ func (s *SmallStore) Columns() []string {
 
 func (s *SmallStore) PrimaryKey() []string {
 	return s.table.PrimaryKeyStrings()
+}
+
+func (s *SmallStore) PrimaryKeyIndices() []int {
+	return s.table.PrimaryKeys
 }
 
 func (s *SmallStore) InsertRow(n int, pkHash, rowHash, rowContent []byte) error {
@@ -185,14 +165,11 @@ func (s *SmallStore) NewRowHashReader(offset, size int) (RowHashReader, error) {
 	}, nil
 }
 
-func (s *SmallStore) NewRowReader(offset, size int) (RowReader, error) {
+func (s *SmallStore) NewRowReader() (RowReader, error) {
 	l := s.table.NumRows()
-	offset, size = capSize(l, offset, size)
 	return &smallRowReader{
-		store:  s,
-		offset: offset,
-		size:   size,
-		n:      -1,
+		store: s,
+		limit: l,
 	}, nil
 }
 
