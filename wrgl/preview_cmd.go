@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/table"
@@ -57,9 +58,33 @@ func previewTable(cmd *cobra.Command, hash string, commit *versioning.Commit, ts
 	if err != nil {
 		return err
 	}
+	defer rowReader.Close()
 	tv := widgets.NewBufferedTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())
+
+	// usage bar
+	usageBar := tview.NewTextView().
+		SetDynamicColors(true).
+		SetWrap(true).
+		SetWordWrap(true)
+	for _, sl := range [][2]string{
+		{"g", "Scroll to begin"},
+		{"G", "Scroll to end"},
+		{"h", "Left"},
+		{"j", "Down"},
+		{"k", "Up"},
+		{"l", "Right"},
+	} {
+		fmt.Fprintf(usageBar, "[black:white] %s [white:black] %s\t", sl[0], sl[1])
+	}
+
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleBar, 1, 1, false).
-		AddItem(tv, 0, 1, true)
-	return app.SetRoot(flex, true).SetFocus(flex).Run()
+		AddItem(tv, 0, 1, true).
+		AddItem(usageBar, 1, 1, false)
+	return app.SetRoot(flex, true).SetFocus(flex).SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		_, _, width, _ := usageBar.GetInnerRect()
+		lines := tview.WordWrap(usageBar.GetText(false), width)
+		flex.ResizeItem(usageBar, len(lines), 1)
+		return false
+	}).Run()
 }
