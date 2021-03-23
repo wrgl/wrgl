@@ -9,36 +9,41 @@ import (
 	"github.com/wrgl/core/pkg/table"
 )
 
-type DiffEventType int
+type DiffType int
 
 const (
-	Unspecified DiffEventType = iota
+	Unspecified DiffType = iota
+
+	// Diff.Type and InflatedDiff.Type can be set to the following values
 	Init
 	Progress
 	PrimaryKey
 	RowChange
 	RowAdd
 	RowRemove
+
+	// InflatedDiff.Type can be set to this value in addition
+	ColumnsRename
 )
 
-type DiffEvent struct {
-	Type DiffEventType `json:"t"`
+type Diff struct {
+	Type DiffType `json:"t"`
 
-	// Init event fields
+	// Init fields
 	OldColumns []string `json:"oldCols,omitempty"`
 	Columns    []string `json:"cols,omitempty"`
+	PK         []string `json:"pk,omitempty"`
 
-	// Progress event fields
+	// Progress fields
 	Progress int64 `json:"progress,omitempty"`
 	Total    int64 `json:"total,omitempty"`
 
-	// PrimaryKey event fields
+	// PrimaryKey fields
 	OldPK []string `json:"oldPK,omitempty"`
-	PK    []string `json:"pk,omitempty"`
 
-	// RowChange event fields
+	// RowChange fields
 	OldRow string `json:"oldRow,omitempty"`
-	// RowAdd, RowRemove event fields
+	// RowAdd, RowRemove fields
 	Row string `json:"row,omitempty"`
 }
 
@@ -54,11 +59,12 @@ func strSliceEqual(s1, s2 []string) bool {
 	return true
 }
 
-func DiffTables(t1, t2 table.Store, diffChan chan<- DiffEvent, progressPeriod time.Duration) error {
-	diffChan <- DiffEvent{
+func DiffTables(t1, t2 table.Store, diffChan chan<- Diff, progressPeriod time.Duration) error {
+	diffChan <- Diff{
 		Type:       Init,
 		Columns:    t1.Columns(),
 		OldColumns: t2.Columns(),
+		PK:         t1.PrimaryKey(),
 	}
 
 	sl1 := t1.PrimaryKey()
@@ -67,9 +73,8 @@ func DiffTables(t1, t2 table.Store, diffChan chan<- DiffEvent, progressPeriod ti
 		return nil
 	}
 	if !strSliceEqual(sl1, sl2) {
-		diffChan <- DiffEvent{
+		diffChan <- Diff{
 			Type:  PrimaryKey,
-			PK:    sl1,
 			OldPK: sl2,
 		}
 	} else {
@@ -81,7 +86,7 @@ func DiffTables(t1, t2 table.Store, diffChan chan<- DiffEvent, progressPeriod ti
 	return nil
 }
 
-func diffRows(t1, t2 table.Store, diffChan chan<- DiffEvent, progressPeriod time.Duration) error {
+func diffRows(t1, t2 table.Store, diffChan chan<- Diff, progressPeriod time.Duration) error {
 	l1, err := t1.NumRows()
 	if err != nil {
 		return err
@@ -103,7 +108,7 @@ loop1:
 	for {
 		select {
 		case <-ticker.C:
-			diffChan <- DiffEvent{
+			diffChan <- Diff{
 				Type:     Progress,
 				Progress: currentProgress,
 				Total:    total,
@@ -119,14 +124,14 @@ loop1:
 			currentProgress++
 			if w, ok := t2.GetRowHash(k); ok {
 				if !bytes.Equal(v, w) {
-					diffChan <- DiffEvent{
+					diffChan <- Diff{
 						Type:   RowChange,
 						OldRow: hex.EncodeToString(w),
 						Row:    hex.EncodeToString(v),
 					}
 				}
 			} else {
-				diffChan <- DiffEvent{
+				diffChan <- Diff{
 					Type: RowAdd,
 					Row:  hex.EncodeToString(v),
 				}
@@ -142,7 +147,7 @@ loop2:
 	for {
 		select {
 		case <-ticker.C:
-			diffChan <- DiffEvent{
+			diffChan <- Diff{
 				Type:     Progress,
 				Progress: currentProgress,
 				Total:    total,
@@ -157,7 +162,7 @@ loop2:
 			}
 			currentProgress++
 			if _, ok := t1.GetRowHash(k); !ok {
-				diffChan <- DiffEvent{
+				diffChan <- Diff{
 					Type: RowRemove,
 					Row:  hex.EncodeToString(v),
 				}

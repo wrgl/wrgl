@@ -17,44 +17,44 @@ func TestDiffTables(t *testing.T) {
 	cases := []struct {
 		T1     table.Store
 		T2     table.Store
-		Events []DiffEvent
+		Events []Diff
 	}{
 		{
 			table.NewMockStore([]string{"one", "two"}, []int{0}, nil),
 			table.NewMockStore([]string{"one", "three"}, []int{1}, nil),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "three"}},
-				{Type: PrimaryKey, PK: []string{"one"}, OldPK: []string{"three"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "three"}, PK: []string{"one"}},
+				{Type: PrimaryKey, OldPK: []string{"three"}},
 			},
 		},
 		{
 			table.NewMockStore([]string{"one", "two"}, []int{0}, nil),
 			table.NewMockStore([]string{"one", "two"}, []int{0}, nil),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
 			},
 		},
 		{
 			table.NewMockStore([]string{"one", "two"}, []int{0}, nil),
 			table.NewMockStore([]string{"one", "two"}, []int{}, nil),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}},
-				{Type: PrimaryKey, PK: []string{"one"}, OldPK: []string{}},
+			[]Diff{
+				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
+				{Type: PrimaryKey, OldPK: []string{}},
 			},
 		},
 		{
 			table.NewMockStore([]string{"a", "b", "c", "d"}, []int{0, 2}, nil),
 			table.NewMockStore([]string{"a", "c", "d", "b"}, []int{0, 1}, nil),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"a", "b", "c", "d"}, OldColumns: []string{"a", "c", "d", "b"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"a", "b", "c", "d"}, OldColumns: []string{"a", "c", "d", "b"}, PK: []string{"a", "c"}},
 			},
 		},
 		{
 			table.NewMockStore([]string{"a", "b", "c", "d"}, []int{0, 1}, nil),
 			table.NewMockStore([]string{"b", "a", "c", "d"}, []int{0, 1}, nil),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"a", "b", "c", "d"}, OldColumns: []string{"b", "a", "c", "d"}},
-				{Type: PrimaryKey, PK: []string{"a", "b"}, OldPK: []string{"b", "a"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"a", "b", "c", "d"}, OldColumns: []string{"b", "a", "c", "d"}, PK: []string{"a", "b"}},
+				{Type: PrimaryKey, OldPK: []string{"b", "a"}},
 			},
 		},
 		{
@@ -68,8 +68,8 @@ func TestDiffTables(t *testing.T) {
 				{"def", "059"},
 				{"asd", "789"},
 			}),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b", "c"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b", "c"}, PK: []string{}},
 			},
 		},
 		{
@@ -83,8 +83,8 @@ func TestDiffTables(t *testing.T) {
 				{"def", "059"},
 				{"asd", "789"},
 			}),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b"}, PK: []string{}},
 				{Type: RowChange, Row: "343536", OldRow: "303539"},
 				{Type: RowAdd, Row: "323334"},
 				{Type: RowRemove, Row: "373839"},
@@ -101,8 +101,8 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b"}, PK: []string{}},
 			},
 		},
 		{
@@ -116,8 +116,8 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "c"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "c"}, PK: []string{}},
 			},
 		},
 
@@ -132,8 +132,8 @@ func TestDiffTables(t *testing.T) {
 				{"def", "059"},
 				{"asd", "789"},
 			}),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
 				{Type: RowChange, Row: "343536", OldRow: "303539"},
 				{Type: RowAdd, Row: "323334"},
 				{Type: RowRemove, Row: "373839"},
@@ -148,8 +148,8 @@ func TestDiffTables(t *testing.T) {
 				{"abc", "345"},
 				{"def", "678"},
 			}),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"one", "two", "three"}, OldColumns: []string{"one", "two"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"one", "two", "three"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
 				{Type: RowChange, Row: "313233", OldRow: "333435"},
 				{Type: RowChange, Row: "343536", OldRow: "363738"},
 			},
@@ -165,21 +165,21 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			[]DiffEvent{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}},
+			[]Diff{
+				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
 			},
 		},
 	}
-	for _, c := range cases {
-		diffChan := make(chan DiffEvent, 1000)
+	for i, c := range cases {
+		diffChan := make(chan Diff, 1000)
 		err := DiffTables(c.T1, c.T2, diffChan, 100*time.Minute)
 		require.NoError(t, err)
-		events := []DiffEvent{}
+		events := []Diff{}
 		close(diffChan)
 		for e := range diffChan {
 			events = append(events, e)
 		}
-		assert.Equal(t, events, c.Events)
+		assert.Equal(t, c.Events, events, "case %d", i)
 	}
 }
 
@@ -199,7 +199,7 @@ func BenchmarkDiffRows(b *testing.B) {
 	db := kv.NewMockStore(false)
 	store1 := ingestRawCSV(b, db, rawCSV1)
 	store2 := ingestRawCSV(b, db, rawCSV2)
-	diffChan := make(chan DiffEvent, b.N)
+	diffChan := make(chan Diff, b.N)
 	defer close(diffChan)
 	b.ResetTimer()
 	require.NoError(b, DiffTables(store1, store2, diffChan, 100*time.Minute))
