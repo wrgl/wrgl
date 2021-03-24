@@ -33,6 +33,10 @@ func (s *MockStore) PrimaryKey() []string {
 	return slice.IndicesToValues(s.columns, s.primaryKey)
 }
 
+func (s *MockStore) PrimaryKeyIndices() []int {
+	return s.primaryKey
+}
+
 func (s *MockStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 	k := string(pkHash)
 	for _, row := range s.rows {
@@ -72,7 +76,7 @@ func (s *MockStore) NewRowHashReader(offset, size int) (RowHashReader, error) {
 	return &MockRowHashReader{rows: s.rows[offset : offset+size]}, nil
 }
 
-func (s *MockStore) NewRowReader(offset, size int) (RowReader, error) {
+func (s *MockStore) NewRowReader() (RowReader, error) {
 	return nil, fmt.Errorf("Unimplemented")
 }
 

@@ -23,6 +23,7 @@ const (
 	RowRemove
 
 	// InflatedDiff.Type can be set to this value in addition
+	RowChangeInit
 	ColumnsRename
 )
 

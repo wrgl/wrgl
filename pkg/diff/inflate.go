@@ -8,18 +8,6 @@ import (
 	"github.com/wrgl/core/pkg/table"
 )
 
-// type Inflator struct {
-// 	columns    []string
-// 	oldColumns []string
-// 	diffChan   <-chan DiffEvent
-// }
-
-// func NewInflator(diffChan <-chan DiffEvent) *Inflator {
-// 	return  &Inflator{
-// 		diffChan: diffChan,
-// 	}
-// }
-
 type InflatedDiff struct {
 	Type DiffType `json:"t"`
 
@@ -37,6 +25,10 @@ type InflatedDiff struct {
 
 	// RowAdd and RowRemove fields
 	Row []string `json:"row,omitempty"`
+
+	// RowChangeInit fields
+	RowChangeColumns []*RowChangeColumn `json:"rowChangeColumns,omitempty"`
+	RowChangeRow     [][]string         `json:"rowChangeRow,omitempty"`
 }
 
 func fetchRow(db kv.DB, row string) ([]string, error) {
@@ -51,19 +43,23 @@ func fetchRow(db kv.DB, row string) ([]string, error) {
 	return encoding.DecodeStrings(b)
 }
 
-func Inflate(db kv.DB, diffChan <-chan Diff) (chan<- InflatedDiff, chan error) {
+func Inflate(db kv.DB, diffChan <-chan Diff) (<-chan InflatedDiff, chan error) {
 	ch := make(chan InflatedDiff)
 	errChan := make(chan error)
 	go func() {
-		// var cols, oldCols, pk []string
+		var (
+			cols, oldCols, pk         []string
+			rowChangeCols             []*RowChangeColumn
+			rowIndices, oldRowIndices map[string]int
+		)
 		defer close(ch)
 		defer close(errChan)
 		for event := range diffChan {
 			switch event.Type {
 			case Init:
-				// cols = event.Columns
-				// oldCols = event.OldColumns
-				// pk = event.PK
+				cols = event.Columns
+				oldCols = event.OldColumns
+				pk = event.PK
 				ch <- InflatedDiff{
 					Type:       Init,
 					Columns:    event.Columns,
@@ -92,16 +88,31 @@ func Inflate(db kv.DB, diffChan <-chan Diff) (chan<- InflatedDiff, chan error) {
 					Row:  row,
 				}
 			case RowChange:
-				// row, err := fetchRow(db, event.Row)
-				// if err != nil {
-				// 	errChan <- err
-				// 	return
-				// }
-				// oldRow, err := fetchRow(db, event.OldRow)
-				// if err != nil {
-				// 	errChan <- err
-				// 	return
-				// }
+				if rowChangeCols == nil {
+					rowChangeCols = compareColumns(oldCols, cols)
+					rowChangeCols = hoistPKTobeginning(rowChangeCols, pk)
+					rowIndices = stringSliceToMap(cols)
+					oldRowIndices = stringSliceToMap(oldCols)
+					ch <- InflatedDiff{
+						Type:             RowChangeInit,
+						RowChangeColumns: rowChangeCols,
+					}
+				}
+				row, err := fetchRow(db, event.Row)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				oldRow, err := fetchRow(db, event.OldRow)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				mergedRows := combineRows(rowChangeCols, rowIndices, oldRowIndices, row, oldRow)
+				ch <- InflatedDiff{
+					Type:         RowChange,
+					RowChangeRow: mergedRows,
+				}
 			}
 		}
 	}()
