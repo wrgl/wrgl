@@ -139,7 +139,7 @@ func TestIngest(t *testing.T) {
 			rhr, err := ts2.NewRowHashReader(0, 0)
 			require.NoError(t, err)
 			assert.Equal(t, c.ExpectedRows, readAllRowHashes(t, rhr))
-			rr, err := ts2.NewRowReader(0, 0)
+			rr, err := ts2.NewRowReader()
 			require.NoError(t, err)
 			assert.Equal(t, c.ExpectedRowContent, readAllRowContents(t, rr))
 		}

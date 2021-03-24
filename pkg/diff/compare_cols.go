@@ -1,5 +1,7 @@
 package diff
 
+import "sort"
+
 // longestIncreasingList returns indices of longest increasing values
 func longestIncreasingList(sl []int) []int {
 	type node struct {
@@ -55,29 +57,31 @@ func moveOps(sl []int) []*moveOp {
 	return ops
 }
 
-type column struct {
-	name           string
-	added, removed bool
-	movedFrom      int
+type RowChangeColumn struct {
+	Name      string `json:"name"`
+	Added     bool   `json:"added,omitempty"`
+	Removed   bool   `json:"removed,omitempty"`
+	anchor    int    `json:"-"`
+	MovedFrom int    `json:"movedFrom,omitempty"`
 }
 
-func detectMovedColumns(cols []*column, origCols []string) []*column {
+func detectMovedColumns(cols []*RowChangeColumn, origCols []string) []*RowChangeColumn {
 	origMap := map[string]int{}
 	for ind, v := range origCols {
 		origMap[v] = ind
 	}
 	newMap := map[string]int{}
 	for ind, v := range cols {
-		newMap[v.name] = ind
+		newMap[v.Name] = ind
 	}
 	oldIndices := []int{}
 	newIndices := []int{}
 	for i, v := range cols {
-		if _, ok := origMap[v.name]; !ok {
+		if _, ok := origMap[v.Name]; !ok {
 			continue
 		}
 		newIndices = append(newIndices, i)
-		oldIndices = append(oldIndices, origMap[v.name])
+		oldIndices = append(oldIndices, origMap[v.Name])
 	}
 	ops := moveOps(oldIndices)
 	nonAnchor := map[int]struct{}{}
@@ -97,9 +101,9 @@ func detectMovedColumns(cols []*column, origCols []string) []*column {
 			}
 		}
 		if after != "" {
-			cols[newIndex].movedFrom = newMap[after] + 1
-			if cols[newIndex].movedFrom > len(cols) {
-				cols[newIndex].movedFrom = len(cols)
+			cols[newIndex].MovedFrom = newMap[after] + 1
+			if cols[newIndex].MovedFrom > len(cols) {
+				cols[newIndex].MovedFrom = len(cols)
 			}
 			continue
 		}
@@ -115,42 +119,59 @@ func detectMovedColumns(cols []*column, origCols []string) []*column {
 			}
 		}
 		if before != "" {
-			cols[newIndex].movedFrom = newMap[before] - 1
-			if cols[newIndex].movedFrom < 0 {
-				cols[newIndex].movedFrom = 0
+			cols[newIndex].MovedFrom = newMap[before] - 1
+			if cols[newIndex].MovedFrom < 0 {
+				cols[newIndex].MovedFrom = 0
 			}
 		}
 	}
 	return cols
 }
 
-// export const compareColumns = (oldCols, newCols) => {
-//   const result = [];
-//   const oldMap = _.fromPairs(oldCols.map((v, ind) => [v, ind]));
-//   const newMap = _.fromPairs(newCols.map((v, ind) => [v, ind]));
-//   for (let name of newCols) {
-//     if (oldMap[name] !== undefined) {
-//       result.push({ name });
-//     } else {
-//       result.push({ name, added: true });
-//     }
-//   }
+func compareColumns(oldCols, newCols []string) []*RowChangeColumn {
+	result := []*RowChangeColumn{}
+	oldMap := map[string]int{}
+	for ind, v := range oldCols {
+		oldMap[v] = ind
+	}
+	newMap := map[string]int{}
+	for ind, v := range newCols {
+		newMap[v] = ind
+	}
+	for _, name := range newCols {
+		if _, ok := oldMap[name]; ok {
+			result = append(result, &RowChangeColumn{Name: name})
+		} else {
+			result = append(result, &RowChangeColumn{Name: name, Added: true})
+		}
+	}
 
-//   let anchor = 0;
-//   let removedCols = [];
-//   for (let i = 0; i < oldCols.length; i++) {
-//     const name = oldCols[i];
-//     if (newMap[name] !== undefined) {
-//       anchor = newMap[name];
-//       continue;
-//     }
-//     removedCols.push({ name, anchor });
-//   }
-//   removedCols = _.sortBy(removedCols, v => -v.anchor);
-//   for (let { name, anchor } of removedCols) {
-//     result.splice(anchor + 1, 0, { name, removed: true });
-//   }
+	anchor := 0
+	removedCols := []*RowChangeColumn{}
+	for _, name := range oldCols {
+		if _, ok := newMap[name]; ok {
+			anchor = newMap[name]
+			continue
+		}
+		removedCols = append(removedCols, &RowChangeColumn{Name: name, anchor: anchor})
+	}
+	sort.Slice(removedCols, func(i, j int) bool {
+		return removedCols[j].anchor < removedCols[i].anchor
+	})
+	for _, col := range removedCols {
+		result = append(result[:col.anchor+1], result[col.anchor:]...)
+		result[col.anchor+1] = &RowChangeColumn{Name: col.Name, Removed: true}
+	}
 
-//   const commonCols = _.without(oldCols, ...removedCols.map(v => v.name));
-//   return detectMovedColumns(result, commonCols);
-// };
+	removedMap := map[string]int{}
+	for ind, v := range removedCols {
+		removedMap[v.Name] = ind
+	}
+	commonCols := []string{}
+	for _, col := range oldCols {
+		if _, ok := removedMap[col]; !ok {
+			commonCols = append(commonCols, col)
+		}
+	}
+	return detectMovedColumns(result, commonCols)
+}
