@@ -43,9 +43,8 @@ func fetchRow(db kv.DB, row string) ([]string, error) {
 	return encoding.DecodeStrings(b)
 }
 
-func Inflate(db kv.DB, diffChan <-chan Diff) (<-chan InflatedDiff, chan error) {
+func Inflate(db kv.DB, diffChan <-chan Diff, errChan chan error) <-chan InflatedDiff {
 	ch := make(chan InflatedDiff)
-	errChan := make(chan error)
 	go func() {
 		var (
 			cols, oldCols, pk         []string
@@ -53,7 +52,6 @@ func Inflate(db kv.DB, diffChan <-chan Diff) (<-chan InflatedDiff, chan error) {
 			rowIndices, oldRowIndices map[string]int
 		)
 		defer close(ch)
-		defer close(errChan)
 		for event := range diffChan {
 			switch event.Type {
 			case Init:
@@ -116,5 +114,5 @@ func Inflate(db kv.DB, diffChan <-chan Diff) (<-chan InflatedDiff, chan error) {
 			}
 		}
 	}()
-	return ch, errChan
+	return ch
 }

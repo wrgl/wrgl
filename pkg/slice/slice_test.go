@@ -93,3 +93,36 @@ func TestStringSliceEqual(t *testing.T) {
 		assert.Equal(t, r.R, b)
 	}
 }
+
+func TestCompareStringSlices(t *testing.T) {
+	for i, c := range []struct {
+		sl, oldSl                 []string
+		unchanged, added, removed []string
+	}{
+		{
+			nil, nil,
+			nil, nil, nil,
+		},
+		{
+			[]string{"a"}, []string{"a"},
+			[]string{"a"}, nil, nil,
+		},
+		{
+			[]string{"a", "b"}, []string{"a"},
+			[]string{"a"}, []string{"b"}, nil,
+		},
+		{
+			[]string{"a"}, []string{"a", "c"},
+			[]string{"a"}, nil, []string{"c"},
+		},
+		{
+			[]string{"d"}, []string{"e"},
+			nil, []string{"d"}, []string{"e"},
+		},
+	} {
+		unchanged, added, removed := CompareStringSlices(c.sl, c.oldSl)
+		assert.Equal(t, c.unchanged, unchanged, "case %d", i)
+		assert.Equal(t, c.added, added, "case %d", i)
+		assert.Equal(t, c.removed, removed, "case %d", i)
+	}
+}

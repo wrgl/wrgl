@@ -43,11 +43,13 @@ func TestInflate(t *testing.T) {
 	}
 	close(diffChan)
 
-	inflatedChan, errChan := Inflate(db, diffChan)
+	errChan := make(chan error)
+	inflatedChan := Inflate(db, diffChan, errChan)
 	inflatedSl := []InflatedDiff{}
 	for d := range inflatedChan {
 		inflatedSl = append(inflatedSl, d)
 	}
+	close(errChan)
 	_, ok := <-errChan
 	assert.False(t, ok)
 	assert.Equal(t, []InflatedDiff{

@@ -171,15 +171,16 @@ func TestDiffTables(t *testing.T) {
 		},
 	}
 	for i, c := range cases {
-		diffChan := make(chan Diff, 1000)
-		err := DiffTables(c.T1, c.T2, diffChan, 100*time.Minute)
-		require.NoError(t, err)
+		errChan := make(chan error, 1000)
+		diffChan := DiffTables(c.T1, c.T2, 100*time.Minute, errChan)
 		events := []Diff{}
-		close(diffChan)
 		for e := range diffChan {
 			events = append(events, e)
 		}
 		assert.Equal(t, c.Events, events, "case %d", i)
+		close(errChan)
+		_, ok := <-errChan
+		assert.False(t, ok)
 	}
 }
 
@@ -199,8 +200,12 @@ func BenchmarkDiffRows(b *testing.B) {
 	db := kv.NewMockStore(false)
 	store1 := ingestRawCSV(b, db, rawCSV1)
 	store2 := ingestRawCSV(b, db, rawCSV2)
-	diffChan := make(chan Diff, b.N)
-	defer close(diffChan)
+	errChan := make(chan error, 1000)
 	b.ResetTimer()
-	require.NoError(b, DiffTables(store1, store2, diffChan, 100*time.Minute))
+	diffChan := DiffTables(store1, store2, 100*time.Minute, errChan)
+	for d := range diffChan {
+		assert.NotNil(b, d)
+	}
+	_, ok := <-errChan
+	assert.False(b, ok)
 }

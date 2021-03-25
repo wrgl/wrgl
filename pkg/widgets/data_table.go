@@ -97,6 +97,7 @@ func (t *DataTable) Select(row, column int) *DataTable {
 	return t
 }
 
+// SetPrimaryKeyIndices records primary key columns and hoist them to the beginning
 func (t *DataTable) SetPrimaryKeyIndices(pk []int) *DataTable {
 	pkm := map[int]struct{}{}
 	for _, i := range pk {

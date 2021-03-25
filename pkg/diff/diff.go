@@ -60,31 +60,36 @@ func strSliceEqual(s1, s2 []string) bool {
 	return true
 }
 
-func DiffTables(t1, t2 table.Store, diffChan chan<- Diff, progressPeriod time.Duration) error {
-	diffChan <- Diff{
-		Type:       Init,
-		Columns:    t1.Columns(),
-		OldColumns: t2.Columns(),
-		PK:         t1.PrimaryKey(),
-	}
-
-	sl1 := t1.PrimaryKey()
-	sl2 := t2.PrimaryKey()
-	if len(sl1) == 0 && len(sl2) == 0 && !strSliceEqual(t1.Columns(), t2.Columns()) {
-		return nil
-	}
-	if !strSliceEqual(sl1, sl2) {
+func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<- error) <-chan Diff {
+	diffChan := make(chan Diff)
+	go func() {
+		defer close(diffChan)
 		diffChan <- Diff{
-			Type:  PrimaryKey,
-			OldPK: sl2,
+			Type:       Init,
+			Columns:    t1.Columns(),
+			OldColumns: t2.Columns(),
+			PK:         t1.PrimaryKey(),
 		}
-	} else {
-		err := diffRows(t1, t2, diffChan, progressPeriod)
-		if err != nil {
-			return err
+
+		sl1 := t1.PrimaryKey()
+		sl2 := t2.PrimaryKey()
+		if len(sl1) == 0 && len(sl2) == 0 && !strSliceEqual(t1.Columns(), t2.Columns()) {
+			return
 		}
-	}
-	return nil
+		if !strSliceEqual(sl1, sl2) {
+			diffChan <- Diff{
+				Type:  PrimaryKey,
+				OldPK: sl2,
+			}
+		} else {
+			err := diffRows(t1, t2, diffChan, progressPeriod)
+			if err != nil {
+				errChan <- err
+				return
+			}
+		}
+	}()
+	return diffChan
 }
 
 func diffRows(t1, t2 table.Store, diffChan chan<- Diff, progressPeriod time.Duration) error {

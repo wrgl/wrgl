@@ -74,3 +74,27 @@ func StringSliceContains(sl []string, s string) bool {
 	}
 	return false
 }
+
+func CompareStringSlices(slice, oldSlice []string) (unchanged, added, removed []string) {
+	m := map[string]struct{}{}
+	for _, col := range slice {
+		m[col] = struct{}{}
+	}
+	oldM := map[string]struct{}{}
+	for _, col := range oldSlice {
+		oldM[col] = struct{}{}
+	}
+	for _, col := range slice {
+		if _, ok := oldM[col]; !ok {
+			added = append(added, col)
+		} else {
+			unchanged = append(unchanged, col)
+		}
+	}
+	for _, col := range oldSlice {
+		if _, ok := m[col]; !ok {
+			removed = append(removed, col)
+		}
+	}
+	return
+}
