@@ -8,20 +8,11 @@ import (
 )
 
 var (
-	columnStyle       = tcell.StyleDefault.Foreground(tcell.ColorAzure).Bold(true)
-	rowCountStyle     = tcell.StyleDefault.Foreground(tcell.ColorSlateGray)
-	primaryKeyStyle   = tcell.StyleDefault.Foreground(tcell.ColorAquaMarine)
-	cellStyle         = tcell.StyleDefault
-	selectedPKStyle   tcell.Style
-	selectedCellStyle tcell.Style
+	columnStyle     = tcell.StyleDefault.Foreground(tcell.ColorAzure).Bold(true)
+	rowCountStyle   = tcell.StyleDefault.Foreground(tcell.ColorSlateGray)
+	primaryKeyStyle = tcell.StyleDefault.Foreground(tcell.ColorAquaMarine).Background(tcell.ColorBlack)
+	cellStyle       = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 )
-
-func init() {
-	fg, _, attr := primaryKeyStyle.Decompose()
-	selectedPKStyle = tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(fg).Attributes(attr)
-	_, _, attr = cellStyle.Decompose()
-	selectedCellStyle = tcell.StyleDefault.Foreground(tcell.ColorBlack).Background(tcell.ColorWhite).Attributes(attr)
-}
 
 // DataTable add following behaviors on top of VirtualTable:
 // - Add row number column to the left corner
@@ -134,18 +125,16 @@ func (t *DataTable) modifiedGetCell(row, column int) *TableCell {
 	if row == 0 {
 		return t.getCell(row, t.columnIndices[column-1]).SetStyle(columnStyle)
 	}
+	var cell *TableCell
 	if column <= t.pkCount {
-		cell := t.getCell(row, t.columnIndices[column-1])
-		if row == t.selectedRow && (t.selectedColumn == 0 || t.selectedColumn == column) {
-			return cell.SetStyle(selectedPKStyle).SetTransparency(false)
-		}
-		return cell.SetStyle(primaryKeyStyle).SetTransparency(true)
+		cell = t.getCell(row, t.columnIndices[column-1]).SetStyle(primaryKeyStyle)
+	} else {
+		cell = t.getCell(row, t.columnIndices[column-1]).SetStyle(cellStyle)
 	}
-	cell := t.getCell(row, t.columnIndices[column-1])
 	if row == t.selectedRow && (t.selectedColumn == 0 || t.selectedColumn == column) {
-		return cell.SetStyle(selectedCellStyle).SetTransparency(false)
+		return cell.FlipStyle().SetTransparency(false)
 	}
-	return cell.SetStyle(cellStyle).SetTransparency(true)
+	return cell.SetTransparency(true)
 }
 
 func (t *DataTable) Draw(screen tcell.Screen) {

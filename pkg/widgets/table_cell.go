@@ -133,6 +133,11 @@ func (c *TableCell) SetStyle(style tcell.Style) *TableCell {
 	return c
 }
 
+func (c *TableCell) FlipStyle() *TableCell {
+	c.Color, c.BackgroundColor = c.BackgroundColor, c.Color
+	return c
+}
+
 // GetPosition returns the position of the table cell on screen.
 // If the cell is not on screen, the return values are
 func (c *TableCell) GetPosition() (x, y, width int) {
