@@ -34,6 +34,7 @@ func (b *ProgressBar) SetTotal(num int64) *ProgressBar {
 }
 
 func (b *ProgressBar) Draw(screen tcell.Screen) {
+	b.Box.DrawForSubclass(screen, b)
 	_, _, width, _ := b.GetInnerRect()
 	progressStr := fmt.Sprintf("(%d/%d)", b.current, b.total)
 	descWidth := stringWidth(b.desc)

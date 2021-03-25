@@ -149,7 +149,8 @@ func (t *DataTable) modifiedGetCell(row, column int) *TableCell {
 }
 
 func (t *DataTable) Draw(screen tcell.Screen) {
-	_, _, _, height := t.VirtualTable.Box.GetInnerRect()
+	t.Box.DrawForSubclass(screen, t)
+	_, _, _, height := t.Box.GetInnerRect()
 	// Clamp selection
 	if t.selectedColumn < 0 {
 		t.selectedColumn = 0
