@@ -34,6 +34,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newLogCmd())
 	rootCmd.AddCommand(newPreviewCmd())
+	rootCmd.AddCommand(newDiffCmd())
 	return rootCmd
 }
 

@@ -12,6 +12,7 @@ type BufferedTable struct {
 	rowReader        table.RowReader
 	headerRow        []*TableCell
 	buf              [][]*TableCell
+	columnsCount     int
 	bufStart, bufEnd int
 }
 
@@ -21,13 +22,19 @@ func NewBufferedTable(rowReader table.RowReader, rowCount int, columns []string,
 		headerRow = append(headerRow, NewTableCell(text))
 	}
 	t := &BufferedTable{
-		DataTable: NewDataTable(),
-		rowReader: rowReader,
-		headerRow: headerRow,
+		DataTable:    NewDataTable(),
+		rowReader:    rowReader,
+		headerRow:    headerRow,
+		columnsCount: len(columns),
 	}
 	t.DataTable.SetGetCellFunc(t.getCell).
 		SetShape(rowCount, len(columns)).
 		SetPrimaryKeyIndices(primaryKeyIndices)
+	return t
+}
+
+func (t *BufferedTable) SetRowCount(num int) *BufferedTable {
+	t.DataTable.SetShape(num, t.columnCount)
 	return t
 }
 
