@@ -87,6 +87,9 @@ func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2
 		removedRowReader  *table.KeyListRowReader
 		addedTable        *widgets.BufferedTable
 		removedTable      *widgets.BufferedTable
+		rowChangeReader   *diff.RowChangeReader
+		rowChangeTable    *widgets.DiffTable
+		pkChanged         bool
 	)
 
 	titleBar := tview.NewTextView().SetDynamicColors(true)
@@ -102,68 +105,112 @@ func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2
 		AddItem(tabPages, 0, 1, true)
 	app := tview.NewApplication().SetRoot(flex, true).SetFocus(flex)
 
-	for event := range diffChan {
-		switch event.Type {
-		case diff.Init:
-			cols, oldCols, pk = event.Columns, event.OldColumns, event.PK
-		case diff.Progress:
-			if event.Total == event.Progress {
-				flex.RemoveItem(pBar)
-			} else {
-				pBar.SetTotal(event.Total)
-				pBar.SetCurrent(event.Progress)
-			}
-		case diff.PrimaryKey:
-			_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
-			if len(addedCols) > 0 {
-				tabPages.AddTab(
-					fmt.Sprintf("+%d columns", len(addedCols)),
-					widgets.NewColumnsList(nil, addedCols, nil),
-				)
-			}
-			if len(removedCols) > 0 {
-				tabPages.AddTab(
-					fmt.Sprintf("-%d columns", len(removedCols)),
-					widgets.NewColumnsList(nil, nil, removedCols),
-				)
-			}
-			unchanged, added, removed := slice.CompareStringSlices(pk, event.OldPK)
-			if len(added) > 0 || len(removed) > 0 {
-				tabPages.AddTab(
-					"Primary key",
-					widgets.NewColumnsList(unchanged, added, removed),
-				)
-			}
-		case diff.RowAdd:
-			if addedRowReader == nil {
-				addedRowReader = table.NewKeyListRowReader(db, []string{event.Row})
-				pkIndices, err := slice.KeyIndices(cols, pk)
-				if err != nil {
-					return err
+	go func() {
+		for event := range diffChan {
+			switch event.Type {
+			case diff.Init:
+				cols, oldCols, pk = event.Columns, event.OldColumns, event.PK
+			case diff.Progress:
+				if event.Total == event.Progress {
+					flex.RemoveItem(pBar)
+				} else {
+					pBar.SetTotal(event.Total)
+					pBar.SetCurrent(event.Progress)
 				}
-				addedTable = widgets.NewBufferedTable(addedRowReader, 1, cols, pkIndices)
-				tabPages.AddTab("+1 rows", addedTable)
-			} else {
-				addedRowReader.Add(event.Row)
-				addedTable.SetRowCount(addedRowReader.NumRows())
-				tabPages.SetLabel(addedTable, fmt.Sprintf("+%d rows", addedRowReader.NumRows()))
-			}
-		case diff.RowRemove:
-			if removedRowReader == nil {
-				removedRowReader = table.NewKeyListRowReader(db, []string{event.Row})
-				pkIndices, err := slice.KeyIndices(oldCols, pk)
-				if err != nil {
-					return err
+				app.Draw()
+			case diff.PrimaryKey:
+				pkChanged = true
+				_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
+				if len(addedCols) > 0 {
+					tabPages.AddTab(
+						fmt.Sprintf("+%d columns", len(addedCols)),
+						widgets.CreateColumnsList(nil, addedCols, nil),
+					)
 				}
-				removedTable = widgets.NewBufferedTable(removedRowReader, 1, oldCols, pkIndices)
-				tabPages.AddTab("-1 rows", removedTable)
-			} else {
-				removedRowReader.Add(event.Row)
-				removedTable.SetRowCount(removedRowReader.NumRows())
-				tabPages.SetLabel(removedTable, fmt.Sprintf("-%d rows", removedRowReader.NumRows()))
+				if len(removedCols) > 0 {
+					tabPages.AddTab(
+						fmt.Sprintf("-%d columns", len(removedCols)),
+						widgets.CreateColumnsList(nil, nil, removedCols),
+					)
+				}
+				unchanged, added, removed := slice.CompareStringSlices(pk, event.OldPK)
+				if len(added) > 0 || len(removed) > 0 {
+					tabPages.AddTab(
+						"Primary key",
+						widgets.CreateColumnsList(unchanged, added, removed),
+					)
+				}
+				app.Draw()
+			case diff.RowAdd:
+				if addedRowReader == nil {
+					addedRowReader = table.NewKeyListRowReader(db, []string{event.Row})
+					pkIndices, err := slice.KeyIndices(cols, pk)
+					if err != nil {
+						panic(err)
+					}
+					addedTable = widgets.NewBufferedTable(addedRowReader, 1, cols, pkIndices)
+					tabPages.AddTab("+1 rows", addedTable)
+				} else {
+					addedRowReader.Add(event.Row)
+					addedTable.SetRowCount(addedRowReader.NumRows())
+					tabPages.SetLabel(addedTable, fmt.Sprintf("+%d rows", addedRowReader.NumRows()))
+				}
+				app.Draw()
+			case diff.RowRemove:
+				if removedRowReader == nil {
+					removedRowReader = table.NewKeyListRowReader(db, []string{event.Row})
+					pkIndices, err := slice.KeyIndices(oldCols, pk)
+					if err != nil {
+						panic(err)
+					}
+					removedTable = widgets.NewBufferedTable(removedRowReader, 1, oldCols, pkIndices)
+					tabPages.AddTab("-1 rows", removedTable)
+				} else {
+					removedRowReader.Add(event.Row)
+					removedTable.SetRowCount(removedRowReader.NumRows())
+					tabPages.SetLabel(removedTable, fmt.Sprintf("-%d rows", removedRowReader.NumRows()))
+				}
+				app.Draw()
+			case diff.RowChange:
+				if rowChangeReader == nil {
+					rowChangeReader, err := diff.NewRowChangeReader(db, cols, oldCols, pk)
+					if err != nil {
+						panic(err)
+					}
+					rowChangeReader.AddRowPair(event.Row, event.OldRow)
+					rowChangeTable = widgets.NewDiffTable(rowChangeReader)
+					tabPages.AddTab("1 modified", rowChangeTable)
+				} else {
+					rowChangeReader.AddRowPair(event.Row, event.OldRow)
+					rowChangeTable.UpdateRowCount()
+					tabPages.SetLabel(rowChangeTable, fmt.Sprintf("%d modified", rowChangeReader.NumRows()))
+				}
+				app.Draw()
 			}
 		}
-	}
+
+		if addedRowReader == nil && removedRowReader == nil && rowChangeReader == nil && !pkChanged && len(cols) > 0 && !slice.StringSliceEqual(cols, oldCols) {
+			renamedCols := [][2]string{}
+			for i, col := range cols {
+				if col != oldCols[i] {
+					renamedCols = append(renamedCols, [2]string{oldCols[i], col})
+				}
+			}
+			if len(renamedCols) > 0 {
+				renamedColumns := tview.NewTextView()
+				renamedColumns.SetBorder(true)
+				for _, names := range renamedCols {
+					fmt.Fprintf(renamedColumns, "[red]%s[white] → [green]%s[white]\n", names[0], names[1])
+				}
+				tabPages.AddTab(
+					fmt.Sprintf("%d renamed columns", len(renamedCols)),
+					renamedColumns,
+				)
+				app.Draw()
+			}
+		}
+	}()
+
 	return app.Run()
 }
 

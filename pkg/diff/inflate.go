@@ -47,9 +47,8 @@ func Inflate(db kv.DB, diffChan <-chan Diff, errChan chan error) <-chan Inflated
 	ch := make(chan InflatedDiff)
 	go func() {
 		var (
-			cols, oldCols, pk         []string
-			rowChangeCols             []*RowChangeColumn
-			rowIndices, oldRowIndices map[string]int
+			cols, oldCols, pk []string
+			rowChangeReader   *RowChangeReader
 		)
 		defer close(ch)
 		for event := range diffChan {
@@ -86,30 +85,22 @@ func Inflate(db kv.DB, diffChan <-chan Diff, errChan chan error) <-chan Inflated
 					Row:  row,
 				}
 			case RowChange:
-				if rowChangeCols == nil {
-					rowChangeCols = compareColumns(oldCols, cols)
-					rowChangeCols = hoistPKTobeginning(rowChangeCols, pk)
-					rowIndices = stringSliceToMap(cols)
-					oldRowIndices = stringSliceToMap(oldCols)
+				if rowChangeReader == nil {
+					rowChangeReader = NewRowChangeReader(db, cols, oldCols, pk)
 					ch <- InflatedDiff{
 						Type:             RowChangeInit,
-						RowChangeColumns: rowChangeCols,
+						RowChangeColumns: rowChangeReader.Columns,
 					}
 				}
-				row, err := fetchRow(db, event.Row)
+				rowChangeReader.AddRowPair(event.Row, event.OldRow)
+				mergedRow, err := rowChangeReader.Read()
 				if err != nil {
 					errChan <- err
 					return
 				}
-				oldRow, err := fetchRow(db, event.OldRow)
-				if err != nil {
-					errChan <- err
-					return
-				}
-				mergedRows := combineRows(rowChangeCols, rowIndices, oldRowIndices, row, oldRow)
 				ch <- InflatedDiff{
 					Type:         RowChange,
-					RowChangeRow: mergedRows,
+					RowChangeRow: mergedRow,
 				}
 			}
 		}

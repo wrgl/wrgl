@@ -28,13 +28,13 @@ func NewBufferedTable(rowReader table.RowReader, rowCount int, columns []string,
 		columnsCount: len(columns),
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells).
-		SetShape(rowCount, len(columns)).
+		SetShape(rowCount+1, len(columns)).
 		SetPrimaryKeyIndices(primaryKeyIndices)
 	return t
 }
 
 func (t *BufferedTable) SetRowCount(num int) *BufferedTable {
-	t.DataTable.SetShape(num, t.columnCount)
+	t.DataTable.SetShape(num+1, t.columnCount)
 	return t
 }
 
