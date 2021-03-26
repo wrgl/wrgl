@@ -59,7 +59,7 @@ func TestInflate(t *testing.T) {
 		{Type: RowAdd, Row: row1Content},
 		{Type: RowRemove, Row: row2Content},
 		{Type: RowChangeInit, RowChangeColumns: []*RowChangeColumn{
-			{Name: "a"}, {Name: "b"}, {Name: "d", Removed: true}, {Name: "c", Added: true},
+			{Name: "a", MovedFrom: -1}, {Name: "b", MovedFrom: -1}, {Name: "d", Removed: true, MovedFrom: -1}, {Name: "c", Added: true, MovedFrom: -1},
 		}},
 		{Type: RowChange, RowChangeRow: [][]string{
 			{"1", "4"}, {"2", "5"}, {"6"}, {"3"},

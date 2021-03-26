@@ -35,11 +35,11 @@ func TestCombineRows(t *testing.T) {
 	rowIndices := stringSliceToMap(cols)
 	oldRowIndices := stringSliceToMap(oldCols)
 	assert.Equal(t, []*RowChangeColumn{
-		{Name: "a", Added: true},
-		{Name: "b"},
-		{Name: "c"},
-		{Name: "d"},
-		{Name: "f", Removed: true},
+		{Name: "a", Added: true, MovedFrom: -1},
+		{Name: "b", MovedFrom: -1},
+		{Name: "c", MovedFrom: -1},
+		{Name: "d", MovedFrom: -1},
+		{Name: "f", Removed: true, MovedFrom: -1},
 		{Name: "e", MovedFrom: 0},
 	}, rowChangeCols)
 	for i, c := range []struct {

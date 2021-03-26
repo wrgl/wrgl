@@ -7,7 +7,7 @@ import (
 	"github.com/wrgl/core/pkg/table"
 )
 
-type BufferedTable struct {
+type PreviewTable struct {
 	*DataTable
 	rowReader        table.RowReader
 	headerRow        []*TableCell
@@ -16,12 +16,12 @@ type BufferedTable struct {
 	bufStart, bufEnd int
 }
 
-func NewBufferedTable(rowReader table.RowReader, rowCount int, columns []string, primaryKeyIndices []int) *BufferedTable {
+func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, primaryKeyIndices []int) *PreviewTable {
 	headerRow := []*TableCell{}
 	for _, text := range columns {
 		headerRow = append(headerRow, NewTableCell(text))
 	}
-	t := &BufferedTable{
+	t := &PreviewTable{
 		DataTable:    NewDataTable(),
 		rowReader:    rowReader,
 		headerRow:    headerRow,
@@ -33,12 +33,12 @@ func NewBufferedTable(rowReader table.RowReader, rowCount int, columns []string,
 	return t
 }
 
-func (t *BufferedTable) SetRowCount(num int) *BufferedTable {
+func (t *PreviewTable) SetRowCount(num int) *PreviewTable {
 	t.DataTable.SetShape(num+1, t.columnCount)
 	return t
 }
 
-func (t *BufferedTable) decodeRow(b []byte) []*TableCell {
+func (t *PreviewTable) decodeRow(b []byte) []*TableCell {
 	record, err := encoding.DecodeStrings(b)
 	if err != nil {
 		panic(err)
@@ -50,7 +50,7 @@ func (t *BufferedTable) decodeRow(b []byte) []*TableCell {
 	return sl
 }
 
-func (t *BufferedTable) readRowAt(row int) []*TableCell {
+func (t *PreviewTable) readRowAt(row int) []*TableCell {
 	_, rowContent, err := t.rowReader.ReadAt(row)
 	if err != nil {
 		panic(err)
@@ -58,7 +58,7 @@ func (t *BufferedTable) readRowAt(row int) []*TableCell {
 	return t.decodeRow(rowContent)
 }
 
-func (t *BufferedTable) readRowsFrom(start, end int) [][]*TableCell {
+func (t *PreviewTable) readRowsFrom(start, end int) [][]*TableCell {
 	rows := [][]*TableCell{}
 	_, err := t.rowReader.Seek(start, io.SeekStart)
 	if err != nil {
@@ -79,7 +79,7 @@ func (t *BufferedTable) readRowsFrom(start, end int) [][]*TableCell {
 	return rows
 }
 
-func (t *BufferedTable) getCells(row, column int) []*TableCell {
+func (t *PreviewTable) getCells(row, column int) []*TableCell {
 	if row == 0 {
 		return t.headerRow[column : column+1]
 	}
@@ -89,7 +89,7 @@ func (t *BufferedTable) getCells(row, column int) []*TableCell {
 		t.bufStart = row
 		t.bufEnd = row + 1
 		t.buf = [][]*TableCell{t.readRowAt(t.bufStart)}
-		return t.buf[0][column : column+1]
+		return []*TableCell{t.buf[0][column].SetStyle(cellStyle)}
 	}
 
 	if row < t.bufStart {
@@ -102,5 +102,5 @@ func (t *BufferedTable) getCells(row, column int) []*TableCell {
 		t.bufEnd = row + 1
 		t.buf = append(t.buf, rows...)
 	}
-	return t.buf[row-t.bufStart][column : column+1]
+	return []*TableCell{t.buf[row-t.bufStart][column].SetStyle(cellStyle)}
 }

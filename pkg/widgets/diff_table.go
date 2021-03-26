@@ -1,9 +1,17 @@
 package widgets
 
 import (
+	"fmt"
 	"io"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/wrgl/core/pkg/diff"
+)
+
+var (
+	addedStyle   = cellStyle.Foreground(tcell.ColorGreen)
+	removedStyle = cellStyle.Foreground(tcell.ColorRed)
+	movedStyle   = cellStyle.Foreground(tcell.ColorYellow)
 )
 
 type DiffTable struct {
@@ -20,12 +28,23 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 		reader:    reader,
 	}
 	headerRow := []*TableCell{}
-	for _, col := range reader.Columns {
+	colStatuses := []*TableCell{}
+	for i, col := range reader.Columns {
 		headerRow = append(headerRow, NewTableCell(col.Name))
+		colStatuses = append(colStatuses, nil)
+		if col.Added {
+			colStatuses[i] = NewTableCell("Added").SetStyle(addedStyle)
+		} else if col.Removed {
+			colStatuses[i] = NewTableCell("Removed").SetStyle(removedStyle)
+		} else if col.MovedFrom != -1 {
+			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved from position %d", col.MovedFrom)).SetStyle(movedStyle)
+		}
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells).
-		SetPrimaryKeyIndices(t.reader.PKIndices)
+		SetPrimaryKeyIndices(t.reader.PKIndices).
+		SetColumnStatuses(colStatuses)
 	t.UpdateRowCount()
+	t.headerRow = headerRow
 	return t
 }
 
@@ -84,7 +103,7 @@ func (t *DiffTable) getCells(row, column int) []*TableCell {
 		t.bufStart = row
 		t.bufEnd = row + 1
 		t.buf = [][][]*TableCell{t.readRowAt(t.bufStart)}
-		return t.buf[0][column]
+		return t.styledCells(0, column)
 	}
 
 	if row < t.bufStart {
@@ -97,5 +116,22 @@ func (t *DiffTable) getCells(row, column int) []*TableCell {
 		t.bufEnd = row + 1
 		t.buf = append(t.buf, rows...)
 	}
-	return t.buf[row-t.bufStart][column]
+	return t.styledCells(row-t.bufStart, column)
+}
+
+func (t *DiffTable) styledCells(row, column int) []*TableCell {
+	cells := t.buf[row][column]
+	if len(cells) == 2 {
+		cells[0].SetStyle(addedStyle)
+		cells[1].SetStyle(removedStyle)
+	} else if t.reader.Columns[column].Added {
+		cells[0].SetStyle(addedStyle)
+	} else if t.reader.Columns[column].Removed {
+		cells[0].SetStyle(removedStyle)
+	} else if t.reader.Columns[column].MovedFrom != -1 {
+		cells[0].SetStyle(movedStyle)
+	} else {
+		cells[0].SetStyle(cellStyle)
+	}
+	return cells
 }

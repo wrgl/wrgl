@@ -62,7 +62,7 @@ type RowChangeColumn struct {
 	Added     bool   `json:"added,omitempty"`
 	Removed   bool   `json:"removed,omitempty"`
 	anchor    int    `json:"-"`
-	MovedFrom int    `json:"movedFrom,omitempty"`
+	MovedFrom int    `json:"movedFrom"`
 }
 
 func detectMovedColumns(cols []*RowChangeColumn, origCols []string) []*RowChangeColumn {
@@ -140,9 +140,9 @@ func compareColumns(oldCols, newCols []string) []*RowChangeColumn {
 	}
 	for _, name := range newCols {
 		if _, ok := oldMap[name]; ok {
-			result = append(result, &RowChangeColumn{Name: name})
+			result = append(result, &RowChangeColumn{Name: name, MovedFrom: -1})
 		} else {
-			result = append(result, &RowChangeColumn{Name: name, Added: true})
+			result = append(result, &RowChangeColumn{Name: name, Added: true, MovedFrom: -1})
 		}
 	}
 
@@ -160,7 +160,7 @@ func compareColumns(oldCols, newCols []string) []*RowChangeColumn {
 	})
 	for _, col := range removedCols {
 		result = append(result[:col.anchor+1], result[col.anchor:]...)
-		result[col.anchor+1] = &RowChangeColumn{Name: col.Name, Removed: true}
+		result[col.anchor+1] = &RowChangeColumn{Name: col.Name, Removed: true, MovedFrom: -1}
 	}
 
 	removedMap := map[string]int{}

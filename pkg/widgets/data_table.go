@@ -37,6 +37,9 @@ type DataTable struct {
 	// The currently selected row and column.
 	selectedRow, selectedColumn, selectedSubColumn int
 
+	// Status texts for columns
+	columnStatuses []*TableCell
+
 	// An optional function which gets called when the user presses Enter on a
 	// selected cell. If entire rows selected, the column value is undefined.
 	// Likewise for entire columns.
@@ -67,6 +70,11 @@ func (t *DataTable) SetShape(rowCount, columnCount int) *DataTable {
 // GetShape get number of rows and number of columns
 func (t *DataTable) GetShape() (rowCount, columnCount int) {
 	return t.rowCount, t.columnCount - 1
+}
+
+func (t *DataTable) SetColumnStatuses(cells []*TableCell) *DataTable {
+	t.columnStatuses = cells
+	return t
 }
 
 // SetSelectedFunc sets a handler which is called whenever the user presses the
@@ -116,6 +124,19 @@ func (t *DataTable) getCellsAt(row, column int) []*TableCell {
 	if row < 0 || column < 0 || row >= t.rowCount || column >= t.columnCount {
 		return nil
 	}
+	if t.columnStatuses != nil {
+		if row == 0 {
+			if column == 0 {
+				return []*TableCell{NewTableCell("")}
+			}
+			statusCell := t.columnStatuses[column-1]
+			if statusCell != nil {
+				return []*TableCell{statusCell}
+			}
+			return nil
+		}
+		row -= 1
+	}
 	if column == 0 {
 		if row == 0 {
 			return []*TableCell{NewTableCell("")}
@@ -141,10 +162,6 @@ func (t *DataTable) getStyledCells(row, column int) []*TableCell {
 	if column <= t.pkCount {
 		for _, cell := range cells {
 			cell.SetStyle(primaryKeyStyle)
-		}
-	} else {
-		for _, cell := range cells {
-			cell.SetStyle(cellStyle)
 		}
 	}
 	for i, cell := range cells {

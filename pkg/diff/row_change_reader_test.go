@@ -51,7 +51,8 @@ func TestRowChangeReader(t *testing.T) {
 	}
 
 	// test Read
-	reader := NewRowChangeReader(db, cols, oldCols, pk)
+	reader, err := NewRowChangeReader(db, cols, oldCols, pk)
+	require.NoError(t, err)
 	reader.AddRowPair(sumPairs[0][0], sumPairs[0][1])
 	assert.Equal(t, 1, reader.NumRows())
 	mr, err := reader.Read()

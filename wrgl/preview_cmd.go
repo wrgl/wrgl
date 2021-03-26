@@ -59,7 +59,7 @@ func previewTable(cmd *cobra.Command, hash string, commit *versioning.Commit, ts
 		return err
 	}
 	defer rowReader.Close()
-	tv := widgets.NewBufferedTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())
+	tv := widgets.NewPreviewTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())
 
 	// usage bar
 	usageBar := tview.NewTextView().

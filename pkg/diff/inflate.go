@@ -86,7 +86,12 @@ func Inflate(db kv.DB, diffChan <-chan Diff, errChan chan error) <-chan Inflated
 				}
 			case RowChange:
 				if rowChangeReader == nil {
-					rowChangeReader = NewRowChangeReader(db, cols, oldCols, pk)
+					var err error
+					rowChangeReader, err = NewRowChangeReader(db, cols, oldCols, pk)
+					if err != nil {
+						errChan <- err
+						return
+					}
 					ch <- InflatedDiff{
 						Type:             RowChangeInit,
 						RowChangeColumns: rowChangeReader.Columns,

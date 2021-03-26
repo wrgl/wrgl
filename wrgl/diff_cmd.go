@@ -85,8 +85,8 @@ func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2
 		cols, oldCols, pk []string
 		addedRowReader    *table.KeyListRowReader
 		removedRowReader  *table.KeyListRowReader
-		addedTable        *widgets.BufferedTable
-		removedTable      *widgets.BufferedTable
+		addedTable        *widgets.PreviewTable
+		removedTable      *widgets.PreviewTable
 		rowChangeReader   *diff.RowChangeReader
 		rowChangeTable    *widgets.DiffTable
 		pkChanged         bool
@@ -148,7 +148,7 @@ func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2
 					if err != nil {
 						panic(err)
 					}
-					addedTable = widgets.NewBufferedTable(addedRowReader, 1, cols, pkIndices)
+					addedTable = widgets.NewPreviewTable(addedRowReader, 1, cols, pkIndices)
 					tabPages.AddTab("+1 rows", addedTable)
 				} else {
 					addedRowReader.Add(event.Row)
@@ -163,7 +163,7 @@ func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2
 					if err != nil {
 						panic(err)
 					}
-					removedTable = widgets.NewBufferedTable(removedRowReader, 1, oldCols, pkIndices)
+					removedTable = widgets.NewPreviewTable(removedRowReader, 1, oldCols, pkIndices)
 					tabPages.AddTab("-1 rows", removedTable)
 				} else {
 					removedRowReader.Add(event.Row)
