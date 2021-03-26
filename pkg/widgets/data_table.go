@@ -26,7 +26,7 @@ type DataTable struct {
 	*VirtualTable
 
 	// This function is called to get the underlying table cell at any position
-	getCell func(row, column int) *TableCell
+	getCells func(row, column int) []*TableCell
 
 	// Rearranged indices of columns. Used to hoist primary key columns to the beginning
 	columnIndices []int
@@ -35,7 +35,7 @@ type DataTable struct {
 	pkCount int
 
 	// The currently selected row and column.
-	selectedRow, selectedColumn int
+	selectedRow, selectedColumn, selectedSubColumn int
 
 	// An optional function which gets called when the user presses Enter on a
 	// selected cell. If entire rows selected, the column value is undefined.
@@ -51,7 +51,7 @@ func NewDataTable() *DataTable {
 		selectedColumn: 1,
 	}
 	vt.SetFixed(1, 1).
-		SetGetCellFunc(t.modifiedGetCell)
+		SetGetCellsFunc(t.getStyledCells)
 	return t
 }
 
@@ -83,8 +83,8 @@ func (t *DataTable) SetSelectedFunc(handler func(row, column int)) *DataTable {
 // ignored completely. The "selection changed" event is fired if such a callback
 // is available (even if the selection ends up being the same as before and even
 // if cells are not selectable).
-func (t *DataTable) Select(row, column int) *DataTable {
-	t.selectedRow, t.selectedColumn = row, column
+func (t *DataTable) Select(row, column, subCol int) *DataTable {
+	t.selectedRow, t.selectedColumn, t.selectedSubColumn = row, column, subCol
 	return t
 }
 
@@ -106,35 +106,56 @@ func (t *DataTable) SetPrimaryKeyIndices(pk []int) *DataTable {
 	return t
 }
 
-// SetGetCellFunc set function to get table cell at a position
-func (t *DataTable) SetGetCellFunc(getCell func(row, column int) *TableCell) *DataTable {
-	t.getCell = getCell
+// SetGetCellsFunc set function to get table cell at a position
+func (t *DataTable) SetGetCellsFunc(getCells func(row, column int) []*TableCell) *DataTable {
+	t.getCells = getCells
 	return t
 }
 
-func (t *DataTable) modifiedGetCell(row, column int) *TableCell {
+func (t *DataTable) getCellsAt(row, column int) []*TableCell {
 	if row < 0 || column < 0 || row >= t.rowCount || column >= t.columnCount {
 		return nil
 	}
 	if column == 0 {
 		if row == 0 {
-			return NewTableCell("")
+			return []*TableCell{NewTableCell("")}
 		}
-		return NewTableCell(strconv.Itoa(row - 1)).SetStyle(rowCountStyle)
+		return []*TableCell{NewTableCell(strconv.Itoa(row - 1))}
+	}
+	return t.getCells(row, t.columnIndices[column-1])
+}
+
+func (t *DataTable) getStyledCells(row, column int) []*TableCell {
+	cells := t.getCellsAt(row, column)
+	if cells == nil {
+		return nil
+	}
+	if column == 0 {
+		cells[0].SetStyle(rowCountStyle)
+		return cells
 	}
 	if row == 0 {
-		return t.getCell(row, t.columnIndices[column-1]).SetStyle(columnStyle)
+		cells[0].SetStyle(columnStyle)
+		return cells
 	}
-	var cell *TableCell
 	if column <= t.pkCount {
-		cell = t.getCell(row, t.columnIndices[column-1]).SetStyle(primaryKeyStyle)
+		for _, cell := range cells {
+			cell.SetStyle(primaryKeyStyle)
+		}
 	} else {
-		cell = t.getCell(row, t.columnIndices[column-1]).SetStyle(cellStyle)
+		for _, cell := range cells {
+			cell.SetStyle(cellStyle)
+		}
 	}
-	if row == t.selectedRow && (t.selectedColumn == 0 || t.selectedColumn == column) {
-		return cell.FlipStyle().SetTransparency(false)
+	for i, cell := range cells {
+		if row == t.selectedRow && (t.selectedColumn == 0 ||
+			(t.selectedColumn == column && (t.selectedSubColumn == i || len(cells) == 1))) {
+			cell.FlipStyle().SetTransparency(false)
+		} else {
+			cell.SetTransparency(true)
+		}
 	}
-	return cell.SetTransparency(true)
+	return cells
 }
 
 func (t *DataTable) Draw(screen tcell.Screen) {
@@ -180,14 +201,24 @@ func (t *DataTable) InputHandler() func(event *tcell.EventKey, setFocus func(p t
 		rowCount, columnCount := t.VirtualTable.GetShape()
 
 		var (
+			updateSubCol = func(num int) {
+				t.selectedSubColumn = num
+				cells := t.getCellsAt(t.selectedRow, t.selectedColumn)
+				if len(cells) == 1 {
+					t.selectedSubColumn = 0
+				}
+			}
+
 			home = func() {
 				t.selectedRow = 0
 				t.selectedColumn = 0
+				t.selectedSubColumn = 0
 			}
 
 			end = func() {
 				t.selectedRow = rowCount - 1
 				t.selectedColumn = columnCount - 1
+				t.selectedSubColumn = 0
 			}
 
 			down = func() {
@@ -195,6 +226,7 @@ func (t *DataTable) InputHandler() func(event *tcell.EventKey, setFocus func(p t
 				if t.selectedRow >= rowCount {
 					t.selectedRow = rowCount - 1
 				}
+				updateSubCol(t.selectedSubColumn)
 			}
 
 			up = func() {
@@ -202,17 +234,29 @@ func (t *DataTable) InputHandler() func(event *tcell.EventKey, setFocus func(p t
 				if t.selectedRow < 0 {
 					t.selectedRow = 0
 				}
+				updateSubCol(t.selectedSubColumn)
 			}
 
 			left = func() {
-				t.selectedColumn--
-				if t.selectedColumn < 0 {
-					t.selectedColumn = 0
+				if t.selectedSubColumn > 0 {
+					t.selectedSubColumn--
+				} else {
+					t.selectedColumn--
+					if t.selectedColumn < 0 {
+						t.selectedColumn = 0
+					}
+					updateSubCol(1)
 				}
 			}
 
 			right = func() {
-				t.selectedColumn++
+				cells := t.getCellsAt(t.selectedRow, t.selectedColumn)
+				if t.selectedSubColumn < len(cells)-1 {
+					t.selectedSubColumn++
+				} else {
+					t.selectedSubColumn = 0
+					t.selectedColumn++
+				}
 			}
 
 			pageDown = func() {
@@ -225,6 +269,7 @@ func (t *DataTable) InputHandler() func(event *tcell.EventKey, setFocus func(p t
 				if t.selectedRow >= rowCount {
 					t.selectedRow = rowCount - 1
 				}
+				updateSubCol(t.selectedSubColumn)
 			}
 
 			pageUp = func() {
@@ -237,6 +282,7 @@ func (t *DataTable) InputHandler() func(event *tcell.EventKey, setFocus func(p t
 				if t.selectedRow < 0 {
 					t.selectedRow = 0
 				}
+				updateSubCol(t.selectedSubColumn)
 			}
 		)
 
@@ -292,9 +338,15 @@ func (t *DataTable) MouseHandler() func(action tview.MouseAction, event *tcell.E
 		case tview.MouseLeftClick:
 			rowCount, columnCount := t.VirtualTable.GetShape()
 			selectEvent := true
-			row, column := t.cellAt(x, y)
+			row, column, subCol := t.cellAt(x, y)
 			if row >= 0 && row < rowCount && column >= 0 && column < columnCount {
-				cell := t.modifiedGetCell(row, column)
+				cells := t.getStyledCells(row, column)
+				var cell *TableCell
+				if len(cells) == 1 {
+					cell = cells[0]
+				} else {
+					cell = cells[subCol]
+				}
 				if cell != nil && cell.Clicked != nil {
 					if noSelect := cell.Clicked(); noSelect {
 						selectEvent = false
@@ -302,7 +354,7 @@ func (t *DataTable) MouseHandler() func(action tview.MouseAction, event *tcell.E
 				}
 			}
 			if selectEvent {
-				t.Select(row, column)
+				t.Select(row, column, subCol)
 			}
 			setFocus(t)
 			consumed = true

@@ -38,14 +38,14 @@ type VirtualTable struct {
 
 	// The net widths of the visible columns as of the last time the table was
 	// drawn.
-	visibleColumnWidths []int
+	visibleColumns []*tableColumn
 
 	// An optional function which gets called when the user presses Escape, Tab,
 	// or Backtab.
 	done func(key tcell.Key)
 
 	// This function is called to get the underlying table cell at any position
-	getCell func(row, column int) *TableCell
+	getCells func(row, column int) []*TableCell
 
 	// If this is not -1, always try to keep this column in view
 	keptInViewColumn int
@@ -148,9 +148,9 @@ func (t *VirtualTable) ScrollToEnd() *VirtualTable {
 	return t
 }
 
-// SetGetCellFunc set function to get table cell at a position
-func (t *VirtualTable) SetGetCellFunc(getCell func(row, column int) *TableCell) *VirtualTable {
-	t.getCell = getCell
+// SetGetCellsFunc set function to get table cell at a position
+func (t *VirtualTable) SetGetCellsFunc(getCell func(row, column int) []*TableCell) *VirtualTable {
+	t.getCells = getCell
 	return t
 }
 
@@ -158,7 +158,7 @@ func (t *VirtualTable) SetGetCellFunc(getCell func(row, column int) *TableCell) 
 // Each returned value may be negative if there is no row and/or cell. This
 // function will also process coordinates outside the table's inner rectangle so
 // callers will need to check for bounds themselves.
-func (t *VirtualTable) cellAt(x, y int) (row, column int) {
+func (t *VirtualTable) cellAt(x, y int) (row, column, subColumn int) {
 	rectX, rectY, _, _ := t.GetInnerRect()
 
 	// Determine row as seen on screen.
@@ -185,11 +185,14 @@ func (t *VirtualTable) cellAt(x, y int) (row, column int) {
 		if t.borders {
 			columnX++
 		}
-		for index, width := range t.visibleColumnWidths {
-			columnX += width + 1
-			if x < columnX {
-				column = t.visibleColumnIndices[index]
-				break
+		for index, col := range t.visibleColumns {
+			for i, width := range col.Widths {
+				columnX += width + 1
+				if x < columnX {
+					column = t.visibleColumnIndices[index]
+					subColumn = i
+					break
+				}
 			}
 		}
 	}
@@ -212,7 +215,8 @@ func (t *VirtualTable) clampOffsets() {
 // Determine the indices and widths of the columns and rows which fit on the screen.
 func (t *VirtualTable) determineIndicesAndWidths(width int) (rows []int) {
 	var (
-		widths, columns         []int
+		columns                 []*tableColumn
+		columnIndices           []int
 		tableHeight, tableWidth int
 	)
 	if t.borders {
@@ -237,22 +241,21 @@ func (t *VirtualTable) determineIndicesAndWidths(width int) (rows []int) {
 		}
 	}
 	var (
-		skipped, lastTableWidth, expansionTotal int
-		expansions                              []int
+		skipped, expansionTotal int
+		expansions              []int
 	)
 ColumnLoop:
-	for column := 0; ; column++ {
+	for columnIndex := 0; ; columnIndex++ {
 		// If we've moved beyond the right border, we stop or skip a column.
 		for tableWidth-1 >= width { // -1 because we include one extra column if the separator falls on the right end of the box.
 			// We've moved beyond the available space.
-			if column < t.fixedColumns {
+			if columnIndex < t.fixedColumns {
 				break ColumnLoop // We're in the fixed area. We're done.
 			}
 			if t.keptInViewColumn != -1 && t.keptInViewColumn-skipped == t.fixedColumns {
 				break ColumnLoop // The selected column reached the leftmost point before disappearing.
 			}
-			if t.keptInViewColumn != -1 && skipped >= t.columnOffset &&
-				(t.keptInViewColumn < column && lastTableWidth < width-1 && tableWidth < width-1 || t.keptInViewColumn < column-1) {
+			if t.keptInViewColumn != -1 && skipped >= t.columnOffset && t.keptInViewColumn < columnIndex-1 {
 				break ColumnLoop // We've skipped as many as requested and the selection is visible.
 			}
 			if t.keptInViewColumn == -1 && skipped >= t.columnOffset {
@@ -264,41 +267,40 @@ ColumnLoop:
 
 			// We need to skip a column.
 			skipped++
-			lastTableWidth -= widths[t.fixedColumns] + 1
-			tableWidth -= widths[t.fixedColumns] + 1
+			tableWidth -= columns[t.fixedColumns].Width + 1
+			columnIndices = append(columnIndices[:t.fixedColumns], columnIndices[t.fixedColumns+1:]...)
 			columns = append(columns[:t.fixedColumns], columns[t.fixedColumns+1:]...)
-			widths = append(widths[:t.fixedColumns], widths[t.fixedColumns+1:]...)
 			expansions = append(expansions[:t.fixedColumns], expansions[t.fixedColumns+1:]...)
 		}
 
 		// What's this column's width (without expansion)?
-		maxWidth := -1
-		expansion := 0
-		for _, row := range rows {
-			if cell := t.getCell(row, column); cell != nil {
+		column := newTableColumn()
+		for _, rowIndex := range rows {
+			cells := t.getCells(rowIndex, columnIndex)
+			cellWidths := []int{}
+			cellExpansions := []int{}
+			for _, cell := range cells {
 				_, _, _, _, _, _, cellWidth := decomposeString(cell.Text, true, false)
 				if cell.MaxWidth > 0 && cell.MaxWidth < cellWidth {
 					cellWidth = cell.MaxWidth
 				}
-				if cellWidth > maxWidth {
-					maxWidth = cellWidth
-				}
-				if cell.Expansion > expansion {
-					expansion = cell.Expansion
-				}
+				cellWidths = append(cellWidths, cellWidth)
+				cellExpansions = append(cellExpansions, cell.Expansion)
 			}
+			column.UpdateWidths(cellWidths)
+			column.UpdateExpansions(cellExpansions)
 		}
-		if maxWidth < 0 {
+		column.DistributeWidth()
+		if column.Width < 0 {
 			break // No more cells found in this column.
 		}
 
 		// Store new column info at the end.
+		columnIndices = append(columnIndices, columnIndex)
 		columns = append(columns, column)
-		widths = append(widths, maxWidth)
-		lastTableWidth = tableWidth
-		tableWidth += maxWidth + 1
-		expansions = append(expansions, expansion)
-		expansionTotal += expansion
+		tableWidth += column.Width + 1
+		expansions = append(expansions, column.Expansion)
+		expansionTotal += column.Expansion
 	}
 	t.columnOffset = skipped
 
@@ -310,12 +312,12 @@ ColumnLoop:
 				break
 			}
 			expWidth := toDistribute * expansion / expansionTotal
-			widths[index] += expWidth
+			columns[index].DistributeExpansionWidth(expWidth)
 			toDistribute -= expWidth
 			expansionTotal -= expansion
 		}
 	}
-	t.visibleColumnIndices, t.visibleColumnWidths = columns, widths
+	t.visibleColumnIndices, t.visibleColumns = columnIndices, columns
 	return
 }
 
@@ -329,74 +331,82 @@ func (t *VirtualTable) drawCells(screen tcell.Screen, rows []int, x, y, width, h
 	if !t.borders {
 		columnX--
 	}
-	for columnIndex, column := range t.visibleColumnIndices {
-		columnWidth := t.visibleColumnWidths[columnIndex]
+	for colIndInd, colIndex := range t.visibleColumnIndices {
+		column := t.visibleColumns[colIndInd]
+	rowLoop:
 		for rowY, row := range rows {
-			if t.borders {
-				// Draw borders.
-				rowY *= 2
-				for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
-					t.drawBorder(screen, x, y, columnX+pos+1, rowY, tview.Borders.Horizontal)
-				}
-				ch := tview.Borders.Cross
-				if columnIndex == 0 {
-					if rowY == 0 {
-						ch = tview.Borders.TopLeft
-					} else {
-						ch = tview.Borders.LeftT
-					}
-				} else if rowY == 0 {
-					ch = tview.Borders.TopT
-				}
-				t.drawBorder(screen, x, y, columnX, rowY, ch)
-				rowY++
-				if rowY >= height || y+rowY >= totalHeight {
-					break // No space for the text anymore.
-				}
-				t.drawBorder(screen, x, y, columnX, rowY, tview.Borders.Vertical)
-			} else if columnIndex > 0 {
-				// Draw separator.
-				t.drawBorder(screen, x, y, columnX, rowY, t.separator)
-			}
-
 			// Get the cell.
-			cell := t.getCell(row, column)
-			if cell == nil {
-				continue
-			}
+			cells := t.getCells(row, colIndex)
+			widths := column.CellWidths(len(cells))
 
-			// Draw text.
-			finalWidth := columnWidth
-			if columnX+1+columnWidth >= width {
-				finalWidth = width - columnX - 1
-			}
-			cell.SetPosition(x+columnX+1, y+rowY, finalWidth)
-			_, printed, _, _ := printWithStyle(screen, cell.Text, x+columnX+1, y+rowY, 0, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color).Attributes(cell.Attributes), true)
-			if tview.TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
-				_, _, style, _ := screen.GetContent(x+columnX+finalWidth, y+rowY)
-				printWithStyle(screen, string(tview.SemigraphicsHorizontalEllipsis), x+columnX+finalWidth, 0, y+rowY, 1, tview.AlignLeft, style, false)
+			subColumnX := 0
+			for _, colWidth := range widths {
+				if t.borders {
+					// Draw borders.
+					cellY := rowY * 2
+					for pos := 0; pos < colWidth && columnX+subColumnX+1+pos < width; pos++ {
+						t.drawBorder(screen, x, y, columnX+subColumnX+pos+1, cellY, tview.Borders.Horizontal)
+					}
+					ch := tview.Borders.Cross
+					if colIndInd == 0 {
+						if cellY == 0 {
+							ch = tview.Borders.TopLeft
+						} else {
+							ch = tview.Borders.LeftT
+						}
+					} else if cellY == 0 {
+						ch = tview.Borders.TopT
+					}
+					t.drawBorder(screen, x, y, columnX+subColumnX, cellY, ch)
+					cellY++
+					if cellY >= height || y+cellY >= totalHeight {
+						break // No space for the text anymore.
+					}
+					t.drawBorder(screen, x, y, columnX+subColumnX, cellY, tview.Borders.Vertical)
+				} else if colIndInd > 0 {
+					// Draw separator.
+					t.drawBorder(screen, x, y, columnX+subColumnX, rowY, t.separator)
+				}
+
+				if colWidth == -1 {
+					continue rowLoop
+				}
+
+				// Draw text for the first sub-cell
+				finalWidth := colWidth
+				if columnX+subColumnX+1+colWidth >= width {
+					finalWidth = width - columnX - subColumnX - 1
+				}
+				cell := cells[0]
+				cell.SetPosition(x+columnX+subColumnX+1, y+rowY, finalWidth)
+				_, printed, _, _ := printWithStyle(screen, cell.Text, x+columnX+subColumnX+1, y+rowY, 0, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color).Attributes(cell.Attributes), true)
+				if tview.TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
+					_, _, style, _ := screen.GetContent(x+columnX+subColumnX+finalWidth, y+rowY)
+					printWithStyle(screen, string(tview.SemigraphicsHorizontalEllipsis), x+columnX+subColumnX+finalWidth, 0, y+rowY, 1, tview.AlignLeft, style, false)
+				}
+				subColumnX += colWidth + 1
 			}
 		}
 
 		// Draw bottom border.
 		if rowY := 2 * len(rows); t.borders && rowY < height {
-			for pos := 0; pos < columnWidth && columnX+1+pos < width; pos++ {
+			for pos := 0; pos < column.Width && columnX+1+pos < width; pos++ {
 				t.drawBorder(screen, x, y, columnX+pos+1, rowY, tview.Borders.Horizontal)
 			}
 			ch := tview.Borders.BottomT
-			if columnIndex == 0 {
+			if colIndInd == 0 {
 				ch = tview.Borders.BottomLeft
 			}
 			t.drawBorder(screen, x, y, columnX, rowY, ch)
 		}
 
-		columnX += columnWidth + 1
+		columnX += column.Width + 1
 	}
 	return
 }
 
+// Draw right border.
 func (t *VirtualTable) drawRightBorder(screen tcell.Screen, rows []int, columnX, x, y, width, height int) {
-	// Draw right border.
 	if t.borders && t.rowCount > 0 && columnX < width {
 		for rowY := range rows {
 			rowY *= 2
@@ -456,30 +466,32 @@ func (t *VirtualTable) colorCellBackgrounds(screen tcell.Screen, x, y, width, he
 	var backgroundColors []tcell.Color
 	for rowY, row := range rows {
 		columnX := 0
-		for columnIndex, column := range t.visibleColumnIndices {
-			columnWidth := t.visibleColumnWidths[columnIndex]
-			cell := t.getCell(row, column)
-			if cell == nil {
-				continue
+		for colIndInd, colIndex := range t.visibleColumnIndices {
+			column := t.visibleColumns[colIndInd]
+			cells := t.getCells(row, colIndex)
+			widths := column.CellWidths(len(cells))
+			subColumnX := 0
+			for i, cell := range cells {
+				bx, by, bw, bh := x+columnX+subColumnX, y+rowY, widths[i]+1, 1
+				if t.borders {
+					by = y + rowY*2
+					bw++
+					bh = 3
+				}
+				entries, ok := cellsByBackgroundColor[cell.BackgroundColor]
+				cellsByBackgroundColor[cell.BackgroundColor] = append(entries, &cellInfo{
+					x:    bx,
+					y:    by,
+					w:    bw,
+					h:    bh,
+					cell: cell,
+				})
+				if !ok {
+					backgroundColors = append(backgroundColors, cell.BackgroundColor)
+				}
+				subColumnX += widths[i] + 1
 			}
-			bx, by, bw, bh := x+columnX, y+rowY, columnWidth+1, 1
-			if t.borders {
-				by = y + rowY*2
-				bw++
-				bh = 3
-			}
-			entries, ok := cellsByBackgroundColor[cell.BackgroundColor]
-			cellsByBackgroundColor[cell.BackgroundColor] = append(entries, &cellInfo{
-				x:    bx,
-				y:    by,
-				w:    bw,
-				h:    bh,
-				cell: cell,
-			})
-			if !ok {
-				backgroundColors = append(backgroundColors, cell.BackgroundColor)
-			}
-			columnX += columnWidth + 1
+			columnX += column.Width + 1
 		}
 	}
 	sort.Slice(backgroundColors, func(i int, j int) bool {
@@ -621,9 +633,15 @@ func (t *VirtualTable) MouseHandler() func(action tview.MouseAction, event *tcel
 
 		switch action {
 		case tview.MouseLeftClick:
-			row, column := t.cellAt(x, y)
+			row, column, subCol := t.cellAt(x, y)
 			if row >= 0 && row < t.rowCount && column >= 0 && column < t.columnCount {
-				cell := t.getCell(row, column)
+				cells := t.getCells(row, column)
+				var cell *TableCell
+				if len(cells) > 1 {
+					cell = cells[subCol]
+				} else if len(cells) == 1 {
+					cell = cells[0]
+				}
 				if cell != nil && cell.Clicked != nil {
 					cell.Clicked()
 				}

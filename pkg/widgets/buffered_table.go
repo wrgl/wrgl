@@ -27,7 +27,7 @@ func NewBufferedTable(rowReader table.RowReader, rowCount int, columns []string,
 		headerRow:    headerRow,
 		columnsCount: len(columns),
 	}
-	t.DataTable.SetGetCellFunc(t.getCell).
+	t.DataTable.SetGetCellsFunc(t.getCells).
 		SetShape(rowCount, len(columns)).
 		SetPrimaryKeyIndices(primaryKeyIndices)
 	return t
@@ -79,9 +79,9 @@ func (t *BufferedTable) readRowsFrom(start, end int) [][]*TableCell {
 	return rows
 }
 
-func (t *BufferedTable) getCell(row, column int) *TableCell {
+func (t *BufferedTable) getCells(row, column int) []*TableCell {
 	if row == 0 {
-		return t.headerRow[column]
+		return t.headerRow[column : column+1]
 	}
 	row = row - 1
 	// if a distant row is requested, discard all buffer
@@ -89,7 +89,7 @@ func (t *BufferedTable) getCell(row, column int) *TableCell {
 		t.bufStart = row
 		t.bufEnd = row + 1
 		t.buf = [][]*TableCell{t.readRowAt(t.bufStart)}
-		return t.buf[0][column]
+		return t.buf[0][column : column+1]
 	}
 
 	if row < t.bufStart {
@@ -102,5 +102,5 @@ func (t *BufferedTable) getCell(row, column int) *TableCell {
 		t.bufEnd = row + 1
 		t.buf = append(t.buf, rows...)
 	}
-	return t.buf[row-t.bufStart][column]
+	return t.buf[row-t.bufStart][column : column+1]
 }
