@@ -14,10 +14,10 @@ type RowChangeReader struct {
 	rowIndices, oldRowIndices map[string]int
 	rowPairs                  [][2]string
 	off                       int
-	db                        kv.DB
+	db1, db2                  kv.DB
 }
 
-func NewRowChangeReader(db kv.DB, cols, oldCols, pk []string) (*RowChangeReader, error) {
+func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeReader, error) {
 	rowChangeCols := compareColumns(oldCols, cols)
 	rowChangeCols = hoistPKTobeginning(rowChangeCols, pk)
 	pkIndices, err := slice.KeyIndices(cols, pk)
@@ -25,7 +25,8 @@ func NewRowChangeReader(db kv.DB, cols, oldCols, pk []string) (*RowChangeReader,
 		return nil, err
 	}
 	return &RowChangeReader{
-		db:            db,
+		db1:           db1,
+		db2:           db2,
 		Columns:       rowChangeCols,
 		PKIndices:     pkIndices,
 		rowIndices:    stringSliceToMap(cols),
@@ -73,11 +74,11 @@ func (r *RowChangeReader) ReadAt(offset int) (mergedRow [][]string, err error) {
 		return nil, io.EOF
 	}
 	pair := r.rowPairs[offset]
-	row, err := fetchRow(r.db, pair[0])
+	row, err := fetchRow(r.db1, pair[0])
 	if err != nil {
 		return nil, err
 	}
-	oldRow, err := fetchRow(r.db, pair[1])
+	oldRow, err := fetchRow(r.db2, pair[1])
 	if err != nil {
 		return nil, err
 	}

@@ -44,7 +44,7 @@ func TestInflate(t *testing.T) {
 	close(diffChan)
 
 	errChan := make(chan error)
-	inflatedChan := Inflate(db, diffChan, errChan)
+	inflatedChan := Inflate(db, db, diffChan, errChan)
 	inflatedSl := []InflatedDiff{}
 	for d := range inflatedChan {
 		inflatedSl = append(inflatedSl, d)

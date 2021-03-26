@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/diff"
+	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
@@ -27,10 +29,12 @@ func newDiffCmd() *cobra.Command {
 		Use:   "diff COMMIT1 COMMIT2",
 		Short: "Shows diff between 2 commits",
 		Example: strings.Join([]string{
-			`  wrgl diff branch-1 branch-1^`,
+			`  # show diff between branches`,
 			`  wrgl diff branch-1 branch-2`,
-			`  wrgl diff branch-1 1a2ed6248c7243cdaaecb98ac12213a7`,
+			`  # show diff between commits`,
 			`  wrgl diff 1a2ed6248c7243cdaaecb98ac12213a7 f1cf51efa2c1e22843b0e083efd89792`,
+			`  # show diff between files`,
+			`  wrgl diff file-1.csv file-2.csv`,
 		}, "\n"),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,25 +51,68 @@ func newDiffCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringP("format", "f", diffFormatTerminal, "output format, valid options are \"json\", \"terminal\" (default)")
+	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key (only applicable if diff target is a file)")
 	return cmd
 }
 
 var hashPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
 
-func getCommit(db kv.DB, cStr string) (string, *versioning.Commit, error) {
-	var hash = cStr
-	if !hashPattern.MatchString(cStr) {
-		branch, err := versioning.GetBranch(db, cStr)
-		if err != nil {
-			return "", nil, err
-		}
-		hash = branch.CommitHash
-	}
-	commit, err := versioning.GetCommit(db, hash)
+func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (string, *versioning.Commit, error) {
+	defer file.Close()
+	pk, err := cmd.Flags().GetStringSlice("primary-key")
 	if err != nil {
 		return "", nil, err
 	}
-	return hash, commit, nil
+	csvReader, columns, primaryKeyIndices, err := ingest.ReadColumns(file, pk)
+	if err != nil {
+		return "", nil, err
+	}
+	ts := table.NewSmallStore(db, columns, primaryKeyIndices, seed)
+	sum, err := ingest.Ingest(seed, 1, csvReader, primaryKeyIndices, ts, cmd.OutOrStdout())
+	if err != nil {
+		return "", nil, err
+	}
+	commit := &versioning.Commit{
+		ContentHash:    sum,
+		Timestamp:      time.Now(),
+		TableStoreType: table.Small,
+	}
+	return file.Name(), commit, nil
+}
+
+func getCommit(cmd *cobra.Command, db kv.DB, memStore *kv.MockStore, cStr string) (inUsedDB kv.DB, hash string, commit *versioning.Commit, err error) {
+	inUsedDB = db
+	if hashPattern.MatchString(cStr) {
+		hash = cStr
+		commit, err = versioning.GetCommit(db, hash)
+		if err == nil {
+			return
+		}
+	}
+	if branchPattern.MatchString(cStr) {
+		var branch *versioning.Branch
+		branch, err = versioning.GetBranch(db, cStr)
+		if err == nil {
+			hash = branch.CommitHash
+			commit, err = versioning.GetCommit(db, hash)
+			return
+		}
+	}
+	if memStore != nil {
+		file, err := os.Open(cStr)
+		if err == nil {
+			inUsedDB = memStore
+			defer file.Close()
+			hash, commit, err = createInMemCommit(cmd, memStore, file)
+			return inUsedDB, hash, commit, err
+		}
+	}
+	if hashPattern.MatchString(cStr) {
+		return nil, "", nil, fmt.Errorf("can't find commit %s", cStr)
+	} else if branchPattern.MatchString(cStr) {
+		return nil, "", nil, fmt.Errorf("can't find branch %s", cStr)
+	}
+	return nil, "", nil, fmt.Errorf("can't find file %s", cStr)
 }
 
 func outputDiffToJSON(cmd *cobra.Command, inflatedChan <-chan diff.InflatedDiff) error {
@@ -80,7 +127,7 @@ func outputDiffToJSON(cmd *cobra.Command, inflatedChan <-chan diff.InflatedDiff)
 	return nil
 }
 
-func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2 string, diffChan <-chan diff.Diff) error {
+func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commitHash2 string, diffChan <-chan diff.Diff) error {
 	var (
 		cols, oldCols, pk []string
 		addedRowReader    *table.KeyListRowReader
@@ -143,7 +190,7 @@ func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2
 				app.Draw()
 			case diff.RowAdd:
 				if addedRowReader == nil {
-					addedRowReader = table.NewKeyListRowReader(db, []string{event.Row})
+					addedRowReader = table.NewKeyListRowReader(db1, []string{event.Row})
 					pkIndices, err := slice.KeyIndices(cols, pk)
 					if err != nil {
 						panic(err)
@@ -158,7 +205,7 @@ func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2
 				app.Draw()
 			case diff.RowRemove:
 				if removedRowReader == nil {
-					removedRowReader = table.NewKeyListRowReader(db, []string{event.Row})
+					removedRowReader = table.NewKeyListRowReader(db2, []string{event.Row})
 					pkIndices, err := slice.KeyIndices(oldCols, pk)
 					if err != nil {
 						panic(err)
@@ -173,7 +220,7 @@ func outputDiffToTerminal(cmd *cobra.Command, db kv.DB, commitHash1, commitHash2
 				app.Draw()
 			case diff.RowChange:
 				if rowChangeReader == nil {
-					rowChangeReader, err := diff.NewRowChangeReader(db, cols, oldCols, pk)
+					rowChangeReader, err := diff.NewRowChangeReader(db1, db2, cols, oldCols, pk)
 					if err != nil {
 						panic(err)
 					}
@@ -222,11 +269,12 @@ func diffCommits(cmd *cobra.Command, cStr1, cStr2, format string) error {
 	}
 	defer kvStore.Close()
 	fs := rd.OpenFileStore()
-	commitHash1, commit1, err := getCommit(kvStore, cStr1)
+	memStore := kv.NewMockStore(false)
+	db1, commitHash1, commit1, err := getCommit(cmd, kvStore, memStore, cStr1)
 	if err != nil {
 		return err
 	}
-	commitHash2, commit2, err := getCommit(kvStore, cStr2)
+	db2, commitHash2, commit2, err := getCommit(cmd, kvStore, memStore, cStr2)
 	if err != nil {
 		return err
 	}
@@ -241,13 +289,13 @@ func diffCommits(cmd *cobra.Command, cStr1, cStr2, format string) error {
 	errChan := make(chan error, 10)
 	diffChan := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan)
 	if format == diffFormatJSON {
-		inflatedChan := diff.Inflate(kvStore, diffChan, errChan)
+		inflatedChan := diff.Inflate(db1, db2, diffChan, errChan)
 		err := outputDiffToJSON(cmd, inflatedChan)
 		if err != nil {
 			return err
 		}
 	} else {
-		err := outputDiffToTerminal(cmd, kvStore, commitHash1, commitHash2, diffChan)
+		err := outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, diffChan)
 		if err != nil {
 			return err
 		}

@@ -43,7 +43,7 @@ func fetchRow(db kv.DB, row string) ([]string, error) {
 	return encoding.DecodeStrings(b)
 }
 
-func Inflate(db kv.DB, diffChan <-chan Diff, errChan chan error) <-chan InflatedDiff {
+func Inflate(db1, db2 kv.DB, diffChan <-chan Diff, errChan chan error) <-chan InflatedDiff {
 	ch := make(chan InflatedDiff)
 	go func() {
 		var (
@@ -74,8 +74,18 @@ func Inflate(db kv.DB, diffChan <-chan Diff, errChan chan error) <-chan Inflated
 					Type:  PrimaryKey,
 					OldPK: event.OldPK,
 				}
-			case RowAdd, RowRemove:
-				row, err := fetchRow(db, event.Row)
+			case RowAdd:
+				row, err := fetchRow(db1, event.Row)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				ch <- InflatedDiff{
+					Type: event.Type,
+					Row:  row,
+				}
+			case RowRemove:
+				row, err := fetchRow(db2, event.Row)
 				if err != nil {
 					errChan <- err
 					return
@@ -87,7 +97,7 @@ func Inflate(db kv.DB, diffChan <-chan Diff, errChan chan error) <-chan Inflated
 			case RowChange:
 				if rowChangeReader == nil {
 					var err error
-					rowChangeReader, err = NewRowChangeReader(db, cols, oldCols, pk)
+					rowChangeReader, err = NewRowChangeReader(db1, db2, cols, oldCols, pk)
 					if err != nil {
 						errChan <- err
 						return

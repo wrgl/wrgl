@@ -19,6 +19,7 @@ func newPreviewCmd() *cobra.Command {
 		Example: strings.Join([]string{
 			`  wrgl preview my-branch`,
 			`  wrgl preview 1a2ed6248c7243cdaaecb98ac12213a7`,
+			`  wrgl preview my-file.csv`,
 		}, "\n"),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -28,7 +29,7 @@ func newPreviewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			hash, commit, err := getCommit(kvStore, cStr)
+			_, hash, commit, err := getCommit(cmd, kvStore, nil, cStr)
 			if err != nil {
 				return err
 			}
