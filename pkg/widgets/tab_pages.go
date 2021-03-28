@@ -84,3 +84,20 @@ func (p *TabPages) Draw(screen tcell.Screen) {
 	defer p.mu.Unlock()
 	p.Flex.Draw(screen)
 }
+
+func (p *TabPages) ProcessInput(event *tcell.EventKey) *tcell.EventKey {
+	key := event.Key()
+	switch key {
+	case tcell.KeyRune:
+		for i, s := range tabKeys {
+			if i >= len(p.items) {
+				break
+			}
+			if s[0] == byte(event.Rune()) {
+				p.tabBar.Highlight(strconv.Itoa(i))
+				return nil
+			}
+		}
+	}
+	return event
+}

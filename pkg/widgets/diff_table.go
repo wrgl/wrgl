@@ -19,6 +19,7 @@ type DiffTable struct {
 	reader           *diff.RowChangeReader
 	headerRow        []*TableCell
 	buf              [][][]*TableCell
+	statusExist      bool
 	bufStart, bufEnd int
 }
 
@@ -34,22 +35,33 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 		colStatuses = append(colStatuses, nil)
 		if col.Added {
 			colStatuses[i] = NewTableCell("Added").SetStyle(addedStyle)
+			t.statusExist = true
 		} else if col.Removed {
 			colStatuses[i] = NewTableCell("Removed").SetStyle(removedStyle)
+			t.statusExist = true
 		} else if col.MovedFrom != -1 {
 			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved from position %d", col.MovedFrom)).SetStyle(movedStyle)
+			t.statusExist = true
 		}
 	}
-	t.DataTable.SetGetCellsFunc(t.getCells).
-		SetShape(t.reader.NumRows()+2, len(t.reader.Columns)).
-		SetPrimaryKeyIndices(t.reader.PKIndices).
-		SetColumnStatuses(colStatuses)
+	t.DataTable.SetGetCellsFunc(t.getCells)
+	if !t.statusExist {
+		t.DataTable.SetShape(t.reader.NumRows()+1, len(t.reader.Columns))
+	} else {
+		t.DataTable.SetShape(t.reader.NumRows()+2, len(t.reader.Columns)).
+			SetColumnStatuses(colStatuses)
+	}
+	t.DataTable.SetPrimaryKeyIndices(t.reader.PKIndices)
 	t.headerRow = headerRow
 	return t
 }
 
 func (t *DiffTable) UpdateRowCount() {
-	t.DataTable.SetShape(t.reader.NumRows()+2, len(t.reader.Columns))
+	if !t.statusExist {
+		t.DataTable.SetShape(t.reader.NumRows()+1, len(t.reader.Columns))
+	} else {
+		t.DataTable.SetShape(t.reader.NumRows()+2, len(t.reader.Columns))
+	}
 }
 
 func (t *DiffTable) rowToCells(row [][]string) [][]*TableCell {

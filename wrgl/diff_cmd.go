@@ -177,11 +177,18 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 
 	tabPages := widgets.NewTabPages()
 
+	usageBar := tableUsageBar()
+
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleBar, 1, 1, false).
 		AddItem(pBar, 1, 1, false).
-		AddItem(tabPages, 0, 1, true)
-	app := tview.NewApplication().SetRoot(flex, true).SetFocus(flex).EnableMouse(true)
+		AddItem(tabPages, 0, 1, true).
+		AddItem(usageBar, 1, 1, false)
+	app := tview.NewApplication().
+		SetRoot(flex, true).
+		SetFocus(flex).
+		EnableMouse(true).
+		SetInputCapture(tabPages.ProcessInput)
 
 	// redraw every 65 ms
 	drawCtx, cancel := context.WithCancel(context.Background())

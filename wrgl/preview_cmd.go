@@ -43,6 +43,24 @@ func newPreviewCmd() *cobra.Command {
 	return cmd
 }
 
+func tableUsageBar() *tview.TextView {
+	usageBar := tview.NewTextView().
+		SetDynamicColors(true).
+		SetWrap(true).
+		SetWordWrap(true)
+	for _, sl := range [][2]string{
+		{"g", "Scroll to begin"},
+		{"G", "Scroll to end"},
+		{"h", "Left"},
+		{"j", "Down"},
+		{"k", "Up"},
+		{"l", "Right"},
+	} {
+		fmt.Fprintf(usageBar, "[black:white] %s [white:black] %s\t", sl[0], sl[1])
+	}
+	return usageBar
+}
+
 func previewTable(cmd *cobra.Command, hash string, commit *versioning.Commit, ts table.Store) error {
 	app := tview.NewApplication().EnableMouse(true)
 
@@ -62,21 +80,7 @@ func previewTable(cmd *cobra.Command, hash string, commit *versioning.Commit, ts
 	defer rowReader.Close()
 	tv := widgets.NewPreviewTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())
 
-	// usage bar
-	usageBar := tview.NewTextView().
-		SetDynamicColors(true).
-		SetWrap(true).
-		SetWordWrap(true)
-	for _, sl := range [][2]string{
-		{"g", "Scroll to begin"},
-		{"G", "Scroll to end"},
-		{"h", "Left"},
-		{"j", "Down"},
-		{"k", "Up"},
-		{"l", "Right"},
-	} {
-		fmt.Fprintf(usageBar, "[black:white] %s [white:black] %s\t", sl[0], sl[1])
-	}
+	usageBar := tableUsageBar()
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleBar, 1, 1, false).
