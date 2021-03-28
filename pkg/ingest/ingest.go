@@ -64,7 +64,6 @@ func printSpinner(out io.Writer, description string) chan bool {
 	startTime := time.Now()
 	maxLineWidth := utf8.RuneCountInString(description) + 2
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-	fmt.Fprintf(out, "\n")
 	go func() {
 		for {
 			select {
@@ -133,6 +132,10 @@ outer:
 	}
 
 	wg.Wait()
+	err := bar.Finish()
+	if err != nil {
+		return "", err
+	}
 	done := printSpinner(out, "Saving table...")
 	defer close(done)
 	return ts.Save()
