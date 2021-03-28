@@ -19,7 +19,7 @@ type PreviewTable struct {
 func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, primaryKeyIndices []int) *PreviewTable {
 	headerRow := []*TableCell{}
 	for _, text := range columns {
-		headerRow = append(headerRow, NewTableCell(text))
+		headerRow = append(headerRow, NewTableCell(text).SetStyle(columnStyle))
 	}
 	t := &PreviewTable{
 		DataTable:    NewDataTable(),
@@ -34,7 +34,7 @@ func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, 
 }
 
 func (t *PreviewTable) SetRowCount(num int) *PreviewTable {
-	t.DataTable.SetShape(num+1, t.columnCount)
+	t.DataTable.SetShape(num+1, t.columnsCount)
 	return t
 }
 
@@ -89,7 +89,7 @@ func (t *PreviewTable) getCells(row, column int) []*TableCell {
 		t.bufStart = row
 		t.bufEnd = row + 1
 		t.buf = [][]*TableCell{t.readRowAt(t.bufStart)}
-		return []*TableCell{t.buf[0][column].SetStyle(cellStyle)}
+		return t.styledCells(0, column)
 	}
 
 	if row < t.bufStart {
@@ -102,5 +102,15 @@ func (t *PreviewTable) getCells(row, column int) []*TableCell {
 		t.bufEnd = row + 1
 		t.buf = append(t.buf, rows...)
 	}
-	return []*TableCell{t.buf[row-t.bufStart][column].SetStyle(cellStyle)}
+	return t.styledCells(row-t.bufStart, column)
+}
+
+func (t *PreviewTable) styledCells(row, column int) []*TableCell {
+	cell := t.buf[row][column]
+	if column < t.pkCount {
+		cell.SetStyle(primaryKeyStyle)
+	} else {
+		cell.SetStyle(cellStyle)
+	}
+	return []*TableCell{cell}
 }

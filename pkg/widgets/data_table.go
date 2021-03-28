@@ -74,6 +74,7 @@ func (t *DataTable) GetShape() (rowCount, columnCount int) {
 
 func (t *DataTable) SetColumnStatuses(cells []*TableCell) *DataTable {
 	t.columnStatuses = cells
+	t.VirtualTable.SetFixed(2, t.pkCount+1)
 	return t
 }
 
@@ -110,7 +111,11 @@ func (t *DataTable) SetPrimaryKeyIndices(pk []int) *DataTable {
 	}
 	t.columnIndices = append(pk, ordinaryCols...)
 	t.pkCount = len(pk)
-	t.VirtualTable.SetFixed(1, t.pkCount+1)
+	if t.columnStatuses != nil {
+		t.VirtualTable.SetFixed(2, t.pkCount+1)
+	} else {
+		t.VirtualTable.SetFixed(1, t.pkCount+1)
+	}
 	return t
 }
 
@@ -155,15 +160,6 @@ func (t *DataTable) getStyledCells(row, column int) []*TableCell {
 		cells[0].SetStyle(rowCountStyle)
 		return cells
 	}
-	if row == 0 {
-		cells[0].SetStyle(columnStyle)
-		return cells
-	}
-	if column <= t.pkCount {
-		for _, cell := range cells {
-			cell.SetStyle(primaryKeyStyle)
-		}
-	}
 	for i, cell := range cells {
 		if row == t.selectedRow && (t.selectedColumn == 0 ||
 			(t.selectedColumn == column && (t.selectedSubColumn == i || len(cells) == 1))) {
@@ -182,14 +178,23 @@ func (t *DataTable) Draw(screen tcell.Screen) {
 	if t.selectedColumn < 0 {
 		t.selectedColumn = 0
 	}
-	if t.selectedRow < 1 {
-		t.selectedRow = 1
-	}
 	if t.selectedColumn >= t.columnCount {
 		t.selectedColumn = t.columnCount - 1
 	}
-	if t.selectedRow >= t.rowCount {
-		t.selectedRow = t.rowCount - 1
+	if t.columnStatuses != nil {
+		if t.selectedRow < 2 {
+			t.selectedRow = 2
+		}
+		if t.selectedRow > t.rowCount+1 {
+			t.selectedRow = t.rowCount + 1
+		}
+	} else {
+		if t.selectedRow < 1 {
+			t.selectedRow = 1
+		}
+		if t.selectedRow > t.rowCount {
+			t.selectedRow = t.rowCount
+		}
 	}
 
 	// Clamp offsets.

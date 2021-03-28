@@ -17,7 +17,7 @@ type ProgressBar struct {
 
 func NewProgressBar(desc string) *ProgressBar {
 	b := &ProgressBar{
-		TextView: tview.NewTextView(),
+		TextView: tview.NewTextView().SetDynamicColors(true),
 		desc:     desc,
 	}
 	return b
@@ -35,6 +35,9 @@ func (b *ProgressBar) SetTotal(num int64) *ProgressBar {
 
 func (b *ProgressBar) Draw(screen tcell.Screen) {
 	b.Box.DrawForSubclass(screen, b)
+	if b.total == 0 {
+		return
+	}
 	_, _, width, _ := b.GetInnerRect()
 	progressStr := fmt.Sprintf("(%d/%d)", b.current, b.total)
 	descWidth := stringWidth(b.desc)

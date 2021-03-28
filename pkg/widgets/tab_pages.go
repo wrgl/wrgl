@@ -1,19 +1,26 @@
 package widgets
 
 import (
-	"bytes"
 	"fmt"
+	"strconv"
+	"sync"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type TabPages struct {
 	*tview.Flex
+	mu             sync.Mutex
 	pages          *tview.Pages
 	tabBar, margin *tview.TextView
 	labels         []string
 	items          []tview.Primitive
 }
+
+var (
+	tabKeys = []string{"q", "w", "e", "r"}
+)
 
 func NewTabPages() *TabPages {
 	p := &TabPages{
@@ -28,7 +35,7 @@ func NewTabPages() *TabPages {
 		SetHighlightedFunc(func(added, removed, remaining []string) {
 			p.pages.SwitchToPage(added[0])
 		})
-	p.Flex.AddItem(p.margin, 1, 1, false).
+	p.Flex.SetDirection(tview.FlexRow).
 		AddItem(p.tabBar, 1, 1, false).
 		AddItem(p.margin, 1, 1, true).
 		AddItem(p.pages, 0, 1, false)
@@ -41,7 +48,15 @@ func (p *TabPages) AddTab(label string, item tview.Primitive) *TabPages {
 	p.items = append(p.items, item)
 	p.labels = append(p.labels, label)
 	p.writeTabBar()
+	p.tabBar.Highlight(strconv.Itoa(len(p.labels) - 1))
 	return p
+}
+
+func (p *TabPages) LastTab() tview.Primitive {
+	if len(p.items) > 0 {
+		return p.items[len(p.items)-1]
+	}
+	return nil
 }
 
 func (p *TabPages) SetLabel(item tview.Primitive, label string) error {
@@ -56,9 +71,16 @@ func (p *TabPages) SetLabel(item tview.Primitive, label string) error {
 }
 
 func (p *TabPages) writeTabBar() {
-	buf := bytes.NewBufferString("")
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.tabBar.Clear()
 	for ind, label := range p.labels {
-		fmt.Fprintf(buf, `["%d"][darkcyan]%s[white][""]  `, ind, label)
+		fmt.Fprintf(p.tabBar, `[yellow](%s)[white] ["%d"]%s[""]  `, tabKeys[ind], ind, label)
 	}
-	p.tabBar.SetText(buf.String())
+}
+
+func (p *TabPages) Draw(screen tcell.Screen) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.Flex.Draw(screen)
 }

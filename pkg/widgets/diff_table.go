@@ -30,7 +30,7 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 	headerRow := []*TableCell{}
 	colStatuses := []*TableCell{}
 	for i, col := range reader.Columns {
-		headerRow = append(headerRow, NewTableCell(col.Name))
+		headerRow = append(headerRow, NewTableCell(col.Name).SetStyle(columnStyle))
 		colStatuses = append(colStatuses, nil)
 		if col.Added {
 			colStatuses[i] = NewTableCell("Added").SetStyle(addedStyle)
@@ -41,15 +41,15 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 		}
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells).
+		SetShape(t.reader.NumRows()+2, len(t.reader.Columns)).
 		SetPrimaryKeyIndices(t.reader.PKIndices).
 		SetColumnStatuses(colStatuses)
-	t.UpdateRowCount()
 	t.headerRow = headerRow
 	return t
 }
 
 func (t *DiffTable) UpdateRowCount() {
-	t.DataTable.SetShape(t.reader.NumRows()+1, len(t.reader.Columns))
+	t.DataTable.SetShape(t.reader.NumRows()+2, len(t.reader.Columns))
 }
 
 func (t *DiffTable) rowToCells(row [][]string) [][]*TableCell {
@@ -121,7 +121,9 @@ func (t *DiffTable) getCells(row, column int) []*TableCell {
 
 func (t *DiffTable) styledCells(row, column int) []*TableCell {
 	cells := t.buf[row][column]
-	if len(cells) == 2 {
+	if column < t.pkCount {
+		cells[0].SetStyle(primaryKeyStyle)
+	} else if len(cells) == 2 {
 		cells[0].SetStyle(addedStyle)
 		cells[1].SetStyle(removedStyle)
 	} else if t.reader.Columns[column].Added {

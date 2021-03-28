@@ -5,8 +5,8 @@ type tableColumn struct {
 	// Total width of a column, consult this value when the cell is not divided
 	Width int
 
-	// Widths of sub-columns, consult this instead when the cell is divided
-	Widths []int
+	// widths of sub-columns, consult this instead when the cell is divided
+	widths []int
 
 	// Column expansion, default to 1, update to max expansion of any solo-cell
 	Expansion int
@@ -30,10 +30,10 @@ func (c *tableColumn) UpdateWidths(sl []int) {
 		return
 	}
 	for i, w := range sl {
-		if i == len(c.Widths) {
-			c.Widths = append(c.Widths, w)
-		} else if w > c.Widths[i] {
-			c.Widths[i] = w
+		if i == len(c.widths) {
+			c.widths = append(c.widths, w)
+		} else if w > c.widths[i] {
+			c.widths[i] = w
 		}
 	}
 }
@@ -63,9 +63,9 @@ func (c *tableColumn) distributeWidth(toDistribute int) {
 	for _, e := range c.expansions {
 		expansionTotal += e
 	}
-	for i := range c.Widths {
+	for i := range c.widths {
 		expWidth := c.expansions[i] * toDistribute / expansionTotal
-		c.Widths[i] += expWidth
+		c.widths[i] += expWidth
 		toDistribute -= expWidth
 		expansionTotal -= c.expansions[i]
 	}
@@ -75,7 +75,7 @@ func (c *tableColumn) distributeWidth(toDistribute int) {
 // after all UpdateWidths calls.
 func (c *tableColumn) DistributeWidth() {
 	combinedWidths := -1
-	for _, w := range c.Widths {
+	for _, w := range c.widths {
 		combinedWidths += w + 1
 	}
 
@@ -101,5 +101,12 @@ func (c *tableColumn) CellWidths(l int) []int {
 	if l == 0 {
 		return []int{-1}
 	}
-	return c.Widths
+	return c.widths
+}
+
+func (c *tableColumn) Widths() []int {
+	if len(c.widths) > 0 {
+		return c.widths
+	}
+	return []int{c.Width}
 }

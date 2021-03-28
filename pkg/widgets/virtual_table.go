@@ -185,13 +185,14 @@ func (t *VirtualTable) cellAt(x, y int) (row, column, subColumn int) {
 		if t.borders {
 			columnX++
 		}
+	columnsLoop:
 		for index, col := range t.visibleColumns {
-			for i, width := range col.Widths {
+			for i, width := range col.Widths() {
 				columnX += width + 1
 				if x < columnX {
 					column = t.visibleColumnIndices[index]
 					subColumn = i
-					break
+					break columnsLoop
 				}
 			}
 		}
@@ -340,7 +341,7 @@ func (t *VirtualTable) drawCells(screen tcell.Screen, rows []int, x, y, width, h
 			widths := column.CellWidths(len(cells))
 
 			subColumnX := 0
-			for _, colWidth := range widths {
+			for i, colWidth := range widths {
 				if t.borders {
 					// Draw borders.
 					cellY := rowY * 2
@@ -377,7 +378,7 @@ func (t *VirtualTable) drawCells(screen tcell.Screen, rows []int, x, y, width, h
 				if columnX+subColumnX+1+colWidth >= width {
 					finalWidth = width - columnX - subColumnX - 1
 				}
-				cell := cells[0]
+				cell := cells[i]
 				cell.SetPosition(x+columnX+subColumnX+1, y+rowY, finalWidth)
 				_, printed, _, _ := printWithStyle(screen, cell.Text, x+columnX+subColumnX+1, y+rowY, 0, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color).Attributes(cell.Attributes), true)
 				if tview.TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {

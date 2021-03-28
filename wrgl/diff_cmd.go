@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -31,8 +32,10 @@ func newDiffCmd() *cobra.Command {
 		Example: strings.Join([]string{
 			`  # show diff between branches`,
 			`  wrgl diff branch-1 branch-2`,
+			``,
 			`  # show diff between commits`,
 			`  wrgl diff 1a2ed6248c7243cdaaecb98ac12213a7 f1cf51efa2c1e22843b0e083efd89792`,
+			``,
 			`  # show diff between files`,
 			`  wrgl diff file-1.csv file-2.csv`,
 		}, "\n"),
@@ -55,7 +58,10 @@ func newDiffCmd() *cobra.Command {
 	return cmd
 }
 
-var hashPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
+var (
+	hashPattern       = regexp.MustCompile(`^[a-f0-9]{32}$`)
+	prevCommitPattern = regexp.MustCompile(`^(.*[^\^])(\^+)$`)
+)
 
 func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (string, *versioning.Commit, error) {
 	defer file.Close()
@@ -77,15 +83,39 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (str
 		Timestamp:      time.Now(),
 		TableStoreType: table.Small,
 	}
+	_, err = commit.Save(db, seed)
+	if err != nil {
+		return "", nil, err
+	}
 	return file.Name(), commit, nil
 }
 
-func getCommit(cmd *cobra.Command, db kv.DB, memStore *kv.MockStore, cStr string) (inUsedDB kv.DB, hash string, commit *versioning.Commit, err error) {
+func getPrevCommit(db kv.Store, hash string, commit *versioning.Commit, goBack int) (string, *versioning.Commit, error) {
+	var err error
+	for goBack > 0 {
+		hash = commit.PrevCommitHash
+		commit, err = versioning.GetCommit(db, hash)
+		if err != nil {
+			return "", nil, err
+		}
+		goBack--
+	}
+	return hash, commit, nil
+}
+
+func getCommit(cmd *cobra.Command, db kv.Store, memStore *kv.MockStore, cStr string) (inUsedDB kv.Store, hash string, commit *versioning.Commit, err error) {
 	inUsedDB = db
+	goBack := 0
+	if prevCommitPattern.MatchString(cStr) {
+		sl := prevCommitPattern.FindStringSubmatch(cStr)
+		cStr = sl[1]
+		goBack = len(sl[2])
+	}
 	if hashPattern.MatchString(cStr) {
 		hash = cStr
 		commit, err = versioning.GetCommit(db, hash)
 		if err == nil {
+			hash, commit, err = getPrevCommit(db, hash, commit, goBack)
 			return
 		}
 	}
@@ -95,6 +125,7 @@ func getCommit(cmd *cobra.Command, db kv.DB, memStore *kv.MockStore, cStr string
 		if err == nil {
 			hash = branch.CommitHash
 			commit, err = versioning.GetCommit(db, hash)
+			hash, commit, err = getPrevCommit(db, hash, commit, goBack)
 			return
 		}
 	}
@@ -150,21 +181,37 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 		AddItem(titleBar, 1, 1, false).
 		AddItem(pBar, 1, 1, false).
 		AddItem(tabPages, 0, 1, true)
-	app := tview.NewApplication().SetRoot(flex, true).SetFocus(flex)
+	app := tview.NewApplication().SetRoot(flex, true).SetFocus(flex).EnableMouse(true)
+
+	// redraw every 65 ms
+	drawCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ticker := time.NewTicker(65 * time.Millisecond)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				app.Draw()
+			case <-drawCtx.Done():
+				return
+			}
+		}
+	}()
 
 	go func() {
+		defer func() {
+			cancel()
+			flex.RemoveItem(pBar)
+			app.SetFocus(tabPages.LastTab())
+			app.Draw()
+		}()
 		for event := range diffChan {
 			switch event.Type {
 			case diff.Init:
 				cols, oldCols, pk = event.Columns, event.OldColumns, event.PK
 			case diff.Progress:
-				if event.Total == event.Progress {
-					flex.RemoveItem(pBar)
-				} else {
-					pBar.SetTotal(event.Total)
-					pBar.SetCurrent(event.Progress)
-				}
-				app.Draw()
+				pBar.SetTotal(event.Total)
+				pBar.SetCurrent(event.Progress)
 			case diff.PrimaryKey:
 				pkChanged = true
 				_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
@@ -187,7 +234,6 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 						widgets.CreateColumnsList(unchanged, added, removed),
 					)
 				}
-				app.Draw()
 			case diff.RowAdd:
 				if addedRowReader == nil {
 					addedRowReader = table.NewKeyListRowReader(db1, []string{event.Row})
@@ -202,7 +248,6 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 					addedTable.SetRowCount(addedRowReader.NumRows())
 					tabPages.SetLabel(addedTable, fmt.Sprintf("+%d rows", addedRowReader.NumRows()))
 				}
-				app.Draw()
 			case diff.RowRemove:
 				if removedRowReader == nil {
 					removedRowReader = table.NewKeyListRowReader(db2, []string{event.Row})
@@ -217,10 +262,10 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 					removedTable.SetRowCount(removedRowReader.NumRows())
 					tabPages.SetLabel(removedTable, fmt.Sprintf("-%d rows", removedRowReader.NumRows()))
 				}
-				app.Draw()
 			case diff.RowChange:
 				if rowChangeReader == nil {
-					rowChangeReader, err := diff.NewRowChangeReader(db1, db2, cols, oldCols, pk)
+					var err error
+					rowChangeReader, err = diff.NewRowChangeReader(db1, db2, cols, oldCols, pk)
 					if err != nil {
 						panic(err)
 					}
@@ -232,32 +277,34 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 					rowChangeTable.UpdateRowCount()
 					tabPages.SetLabel(rowChangeTable, fmt.Sprintf("%d modified", rowChangeReader.NumRows()))
 				}
-				app.Draw()
 			}
 		}
 
-		if addedRowReader == nil && removedRowReader == nil && rowChangeReader == nil && !pkChanged && len(cols) > 0 && !slice.StringSliceEqual(cols, oldCols) {
-			renamedCols := [][2]string{}
-			for i, col := range cols {
-				if col != oldCols[i] {
-					renamedCols = append(renamedCols, [2]string{oldCols[i], col})
+		if !pkChanged && addedRowReader == nil && removedRowReader == nil && rowChangeReader == nil {
+			if len(cols) > 0 && !slice.StringSliceEqual(cols, oldCols) {
+				renamedCols := [][2]string{}
+				for i, col := range cols {
+					if col != oldCols[i] {
+						renamedCols = append(renamedCols, [2]string{oldCols[i], col})
+					}
 				}
-			}
-			if len(renamedCols) > 0 {
-				renamedColumns := tview.NewTextView()
-				renamedColumns.SetBorder(true)
-				for _, names := range renamedCols {
-					fmt.Fprintf(renamedColumns, "[red]%s[white] → [green]%s[white]\n", names[0], names[1])
+				if len(renamedCols) > 0 {
+					renamedColumns := tview.NewTextView().
+						SetDynamicColors(true)
+					for _, names := range renamedCols {
+						fmt.Fprintf(renamedColumns, "[red]%s[white] → [green]%s[white]\n", names[0], names[1])
+					}
+					tabPages.AddTab(
+						fmt.Sprintf("%d renamed columns", len(renamedCols)),
+						renamedColumns,
+					)
 				}
-				tabPages.AddTab(
-					fmt.Sprintf("%d renamed columns", len(renamedCols)),
-					renamedColumns,
-				)
-				app.Draw()
+			} else {
+				app.Stop()
+				cmd.Println("There are no changes!")
 			}
 		}
 	}()
-
 	return app.Run()
 }
 
@@ -278,32 +325,30 @@ func diffCommits(cmd *cobra.Command, cStr1, cStr2, format string) error {
 	if err != nil {
 		return err
 	}
-	ts1, err := commit1.GetTable(kvStore, fs, seed)
+	if commit1.ContentHash == commit2.ContentHash {
+		cmd.Println("There are no changes!")
+		return nil
+	}
+	ts1, err := commit1.GetTable(db1, fs, seed)
 	if err != nil {
 		return err
 	}
-	ts2, err := commit2.GetTable(kvStore, fs, seed)
+	ts2, err := commit2.GetTable(db2, fs, seed)
 	if err != nil {
 		return err
 	}
 	errChan := make(chan error, 10)
+	defer close(errChan)
+	go func() {
+		for err := range errChan {
+			cmd.PrintErrln(err.Error())
+			os.Exit(1)
+		}
+	}()
 	diffChan := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan)
 	if format == diffFormatJSON {
 		inflatedChan := diff.Inflate(db1, db2, diffChan, errChan)
-		err := outputDiffToJSON(cmd, inflatedChan)
-		if err != nil {
-			return err
-		}
-	} else {
-		err := outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, diffChan)
-		if err != nil {
-			return err
-		}
+		return outputDiffToJSON(cmd, inflatedChan)
 	}
-	close(errChan)
-	err, ok := <-errChan
-	if ok {
-		return err
-	}
-	return nil
+	return outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, diffChan)
 }
