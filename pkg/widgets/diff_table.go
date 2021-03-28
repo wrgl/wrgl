@@ -136,8 +136,8 @@ func (t *DiffTable) styledCells(row, column int) []*TableCell {
 	if column < t.pkCount {
 		cells[0].SetStyle(primaryKeyStyle)
 	} else if len(cells) == 2 {
-		cells[0].SetStyle(addedStyle)
-		cells[1].SetStyle(removedStyle)
+		cells[0].SetStyle(addedStyle).SetExpansion(1)
+		cells[1].SetStyle(removedStyle).SetExpansion(1)
 	} else if t.reader.Columns[column].Added {
 		cells[0].SetStyle(addedStyle)
 	} else if t.reader.Columns[column].Removed {

@@ -71,18 +71,23 @@ func (c *tableColumn) distributeWidth(toDistribute int) {
 	}
 }
 
-// DistributeWidth distribute width among sub-columns. Call this once
-// after all UpdateWidths calls.
-func (c *tableColumn) DistributeWidth() {
+func (c *tableColumn) combinedWidths() int {
 	combinedWidths := -1
 	for _, w := range c.widths {
 		combinedWidths += w + 1
 	}
+	return combinedWidths
+}
+
+// DistributeWidth distribute width among sub-columns. Call this once
+// after all UpdateWidths calls.
+func (c *tableColumn) DistributeWidth() {
+	combinedWidths := c.combinedWidths()
 
 	// distribute content width
 	if combinedWidths > c.Width {
 		c.Width = combinedWidths
-	} else if c.Width < combinedWidths {
+	} else if combinedWidths < c.Width {
 		c.distributeWidth(c.Width - combinedWidths)
 	}
 }
@@ -105,7 +110,7 @@ func (c *tableColumn) CellWidths(l int) []int {
 }
 
 func (c *tableColumn) Widths() []int {
-	if len(c.widths) > 0 {
+	if len(c.widths) > 1 {
 		return c.widths
 	}
 	return []int{c.Width}

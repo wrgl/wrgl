@@ -12,6 +12,7 @@ type PreviewTable struct {
 	rowReader        table.RowReader
 	headerRow        []*TableCell
 	buf              [][]*TableCell
+	pkMap            map[int]struct{}
 	columnsCount     int
 	bufStart, bufEnd int
 }
@@ -21,11 +22,16 @@ func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, 
 	for _, text := range columns {
 		headerRow = append(headerRow, NewTableCell(text).SetStyle(columnStyle))
 	}
+	pkMap := map[int]struct{}{}
+	for _, col := range primaryKeyIndices {
+		pkMap[col] = struct{}{}
+	}
 	t := &PreviewTable{
 		DataTable:    NewDataTable(),
 		rowReader:    rowReader,
 		headerRow:    headerRow,
 		columnsCount: len(columns),
+		pkMap:        pkMap,
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells).
 		SetShape(rowCount+1, len(columns)).
@@ -107,7 +113,7 @@ func (t *PreviewTable) getCells(row, column int) []*TableCell {
 
 func (t *PreviewTable) styledCells(row, column int) []*TableCell {
 	cell := t.buf[row][column]
-	if column < t.pkCount {
+	if _, ok := t.pkMap[column]; ok {
 		cell.SetStyle(primaryKeyStyle)
 	} else {
 		cell.SetStyle(cellStyle)

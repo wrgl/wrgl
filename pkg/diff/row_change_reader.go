@@ -20,7 +20,11 @@ type RowChangeReader struct {
 func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeReader, error) {
 	rowChangeCols := compareColumns(oldCols, cols)
 	rowChangeCols = hoistPKTobeginning(rowChangeCols, pk)
-	pkIndices, err := slice.KeyIndices(cols, pk)
+	colNames := []string{}
+	for _, col := range rowChangeCols {
+		colNames = append(colNames, col.Name)
+	}
+	pkIndices, err := slice.KeyIndices(colNames, pk)
 	if err != nil {
 		return nil, err
 	}
