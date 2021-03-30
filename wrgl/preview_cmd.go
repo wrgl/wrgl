@@ -31,11 +31,11 @@ func newPreviewCmd() *cobra.Command {
 			}
 			_, hash, commit, err := getCommit(cmd, kvStore, nil, cStr)
 			if err != nil {
-				return err
+				return fmt.Errorf("getCommit: %v", err)
 			}
 			ts, err := commit.GetTable(kvStore, rd.OpenFileStore(), seed)
 			if err != nil {
-				return err
+				return fmt.Errorf("GetTable: %v", err)
 			}
 			return previewTable(cmd, hash, commit, ts)
 		},
@@ -68,14 +68,14 @@ func previewTable(cmd *cobra.Command, hash string, commit *versioning.Commit, ts
 	titleBar := tview.NewTextView().SetDynamicColors(true)
 	nRows, err := ts.NumRows()
 	if err != nil {
-		return err
+		return fmt.Errorf("NumRows: %v", err)
 	}
 	fmt.Fprintf(titleBar, "[yellow]%s[white]  ([teal]%d[white] x [teal]%d[white])", hash, nRows, len(ts.Columns()))
 
 	// create table
 	rowReader, err := ts.NewRowReader()
 	if err != nil {
-		return err
+		return fmt.Errorf("NewRowReader: %v", err)
 	}
 	defer rowReader.Close()
 	tv := widgets.NewPreviewTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())

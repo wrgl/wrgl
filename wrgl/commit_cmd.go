@@ -156,6 +156,9 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 			Name:  c.User.Name,
 		},
 	}
+	if bigTable {
+		commit.TableStoreType = table.Big
+	}
 	commitSum, err := commit.Save(kvStore, seed)
 	if err != nil {
 		return err
