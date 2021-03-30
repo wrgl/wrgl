@@ -5,9 +5,10 @@ import (
 )
 
 const (
-	letterBytes   = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" // 62 possibilities
-	letterIdxBits = 6                                                                // 6 bits to represent 64 possibilities / indexes
-	letterIdxMask = 1<<letterIdxBits - 1                                             // All 1-bits, as many as letterIdxBits
+	lowerAlphaBytes = "abcdefghijklmnopqrstuvwxyz"
+	letterBytes     = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" // 62 possibilities
+	letterIdxBits   = 6                                                                // 6 bits to represent 64 possibilities / indexes
+	letterIdxMask   = 1<<letterIdxBits - 1                                             // All 1-bits, as many as letterIdxBits
 )
 
 func SecureRandomBytes(length int) []byte {
@@ -19,20 +20,27 @@ func SecureRandomBytes(length int) []byte {
 	return randomBytes
 }
 
-// BrokenRandomAlphaNumericString is broken
-// so don't use it outside of tests
-func BrokenRandomAlphaNumericString(length int) string {
+func brokenRandomString(length int, charSet string) string {
 	result := make([]byte, length)
 	bufferSize := int(float64(length) * 1.3)
 	for i, j, randomBytes := 0, 0, []byte{}; i < length; j++ {
 		if j%bufferSize == 0 {
 			randomBytes = SecureRandomBytes(bufferSize)
 		}
-		if idx := int(randomBytes[j%length] & letterIdxMask); idx < len(letterBytes) {
-			result[i] = letterBytes[idx]
+		if idx := int(randomBytes[j%length] & letterIdxMask); idx < len(charSet) {
+			result[i] = charSet[idx]
 			i++
 		}
 	}
-
 	return string(result)
+}
+
+// BrokenRandomAlphaNumericString is broken
+// so don't use it outside of tests
+func BrokenRandomAlphaNumericString(length int) string {
+	return brokenRandomString(length, letterBytes)
+}
+
+func BrokenRandomLowerAlphaString(length int) string {
+	return brokenRandomString(length, lowerAlphaBytes)
 }

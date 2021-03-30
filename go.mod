@@ -6,6 +6,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/gdamore/tcell/v2 v2.2.0 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/google/uuid v1.0.0
 	github.com/imdario/mergo v0.3.12
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
