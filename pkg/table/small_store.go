@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"io"
+	"sync"
 
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/slice"
@@ -22,9 +23,12 @@ type smallTable struct {
 	Columns     []string
 	PrimaryKeys []int
 	Rows        []KeyHash
+	mu          sync.Mutex
 }
 
 func (t *smallTable) InsertRow(n int, pkHash, rowHash []byte) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	kh := KeyHash{
 		K: string(pkHash),
 		V: rowHash,
