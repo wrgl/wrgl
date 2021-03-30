@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -58,11 +57,6 @@ func newDiffCmd() *cobra.Command {
 	return cmd
 }
 
-var (
-	hashPattern       = regexp.MustCompile(`^[a-f0-9]{32}$`)
-	prevCommitPattern = regexp.MustCompile(`^(.*[^\^])(\^+)$`)
-)
-
 func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (string, *versioning.Commit, error) {
 	defer file.Close()
 	pk, err := cmd.Flags().GetStringSlice("primary-key")
@@ -90,60 +84,20 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (str
 	return file.Name(), commit, nil
 }
 
-func getPrevCommit(db kv.Store, hash string, commit *versioning.Commit, goBack int) (string, *versioning.Commit, error) {
-	var err error
-	for goBack > 0 {
-		hash = commit.PrevCommitHash
-		commit, err = versioning.GetCommit(db, hash)
-		if err != nil {
-			return "", nil, err
-		}
-		goBack--
-	}
-	return hash, commit, nil
-}
-
 func getCommit(cmd *cobra.Command, db kv.Store, memStore *kv.MockStore, cStr string) (inUsedDB kv.Store, hash string, commit *versioning.Commit, err error) {
 	inUsedDB = db
-	goBack := 0
-	if prevCommitPattern.MatchString(cStr) {
-		sl := prevCommitPattern.FindStringSubmatch(cStr)
-		cStr = sl[1]
-		goBack = len(sl[2])
+	var file *os.File
+	hash, commit, file, err = versioning.InterpretCommitName(db, cStr)
+	if err != nil {
+		return
 	}
-	if hashPattern.MatchString(cStr) {
-		hash = cStr
-		commit, err = versioning.GetCommit(db, hash)
-		if err == nil {
-			hash, commit, err = getPrevCommit(db, hash, commit, goBack)
-			return
-		}
+	if memStore != nil && file != nil {
+		inUsedDB = memStore
+		defer file.Close()
+		hash, commit, err = createInMemCommit(cmd, memStore, file)
+		return inUsedDB, hash, commit, err
 	}
-	if branchPattern.MatchString(cStr) {
-		var branch *versioning.Branch
-		branch, err = versioning.GetBranch(db, cStr)
-		if err == nil {
-			hash = branch.CommitHash
-			commit, err = versioning.GetCommit(db, hash)
-			hash, commit, err = getPrevCommit(db, hash, commit, goBack)
-			return
-		}
-	}
-	if memStore != nil {
-		file, err := os.Open(cStr)
-		if err == nil {
-			inUsedDB = memStore
-			defer file.Close()
-			hash, commit, err = createInMemCommit(cmd, memStore, file)
-			return inUsedDB, hash, commit, err
-		}
-	}
-	if hashPattern.MatchString(cStr) {
-		return nil, "", nil, fmt.Errorf("can't find commit %s", cStr)
-	} else if branchPattern.MatchString(cStr) {
-		return nil, "", nil, fmt.Errorf("can't find branch %s", cStr)
-	}
-	return nil, "", nil, fmt.Errorf("can't find file %s", cStr)
+	return
 }
 
 func outputDiffToJSON(cmd *cobra.Command, inflatedChan <-chan diff.InflatedDiff) error {

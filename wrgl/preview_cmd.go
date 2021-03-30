@@ -29,9 +29,12 @@ func newPreviewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, hash, commit, err := getCommit(cmd, kvStore, nil, cStr)
+			hash, commit, _, err := versioning.InterpretCommitName(kvStore, cStr)
 			if err != nil {
 				return fmt.Errorf("getCommit: %v", err)
+			}
+			if commit == nil {
+				return fmt.Errorf("commit \"%s\" not found", cStr)
 			}
 			ts, err := commit.GetTable(kvStore, rd.OpenFileStore(), seed)
 			if err != nil {

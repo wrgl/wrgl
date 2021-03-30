@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"regexp"
 	"runtime"
 	"time"
 
@@ -12,10 +11,6 @@ import (
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
-)
-
-var (
-	branchPattern = regexp.MustCompile(`^[-_0-9a-zA-Z]+$`)
 )
 
 func newCommitCmd() *cobra.Command {
@@ -99,7 +94,7 @@ func getRepoDir(cmd *cobra.Command) *repoDir {
 }
 
 func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, bigTable, smallTable bool) error {
-	if !branchPattern.MatchString(branchName) {
+	if !versioning.BranchPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
 	c, err := aggregateConfig(cmd.ErrOrStderr())
