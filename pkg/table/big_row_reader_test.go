@@ -13,16 +13,12 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func createBigStore(t *testing.T, pk []int, rows []string) (ts Store, pkHashes, rowHashes [][]byte, cleanUp func()) {
+func createBigStore(t *testing.T, db kv.Store, fs kv.FileStore, pk []int, rows []string) (ts *BigStore, sum string, pkHashes, rowHashes [][]byte) {
 	t.Helper()
-	db := kv.NewMockStore(false)
-	dir, err := ioutil.TempDir("", "file_store_test")
-	require.NoError(t, err)
-	cleanUp = func() { os.RemoveAll(dir) }
-	filestore := kv.NewFileStore(dir)
 	columns := strings.Split(rows[0], ",")
 	var seed uint64 = 0
-	ts, err = NewBigStore(db, filestore, columns, pk, seed)
+	it, err := NewBigStore(db, fs, columns, pk, seed)
+	ts = it.(*BigStore)
 	require.NoError(t, err)
 
 	for i := 0; i < len(rows)-1; i++ {
@@ -34,21 +30,46 @@ func createBigStore(t *testing.T, pk []int, rows []string) (ts Store, pkHashes, 
 		err = ts.InsertRow(i, pkHashes[i], rowHashes[i], []byte(row))
 		require.NoError(t, err)
 	}
-	_, err = ts.Save()
+	sum, err = ts.Save()
 	require.NoError(t, err)
 
 	return
 }
 
+func createTempFileStore(t *testing.T) (fs kv.FileStore, cleanUp func()) {
+	t.Helper()
+	dir, err := ioutil.TempDir("", "file_store_test")
+	require.NoError(t, err)
+	cleanUp = func() { os.RemoveAll(dir) }
+	fs = kv.NewFileStore(dir)
+	return
+}
+
+func buildBigStore(t *testing.T, db kv.Store, fs kv.FileStore) (ts *BigStore, sum string) {
+	rows := []string{}
+	for i := 0; i < 4; i++ {
+		row := []string{}
+		for j := 0; j < 3; j++ {
+			row = append(row, testutils.BrokenRandomLowerAlphaString(3))
+		}
+		rows = append(rows, strings.Join(row, ","))
+	}
+	ts, sum, _, _ = createBigStore(t, db, fs, []int{0}, rows)
+	return
+}
+
 func TestBigRowReader(t *testing.T) {
-	ts, _, rowHashes, cleanUp := createBigStore(t, []int{0}, []string{
+	db := kv.NewMockStore(false)
+	fs, cleanUp := createTempFileStore(t)
+	defer cleanUp()
+
+	ts, _, _, rowHashes := createBigStore(t, db, fs, []int{0}, []string{
 		"a,b,c",
 		"1,d,e",
 		"2,f,g",
 		"3,h,i",
 		"4,j,k",
 	})
-	defer cleanUp()
 	l, err := ts.NumRows()
 	require.NoError(t, err)
 	assert.Equal(t, 4, l)

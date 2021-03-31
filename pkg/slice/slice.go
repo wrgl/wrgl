@@ -2,6 +2,7 @@ package slice
 
 import (
 	"fmt"
+	"sort"
 )
 
 func DuplicatedString(s []string) string {
@@ -97,4 +98,15 @@ func CompareStringSlices(slice, oldSlice []string) (unchanged, added, removed []
 		}
 	}
 	return
+}
+
+func InsertToSortedStringSlice(sl []string, s string) []string {
+	i := sort.SearchStrings(sl, s)
+	if i == 0 {
+		sl = append([]string{s}, sl...)
+	} else {
+		sl = append(sl[:i], sl[i-1:]...)
+		sl[i] = s
+	}
+	return sl
 }

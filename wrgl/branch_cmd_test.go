@@ -46,8 +46,8 @@ func TestBranchCmdList(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	factory.BuildBranch(t, db, "alpha", nil)
-	factory.BuildBranch(t, db, "beta", nil)
+	factory.CommitSmall(t, db, "alpha", nil, nil, nil)
+	factory.CommitSmall(t, db, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	// test list branch
@@ -70,8 +70,8 @@ func TestBranchCmdCopy(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	b := factory.BuildBranch(t, db, "alpha", nil)
-	factory.BuildBranch(t, db, "beta", nil)
+	sum, _ := factory.CommitSmall(t, db, "alpha", nil, nil, nil)
+	factory.CommitSmall(t, db, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	setCmdArgs(cmd, rd, "branch", "gamma", "--copy", "delta")
@@ -81,14 +81,14 @@ func TestBranchCmdCopy(t *testing.T) {
 	assert.Equal(t, `branch "beta" already exist`, cmd.Execute().Error())
 
 	setCmdArgs(cmd, rd, "branch", "alpha", "--copy", "gamma")
-	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", b.CommitHash))
+	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", sum))
 
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
 	b1, err := versioning.GetBranch(db, "gamma")
 	require.NoError(t, err)
-	assert.Equal(t, b.CommitHash, b1.CommitHash)
+	assert.Equal(t, sum, b1.CommitHash)
 	b2, err := versioning.GetBranch(db, "alpha")
 	require.NoError(t, err)
 	assert.Equal(t, b1.CommitHash, b2.CommitHash)
@@ -101,8 +101,8 @@ func TestBranchCmdMove(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	b := factory.BuildBranch(t, db, "alpha", nil)
-	factory.BuildBranch(t, db, "beta", nil)
+	sum, _ := factory.CommitSmall(t, db, "alpha", nil, nil, nil)
+	factory.CommitSmall(t, db, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	setCmdArgs(cmd, rd, "branch", "gamma", "--move", "delta")
@@ -112,14 +112,14 @@ func TestBranchCmdMove(t *testing.T) {
 	assert.Equal(t, `branch "beta" already exist`, cmd.Execute().Error())
 
 	setCmdArgs(cmd, rd, "branch", "alpha", "--move", "gamma")
-	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", b.CommitHash))
+	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", sum))
 
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
 	b1, err := versioning.GetBranch(db, "gamma")
 	require.NoError(t, err)
-	assert.Equal(t, b.CommitHash, b1.CommitHash)
+	assert.Equal(t, sum, b1.CommitHash)
 	_, err = versioning.GetBranch(db, "alpha")
 	assert.Error(t, err)
 }
@@ -131,7 +131,7 @@ func TestBranchCmdDelete(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	factory.BuildBranch(t, db, "alpha", nil)
+	factory.CommitSmall(t, db, "alpha", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	setCmdArgs(cmd, rd, "branch", "gamma", "--delete")
@@ -154,24 +154,24 @@ func TestBranchCmdCreate(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	b := factory.BuildBranch(t, db, "alpha", nil)
+	sum, _ := factory.CommitSmall(t, db, "alpha", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	setCmdArgs(cmd, rd, "branch", "delta")
 	assert.Equal(t, "please specify both branch name and start point (could be branch name, commit hash)", cmd.Execute().Error())
 
 	setCmdArgs(cmd, rd, "branch", "delta", "alpha")
-	assertCmdOutput(t, cmd, fmt.Sprintf("created branch delta (%s)\n", b.CommitHash))
+	assertCmdOutput(t, cmd, fmt.Sprintf("created branch delta (%s)\n", sum))
 
-	setCmdArgs(cmd, rd, "branch", "beta", b.CommitHash)
-	assertCmdOutput(t, cmd, fmt.Sprintf("created branch beta (%s)\n", b.CommitHash))
+	setCmdArgs(cmd, rd, "branch", "beta", sum)
+	assertCmdOutput(t, cmd, fmt.Sprintf("created branch beta (%s)\n", sum))
 
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
 	b1, err := versioning.GetBranch(db, "delta")
 	require.NoError(t, err)
-	assert.Equal(t, b.CommitHash, b1.CommitHash)
+	assert.Equal(t, sum, b1.CommitHash)
 	b2, err := versioning.GetBranch(db, "beta")
 	require.NoError(t, err)
 	assert.Equal(t, b1.CommitHash, b2.CommitHash)

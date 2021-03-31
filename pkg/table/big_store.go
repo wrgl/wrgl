@@ -10,8 +10,10 @@ import (
 
 const bufferSize = 256 * 1024
 
+var bigTablePrefix = []byte("big_tables/")
+
 func bigTableKey(hash string) []byte {
-	return []byte("big_tables/" + hash)
+	return append(bigTablePrefix, hash...)
 }
 
 type bigTable struct {
@@ -172,4 +174,17 @@ func DeleteBigStore(db kv.Store, fs kv.FileStore, hash string) error {
 		return err
 	}
 	return db.Delete(bigTableKey(hash))
+}
+
+func GetAllBigTableHashes(db kv.DB) ([]string, error) {
+	sl, err := db.FilterKey(bigTablePrefix)
+	if err != nil {
+		return nil, err
+	}
+	l := len(bigTablePrefix)
+	result := []string{}
+	for _, h := range sl {
+		result = slice.InsertToSortedStringSlice(result, h[l:])
+	}
+	return result, nil
 }

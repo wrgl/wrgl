@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"io/ioutil"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,6 +44,7 @@ func TestBigStoreInsertRow(t *testing.T) {
 	sum, err := ts.Save()
 	require.NoError(t, err)
 	assert.Equal(t, "df0167a307d078f008cbd26b59d03522", sum)
+
 	n, err := ts.NumRows()
 	require.NoError(t, err)
 	assert.Equal(t, 2, n)
@@ -137,4 +139,18 @@ func TestBigStoreNewRowHashReader(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, c.rows, readAllRowHashes(t, rhr), "case %d", i)
 	}
+}
+
+func TestGetAllBigTableHashes(t *testing.T) {
+	db := kv.NewMockStore(false)
+	fs := kv.NewMockStore(false)
+
+	_, sum1 := buildBigStore(t, db, fs)
+	_, sum2 := buildBigStore(t, db, fs)
+	names := []string{sum1, sum2}
+	sort.Strings(names)
+
+	sl, err := GetAllBigTableHashes(db)
+	require.NoError(t, err)
+	assert.Equal(t, names, sl)
 }

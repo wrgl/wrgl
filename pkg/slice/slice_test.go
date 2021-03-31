@@ -126,3 +126,18 @@ func TestCompareStringSlices(t *testing.T) {
 		assert.Equal(t, c.removed, removed, "case %d", i)
 	}
 }
+
+func TestInsertToSortedStringSlice(t *testing.T) {
+	for i, c := range []struct {
+		Strings  []string
+		String   string
+		Expected []string
+	}{
+		{nil, "a", []string{"a"}},
+		{[]string{"b"}, "a", []string{"a", "b"}},
+		{[]string{"a", "c"}, "b", []string{"a", "b", "c"}},
+		{[]string{"a", "b"}, "d", []string{"a", "b", "d"}},
+	} {
+		assert.Equal(t, c.Expected, InsertToSortedStringSlice(c.Strings, c.String), "case %d", i)
+	}
+}

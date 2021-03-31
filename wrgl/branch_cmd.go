@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/gobwas/glob"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/versioning"
 )
 
@@ -97,13 +97,7 @@ func listBranch(cmd *cobra.Command, kvStore kv.Store, globs []glob.Glob) error {
 	}
 	names := []string{}
 	for name := range branchMap {
-		i := sort.SearchStrings(names, name)
-		if i == 0 {
-			names = append([]string{name}, names...)
-		} else {
-			names = append(names[:i], names[i-1:]...)
-			names[i] = name
-		}
+		names = slice.InsertToSortedStringSlice(names, name)
 	}
 	for _, name := range names {
 		if len(globs) > 0 {

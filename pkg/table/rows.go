@@ -2,10 +2,13 @@ package table
 
 import (
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/slice"
 )
 
+var rowPrefix = []byte("rows/")
+
 func rowKey(sum []byte) []byte {
-	return append([]byte("rows/"), sum...)
+	return append(rowPrefix, sum...)
 }
 
 func SaveRow(s kv.DB, k, v []byte) error {
@@ -30,4 +33,17 @@ func GetRows(s kv.DB, keys [][]byte) ([][]byte, error) {
 
 func DeleteRow(s kv.DB, k []byte) error {
 	return s.Delete(rowKey(k))
+}
+
+func GetAllRowKeys(db kv.DB) ([]string, error) {
+	sl, err := db.FilterKey(rowPrefix)
+	if err != nil {
+		return nil, err
+	}
+	l := len(rowPrefix)
+	result := []string{}
+	for _, h := range sl {
+		result = slice.InsertToSortedStringSlice(result, h[l:])
+	}
+	return result, nil
 }

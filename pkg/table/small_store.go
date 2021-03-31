@@ -10,8 +10,10 @@ import (
 	"github.com/wrgl/core/pkg/slice"
 )
 
+var smallTablePrefix = []byte("tables/")
+
 func smallTableKey(hash string) []byte {
-	return []byte("tables/" + hash)
+	return append(smallTablePrefix, []byte(hash)...)
 }
 
 type KeyHash struct {
@@ -213,4 +215,17 @@ func ReadSmallStore(s kv.DB, seed uint64, hash string) (*SmallStore, error) {
 
 func DeleteSmallStore(db kv.DB, hash string) error {
 	return db.Delete(smallTableKey(hash))
+}
+
+func GetAllSmallTableHashes(db kv.DB) ([]string, error) {
+	sl, err := db.FilterKey(smallTablePrefix)
+	if err != nil {
+		return nil, err
+	}
+	l := len(smallTablePrefix)
+	result := []string{}
+	for _, h := range sl {
+		result = slice.InsertToSortedStringSlice(result, h[l:])
+	}
+	return result, nil
 }

@@ -22,6 +22,10 @@ func TestSaveRows(t *testing.T) {
 		[]byte("4564567"),
 	}, m)
 
+	sl, err := GetAllRowKeys(s)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"abcasdf", "defqwer"}, sl)
+
 	err = DeleteRow(s, []byte("abcasdf"))
 	require.NoError(t, err)
 	_, err = GetRows(s, [][]byte{[]byte("abcasdf")})

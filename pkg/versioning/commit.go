@@ -9,6 +9,7 @@ import (
 	"github.com/mmcloughlin/meow"
 
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
 )
 
@@ -43,12 +44,10 @@ func (c *Commit) GetTable(db kv.Store, fs kv.FileStore, seed uint64) (table.Stor
 	return table.ReadSmallStore(db, seed, c.ContentHash)
 }
 
-func commitPrefix() []byte {
-	return []byte("commit/")
-}
+var commitPrefix = []byte("commit/")
 
 func commitKey(hash string) []byte {
-	return append(commitPrefix(), []byte(hash)...)
+	return append(commitPrefix, []byte(hash)...)
 }
 
 func (c *Commit) Save(s kv.DB, seed uint64) (string, error) {
@@ -90,7 +89,7 @@ func GetCommit(s kv.DB, hash string) (*Commit, error) {
 }
 
 func GetAllCommits(s kv.DB) ([]*Commit, error) {
-	m, err := s.Filter(commitPrefix())
+	m, err := s.Filter(commitPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -107,15 +106,14 @@ func GetAllCommits(s kv.DB) ([]*Commit, error) {
 }
 
 func GetAllCommitHashes(s kv.DB) ([]string, error) {
-	prefix := commitPrefix()
-	sl, err := s.FilterKey(prefix)
+	sl, err := s.FilterKey(commitPrefix)
 	if err != nil {
 		return nil, err
 	}
-	l := len(prefix)
+	l := len(commitPrefix)
 	result := []string{}
 	for _, h := range sl {
-		result = append(result, h[l:])
+		result = slice.InsertToSortedStringSlice(result, h[l:])
 	}
 	return result, nil
 }
@@ -125,5 +123,5 @@ func DeleteCommit(s kv.DB, hash string) error {
 }
 
 func DeleteAllCommit(s kv.Store) error {
-	return s.Clear(commitPrefix())
+	return s.Clear(commitPrefix)
 }

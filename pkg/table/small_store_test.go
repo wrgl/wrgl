@@ -2,11 +2,14 @@ package table
 
 import (
 	"io"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/testutils"
 )
 
 func readAllRowHashes(t *testing.T, reader RowHashReader) [][2]string {
@@ -125,4 +128,52 @@ func TestSmallStoreNewRowHashReader(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, c.rows, readAllRowHashes(t, rhr))
 	}
+}
+
+func createSmallStore(t *testing.T, db kv.Store, pk []int, rows []string) (ts *SmallStore, sum string, pkHashes, rowHashes [][]byte) {
+	t.Helper()
+	columns := strings.Split(rows[0], ",")
+	var seed uint64 = 0
+	it := NewSmallStore(db, columns, pk, seed)
+	ts = it.(*SmallStore)
+
+	for i := 0; i < len(rows)-1; i++ {
+		pkHashes = append(pkHashes, testutils.SecureRandomBytes(16))
+		rowHashes = append(rowHashes, testutils.SecureRandomBytes(16))
+	}
+
+	for i, row := range rows[1:] {
+		err := ts.InsertRow(i, pkHashes[i], rowHashes[i], []byte(row))
+		require.NoError(t, err)
+	}
+	sum, err := ts.Save()
+	require.NoError(t, err)
+
+	return
+}
+
+func buildSmallStore(t *testing.T, db kv.Store) (ts *SmallStore, sum string) {
+	rows := []string{}
+	for i := 0; i < 4; i++ {
+		row := []string{}
+		for j := 0; j < 3; j++ {
+			row = append(row, testutils.BrokenRandomLowerAlphaString(3))
+		}
+		rows = append(rows, strings.Join(row, ","))
+	}
+	ts, sum, _, _ = createSmallStore(t, db, []int{0}, rows)
+	return
+}
+
+func TestGetAllSmallTableHashes(t *testing.T) {
+	db := kv.NewMockStore(false)
+
+	_, sum1 := buildSmallStore(t, db)
+	_, sum2 := buildSmallStore(t, db)
+	names := []string{sum1, sum2}
+	sort.Strings(names)
+
+	sl, err := GetAllSmallTableHashes(db)
+	require.NoError(t, err)
+	assert.Equal(t, names, sl)
 }
