@@ -10,7 +10,7 @@ import (
 func newResetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reset BRANCH COMMIT",
-		Short: "Reset branch's head commit to the specified commit",
+		Short: "Reset branch head commit to the specified commit",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]

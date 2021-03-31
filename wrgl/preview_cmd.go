@@ -15,7 +15,7 @@ import (
 func newPreviewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "preview COMMIT",
-		Short: "Shows commit's data in a table view",
+		Short: "Shows commit data in a table view",
 		Example: strings.Join([]string{
 			`  wrgl preview my-branch`,
 			`  wrgl preview 1a2ed6248c7243cdaaecb98ac12213a7`,
