@@ -65,15 +65,17 @@ jobs:
       - id: get_version
         uses: battila7/get-version-action@v2
       - name: Put version number in install script
-        uses: jacobtomlinson/gha-find-replace@master
+        uses: bluwy/substitute-string-action@v1
+        id: sub
         with:
-          find: "@@WRGL_VERSION@@"
-          replace: "${{ steps.get_version.outputs.version }}"
-          include: .github/workflows/template/install.sh
+          _input-file: "./.github/workflows/template/install.sh"
+          _output-file: "./build/install.sh"
+          _format-key: "%%key%%"
+          version: "${{ steps.get_version.outputs.version }}"
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           files: |
             build/*.tar.gz
-            .github/workflows/template/install.sh
+            build/install.sh

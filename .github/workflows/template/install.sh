@@ -4,7 +4,7 @@
 # It should be run as root, and can be run directly from GitHub,
 # for example as:
 #
-#   curl https://raw.githubusercontent.com/wrgl/core/main/scripts/install.sh | sudo bash
+#   sudo bash -c 'curl -L https://github.com/wrgl/core/releases/latest/download/install.sh | bash'
 #
 # All downloads occur over HTTPS from the Github releases page.
 
@@ -17,7 +17,7 @@ _() {
 
 set -euo pipefail
 
-WRGL_VERSION=@@WRGL_VERSION@@
+WRGL_VERSION=%%version%%
 RELEASES_BASE_URL=https://github.com/wrgl/core/releases/download/"$WRGL_VERSION"
 INSTALL_URL=$RELEASES_BASE_URL/install.sh
 
@@ -74,7 +74,7 @@ assert_dependencies() {
 assert_uid_zero() {
   uid=`id -u`
   if [ "$uid" != 0 ]; then
-    fail "E_UID_NONZERO" "wrgl install.sh must run as root; please try running with sudo or running\n\`curl $INSTALL_URL | sudo bash\`."
+    fail "E_UID_NONZERO" "wrgl install.sh must run as root; please try running with sudo or running\n\`sudo bash -c 'curl -L $INSTALL_URL | bash'\`."
   fi
 }
 
@@ -93,7 +93,7 @@ install_binary_release() {
   echo "Downloading:" $URL
   curl -A "$CURL_USER_AGENT" -fsL "$URL" > "$FILE"
   tar zxf "$FILE"
-  echo "Installing wrgl, git-wrgl and git-wrgl-smudge to /usr/local/bin."
+  echo "Installing wrgl to /usr/local/bin."
   [ -d /usr/local/bin ] || install -o 0 -g 0 -d /usr/local/bin
   install -o 0 -g 0 wrgl-$PLATFORM_TUPLE/bin/wrgl /usr/local/bin
   install -o 0 -g 0 -d /usr/local/share/doc/wrgl/
