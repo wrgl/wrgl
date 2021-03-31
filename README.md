@@ -2,6 +2,12 @@
 
 Git-like data versioning. It can handle files up to 10s of Gigabytes. An alternative is [dolt](https://github.com/dolthub/dolt).
 
+## Installation
+
+```bash
+sudo bash -c 'curl -L https://github.com/wrgl/core/releases/latest/download/install.sh | bash'
+```
+
 ## Usage
 
 ```bash
