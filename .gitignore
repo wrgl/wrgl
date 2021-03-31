@@ -16,3 +16,6 @@
 
 # wrgl repos
 *.wrgl
+
+# build folder
+build
