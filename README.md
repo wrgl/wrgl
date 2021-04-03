@@ -1,6 +1,6 @@
 # WRGL
 
-Git-like data versioning. It can handle files up to 10s of Gigabytes. How it differs to other alternative such as [dolt](https://github.com/dolthub/dolt) is that it doesn't require a schema up front, any arbitrary CSV file can be commited and that it can display much more detailed diff.
+Git-like data versioning. It can handle files up to 10s of Gigabytes. How it differs from other alternative such as [dolt](https://github.com/dolthub/dolt) is that it doesn't require a schema up front, any arbitrary CSV file can be commited and that it can display much more detailed diff.
 
 ## Installation
 
