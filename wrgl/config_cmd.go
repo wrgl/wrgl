@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,7 +25,7 @@ func newConfigCmd() *cobra.Command {
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			prop := args[0]
-			file, err := cmd.Flags().GetString("file")
+			file, err := cmd.Flags().GetString("config-file")
 			if err != nil {
 				return err
 			}
@@ -34,17 +35,27 @@ func newConfigCmd() *cobra.Command {
 			}
 			c, err := openConfig(global, file)
 			if err != nil {
-				return err
+				return fmt.Errorf("open config error: %v", err)
 			}
 			if len(args) == 2 {
 				return writeConfigProp(cmd, c, prop, args[1])
+			}
+
+			local, err := cmd.Flags().GetBool("local")
+			if err != nil {
+				return err
+			}
+			if file == "" && !global && !local {
+				c, err = aggregateConfig(cmd)
+				if err != nil {
+					return fmt.Errorf("aggregate config error: %v", err)
+				}
 			}
 			return readConfigProp(cmd, c, prop)
 		},
 	}
 	cmd.Flags().Bool("global", false, "Read from/write to global file $XDG_CONFIG_HOME/wrgl/config.yaml.")
-	cmd.Flags().Bool("local", true, "Read from/write to file .wrglconfig.yaml. This is the default behavior.")
-	cmd.Flags().StringP("file", "f", "", "Use the given config file instead.")
+	cmd.Flags().Bool("local", false, "Read from/write to file .wrglconfig.yaml. If no flag are set during write then --local is assumed. However if no flag are set during read then all config sources will be aggregated.")
 	return cmd
 }
 
@@ -59,7 +70,7 @@ func writeConfigProp(cmd *cobra.Command, c *Config, prop, val string) error {
 func readConfigProp(cmd *cobra.Command, c *Config, prop string) error {
 	v, err := GetWithDotNotation(c, prop)
 	if err != nil {
-		return err
+		return fmt.Errorf("config is not set")
 	}
 	if v == nil {
 		return nil
@@ -71,7 +82,7 @@ func readConfigProp(cmd *cobra.Command, c *Config, prop string) error {
 	} else {
 		b, err := json.Marshal(v)
 		if err != nil {
-			return err
+			return fmt.Errorf("parse json error: %v", err)
 		}
 		cmd.Println(string(b))
 	}

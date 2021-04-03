@@ -100,7 +100,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	if !versioning.BranchPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
-	c, err := aggregateConfig(cmd.ErrOrStderr())
+	c, err := aggregateConfig(cmd)
 	if err != nil {
 		return err
 	}

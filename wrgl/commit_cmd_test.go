@@ -27,20 +27,33 @@ func createRandomCSVFile(t *testing.T) (filePath string) {
 	return file.Name()
 }
 
+func createConfigFile(t *testing.T) (fp string, cleanup func()) {
+	t.Helper()
+	f, err := ioutil.TempFile("", "test_config_*.json")
+	require.NoError(t, err)
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"config", "user.email", "john@domain.com", "--config-file", f.Name()})
+	require.NoError(t, cmd.Execute())
+	cmd.SetArgs([]string{"config", "user.name", "John Doe", "--config-file", f.Name()})
+	require.NoError(t, cmd.Execute())
+	return f.Name(), func() { os.Remove(f.Name()) }
+}
+
 func TestCommitCmd(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+	cf, cleanup := createConfigFile(t)
 	defer cleanup()
 
 	fp := createRandomCSVFile(t)
 	defer os.Remove(fp)
 
 	cmd := newRootCmd()
-	setCmdArgs(cmd, rd, "commit", "my-branch", fp, "initial commit", "-n", "1")
-	cmd.SetErr(ioutil.Discard)
+	setCmdArgs(cmd, rd, cf, "commit", "my-branch", fp, "initial commit", "-n", "1")
 	cmd.SetOut(ioutil.Discard)
 	require.NoError(t, cmd.Execute())
 
-	setCmdArgs(cmd, rd, "export", "my-branch")
+	setCmdArgs(cmd, rd, cf, "export", "my-branch")
 	b, err := ioutil.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
@@ -49,17 +62,18 @@ func TestCommitCmd(t *testing.T) {
 func TestCommitCmdBigTable(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
+	cf, cleanup := createConfigFile(t)
+	defer cleanup()
 
 	fp := createRandomCSVFile(t)
 	defer os.Remove(fp)
 
 	cmd := newRootCmd()
-	setCmdArgs(cmd, rd, "commit", "my-branch", fp, "initial commit", "-n", "1", "--big-table")
-	cmd.SetErr(ioutil.Discard)
+	setCmdArgs(cmd, rd, cf, "commit", "my-branch", fp, "initial commit", "-n", "1", "--big-table")
 	cmd.SetOut(ioutil.Discard)
 	require.NoError(t, cmd.Execute())
 
-	setCmdArgs(cmd, rd, "export", "my-branch")
+	setCmdArgs(cmd, rd, cf, "export", "my-branch")
 	b, err := ioutil.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))

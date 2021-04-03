@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 
 	"github.com/imdario/mergo"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
@@ -88,6 +88,9 @@ func findLocalConfigFile() (string, error) {
 }
 
 func readConfig(fp string) (*Config, error) {
+	if fp == "" {
+		return &Config{}, nil
+	}
 	f, err := os.Open(fp)
 	c := &Config{}
 	if os.IsNotExist(err) {
@@ -129,8 +132,16 @@ func openConfig(global bool, file string) (*Config, error) {
 	return readConfig(fp)
 }
 
-func aggregateConfig(out io.Writer) (*Config, error) {
-	fp, err := findLocalConfigFile()
+func aggregateConfig(cmd *cobra.Command) (*Config, error) {
+	fp, err := cmd.Flags().GetString("config-file")
+	if err != nil {
+		return nil, err
+	}
+	fileConfig, err := readConfig(fp)
+	if err != nil {
+		return nil, err
+	}
+	fp, err = findLocalConfigFile()
 	if err != nil {
 		return nil, err
 	}
@@ -150,13 +161,18 @@ func aggregateConfig(out io.Writer) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	localConfig.path = ""
-	if localConfig.User == nil || localConfig.User.Email == "" {
+	err = mergo.Merge(fileConfig, localConfig)
+	if err != nil {
+		return nil, err
+	}
+	fileConfig.path = ""
+	out := cmd.ErrOrStderr()
+	if fileConfig.User == nil || fileConfig.User.Email == "" {
 		fmt.Fprintln(out, "User config not set. Set your user config with like this:")
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, `  wrgl config --global user.email "john-doe@domain.com"`)
 		fmt.Fprintln(out, `  wrgl config --global user.name "John Doe"`)
 		os.Exit(1)
 	}
-	return localConfig, nil
+	return fileConfig, nil
 }

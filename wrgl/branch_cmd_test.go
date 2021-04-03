@@ -35,13 +35,15 @@ func assertCmdOutput(t *testing.T, cmd *cobra.Command, output string) {
 	assert.Equal(t, output, buf.String())
 }
 
-func setCmdArgs(cmd *cobra.Command, rd *repoDir, args ...string) {
-	cmd.SetArgs(append(args, "--root-dir", rd.rootDir))
+func setCmdArgs(cmd *cobra.Command, rd *repoDir, configFilePath string, args ...string) {
+	cmd.SetArgs(append(args, "--root-dir", rd.rootDir, "--config-file", configFilePath))
 }
 
 func TestBranchCmdList(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
+	cf, cleanup := createConfigFile(t)
+	defer cleanup()
 	cmd := newRootCmd()
 
 	db, err := rd.OpenKVStore()
@@ -51,21 +53,23 @@ func TestBranchCmdList(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	// test list branch
-	setCmdArgs(cmd, rd, "branch")
+	setCmdArgs(cmd, rd, cf, "branch")
 	assertCmdOutput(t, cmd, "alpha\nbeta\n")
 
 	// test list branch with pattern
-	setCmdArgs(cmd, rd, "branch", "--list", "al*")
+	setCmdArgs(cmd, rd, cf, "branch", "--list", "al*")
 	assertCmdOutput(t, cmd, "alpha\n")
 
 	// test list branch with multiple patterns
-	setCmdArgs(cmd, rd, "branch", "--list", "al*", "--list", "b*")
+	setCmdArgs(cmd, rd, cf, "branch", "--list", "al*", "--list", "b*")
 	assertCmdOutput(t, cmd, "alpha\nbeta\n")
 }
 
 func TestBranchCmdCopy(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
+	cf, cleanup := createConfigFile(t)
+	defer cleanup()
 	cmd := newRootCmd()
 
 	db, err := rd.OpenKVStore()
@@ -74,13 +78,13 @@ func TestBranchCmdCopy(t *testing.T) {
 	factory.CommitSmall(t, db, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
-	setCmdArgs(cmd, rd, "branch", "gamma", "--copy", "delta")
+	setCmdArgs(cmd, rd, cf, "branch", "gamma", "--copy", "delta")
 	assert.Equal(t, `branch "gamma" does not exist`, cmd.Execute().Error())
 
-	setCmdArgs(cmd, rd, "branch", "alpha", "--copy", "beta")
+	setCmdArgs(cmd, rd, cf, "branch", "alpha", "--copy", "beta")
 	assert.Equal(t, `branch "beta" already exist`, cmd.Execute().Error())
 
-	setCmdArgs(cmd, rd, "branch", "alpha", "--copy", "gamma")
+	setCmdArgs(cmd, rd, cf, "branch", "alpha", "--copy", "gamma")
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", sum))
 
 	db, err = rd.OpenKVStore()
@@ -97,6 +101,8 @@ func TestBranchCmdCopy(t *testing.T) {
 func TestBranchCmdMove(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
+	cf, cleanup := createConfigFile(t)
+	defer cleanup()
 	cmd := newRootCmd()
 
 	db, err := rd.OpenKVStore()
@@ -105,13 +111,13 @@ func TestBranchCmdMove(t *testing.T) {
 	factory.CommitSmall(t, db, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
-	setCmdArgs(cmd, rd, "branch", "gamma", "--move", "delta")
+	setCmdArgs(cmd, rd, cf, "branch", "gamma", "--move", "delta")
 	assert.Equal(t, `branch "gamma" does not exist`, cmd.Execute().Error())
 
-	setCmdArgs(cmd, rd, "branch", "alpha", "--move", "beta")
+	setCmdArgs(cmd, rd, cf, "branch", "alpha", "--move", "beta")
 	assert.Equal(t, `branch "beta" already exist`, cmd.Execute().Error())
 
-	setCmdArgs(cmd, rd, "branch", "alpha", "--move", "gamma")
+	setCmdArgs(cmd, rd, cf, "branch", "alpha", "--move", "gamma")
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", sum))
 
 	db, err = rd.OpenKVStore()
@@ -127,6 +133,8 @@ func TestBranchCmdMove(t *testing.T) {
 func TestBranchCmdDelete(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
+	cf, cleanup := createConfigFile(t)
+	defer cleanup()
 	cmd := newRootCmd()
 
 	db, err := rd.OpenKVStore()
@@ -134,10 +142,10 @@ func TestBranchCmdDelete(t *testing.T) {
 	factory.CommitSmall(t, db, "alpha", nil, nil, nil)
 	require.NoError(t, db.Close())
 
-	setCmdArgs(cmd, rd, "branch", "gamma", "--delete")
+	setCmdArgs(cmd, rd, cf, "branch", "gamma", "--delete")
 	assertCmdOutput(t, cmd, "deleted branch gamma\n")
 
-	setCmdArgs(cmd, rd, "branch", "alpha", "--delete")
+	setCmdArgs(cmd, rd, cf, "branch", "alpha", "--delete")
 	assertCmdOutput(t, cmd, "deleted branch alpha\n")
 
 	db, err = rd.OpenKVStore()
@@ -150,6 +158,8 @@ func TestBranchCmdDelete(t *testing.T) {
 func TestBranchCmdCreate(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
+	cf, cleanup := createConfigFile(t)
+	defer cleanup()
 	cmd := newRootCmd()
 
 	db, err := rd.OpenKVStore()
@@ -157,13 +167,13 @@ func TestBranchCmdCreate(t *testing.T) {
 	sum, _ := factory.CommitSmall(t, db, "alpha", nil, nil, nil)
 	require.NoError(t, db.Close())
 
-	setCmdArgs(cmd, rd, "branch", "delta")
+	setCmdArgs(cmd, rd, cf, "branch", "delta")
 	assert.Equal(t, "please specify both branch name and start point (could be branch name, commit hash)", cmd.Execute().Error())
 
-	setCmdArgs(cmd, rd, "branch", "delta", "alpha")
+	setCmdArgs(cmd, rd, cf, "branch", "delta", "alpha")
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch delta (%s)\n", sum))
 
-	setCmdArgs(cmd, rd, "branch", "beta", sum)
+	setCmdArgs(cmd, rd, cf, "branch", "beta", sum)
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch beta (%s)\n", sum))
 
 	db, err = rd.OpenKVStore()

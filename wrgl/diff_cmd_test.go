@@ -23,17 +23,18 @@ func createCSVFile(t *testing.T, content []string) (filePath string) {
 	return file.Name()
 }
 
-func commitFile(t *testing.T, rd *repoDir, branchName, filePath, primaryKey string, args ...string) {
+func commitFile(t *testing.T, rd *repoDir, configFilePath, branchName, filePath, primaryKey string, args ...string) {
 	t.Helper()
 	cmd := newRootCmd()
-	cmd.SetErr(io.Discard)
 	cmd.SetOut(io.Discard)
-	setCmdArgs(cmd, rd, append([]string{"commit", branchName, filePath, "commit message", "--primary-key", primaryKey, "-n", "1"}, args...)...)
+	setCmdArgs(cmd, rd, configFilePath, append([]string{"commit", branchName, filePath, "commit message", "--primary-key", primaryKey, "-n", "1"}, args...)...)
 	require.NoError(t, cmd.Execute())
 }
 
 func TestDiffCmd(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+	cf, cleanup := createConfigFile(t)
 	defer cleanup()
 
 	fp1 := createCSVFile(t, []string{
@@ -43,7 +44,7 @@ func TestDiffCmd(t *testing.T) {
 		"3,z,x",
 	})
 	defer os.Remove(fp1)
-	commitFile(t, rd, "my-branch", fp1, "a")
+	commitFile(t, rd, cf, "my-branch", fp1, "a")
 
 	fp2 := createCSVFile(t, []string{
 		"a,b,c",
@@ -52,11 +53,10 @@ func TestDiffCmd(t *testing.T) {
 		"4,s,d",
 	})
 	defer os.Remove(fp2)
-	commitFile(t, rd, "my-branch", fp2, "a")
+	commitFile(t, rd, cf, "my-branch", fp2, "a")
 
 	cmd := newRootCmd()
-	cmd.SetErr(io.Discard)
-	setCmdArgs(cmd, rd, "diff", "my-branch", "my-branch^", "--format", "json")
+	setCmdArgs(cmd, rd, cf, "diff", "my-branch", "my-branch^", "--format", "json")
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		`{"t":1,"oldCols":["a","b","c"],"cols":["a","b","c"],"pk":["a"]}`,
 		`{"t":7,"rowChangeColumns":[{"name":"a","movedFrom":-1},{"name":"b","movedFrom":-1},{"name":"c","movedFrom":-1}]}`,
@@ -85,7 +85,6 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 	defer os.Remove(fp2)
 
 	cmd := newRootCmd()
-	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"diff", fp2, fp1, "--format", "json", "--primary-key", "a"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		`{"t":1,"oldCols":["a","b","c"],"cols":["a","b","c"],"pk":["a"]}`,
