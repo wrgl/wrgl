@@ -75,21 +75,25 @@ func TestInterpretCommitName(t *testing.T) {
 	require.NoError(t, file.Close())
 
 	for _, c := range []struct {
+		db             kv.DB
 		commitStr, sum string
 		commit         *Commit
 		fileIsNil      bool
 		err            error
 	}{
-		{"my-branch", sum2, commit2, true, nil},
-		{"my-branch^", sum1, commit1, true, nil},
-		{sum2, sum2, commit2, true, nil},
-		{fmt.Sprintf("%s~1", sum2), sum1, commit1, true, nil},
-		{file.Name(), "", nil, false, nil},
-		{"aaaabbbbccccdddd0000111122223333", "", nil, true, fmt.Errorf("can't find commit aaaabbbbccccdddd0000111122223333")},
-		{"some-branch", "", nil, true, fmt.Errorf("can't find branch some-branch")},
-		{"abc.csv", "", nil, true, fmt.Errorf("can't find file abc.csv")},
+		{db, "my-branch", sum2, commit2, true, nil},
+		{db, "my-branch^", sum1, commit1, true, nil},
+		{db, sum2, sum2, commit2, true, nil},
+		{db, fmt.Sprintf("%s~1", sum2), sum1, commit1, true, nil},
+		{db, file.Name(), "", nil, false, nil},
+		{db, "aaaabbbbccccdddd0000111122223333", "", nil, true, fmt.Errorf("can't find commit aaaabbbbccccdddd0000111122223333")},
+		{db, "some-branch", "", nil, true, fmt.Errorf("can't find branch some-branch")},
+		{db, "abc.csv", "", nil, true, fmt.Errorf("can't find file abc.csv")},
+		{nil, "my-branch", "", nil, true, fmt.Errorf("can't find file my-branch")},
+		{nil, sum2, "", nil, true, fmt.Errorf("can't find file %s", sum2)},
+		{nil, file.Name(), "", nil, false, nil},
 	} {
-		sum, commit, file, err := InterpretCommitName(db, c.commitStr)
+		sum, commit, file, err := InterpretCommitName(c.db, c.commitStr)
 		require.Equal(t, c.err, err)
 		assert.Equal(t, c.sum, sum)
 		assert.Equal(t, c.commit, commit)

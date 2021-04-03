@@ -31,6 +31,7 @@ func newExportCmd() *cobra.Command {
 
 func exportCommit(cmd *cobra.Command, cStr string) error {
 	rd := getRepoDir(cmd)
+	quitIfRepoDirNotExist(cmd, rd)
 	kvStore, err := rd.OpenKVStore()
 	if err != nil {
 		return err

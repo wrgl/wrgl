@@ -15,6 +15,7 @@ func newResetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]
 			rd := getRepoDir(cmd)
+			quitIfRepoDirNotExist(cmd, rd)
 			kvStore, err := rd.OpenKVStore()
 			if err != nil {
 				return err

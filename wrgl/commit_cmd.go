@@ -85,12 +85,15 @@ func getRepoDir(cmd *cobra.Command) *repoDir {
 		badgerLogInfo:  badgerLogInfo,
 		badgerLogDebug: badgerLogDebug,
 	}
+	return rd
+}
+
+func quitIfRepoDirNotExist(cmd *cobra.Command, rd *repoDir) {
 	if !rd.Exist() {
-		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rootDir)
+		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rd.rootDir)
 		cmd.PrintErrln("  wrgl init")
 		os.Exit(1)
 	}
-	return rd
 }
 
 func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, bigTable, smallTable bool) error {
@@ -102,6 +105,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		return err
 	}
 	rd := getRepoDir(cmd)
+	quitIfRepoDirNotExist(cmd, rd)
 	kvStore, err := rd.OpenKVStore()
 	if err != nil {
 		return err
@@ -163,5 +167,6 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	if err != nil {
 		return err
 	}
+	cmd.Printf("[%s %s] %s\n", branchName, commitSum[:7], message)
 	return nil
 }

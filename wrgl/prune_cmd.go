@@ -20,6 +20,7 @@ func newPruneCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
+			quitIfRepoDirNotExist(cmd, rd)
 			kvStore, err := rd.OpenKVStore()
 			if err != nil {
 				return err

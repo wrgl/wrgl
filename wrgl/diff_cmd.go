@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -63,12 +64,20 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (str
 	if err != nil {
 		return "", nil, err
 	}
+	format, err := cmd.Flags().GetString("format")
+	if err != nil {
+		return "", nil, err
+	}
 	csvReader, columns, primaryKeyIndices, err := ingest.ReadColumns(file, pk)
 	if err != nil {
 		return "", nil, err
 	}
 	ts := table.NewSmallStore(db, columns, primaryKeyIndices, seed)
-	sum, err := ingest.Ingest(seed, 1, csvReader, primaryKeyIndices, ts, cmd.OutOrStdout())
+	out := cmd.OutOrStdout()
+	if format == diffFormatJSON {
+		out = io.Discard
+	}
+	sum, err := ingest.Ingest(seed, 1, csvReader, primaryKeyIndices, ts, out)
 	if err != nil {
 		return "", nil, err
 	}
@@ -271,12 +280,17 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 
 func diffCommits(cmd *cobra.Command, cStr1, cStr2, format string) error {
 	rd := getRepoDir(cmd)
-	kvStore, err := rd.OpenKVStore()
-	if err != nil {
-		return err
+	var kvStore kv.Store
+	var fs kv.FileStore
+	if rd.Exist() {
+		var err error
+		kvStore, err = rd.OpenKVStore()
+		if err != nil {
+			return err
+		}
+		defer kvStore.Close()
+		fs = rd.OpenFileStore()
 	}
-	defer kvStore.Close()
-	fs := rd.OpenFileStore()
 	memStore := kv.NewMockStore(false)
 	db1, commitHash1, commit1, err := getCommit(cmd, kvStore, memStore, cStr1)
 	if err != nil {

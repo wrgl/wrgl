@@ -34,6 +34,7 @@ func newBranchCmd() *cobra.Command {
 		}, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
+			quitIfRepoDirNotExist(cmd, rd)
 			kvStore, err := rd.OpenKVStore()
 			if err != nil {
 				return err

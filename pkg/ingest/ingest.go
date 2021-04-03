@@ -65,6 +65,7 @@ func printSpinner(out io.Writer, description string) chan bool {
 	maxLineWidth := utf8.RuneCountInString(description) + 2
 	spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	go func() {
+		neverPrint := true
 		for {
 			select {
 			case <-done:
@@ -76,6 +77,10 @@ func printSpinner(out io.Writer, description string) chan bool {
 				fmt.Fprintf(out, "%s %s",
 					spinner[int(math.Round(math.Mod(float64(time.Since(startTime).Milliseconds()/100), float64(len(spinner)))))],
 					description)
+				if neverPrint {
+					neverPrint = false
+					defer fmt.Fprintln(out)
+				}
 			}
 		}
 	}()

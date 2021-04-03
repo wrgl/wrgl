@@ -14,11 +14,11 @@ import (
 	"github.com/wrgl/core/pkg/versioning"
 )
 
-func createRepoDir(t *testing.T) (*repoDir, func()) {
+func createRepoDir(t *testing.T) (rd *repoDir, cleanup func()) {
 	t.Helper()
 	rootDir, err := ioutil.TempDir("", "test_wrgl_*")
 	require.NoError(t, err)
-	rd := &repoDir{
+	rd = &repoDir{
 		rootDir: rootDir,
 	}
 	err = rd.Init()

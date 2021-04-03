@@ -48,7 +48,7 @@ func InterpretCommitName(db kv.DB, commitStr string) (hash string, commit *Commi
 	if err != nil {
 		return "", nil, nil, err
 	}
-	if HashPattern.MatchString(commitName) {
+	if db != nil && HashPattern.MatchString(commitName) {
 		hash = commitName
 		commit, err = GetCommit(db, hash)
 		if err == nil {
@@ -56,7 +56,7 @@ func InterpretCommitName(db kv.DB, commitStr string) (hash string, commit *Commi
 			return
 		}
 	}
-	if BranchPattern.MatchString(commitName) {
+	if db != nil && BranchPattern.MatchString(commitName) {
 		var branch *Branch
 		branch, err = GetBranch(db, commitName)
 		if err == nil {
@@ -73,9 +73,9 @@ func InterpretCommitName(db kv.DB, commitStr string) (hash string, commit *Commi
 	if err == nil {
 		return "", nil, file, err
 	}
-	if HashPattern.MatchString(commitName) {
+	if db != nil && HashPattern.MatchString(commitName) {
 		return "", nil, nil, fmt.Errorf("can't find commit %s", commitName)
-	} else if BranchPattern.MatchString(commitName) {
+	} else if db != nil && BranchPattern.MatchString(commitName) {
 		return "", nil, nil, fmt.Errorf("can't find branch %s", commitName)
 	}
 	return "", nil, nil, fmt.Errorf("can't find file %s", commitName)

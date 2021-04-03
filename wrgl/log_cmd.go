@@ -11,6 +11,7 @@ import (
 
 func getKVStore(cmd *cobra.Command) (kv.Store, error) {
 	rd := getRepoDir(cmd)
+	quitIfRepoDirNotExist(cmd, rd)
 	return rd.OpenKVStore()
 }
 
