@@ -1,6 +1,6 @@
 # WRGL
 
-Git-like data versioning. It can handle files up to 10s of Gigabytes. An alternative is [dolt](https://github.com/dolthub/dolt).
+Git-like data versioning. It can handle files up to 10s of Gigabytes. How it differs to other alternative such as [dolt](https://github.com/dolthub/dolt) is that it doesn't require a schema up front, any arbitrary CSV file can be commited and that it can display much more detailed diff.
 
 ## Installation
 
@@ -34,6 +34,12 @@ wrgl preview my-branch~2
 
 # export data back to CSV
 wrgl export my-branch > data.csv
+
+# list branches
+wrgl branch
+
+# delete branch
+wrgl branch -d my-branch
 ```
 
 ## Dealing with big file
@@ -50,5 +56,4 @@ wrgl commit my-branch big_file.csv --primary-key my_key --big-table
 
 ## Roadmap
 
-- Benchmark against Dolt and any notable alternative.
 - Add ability to setup remote and sync files between local and remotes just like Git
