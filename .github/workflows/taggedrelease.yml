@@ -21,8 +21,10 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Test
-        run: go test -timeout 30s -p=1 ./...
+      - name: Test wrgl
+        run: go test github.com/wrgl/core/wrgl
+      - name: Test everything else
+        run: go test ./...
 
   tagged-release:
     name: "Tagged Release"
