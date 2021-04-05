@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/testutils"
@@ -14,7 +14,8 @@ import (
 
 func insertRow(t *testing.T, db kv.DB, k []byte, row []string) {
 	t.Helper()
-	b, err := encoding.EncodeStrings(row)
+	enc := ingest.NewRowEncoder()
+	b, err := enc.Encode(row)
 	require.NoError(t, err)
 	err = table.SaveRow(db, k, b)
 	require.NoError(t, err)

@@ -21,7 +21,7 @@ type row struct {
 	Record []string
 }
 
-func insertRows(primaryKeyIndices []int, seed uint64, ts table.Store, rows <-chan row, errChan chan<- error, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
+func insertRows(primaryKeyIndices []uint32, seed uint64, ts table.Store, rows <-chan row, errChan chan<- error, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
 	defer wg.Done()
 	rh := NewRowHasher(primaryKeyIndices, seed)
 	for r := range rows {
@@ -43,7 +43,7 @@ func insertRows(primaryKeyIndices []int, seed uint64, ts table.Store, rows <-cha
 	}
 }
 
-func ReadColumns(file io.Reader, primaryKeys []string) (reader *csv.Reader, columns []string, primaryKeyIndices []int, err error) {
+func ReadColumns(file io.Reader, primaryKeys []string) (reader *csv.Reader, columns []string, primaryKeyIndices []uint32, err error) {
 	reader = csv.NewReader(file)
 	columns, err = reader.Read()
 	if err != nil {
@@ -106,7 +106,7 @@ func pbar(max int64, desc string, out io.Writer) *progressbar.ProgressBar {
 	return bar
 }
 
-func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []int, ts table.Store, out io.Writer) (string, error) {
+func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []uint32, ts table.Store, out io.Writer) (string, error) {
 	errChan := make(chan error)
 	rows := make(chan row, 1000)
 	var wg sync.WaitGroup

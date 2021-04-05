@@ -13,7 +13,7 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func createBigStore(t *testing.T, db kv.Store, fs kv.FileStore, pk []int, rows []string) (ts *BigStore, sum string, pkHashes, rowHashes [][]byte) {
+func createBigStore(t *testing.T, db kv.Store, fs kv.FileStore, pk []uint32, rows []string) (ts *BigStore, sum string, pkHashes, rowHashes [][]byte) {
 	t.Helper()
 	columns := strings.Split(rows[0], ",")
 	var seed uint64 = 0
@@ -54,7 +54,7 @@ func buildBigStore(t *testing.T, db kv.Store, fs kv.FileStore) (ts *BigStore, su
 		}
 		rows = append(rows, strings.Join(row, ","))
 	}
-	ts, sum, _, _ = createBigStore(t, db, fs, []int{0}, rows)
+	ts, sum, _, _ = createBigStore(t, db, fs, []uint32{0}, rows)
 	return
 }
 
@@ -63,7 +63,7 @@ func TestBigRowReader(t *testing.T) {
 	fs, cleanUp := createTempFileStore(t)
 	defer cleanUp()
 
-	ts, _, _, rowHashes := createBigStore(t, db, fs, []int{0}, []string{
+	ts, _, _, rowHashes := createBigStore(t, db, fs, []uint32{0}, []string{
 		"a,b,c",
 		"1,d,e",
 		"2,f,g",

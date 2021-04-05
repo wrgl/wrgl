@@ -1,11 +1,10 @@
 package table
 
 import (
-	"bytes"
-	"encoding/gob"
-
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
+	"google.golang.org/protobuf/proto"
 )
 
 const bufferSize = 256 * 1024
@@ -16,46 +15,15 @@ func bigTableKey(hash string) []byte {
 	return append(bigTablePrefix, hash...)
 }
 
-type bigTable struct {
-	Columns     []string
-	PrimaryKeys []int
-	RowStoreID  []byte
-}
-
-func (t *bigTable) PrimaryKeyStrings() []string {
-	return slice.IndicesToValues(t.Columns, t.PrimaryKeys)
-}
-
-func (t *bigTable) encode() ([]byte, error) {
-	buf := bytes.NewBuffer([]byte{})
-	encoder := gob.NewEncoder(buf)
-	err := encoder.Encode(t)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func decodeBigTable(data []byte) (*bigTable, error) {
-	buf := bytes.NewBuffer(data)
-	decoder := gob.NewDecoder(buf)
-	t := &bigTable{}
-	err := decoder.Decode(t)
-	if err != nil {
-		return nil, err
-	}
-	return t, nil
-}
-
 type BigStore struct {
 	db    kv.Store
 	seed  uint64
-	table *bigTable
+	table *objects.BigTable
 	rs    *bigRowStore
 }
 
-func NewBigStore(db kv.Store, fs kv.FileStore, columns []string, primaryKeyIndices []int, seed uint64) (Store, error) {
-	rlID, err := generateRowStoreID(db)
+func NewBigStore(db kv.Store, fs kv.FileStore, columns []string, primaryKeyIndices []uint32, seed uint64) (Store, error) {
+	rlID, err := generateRowStoreID(fs)
 	if err != nil {
 		return nil, err
 	}
@@ -66,10 +34,10 @@ func NewBigStore(db kv.Store, fs kv.FileStore, columns []string, primaryKeyIndic
 	return &BigStore{
 		db:   db,
 		seed: seed,
-		table: &bigTable{
-			Columns:     columns,
-			PrimaryKeys: primaryKeyIndices,
-			RowStoreID:  rlID,
+		table: &objects.BigTable{
+			Columns:    columns,
+			Pk:         primaryKeyIndices,
+			RowStoreId: rlID,
 		},
 		rs: rs,
 	}, nil
@@ -80,11 +48,11 @@ func (s *BigStore) Columns() []string {
 }
 
 func (s *BigStore) PrimaryKey() []string {
-	return s.table.PrimaryKeyStrings()
+	return slice.IndicesToValues(s.table.Columns, s.table.Pk)
 }
 
-func (s *BigStore) PrimaryKeyIndices() []int {
-	return s.table.PrimaryKeys
+func (s *BigStore) PrimaryKeyIndices() []uint32 {
+	return s.table.Pk
 }
 
 func (s *BigStore) InsertRow(n int, pkHash, rowHash, rowContent []byte) error {
@@ -121,11 +89,11 @@ func (s *BigStore) Save() (string, error) {
 		return "", err
 	}
 	defer r.Close()
-	sum, err := hashTable(s.seed, s.table.Columns, s.table.PrimaryKeys, r)
+	sum, err := hashTable(s.seed, s.table.Columns, s.table.Pk, r)
 	if err != nil {
 		return "", err
 	}
-	v, err := s.table.encode()
+	v, err := proto.Marshal(s.table)
 	if err != nil {
 		return "", err
 	}
@@ -137,7 +105,8 @@ func ReadBigStore(db kv.Store, fs kv.FileStore, seed uint64, hash string) (*BigS
 	if err != nil {
 		return nil, err
 	}
-	t, err := decodeBigTable(v)
+	t := new(objects.BigTable)
+	err = proto.Unmarshal(v, t)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +114,7 @@ func ReadBigStore(db kv.Store, fs kv.FileStore, seed uint64, hash string) (*BigS
 		size: bufferSize,
 		db:   db,
 		fs:   fs,
-		id:   t.RowStoreID,
+		id:   t.RowStoreId,
 	}
 	return &BigStore{
 		db:    db,
@@ -160,14 +129,15 @@ func DeleteBigStore(db kv.Store, fs kv.FileStore, hash string) error {
 	if err != nil {
 		return err
 	}
-	t, err := decodeBigTable(v)
+	t := new(objects.BigTable)
+	err = proto.Unmarshal(v, t)
 	if err != nil {
 		return err
 	}
 	rs := &bigRowStore{
 		db: db,
 		fs: fs,
-		id: t.RowStoreID,
+		id: t.RowStoreId,
 	}
 	err = rs.Delete()
 	if err != nil {

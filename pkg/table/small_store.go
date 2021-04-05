@@ -1,13 +1,13 @@
 package table
 
 import (
-	"bytes"
-	"encoding/gob"
 	"io"
 	"sync"
 
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
+	"google.golang.org/protobuf/proto"
 )
 
 var smallTablePrefix = []byte("tables/")
@@ -19,64 +19,6 @@ func smallTableKey(hash string) []byte {
 type KeyHash struct {
 	K string
 	V []byte
-}
-
-type smallTable struct {
-	Columns     []string
-	PrimaryKeys []int
-	Rows        []KeyHash
-	mu          sync.Mutex
-}
-
-func (t *smallTable) InsertRow(n int, pkHash, rowHash []byte) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	kh := KeyHash{
-		K: string(pkHash),
-		V: rowHash,
-	}
-	oldLen := len(t.Rows)
-	if n >= oldLen {
-		t.Rows = append(t.Rows, make([]KeyHash, n+1-oldLen)...)
-	}
-	t.Rows[n] = kh
-}
-
-func (t *smallTable) RowsMap() map[string][]byte {
-	res := make(map[string][]byte, len(t.Rows))
-	for _, r := range t.Rows {
-		res[r.K] = r.V
-	}
-	return res
-}
-
-func (t *smallTable) NumRows() int {
-	return len(t.Rows)
-}
-
-func (t *smallTable) PrimaryKeyStrings() []string {
-	return slice.IndicesToValues(t.Columns, t.PrimaryKeys)
-}
-
-func (t *smallTable) encode() ([]byte, error) {
-	buf := bytes.NewBuffer([]byte{})
-	encoder := gob.NewEncoder(buf)
-	err := encoder.Encode(t)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func decodeSmallTable(data []byte) (*smallTable, error) {
-	buf := bytes.NewBuffer(data)
-	decoder := gob.NewDecoder(buf)
-	t := &smallTable{}
-	err := decoder.Decode(t)
-	if err != nil {
-		return nil, err
-	}
-	return t, nil
 }
 
 type smallRowHashReader struct {
@@ -92,7 +34,7 @@ func (r *smallRowHashReader) Read() (pkHash, rowHash []byte, err error) {
 		return nil, nil, io.EOF
 	}
 	kh := r.store.table.Rows[r.offset+r.n]
-	return []byte(kh.K), kh.V, nil
+	return kh[:16], kh[16:], nil
 }
 
 func (r *smallRowHashReader) Close() error {
@@ -101,18 +43,18 @@ func (r *smallRowHashReader) Close() error {
 
 type SmallStore struct {
 	db      kv.DB
-	table   *smallTable
+	table   *objects.SmallTable
 	rowsMap map[string][]byte
 	seed    uint64
+	mu      sync.Mutex
 }
 
-func NewSmallStore(db kv.DB, columns []string, primaryKeyIndices []int, seed uint64) Store {
+func NewSmallStore(db kv.DB, columns []string, primaryKeyIndices []uint32, seed uint64) Store {
 	return &SmallStore{
 		db: db,
-		table: &smallTable{
-			Columns:     columns,
-			PrimaryKeys: primaryKeyIndices,
-			Rows:        []KeyHash{},
+		table: &objects.SmallTable{
+			Columns: columns,
+			Pk:      primaryKeyIndices,
 		},
 		seed: seed,
 	}
@@ -123,28 +65,38 @@ func (s *SmallStore) Columns() []string {
 }
 
 func (s *SmallStore) PrimaryKey() []string {
-	return s.table.PrimaryKeyStrings()
+	return slice.IndicesToValues(s.table.Columns, s.table.Pk)
 }
 
-func (s *SmallStore) PrimaryKeyIndices() []int {
-	return s.table.PrimaryKeys
+func (s *SmallStore) PrimaryKeyIndices() []uint32 {
+	return s.table.Pk
 }
 
 func (s *SmallStore) InsertRow(n int, pkHash, rowHash, rowContent []byte) error {
-	s.table.InsertRow(n, pkHash, rowHash)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kh := append(pkHash, rowHash...)
+	oldLen := len(s.table.Rows)
+	if n >= oldLen {
+		s.table.Rows = append(s.table.Rows, make([][]byte, n+1-oldLen)...)
+	}
+	s.table.Rows[n] = kh
 	return SaveRow(s.db, rowHash, rowContent)
 }
 
 func (s *SmallStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 	if s.rowsMap == nil {
-		s.rowsMap = s.table.RowsMap()
+		s.rowsMap = make(map[string][]byte, len(s.table.Rows))
+		for _, r := range s.table.Rows {
+			s.rowsMap[string(r[:16])] = r[16:]
+		}
 	}
 	rowHash, ok = s.rowsMap[string(pkHash)]
 	return
 }
 
 func (s *SmallStore) NumRows() (int, error) {
-	return s.table.NumRows(), nil
+	return len(s.table.Rows), nil
 }
 
 func capSize(l, offset, size int) (int, int) {
@@ -161,7 +113,7 @@ func capSize(l, offset, size int) (int, int) {
 }
 
 func (s *SmallStore) NewRowHashReader(offset, size int) (RowHashReader, error) {
-	l := s.table.NumRows()
+	l, _ := s.NumRows()
 	offset, size = capSize(l, offset, size)
 	return &smallRowHashReader{
 		store:  s,
@@ -172,7 +124,7 @@ func (s *SmallStore) NewRowHashReader(offset, size int) (RowHashReader, error) {
 }
 
 func (s *SmallStore) NewRowReader() (RowReader, error) {
-	l := s.table.NumRows()
+	l, _ := s.NumRows()
 	return &smallRowReader{
 		store: s,
 		limit: l,
@@ -185,11 +137,11 @@ func (s *SmallStore) Save() (string, error) {
 		return "", err
 	}
 	defer r.Close()
-	sum, err := hashTable(s.seed, s.table.Columns, s.table.PrimaryKeys, r)
+	sum, err := hashTable(s.seed, s.table.Columns, s.table.Pk, r)
 	if err != nil {
 		return "", err
 	}
-	v, err := s.table.encode()
+	v, err := proto.Marshal(s.table)
 	if err != nil {
 		return "", err
 	}
@@ -201,8 +153,8 @@ func ReadSmallStore(s kv.DB, seed uint64, hash string) (*SmallStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	var t *smallTable
-	t, err = decodeSmallTable(v)
+	t := new(objects.SmallTable)
+	err = proto.Unmarshal(v, t)
 	if err != nil {
 		return nil, err
 	}

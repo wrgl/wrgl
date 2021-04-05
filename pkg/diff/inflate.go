@@ -3,7 +3,7 @@ package diff
 import (
 	"encoding/hex"
 
-	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/table"
 )
@@ -31,7 +31,7 @@ type InflatedDiff struct {
 	RowChangeRow     [][]string         `json:"rowChangeRow,omitempty"`
 }
 
-func fetchRow(db kv.DB, row string) ([]string, error) {
+func fetchRow(db kv.DB, row string, dec *ingest.RowDecoder) ([]string, error) {
 	k, err := hex.DecodeString(row)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func fetchRow(db kv.DB, row string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return encoding.DecodeStrings(b)
+	return dec.Decode(b)
 }
 
 func Inflate(db1, db2 kv.DB, diffChan <-chan Diff, errChan chan error) <-chan InflatedDiff {
@@ -49,6 +49,7 @@ func Inflate(db1, db2 kv.DB, diffChan <-chan Diff, errChan chan error) <-chan In
 		var (
 			cols, oldCols, pk []string
 			rowChangeReader   *RowChangeReader
+			dec               = ingest.NewRowDecoder()
 		)
 		defer close(ch)
 		for event := range diffChan {
@@ -75,7 +76,7 @@ func Inflate(db1, db2 kv.DB, diffChan <-chan Diff, errChan chan error) <-chan In
 					OldPK: event.OldPK,
 				}
 			case RowAdd:
-				row, err := fetchRow(db1, event.Row)
+				row, err := fetchRow(db1, event.Row, dec)
 				if err != nil {
 					errChan <- err
 					return
@@ -85,7 +86,7 @@ func Inflate(db1, db2 kv.DB, diffChan <-chan Diff, errChan chan error) <-chan In
 					Row:  row,
 				}
 			case RowRemove:
-				row, err := fetchRow(db2, event.Row)
+				row, err := fetchRow(db2, event.Row, dec)
 				if err != nil {
 					errChan <- err
 					return

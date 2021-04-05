@@ -19,7 +19,7 @@ func BuildAuthor() *versioning.Author {
 	}
 }
 
-func CommitSmall(t *testing.T, db kv.Store, branch string, rows []string, pk []int, args *versioning.Commit) (string, *versioning.Commit) {
+func CommitSmall(t *testing.T, db kv.Store, branch string, rows []string, pk []uint32, args *versioning.Commit) (string, *versioning.Commit) {
 	t.Helper()
 	c := &versioning.Commit{
 		Author:    BuildAuthor(),
@@ -45,7 +45,7 @@ func CommitSmall(t *testing.T, db kv.Store, branch string, rows []string, pk []i
 	return sum, c
 }
 
-func CommitBig(t *testing.T, db kv.Store, fs kv.FileStore, branch string, rows []string, pk []int, args *versioning.Commit) (string, *versioning.Commit) {
+func CommitBig(t *testing.T, db kv.Store, fs kv.FileStore, branch string, rows []string, pk []uint32, args *versioning.Commit) (string, *versioning.Commit) {
 	t.Helper()
 	c := &versioning.Commit{
 		Author:    BuildAuthor(),

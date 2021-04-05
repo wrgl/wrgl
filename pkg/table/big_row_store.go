@@ -194,11 +194,11 @@ func newRowStoreID() []byte {
 	return i32tob(meow.Checksum32(0, []byte(id)))
 }
 
-func generateRowStoreID(db kv.DB) ([]byte, error) {
+func generateRowStoreID(fs kv.FileStore) ([]byte, error) {
 	maxAttempts := 100
 	for i := 0; i < maxAttempts; i++ {
 		b := newRowStoreID()
-		if !db.Exist(rowListKey(b)) {
+		if !fs.Exist(rowListKey(b)) {
 			return b, nil
 		}
 	}

@@ -3,10 +3,10 @@ module github.com/wrgl/core
 go 1.16
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gobwas/glob v0.2.3
+	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.0.0
 	github.com/imdario/mergo v0.3.12
 	github.com/lucasb-eyer/go-colorful v1.2.0
@@ -20,5 +20,6 @@ require (
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210314154223-e6e6c4f2bb5b // indirect
 	golang.org/x/sys v0.0.0-20210315160823-c6e025ad8005 // indirect
+	google.golang.org/protobuf v1.26.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )

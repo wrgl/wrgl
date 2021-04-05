@@ -29,7 +29,7 @@ type DataTable struct {
 	getCells func(row, column int) []*TableCell
 
 	// Rearranged indices of columns. Used to hoist primary key columns to the beginning
-	columnIndices []int
+	columnIndices []uint32
 
 	// Number of primary key columns
 	pkCount int
@@ -98,15 +98,15 @@ func (t *DataTable) Select(row, column, subCol int) *DataTable {
 }
 
 // SetPrimaryKeyIndices records primary key columns and hoist them to the beginning
-func (t *DataTable) SetPrimaryKeyIndices(pk []int) *DataTable {
-	pkm := map[int]struct{}{}
+func (t *DataTable) SetPrimaryKeyIndices(pk []uint32) *DataTable {
+	pkm := map[uint32]struct{}{}
 	for _, i := range pk {
 		pkm[i] = struct{}{}
 	}
-	ordinaryCols := []int{}
+	ordinaryCols := []uint32{}
 	for i := 0; i < t.columnCount; i++ {
-		if _, ok := pkm[i]; !ok {
-			ordinaryCols = append(ordinaryCols, i)
+		if _, ok := pkm[uint32(i)]; !ok {
+			ordinaryCols = append(ordinaryCols, uint32(i))
 		}
 	}
 	t.columnIndices = append(pk, ordinaryCols...)
@@ -148,7 +148,7 @@ func (t *DataTable) getCellsAt(row, column int) []*TableCell {
 		}
 		return []*TableCell{NewTableCell(strconv.Itoa(row - 1))}
 	}
-	return t.getCells(row, t.columnIndices[column-1])
+	return t.getCells(row, int(t.columnIndices[column-1]))
 }
 
 func (t *DataTable) getStyledCells(row, column int) []*TableCell {

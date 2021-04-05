@@ -9,7 +9,7 @@ import (
 	"github.com/mmcloughlin/meow"
 )
 
-func hashTable(seed uint64, columns []string, primaryKeyIndices []int, rowHashReader RowHashReader) (string, error) {
+func hashTable(seed uint64, columns []string, primaryKeyIndices []uint32, rowHashReader RowHashReader) (string, error) {
 	buf := bytes.NewBuffer([]byte{})
 	encoder := gob.NewEncoder(buf)
 	h := meow.New(seed)

@@ -29,7 +29,7 @@ func StringNotInSubset(s1, s2 []string) string {
 	return ""
 }
 
-func IndicesToValues(vals []string, keys []int) []string {
+func IndicesToValues(vals []string, keys []uint32) []string {
 	res := []string{}
 	for _, k := range keys {
 		res = append(res, vals[k])
@@ -37,13 +37,12 @@ func IndicesToValues(vals []string, keys []int) []string {
 	return res
 }
 
-func KeyIndices(columns, keys []string) ([]int, error) {
-	res := []int{}
+func KeyIndices(columns, keys []string) (res []uint32, err error) {
 	for _, k := range keys {
 		found := false
 		for i, c := range columns {
 			if c == k {
-				res = append(res, i)
+				res = append(res, uint32(i))
 				found = true
 				continue
 			}

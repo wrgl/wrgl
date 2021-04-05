@@ -83,31 +83,31 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 		"1,q,w",
 		"2,a,s",
 		"3,z,x",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	factory.CommitSmall(t, db, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"4,x,c",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	factory.CommitSmall(t, db, "branch-2", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"6,z,x",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	factory.CommitSmall(t, db, "branch-2", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"7,r,t",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	sum2, _ := factory.CommitSmall(t, db, "branch-3", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"6,z,x",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	assertCommitsCount(t, db, 5)
 	assertSmallTablesCount(t, db, 4)
 	assertRowsCount(t, db, 8)
@@ -148,31 +148,31 @@ func TestPruneCmdBigCommits(t *testing.T) {
 		"1,q,w",
 		"2,a,s",
 		"3,z,x",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	factory.CommitBig(t, db, fs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"4,x,c",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	factory.CommitBig(t, db, fs, "branch-2", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"6,z,x",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	factory.CommitBig(t, db, fs, "branch-2", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"7,r,t",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	sum2, _ := factory.CommitBig(t, db, fs, "branch-3", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"6,z,x",
-	}, []int{0}, nil)
+	}, []uint32{0}, nil)
 	assertCommitsCount(t, db, 5)
 	assertBigTablesCount(t, db, 4)
 	assertRowsCount(t, db, 8)

@@ -10,7 +10,7 @@ import (
 func TestHashTable(t *testing.T) {
 	var seed uint64 = 0
 	columns := []string{"a", "b", "c"}
-	primaryKeyIndices := []int{0}
+	primaryKeyIndices := []uint32{0}
 	rowHashReader := &MockRowHashReader{
 		rows: [][2]string{
 			{
@@ -26,7 +26,7 @@ func TestHashTable(t *testing.T) {
 
 	sum, err := hashTable(seed, columns, primaryKeyIndices, rowHashReader)
 	require.NoError(t, err)
-	assert.Equal(t, "d687c6c2440dfefb6661475edef9c11b", sum)
+	assert.Equal(t, "bf1096ae00c76254772641a02c221db0", sum)
 
 	rowHashReader = &MockRowHashReader{
 		rows: [][2]string{
@@ -38,5 +38,5 @@ func TestHashTable(t *testing.T) {
 	}
 	sum, err = hashTable(seed, columns, primaryKeyIndices, rowHashReader)
 	require.NoError(t, err)
-	assert.Equal(t, "e066878672e9eb9e1d7380b98319f481", sum)
+	assert.Equal(t, "a2a7caaa151575dbe5f413f53ee002eb", sum)
 }

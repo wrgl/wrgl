@@ -45,12 +45,12 @@ func TestStringNotInSubset(t *testing.T) {
 func TestIndicesToValues(t *testing.T) {
 	for _, r := range []struct {
 		S []string
-		I []int
+		I []uint32
 		V []string
 	}{
-		{[]string{}, []int{}, []string{}},
-		{[]string{"a", "b"}, []int{0}, []string{"a"}},
-		{[]string{"c", "d", "e"}, []int{2, 1}, []string{"e", "d"}},
+		{[]string{}, []uint32{}, []string{}},
+		{[]string{"a", "b"}, []uint32{0}, []string{"a"}},
+		{[]string{"c", "d", "e"}, []uint32{2, 1}, []string{"e", "d"}},
 	} {
 		assert.Equal(t, r.V, IndicesToValues(r.S, r.I))
 	}
@@ -60,13 +60,13 @@ func TestKeyIndices(t *testing.T) {
 	for _, r := range []struct {
 		S []string
 		K []string
-		I []int
+		I []uint32
 		E error
 	}{
-		{[]string{"a", "b"}, []string{"b"}, []int{1}, nil},
-		{[]string{"a", "b"}, []string{}, []int{}, nil},
-		{[]string{"a", "b"}, []string{"c"}, []int(nil), fmt.Errorf(`key "c" not found in string slice`)},
-		{[]string{}, []string{}, []int{}, nil},
+		{[]string{"a", "b"}, []string{"b"}, []uint32{1}, nil},
+		{[]string{"a", "b"}, []string{}, nil, nil},
+		{[]string{"a", "b"}, []string{"c"}, []uint32(nil), fmt.Errorf(`key "c" not found in string slice`)},
+		{[]string{}, []string{}, nil, nil},
 	} {
 		i, e := KeyIndices(r.S, r.K)
 		assert.Equal(t, r.I, i)

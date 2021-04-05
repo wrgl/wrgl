@@ -82,7 +82,9 @@ func (s *MockStore) Set(k, v []byte) error {
 		args := s.Called(k, v)
 		return args.Error(0)
 	}
-	s.store[string(k)] = v
+	b := make([]byte, len(v))
+	copy(b, v)
+	s.store[string(k)] = b
 	return nil
 }
 
@@ -232,7 +234,9 @@ func (s *MockStore) BatchSet(data map[string][]byte) error {
 		return args.Error(0)
 	}
 	for k, v := range data {
-		s.store[string(k)] = v
+		b := make([]byte, len(v))
+		copy(b, v)
+		s.store[string(k)] = b
 	}
 	return nil
 }

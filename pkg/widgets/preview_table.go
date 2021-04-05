@@ -3,7 +3,7 @@ package widgets
 import (
 	"io"
 
-	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/table"
 )
 
@@ -12,17 +12,18 @@ type PreviewTable struct {
 	rowReader        table.RowReader
 	headerRow        []*TableCell
 	buf              [][]*TableCell
-	pkMap            map[int]struct{}
+	pkMap            map[uint32]struct{}
 	columnsCount     int
 	bufStart, bufEnd int
+	dec              *ingest.RowDecoder
 }
 
-func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, primaryKeyIndices []int) *PreviewTable {
+func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, primaryKeyIndices []uint32) *PreviewTable {
 	headerRow := []*TableCell{}
 	for _, text := range columns {
 		headerRow = append(headerRow, NewTableCell(text).SetStyle(columnStyle))
 	}
-	pkMap := map[int]struct{}{}
+	pkMap := map[uint32]struct{}{}
 	for _, col := range primaryKeyIndices {
 		pkMap[col] = struct{}{}
 	}
@@ -32,6 +33,7 @@ func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, 
 		headerRow:    headerRow,
 		columnsCount: len(columns),
 		pkMap:        pkMap,
+		dec:          ingest.NewRowDecoder(),
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells).
 		SetShape(rowCount+1, len(columns)).
@@ -45,7 +47,7 @@ func (t *PreviewTable) SetRowCount(num int) *PreviewTable {
 }
 
 func (t *PreviewTable) decodeRow(b []byte) []*TableCell {
-	record, err := encoding.DecodeStrings(b)
+	record, err := t.dec.Decode(b)
 	if err != nil {
 		panic(err)
 	}
@@ -113,7 +115,7 @@ func (t *PreviewTable) getCells(row, column int) []*TableCell {
 
 func (t *PreviewTable) styledCells(row, column int) []*TableCell {
 	cell := t.buf[row][column]
-	if _, ok := t.pkMap[column]; ok {
+	if _, ok := t.pkMap[uint32(column)]; ok {
 		cell.SetStyle(primaryKeyStyle)
 	} else {
 		cell.SetStyle(cellStyle)

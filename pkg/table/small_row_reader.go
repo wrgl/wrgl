@@ -16,12 +16,12 @@ func (r *smallRowReader) Read() (rowHash, rowContent []byte, err error) {
 		return nil, nil, io.EOF
 	}
 	kh := r.store.table.Rows[r.off]
-	rc, err := GetRow(r.store.db, kh.V)
+	rc, err := GetRow(r.store.db, kh[16:])
 	if err != nil {
 		return nil, nil, err
 	}
 	r.off++
-	return kh.V, rc, nil
+	return kh[16:], rc, nil
 }
 
 func (r *smallRowReader) Seek(offset int, whence int) (int, error) {
@@ -44,11 +44,11 @@ func (r *smallRowReader) Seek(offset int, whence int) (int, error) {
 
 func (r *smallRowReader) ReadAt(offset int) (rowHash, rowContent []byte, err error) {
 	kh := r.store.table.Rows[offset]
-	rc, err := GetRow(r.store.db, kh.V)
+	rc, err := GetRow(r.store.db, kh[16:])
 	if err != nil {
 		return nil, nil, err
 	}
-	return kh.V, rc, nil
+	return kh[16:], rc, nil
 }
 
 func (r *smallRowReader) Close() error {

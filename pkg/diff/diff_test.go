@@ -20,38 +20,38 @@ func TestDiffTables(t *testing.T) {
 		Events []Diff
 	}{
 		{
-			table.NewMockStore([]string{"one", "two"}, []int{0}, nil),
-			table.NewMockStore([]string{"one", "three"}, []int{1}, nil),
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
+			table.NewMockStore([]string{"one", "three"}, []uint32{1}, nil),
 			[]Diff{
 				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "three"}, PK: []string{"one"}},
 				{Type: PrimaryKey, OldPK: []string{"three"}},
 			},
 		},
 		{
-			table.NewMockStore([]string{"one", "two"}, []int{0}, nil),
-			table.NewMockStore([]string{"one", "two"}, []int{0}, nil),
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
 			[]Diff{
 				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
 			},
 		},
 		{
-			table.NewMockStore([]string{"one", "two"}, []int{0}, nil),
-			table.NewMockStore([]string{"one", "two"}, []int{}, nil),
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
+			table.NewMockStore([]string{"one", "two"}, []uint32{}, nil),
 			[]Diff{
 				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
 				{Type: PrimaryKey, OldPK: []string{}},
 			},
 		},
 		{
-			table.NewMockStore([]string{"a", "b", "c", "d"}, []int{0, 2}, nil),
-			table.NewMockStore([]string{"a", "c", "d", "b"}, []int{0, 1}, nil),
+			table.NewMockStore([]string{"a", "b", "c", "d"}, []uint32{0, 2}, nil),
+			table.NewMockStore([]string{"a", "c", "d", "b"}, []uint32{0, 1}, nil),
 			[]Diff{
 				{Type: Init, Columns: []string{"a", "b", "c", "d"}, OldColumns: []string{"a", "c", "d", "b"}, PK: []string{"a", "c"}},
 			},
 		},
 		{
-			table.NewMockStore([]string{"a", "b", "c", "d"}, []int{0, 1}, nil),
-			table.NewMockStore([]string{"b", "a", "c", "d"}, []int{0, 1}, nil),
+			table.NewMockStore([]string{"a", "b", "c", "d"}, []uint32{0, 1}, nil),
+			table.NewMockStore([]string{"b", "a", "c", "d"}, []uint32{0, 1}, nil),
 			[]Diff{
 				{Type: Init, Columns: []string{"a", "b", "c", "d"}, OldColumns: []string{"b", "a", "c", "d"}, PK: []string{"a", "b"}},
 				{Type: PrimaryKey, OldPK: []string{"b", "a"}},
@@ -122,12 +122,12 @@ func TestDiffTables(t *testing.T) {
 		},
 
 		{
-			table.NewMockStore([]string{"one", "two"}, []int{0}, [][2]string{
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
 				{"abc", "123"},
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			table.NewMockStore([]string{"one", "two"}, []int{0}, [][2]string{
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
 				{"abc", "123"},
 				{"def", "059"},
 				{"asd", "789"},
@@ -140,11 +140,11 @@ func TestDiffTables(t *testing.T) {
 			},
 		},
 		{
-			table.NewMockStore([]string{"one", "two", "three"}, []int{0}, [][2]string{
+			table.NewMockStore([]string{"one", "two", "three"}, []uint32{0}, [][2]string{
 				{"abc", "123"},
 				{"def", "456"},
 			}),
-			table.NewMockStore([]string{"one", "two"}, []int{0}, [][2]string{
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
 				{"abc", "345"},
 				{"def", "678"},
 			}),
@@ -155,12 +155,12 @@ func TestDiffTables(t *testing.T) {
 			},
 		},
 		{
-			table.NewMockStore([]string{"one", "two"}, []int{0}, [][2]string{
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
 				{"abc", "123"},
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			table.NewMockStore([]string{"one", "two"}, []int{0}, [][2]string{
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
 				{"abc", "123"},
 				{"def", "456"},
 				{"qwe", "234"},
@@ -188,8 +188,8 @@ func ingestRawCSV(b *testing.B, db kv.DB, rows [][]string) table.Store {
 	b.Helper()
 	cols := rows[0]
 	reader := testutils.RawCSVReader(rows[1:])
-	store := table.NewSmallStore(db, cols, []int{}, 0)
-	_, err := ingest.Ingest(0, 1, reader, []int{}, store, io.Discard)
+	store := table.NewSmallStore(db, cols, []uint32{}, 0)
+	_, err := ingest.Ingest(0, 1, reader, []uint32{}, store, io.Discard)
 	require.NoError(b, err)
 	return store
 }

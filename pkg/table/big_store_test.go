@@ -24,7 +24,7 @@ func TestBigStoreInsertRow(t *testing.T) {
 	db := kv.NewMockStore(false)
 	fs := kv.NewMockStore(false)
 	columns := []string{"a", "b", "c"}
-	pk := []int{0}
+	pk := []uint32{0}
 	var seed uint64 = 0
 
 	ts, err := NewBigStore(db, fs, columns, pk, seed)
@@ -43,7 +43,7 @@ func TestBigStoreInsertRow(t *testing.T) {
 	require.NoError(t, err)
 	sum, err := ts.Save()
 	require.NoError(t, err)
-	assert.Equal(t, "df0167a307d078f008cbd26b59d03522", sum)
+	assert.Equal(t, "1b1ac80225ed9b798909885195e420d4", sum)
 
 	n, err := ts.NumRows()
 	require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestBigStoreNewRowHashReader(t *testing.T) {
 	defer os.RemoveAll(dir)
 	filestore := kv.NewFileStore(dir)
 	columns := []string{"a", "b", "c"}
-	pk := []int{0}
+	pk := []uint32{0}
 	var seed uint64 = 0
 	ts, err := NewBigStore(db, filestore, columns, pk, seed)
 	require.NoError(t, err)
@@ -105,33 +105,33 @@ func TestBigStoreNewRowHashReader(t *testing.T) {
 	for i, c := range []struct {
 		offset int
 		size   int
-		rows   [][2]string
+		rows   [][2][]byte
 	}{
 		{
 			0, 2,
-			[][2]string{
-				{string(pkHashes[0]), string(rowHashes[0])},
-				{string(pkHashes[3]), string(rowHashes[3])},
+			[][2][]byte{
+				{pkHashes[0], rowHashes[0]},
+				{pkHashes[3], rowHashes[3]},
 			},
 		},
 		{
 			2, 2,
-			[][2]string{
-				{string(pkHashes[1]), string(rowHashes[1])},
-				{string(pkHashes[2]), string(rowHashes[2])},
+			[][2][]byte{
+				{pkHashes[1], rowHashes[1]},
+				{pkHashes[2], rowHashes[2]},
 			},
 		},
 		{
 			4, 2,
-			[][2]string{},
+			[][2][]byte{},
 		},
 		{
 			0, 0,
-			[][2]string{
-				{string(pkHashes[0]), string(rowHashes[0])},
-				{string(pkHashes[3]), string(rowHashes[3])},
-				{string(pkHashes[1]), string(rowHashes[1])},
-				{string(pkHashes[2]), string(rowHashes[2])},
+			[][2][]byte{
+				{pkHashes[0], rowHashes[0]},
+				{pkHashes[3], rowHashes[3]},
+				{pkHashes[1], rowHashes[1]},
+				{pkHashes[2], rowHashes[2]},
 			},
 		},
 	} {

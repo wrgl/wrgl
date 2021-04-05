@@ -4,17 +4,19 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/slice"
 )
 
 type RowChangeReader struct {
 	Columns                   []*RowChangeColumn
-	PKIndices                 []int
+	PKIndices                 []uint32
 	rowIndices, oldRowIndices map[string]int
 	rowPairs                  [][2]string
 	off                       int
 	db1, db2                  kv.DB
+	dec                       *ingest.RowDecoder
 }
 
 func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeReader, error) {
@@ -35,6 +37,7 @@ func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeR
 		PKIndices:     pkIndices,
 		rowIndices:    stringSliceToMap(cols),
 		oldRowIndices: stringSliceToMap(oldCols),
+		dec:           ingest.NewRowDecoder(),
 	}, nil
 }
 
@@ -78,11 +81,11 @@ func (r *RowChangeReader) ReadAt(offset int) (mergedRow [][]string, err error) {
 		return nil, io.EOF
 	}
 	pair := r.rowPairs[offset]
-	row, err := fetchRow(r.db1, pair[0])
+	row, err := fetchRow(r.db1, pair[0], r.dec)
 	if err != nil {
 		return nil, err
 	}
-	oldRow, err := fetchRow(r.db2, pair[1])
+	oldRow, err := fetchRow(r.db2, pair[1], r.dec)
 	if err != nil {
 		return nil, err
 	}

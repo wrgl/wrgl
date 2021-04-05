@@ -9,11 +9,11 @@ import (
 
 type MockStore struct {
 	columns    []string
-	primaryKey []int
+	primaryKey []uint32
 	rows       [][2]string
 }
 
-func NewMockStore(columns []string, primaryKey []int, rows [][2]string) *MockStore {
+func NewMockStore(columns []string, primaryKey []uint32, rows [][2]string) *MockStore {
 	return &MockStore{
 		columns:    columns,
 		primaryKey: primaryKey,
@@ -33,7 +33,7 @@ func (s *MockStore) PrimaryKey() []string {
 	return slice.IndicesToValues(s.columns, s.primaryKey)
 }
 
-func (s *MockStore) PrimaryKeyIndices() []int {
+func (s *MockStore) PrimaryKeyIndices() []uint32 {
 	return s.primaryKey
 }
 

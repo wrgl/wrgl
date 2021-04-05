@@ -23,7 +23,7 @@ type Store interface {
 	InsertRow(n int, pkHash, rowHash, rowContent []byte) error
 	Columns() []string
 	PrimaryKey() []string
-	PrimaryKeyIndices() []int
+	PrimaryKeyIndices() []uint32
 	GetRowHash(pkHash []byte) (rowHash []byte, ok bool)
 	NumRows() (int, error)
 	NewRowHashReader(offset, size int) (RowHashReader, error)
