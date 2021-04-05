@@ -13,7 +13,7 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func createBigStore(t *testing.T, db kv.Store, fs kv.FileStore, pk []uint32, rows []string) (ts *BigStore, sum string, pkHashes, rowHashes [][]byte) {
+func createBigStore(t *testing.T, db kv.Store, fs kv.FileStore, pk []uint32, rows []string) (ts *BigStore, sum []byte, pkHashes, rowHashes [][]byte) {
 	t.Helper()
 	columns := strings.Split(rows[0], ",")
 	var seed uint64 = 0
@@ -45,7 +45,7 @@ func createTempFileStore(t *testing.T) (fs kv.FileStore, cleanUp func()) {
 	return
 }
 
-func buildBigStore(t *testing.T, db kv.Store, fs kv.FileStore) (ts *BigStore, sum string) {
+func buildBigStore(t *testing.T, db kv.Store, fs kv.FileStore) (ts *BigStore, sum []byte) {
 	rows := []string{}
 	for i := 0; i < 4; i++ {
 		row := []string{}

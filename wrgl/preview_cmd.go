@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/pkg/widgets"
@@ -37,11 +39,11 @@ func newPreviewCmd() *cobra.Command {
 			if commit == nil {
 				return fmt.Errorf("commit \"%s\" not found", cStr)
 			}
-			ts, err := commit.GetTable(kvStore, rd.OpenFileStore(), seed)
+			ts, err := versioning.GetTable(kvStore, rd.OpenFileStore(), seed, commit)
 			if err != nil {
 				return fmt.Errorf("GetTable: %v", err)
 			}
-			return previewTable(cmd, hash, commit, ts)
+			return previewTable(cmd, hex.EncodeToString(hash), commit, ts)
 		},
 	}
 	return cmd
@@ -65,7 +67,7 @@ func tableUsageBar() *tview.TextView {
 	return usageBar
 }
 
-func previewTable(cmd *cobra.Command, hash string, commit *versioning.Commit, ts table.Store) error {
+func previewTable(cmd *cobra.Command, hash string, commit *objects.Commit, ts table.Store) error {
 	app := tview.NewApplication().EnableMouse(true)
 
 	// create title bar

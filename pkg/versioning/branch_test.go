@@ -6,30 +6,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 )
 
 func TestBranch(t *testing.T) {
 	db := kv.NewMockStore(false)
-	b := &Branch{
-		CommitHash: "abcd1234",
+	b := &objects.Branch{
+		CommitSum: []byte("abcd1234"),
 	}
 	name := "abc"
-	err := b.Save(db, name)
+	err := SaveBranch(db, name, b)
 	require.NoError(t, err)
 	b2, err := GetBranch(db, name)
 	require.NoError(t, err)
-	assert.Equal(t, b.CommitHash, b2.CommitHash)
+	assert.Equal(t, b.CommitSum, b2.CommitSum)
 
-	b3 := &Branch{CommitHash: "qwer2345"}
+	b3 := &objects.Branch{CommitSum: []byte("qwer2345")}
 	name2 := "def"
-	err = b3.Save(db, name2)
+	err = SaveBranch(db, name2, b3)
 	require.NoError(t, err)
 	m, err := ListBranch(db)
 	require.NoError(t, err)
-	assert.Equal(t, map[string]*Branch{
-		name:  b,
-		name2: b3,
-	}, m)
+	assert.Len(t, m, 2)
+	assert.Equal(t, b.CommitSum, m[name].CommitSum)
+	assert.Equal(t, b3.CommitSum, m[name2].CommitSum)
 
 	err = DeleteBranch(db, "abc")
 	require.NoError(t, err)

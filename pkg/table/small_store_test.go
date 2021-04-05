@@ -1,6 +1,7 @@
 package table
 
 import (
+	"encoding/hex"
 	"io"
 	"sort"
 	"strings"
@@ -47,7 +48,7 @@ func TestSmallStoreInsertRow(t *testing.T) {
 	require.NoError(t, err)
 	sum, err := ts.Save()
 	require.NoError(t, err)
-	assert.Equal(t, "1b1ac80225ed9b798909885195e420d4", sum)
+	assert.Equal(t, "37ef611f3892b5b4b71d15e950ff6d0a", hex.EncodeToString(sum))
 	n, err := ts.NumRows()
 	require.NoError(t, err)
 	assert.Equal(t, 2, n)
@@ -133,7 +134,7 @@ func TestSmallStoreNewRowHashReader(t *testing.T) {
 	}
 }
 
-func createSmallStore(t *testing.T, db kv.Store, pk []uint32, rows []string) (ts *SmallStore, sum string, pkHashes, rowHashes [][]byte) {
+func createSmallStore(t *testing.T, db kv.Store, pk []uint32, rows []string) (ts *SmallStore, sum []byte, pkHashes, rowHashes [][]byte) {
 	t.Helper()
 	columns := strings.Split(rows[0], ",")
 	var seed uint64 = 0
@@ -155,7 +156,7 @@ func createSmallStore(t *testing.T, db kv.Store, pk []uint32, rows []string) (ts
 	return
 }
 
-func buildSmallStore(t *testing.T, db kv.Store) (ts *SmallStore, sum string) {
+func buildSmallStore(t *testing.T, db kv.Store) (ts *SmallStore, sum []byte) {
 	rows := []string{}
 	for i := 0; i < 4; i++ {
 		row := []string{}
@@ -173,8 +174,8 @@ func TestGetAllSmallTableHashes(t *testing.T) {
 
 	_, sum1 := buildSmallStore(t, db)
 	_, sum2 := buildSmallStore(t, db)
-	names := []string{sum1, sum2}
-	sort.Strings(names)
+	names := [][]byte{sum1, sum2}
+	sort.Slice(names, func(i, j int) bool { return string(names[i]) < string(names[j]) })
 
 	sl, err := GetAllSmallTableHashes(db)
 	require.NoError(t, err)

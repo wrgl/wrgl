@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/versioning"
 )
 
 func newExportCmd() *cobra.Command {
@@ -43,7 +44,7 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	if err != nil {
 		return err
 	}
-	ts, err := commit.GetTable(kvStore, fs, seed)
+	ts, err := versioning.GetTable(kvStore, fs, seed, commit)
 	if err != nil {
 		return err
 	}

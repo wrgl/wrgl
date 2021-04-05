@@ -1,16 +1,18 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func newCommitCmd() *cobra.Command {
@@ -48,20 +50,20 @@ func newCommitCmd() *cobra.Command {
 	return cmd
 }
 
-func decideTableStoreType(db kv.DB, branch *versioning.Branch, bigTable, smallTable bool) (table.StoreType, error) {
+func decideTableStoreType(db kv.DB, branch *objects.Branch, bigTable, smallTable bool) (objects.TableType, error) {
 	if bigTable {
-		return table.Big, nil
+		return objects.TableType_TS_BIG, nil
 	} else if smallTable {
-		return table.Small, nil
+		return objects.TableType_TS_SMALL, nil
 	}
-	if branch.CommitHash != "" {
-		prevCommit, err := versioning.GetCommit(db, branch.CommitHash)
+	if branch.CommitSum != nil {
+		prevCommit, err := versioning.GetCommit(db, branch.CommitSum)
 		if err != nil {
 			return 0, err
 		}
-		return prevCommit.TableStoreType, nil
+		return prevCommit.TableType, nil
 	}
-	return table.Small, nil
+	return objects.TableType_TS_SMALL, nil
 }
 
 func getRepoDir(cmd *cobra.Command) *repoDir {
@@ -115,7 +117,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	// detect table store type
 	branch, err := versioning.GetBranch(kvStore, branchName)
 	if err != nil {
-		branch = &versioning.Branch{}
+		branch = &objects.Branch{}
 	}
 	tsType, err := decideTableStoreType(kvStore, branch, bigTable, smallTable)
 	if err != nil {
@@ -132,7 +134,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		return err
 	}
 	var ts table.Store
-	if tsType == table.Big {
+	if tsType == objects.TableType_TS_BIG {
 		fileStore := rd.OpenFileStore()
 		ts, err = table.NewBigStore(kvStore, fileStore, columns, primaryKeyIndices, seed)
 		if err != nil {
@@ -145,28 +147,26 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	if err != nil {
 		return err
 	}
-	commit := &versioning.Commit{
-		ContentHash:    sum,
-		Message:        message,
-		PrevCommitHash: branch.CommitHash,
-		Timestamp:      time.Now(),
-		Author: &versioning.Author{
+	commit := &objects.Commit{
+		TableSum:      sum,
+		Message:       message,
+		PrevCommitSum: branch.CommitSum,
+		Timestamp:     timestamppb.Now(),
+		Author: &objects.Author{
 			Email: c.User.Email,
 			Name:  c.User.Name,
 		},
 	}
-	if bigTable {
-		commit.TableStoreType = table.Big
-	}
-	commitSum, err := commit.Save(kvStore, seed)
+	commit.TableType = tsType
+	commitSum, err := versioning.SaveCommit(kvStore, seed, commit)
 	if err != nil {
 		return err
 	}
-	branch.CommitHash = commitSum
-	err = branch.Save(kvStore, branchName)
+	branch.CommitSum = commitSum
+	err = versioning.SaveBranch(kvStore, branchName, branch)
 	if err != nil {
 		return err
 	}
-	cmd.Printf("[%s %s] %s\n", branchName, commitSum[:7], message)
+	cmd.Printf("[%s %s] %s\n", branchName, hex.EncodeToString(commitSum)[:7], message)
 	return nil
 }

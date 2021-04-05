@@ -1,12 +1,14 @@
 package versioning
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"regexp"
 	"strconv"
 
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 )
 
 var (
@@ -30,26 +32,29 @@ func parseNavigationChars(commitStr string) (commitName string, goBack int, err 
 	return
 }
 
-func getPrevCommit(db kv.DB, hash string, commit *Commit, goBack int) (string, *Commit, error) {
+func getPrevCommit(db kv.DB, hash []byte, commit *objects.Commit, goBack int) ([]byte, *objects.Commit, error) {
 	var err error
 	for goBack > 0 {
-		hash = commit.PrevCommitHash
+		hash = commit.PrevCommitSum
 		commit, err = GetCommit(db, hash)
 		if err != nil {
-			return "", nil, err
+			return nil, nil, err
 		}
 		goBack--
 	}
 	return hash, commit, nil
 }
 
-func InterpretCommitName(db kv.DB, commitStr string) (hash string, commit *Commit, file *os.File, err error) {
+func InterpretCommitName(db kv.DB, commitStr string) (hash []byte, commit *objects.Commit, file *os.File, err error) {
 	commitName, goBack, err := parseNavigationChars(commitStr)
 	if err != nil {
-		return "", nil, nil, err
+		return nil, nil, nil, err
 	}
 	if db != nil && HashPattern.MatchString(commitName) {
-		hash = commitName
+		hash, err = hex.DecodeString(commitName)
+		if err != nil {
+			return
+		}
 		commit, err = GetCommit(db, hash)
 		if err == nil {
 			hash, commit, err = getPrevCommit(db, hash, commit, goBack)
@@ -57,13 +62,13 @@ func InterpretCommitName(db kv.DB, commitStr string) (hash string, commit *Commi
 		}
 	}
 	if db != nil && BranchPattern.MatchString(commitName) {
-		var branch *Branch
+		var branch *objects.Branch
 		branch, err = GetBranch(db, commitName)
 		if err == nil {
-			hash = branch.CommitHash
+			hash = branch.CommitSum
 			commit, err = GetCommit(db, hash)
 			if err != nil {
-				return "", nil, nil, err
+				return nil, nil, nil, err
 			}
 			hash, commit, err = getPrevCommit(db, hash, commit, goBack)
 			return
@@ -71,12 +76,12 @@ func InterpretCommitName(db kv.DB, commitStr string) (hash string, commit *Commi
 	}
 	file, err = os.Open(commitName)
 	if err == nil {
-		return "", nil, file, err
+		return nil, nil, file, err
 	}
 	if db != nil && HashPattern.MatchString(commitName) {
-		return "", nil, nil, fmt.Errorf("can't find commit %s", commitName)
+		return nil, nil, nil, fmt.Errorf("can't find commit %s", commitName)
 	} else if db != nil && BranchPattern.MatchString(commitName) {
-		return "", nil, nil, fmt.Errorf("can't find branch %s", commitName)
+		return nil, nil, nil, fmt.Errorf("can't find branch %s", commitName)
 	}
-	return "", nil, nil, fmt.Errorf("can't find file %s", commitName)
+	return nil, nil, nil, fmt.Errorf("can't find file %s", commitName)
 }

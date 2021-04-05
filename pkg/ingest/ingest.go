@@ -106,7 +106,7 @@ func pbar(max int64, desc string, out io.Writer) *progressbar.ProgressBar {
 	return bar
 }
 
-func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []uint32, ts table.Store, out io.Writer) (string, error) {
+func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []uint32, ts table.Store, out io.Writer) ([]byte, error) {
 	errChan := make(chan error)
 	rows := make(chan row, 1000)
 	var wg sync.WaitGroup
@@ -121,14 +121,14 @@ outer:
 	for {
 		select {
 		case err := <-errChan:
-			return "", err
+			return nil, err
 		default:
 			record, err := reader.Read()
 			if err == io.EOF {
 				close(rows)
 				break outer
 			} else if err != nil {
-				return "", fmt.Errorf("csv.Reader.Read: %v", err)
+				return nil, fmt.Errorf("csv.Reader.Read: %v", err)
 			} else {
 				rows <- row{n, record}
 				n++
@@ -139,7 +139,7 @@ outer:
 	wg.Wait()
 	err := bar.Finish()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	done := printSpinner(out, "Saving table...")
 	defer close(done)

@@ -9,6 +9,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 )
@@ -101,7 +102,7 @@ func pbar(max int64, desc string, out, err io.Writer) *progressbar.ProgressBar {
 	return bar
 }
 
-func findCommitsToRemove(cmd *cobra.Command, kvStore kv.Store) (commitsToRemove []string, survivingCommits []string, err error) {
+func findCommitsToRemove(cmd *cobra.Command, kvStore kv.Store) (commitsToRemove [][]byte, survivingCommits [][]byte, err error) {
 	bar := pbar(-1, "finding commits to remove", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
 	branchMap, err := versioning.ListBranch(kvStore)
@@ -114,15 +115,15 @@ func findCommitsToRemove(cmd *cobra.Command, kvStore kv.Store) (commitsToRemove 
 	}
 	commitFound := make([]bool, len(commitHashes))
 	for _, b := range branchMap {
-		hash := b.CommitHash
-		for hash != "" {
-			ind := sort.SearchStrings(commitHashes, hash)
+		hash := b.CommitSum
+		for len(hash) > 0 {
+			ind := sort.Search(len(commitHashes), func(i int) bool { return string(commitHashes[i]) >= string(hash) })
 			commitFound[ind] = true
 			commit, err := versioning.GetCommit(kvStore, hash)
 			if err != nil {
 				return nil, nil, err
 			}
-			hash = commit.PrevCommitHash
+			hash = commit.PrevCommitSum
 		}
 	}
 	for i, found := range commitFound {
@@ -136,7 +137,7 @@ func findCommitsToRemove(cmd *cobra.Command, kvStore kv.Store) (commitsToRemove 
 	return
 }
 
-func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, survivingCommits, allRowKeys []string, keepRow []bool) (err error) {
+func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, survivingCommits [][]byte, allRowKeys []string, keepRow []bool) (err error) {
 	bar := pbar(-1, "removing small tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
 	tableHashes, err := table.GetAllSmallTableHashes(kvStore)
@@ -149,10 +150,10 @@ func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, survivingCommits, al
 		if err != nil {
 			return err
 		}
-		if commit.TableStoreType != table.Small {
+		if commit.TableType != objects.TableType_TS_SMALL {
 			continue
 		}
-		i := sort.SearchStrings(tableHashes, commit.ContentHash)
+		i := sort.Search(len(tableHashes), func(i int) bool { return string(tableHashes[i]) >= string(commit.TableSum) })
 		tableFound[i] = true
 	}
 	for i, keep := range tableFound {
@@ -188,7 +189,7 @@ func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, survivingCommits, al
 	return nil
 }
 
-func pruneBigTables(cmd *cobra.Command, kvStore kv.Store, fileStore kv.FileStore, survivingCommits, allRowKeys []string, keepRow []bool) (err error) {
+func pruneBigTables(cmd *cobra.Command, kvStore kv.Store, fileStore kv.FileStore, survivingCommits [][]byte, allRowKeys []string, keepRow []bool) (err error) {
 	bar := pbar(-1, "removing big tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
 	tableHashes, err := table.GetAllBigTableHashes(kvStore)
@@ -201,10 +202,10 @@ func pruneBigTables(cmd *cobra.Command, kvStore kv.Store, fileStore kv.FileStore
 		if err != nil {
 			return err
 		}
-		if commit.TableStoreType != table.Big {
+		if commit.TableType != objects.TableType_TS_BIG {
 			continue
 		}
-		i := sort.SearchStrings(tableHashes, commit.ContentHash)
+		i := sort.Search(len(tableHashes), func(i int) bool { return string(tableHashes[i]) >= string(commit.TableSum) })
 		tableFound[i] = true
 	}
 	for i, keep := range tableFound {

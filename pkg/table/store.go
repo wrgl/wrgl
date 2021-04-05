@@ -28,5 +28,5 @@ type Store interface {
 	NumRows() (int, error)
 	NewRowHashReader(offset, size int) (RowHashReader, error)
 	NewRowReader() (RowReader, error)
-	Save() (string, error)
+	Save() ([]byte, error)
 }

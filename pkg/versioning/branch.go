@@ -1,15 +1,10 @@
 package versioning
 
 import (
-	"bytes"
-	"encoding/gob"
-
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
+	"google.golang.org/protobuf/proto"
 )
-
-type Branch struct {
-	CommitHash string
-}
 
 var branchPrefix = []byte("branch/")
 
@@ -17,18 +12,8 @@ func branchKey(name string) []byte {
 	return append(branchPrefix, []byte(name)...)
 }
 
-func (c *Branch) encode() ([]byte, error) {
-	buf := bytes.NewBuffer([]byte{})
-	encoder := gob.NewEncoder(buf)
-	err := encoder.Encode(c)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func (r *Branch) Save(s kv.DB, name string) error {
-	v, err := r.encode()
+func SaveBranch(s kv.DB, name string, branch *objects.Branch) error {
+	v, err := proto.MarshalOptions{Deterministic: true}.Marshal(branch)
 	if err != nil {
 		return err
 	}
@@ -39,32 +24,25 @@ func (r *Branch) Save(s kv.DB, name string) error {
 	return nil
 }
 
-func decodeBranch(data []byte) (*Branch, error) {
-	buf := bytes.NewBuffer(data)
-	decoder := gob.NewDecoder(buf)
-	t := &Branch{}
-	err := decoder.Decode(t)
+func decodeBranch(b []byte) (*objects.Branch, error) {
+	obj := new(objects.Branch)
+	err := proto.Unmarshal(b, obj)
 	if err != nil {
 		return nil, err
 	}
-	return t, nil
+	return obj, nil
 }
 
-func GetBranch(s kv.DB, name string) (*Branch, error) {
+func GetBranch(s kv.DB, name string) (*objects.Branch, error) {
 	v, err := s.Get([]byte(branchKey(name)))
 	if err != nil {
 		return nil, err
 	}
-	var r *Branch
-	r, err = decodeBranch(v)
-	if err != nil {
-		return nil, err
-	}
-	return r, nil
+	return decodeBranch(v)
 }
 
-func ListBranch(s kv.DB) (map[string]*Branch, error) {
-	result := map[string]*Branch{}
+func ListBranch(s kv.DB) (map[string]*objects.Branch, error) {
+	result := map[string]*objects.Branch{}
 	m, err := s.Filter(branchPrefix)
 	if err != nil {
 		return nil, err

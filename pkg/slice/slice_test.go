@@ -141,3 +141,18 @@ func TestInsertToSortedStringSlice(t *testing.T) {
 		assert.Equal(t, c.Expected, InsertToSortedStringSlice(c.Strings, c.String), "case %d", i)
 	}
 }
+
+func TestInsertToSortedBytesSlice(t *testing.T) {
+	for i, c := range []struct {
+		Bytes    [][]byte
+		Byte     []byte
+		Expected [][]byte
+	}{
+		{nil, []byte("a"), [][]byte{[]byte("a")}},
+		{[][]byte{[]byte("b")}, []byte("a"), [][]byte{[]byte("a"), []byte("b")}},
+		{[][]byte{[]byte("a"), []byte("c")}, []byte("b"), [][]byte{[]byte("a"), []byte("b"), []byte("c")}},
+		{[][]byte{[]byte("a"), []byte("b")}, []byte("d"), [][]byte{[]byte("a"), []byte("b"), []byte("d")}},
+	} {
+		assert.Equal(t, c.Expected, InsertToSortedBytesSlice(c.Bytes, c.Byte), "case %d", i)
+	}
+}

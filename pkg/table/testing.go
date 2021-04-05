@@ -80,6 +80,6 @@ func (s *MockStore) NewRowReader() (RowReader, error) {
 	return nil, fmt.Errorf("Unimplemented")
 }
 
-func (s *MockStore) Save() (string, error) {
-	return "", fmt.Errorf("Unimplemented")
+func (s *MockStore) Save() ([]byte, error) {
+	return nil, fmt.Errorf("Unimplemented")
 }

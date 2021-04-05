@@ -1,86 +1,57 @@
 package versioning
 
 import (
-	"bytes"
-	"encoding/gob"
-	"encoding/hex"
-	"time"
-
 	"github.com/mmcloughlin/meow"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
 )
 
-type Author struct {
-	Email string
-	Name  string
-}
-
-type Commit struct {
-	Author         *Author
-	Message        string
-	ContentHash    string
-	PrevCommitHash string
-	Timestamp      time.Time
-	TableStoreType table.StoreType
-}
-
-func (c *Commit) encode() ([]byte, error) {
-	buf := bytes.NewBuffer([]byte{})
-	encoder := gob.NewEncoder(buf)
-	err := encoder.Encode(c)
-	if err != nil {
-		return nil, err
+func GetTable(db kv.Store, fs kv.FileStore, seed uint64, c *objects.Commit) (table.Store, error) {
+	if c.TableType == objects.TableType_TS_BIG {
+		return table.ReadBigStore(db, fs, seed, c.TableSum)
 	}
-	return buf.Bytes(), nil
-}
-
-func (c *Commit) GetTable(db kv.Store, fs kv.FileStore, seed uint64) (table.Store, error) {
-	if c.TableStoreType == table.Big {
-		return table.ReadBigStore(db, fs, seed, c.ContentHash)
-	}
-	return table.ReadSmallStore(db, seed, c.ContentHash)
+	return table.ReadSmallStore(db, seed, c.TableSum)
 }
 
 var commitPrefix = []byte("commit/")
 
-func commitKey(hash string) []byte {
-	return append(commitPrefix, []byte(hash)...)
+func commitKey(hash []byte) []byte {
+	return append(commitPrefix, hash...)
 }
 
-func (c *Commit) Save(s kv.DB, seed uint64) (string, error) {
-	v, err := c.encode()
-	if err != nil {
-		return "", err
-	}
-	kb := meow.Checksum(seed, v)
-	ks := hex.EncodeToString(kb[:])
-	err = s.Set(commitKey(ks), v)
-	if err != nil {
-		return "", err
-	}
-	return ks, nil
-}
-
-func decodeCommit(data []byte) (*Commit, error) {
-	buf := bytes.NewBuffer(data)
-	decoder := gob.NewDecoder(buf)
-	t := &Commit{}
-	err := decoder.Decode(t)
+func SaveCommit(s kv.DB, seed uint64, c *objects.Commit) ([]byte, error) {
+	v, err := proto.MarshalOptions{Deterministic: true}.Marshal(c)
 	if err != nil {
 		return nil, err
 	}
-	return t, nil
+	kb := meow.Checksum(seed, v)
+	sl := kb[:]
+	err = s.Set(commitKey(sl), v)
+	if err != nil {
+		return nil, err
+	}
+	return sl, nil
 }
 
-func GetCommit(s kv.DB, hash string) (*Commit, error) {
+func decodeCommit(data []byte) (*objects.Commit, error) {
+	m := new(objects.Commit)
+	err := proto.Unmarshal(data, m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func GetCommit(s kv.DB, hash []byte) (*objects.Commit, error) {
 	v, err := s.Get(commitKey(hash))
 	if err != nil {
 		return nil, err
 	}
-	var c *Commit
+	var c *objects.Commit
 	c, err = decodeCommit(v)
 	if err != nil {
 		return nil, err
@@ -88,14 +59,14 @@ func GetCommit(s kv.DB, hash string) (*Commit, error) {
 	return c, nil
 }
 
-func GetAllCommits(s kv.DB) ([]*Commit, error) {
+func GetAllCommits(s kv.DB) ([]*objects.Commit, error) {
 	m, err := s.Filter(commitPrefix)
 	if err != nil {
 		return nil, err
 	}
-	result := []*Commit{}
+	result := []*objects.Commit{}
 	for _, v := range m {
-		var c *Commit
+		var c *objects.Commit
 		c, err = decodeCommit(v)
 		if err != nil {
 			return nil, err
@@ -105,20 +76,20 @@ func GetAllCommits(s kv.DB) ([]*Commit, error) {
 	return result, nil
 }
 
-func GetAllCommitHashes(s kv.DB) ([]string, error) {
+func GetAllCommitHashes(s kv.DB) ([][]byte, error) {
 	sl, err := s.FilterKey(commitPrefix)
 	if err != nil {
 		return nil, err
 	}
 	l := len(commitPrefix)
-	result := []string{}
+	result := [][]byte{}
 	for _, h := range sl {
-		result = slice.InsertToSortedStringSlice(result, h[l:])
+		result = slice.InsertToSortedBytesSlice(result, []byte(h[l:]))
 	}
 	return result, nil
 }
 
-func DeleteCommit(s kv.DB, hash string) error {
+func DeleteCommit(s kv.DB, hash []byte) error {
 	return s.Delete(commitKey(hash))
 }
 

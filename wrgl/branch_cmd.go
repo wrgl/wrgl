@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
 	"github.com/gobwas/glob"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/versioning"
 )
@@ -135,11 +137,11 @@ func copyBranch(cmd *cobra.Command, kvStore kv.Store, newBranch string, args []s
 	if err != nil {
 		return fmt.Errorf(`branch "%s" does not exist`, args[0])
 	}
-	err = b.Save(kvStore, newBranch)
+	err = versioning.SaveBranch(kvStore, newBranch, b)
 	if err != nil {
 		return err
 	}
-	cmd.Printf("created branch %s (%s)\n", newBranch, b.CommitHash)
+	cmd.Printf("created branch %s (%s)\n", newBranch, hex.EncodeToString(b.CommitSum))
 	return nil
 }
 
@@ -152,7 +154,7 @@ func moveBranch(cmd *cobra.Command, kvStore kv.Store, newBranch string, args []s
 	if err != nil {
 		return fmt.Errorf(`branch "%s" does not exist`, args[0])
 	}
-	err = b.Save(kvStore, newBranch)
+	err = versioning.SaveBranch(kvStore, newBranch, b)
 	if err != nil {
 		return err
 	}
@@ -160,7 +162,7 @@ func moveBranch(cmd *cobra.Command, kvStore kv.Store, newBranch string, args []s
 	if err != nil {
 		return err
 	}
-	cmd.Printf("created branch %s (%s)\n", newBranch, b.CommitHash)
+	cmd.Printf("created branch %s (%s)\n", newBranch, hex.EncodeToString(b.CommitSum))
 	return nil
 }
 
@@ -188,11 +190,11 @@ func createBranch(cmd *cobra.Command, kvStore kv.Store, args []string) error {
 	if commit == nil {
 		return fmt.Errorf(`commit "%s" not found`, args[1])
 	}
-	b := &versioning.Branch{CommitHash: hash}
-	err = b.Save(kvStore, args[0])
+	b := &objects.Branch{CommitSum: hash}
+	err = versioning.SaveBranch(kvStore, args[0], b)
 	if err != nil {
 		return err
 	}
-	cmd.Printf("created branch %s (%s)\n", args[0], b.CommitHash)
+	cmd.Printf("created branch %s (%s)\n", args[0], hex.EncodeToString(b.CommitSum))
 	return nil
 }

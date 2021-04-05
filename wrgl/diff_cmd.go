@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,10 +15,12 @@ import (
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/pkg/widgets"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -58,7 +61,7 @@ func newDiffCmd() *cobra.Command {
 	return cmd
 }
 
-func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (string, *versioning.Commit, error) {
+func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (string, *objects.Commit, error) {
 	defer file.Close()
 	pk, err := cmd.Flags().GetStringSlice("primary-key")
 	if err != nil {
@@ -81,22 +84,22 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (str
 	if err != nil {
 		return "", nil, err
 	}
-	commit := &versioning.Commit{
-		ContentHash:    sum,
-		Timestamp:      time.Now(),
-		TableStoreType: table.Small,
+	commit := &objects.Commit{
+		TableSum:  sum,
+		Timestamp: timestamppb.Now(),
+		TableType: objects.TableType_TS_SMALL,
 	}
-	_, err = commit.Save(db, seed)
+	_, err = versioning.SaveCommit(db, seed, commit)
 	if err != nil {
 		return "", nil, err
 	}
 	return file.Name(), commit, nil
 }
 
-func getCommit(cmd *cobra.Command, db kv.Store, memStore *kv.MockStore, cStr string) (inUsedDB kv.Store, hash string, commit *versioning.Commit, err error) {
+func getCommit(cmd *cobra.Command, db kv.Store, memStore *kv.MockStore, cStr string) (inUsedDB kv.Store, hash string, commit *objects.Commit, err error) {
 	inUsedDB = db
 	var file *os.File
-	hash, commit, file, err = versioning.InterpretCommitName(db, cStr)
+	hashb, commit, file, err := versioning.InterpretCommitName(db, cStr)
 	if err != nil {
 		return
 	}
@@ -106,6 +109,7 @@ func getCommit(cmd *cobra.Command, db kv.Store, memStore *kv.MockStore, cStr str
 		hash, commit, err = createInMemCommit(cmd, memStore, file)
 		return inUsedDB, hash, commit, err
 	}
+	hash = hex.EncodeToString(hashb)
 	return
 }
 
@@ -133,12 +137,13 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 		pkChanged         bool
 	)
 
+	app := tview.NewApplication()
 	titleBar := tview.NewTextView().SetDynamicColors(true)
 	fmt.Fprintf(titleBar, "[yellow]%s[white] vs [yellow]%s[white]", commitHash1, commitHash2)
 
 	pBar := widgets.NewProgressBar("Comparing...")
 
-	tabPages := widgets.NewTabPages()
+	tabPages := widgets.NewTabPages(app)
 
 	usageBar := tableUsageBar()
 
@@ -147,8 +152,7 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 		AddItem(pBar, 1, 1, false).
 		AddItem(tabPages, 0, 1, true).
 		AddItem(usageBar, 1, 1, false)
-	app := tview.NewApplication().
-		SetRoot(flex, true).
+	app.SetRoot(flex, true).
 		SetFocus(flex).
 		EnableMouse(true).
 		SetInputCapture(tabPages.ProcessInput)
@@ -300,15 +304,15 @@ func diffCommits(cmd *cobra.Command, cStr1, cStr2, format string) error {
 	if err != nil {
 		return err
 	}
-	if commit1.ContentHash == commit2.ContentHash {
+	if string(commit1.TableSum) == string(commit2.TableSum) {
 		cmd.Println("There are no changes!")
 		return nil
 	}
-	ts1, err := commit1.GetTable(db1, fs, seed)
+	ts1, err := versioning.GetTable(db1, fs, seed, commit1)
 	if err != nil {
 		return err
 	}
-	ts2, err := commit2.GetTable(db2, fs, seed)
+	ts2, err := versioning.GetTable(db2, fs, seed, commit2)
 	if err != nil {
 		return err
 	}

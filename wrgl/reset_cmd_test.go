@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"io"
 	"testing"
 
@@ -23,7 +24,7 @@ func TestResetCmd(t *testing.T) {
 	factory.CommitSmall(t, db, "alpha", nil, nil, nil)
 	require.NoError(t, db.Close())
 
-	setCmdArgs(cmd, rd, cf, "reset", "alpha", sum)
+	setCmdArgs(cmd, rd, cf, "reset", "alpha", hex.EncodeToString(sum))
 	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
@@ -32,5 +33,5 @@ func TestResetCmd(t *testing.T) {
 	defer db.Close()
 	b, err := versioning.GetBranch(db, "alpha")
 	require.NoError(t, err)
-	assert.Equal(t, sum, b.CommitHash)
+	assert.Equal(t, sum, b.CommitSum)
 }

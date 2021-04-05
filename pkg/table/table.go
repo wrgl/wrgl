@@ -2,35 +2,33 @@ package table
 
 import (
 	"bytes"
-	"encoding/gob"
-	"encoding/hex"
+	"encoding/csv"
 	"io"
+	"strconv"
 
 	"github.com/mmcloughlin/meow"
 )
 
-func hashTable(seed uint64, columns []string, primaryKeyIndices []uint32, rowHashReader RowHashReader) (string, error) {
-	buf := bytes.NewBuffer([]byte{})
-	encoder := gob.NewEncoder(buf)
+func hashTable(seed uint64, columns []string, primaryKeyIndices []uint32, rowHashReader RowHashReader) ([]byte, error) {
 	h := meow.New(seed)
-
-	err := encoder.Encode(columns)
+	buf := bytes.NewBufferString("")
+	writer := csv.NewWriter(buf)
+	err := writer.Write(columns)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	pkSl := []string{}
+	for _, v := range primaryKeyIndices {
+		pkSl = append(pkSl, strconv.Itoa(int(v)))
+	}
+	err = writer.Write(pkSl)
+	if err != nil {
+		return nil, err
+	}
+	writer.Flush()
 	_, err = h.Write(buf.Bytes())
 	if err != nil {
-		return "", err
-	}
-
-	buf.Reset()
-	err = encoder.Encode(primaryKeyIndices)
-	if err != nil {
-		return "", err
-	}
-	_, err = h.Write(buf.Bytes())
-	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	for {
@@ -38,7 +36,7 @@ func hashTable(seed uint64, columns []string, primaryKeyIndices []uint32, rowHas
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return "", err
+			return nil, err
 		}
 		buf.Reset()
 		buf.Write(pkHash)
@@ -46,9 +44,9 @@ func hashTable(seed uint64, columns []string, primaryKeyIndices []uint32, rowHas
 		buf.WriteByte(byte('\n'))
 		_, err = h.Write(buf.Bytes())
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
-	return hex.EncodeToString(h.Sum(nil)), nil
+	return h.Sum(nil), nil
 }

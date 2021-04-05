@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -85,17 +86,17 @@ func TestBranchCmdCopy(t *testing.T) {
 	assert.Equal(t, `branch "beta" already exist`, cmd.Execute().Error())
 
 	setCmdArgs(cmd, rd, cf, "branch", "alpha", "--copy", "gamma")
-	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", sum))
+	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", hex.EncodeToString(sum)))
 
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
 	b1, err := versioning.GetBranch(db, "gamma")
 	require.NoError(t, err)
-	assert.Equal(t, sum, b1.CommitHash)
+	assert.Equal(t, sum, b1.CommitSum)
 	b2, err := versioning.GetBranch(db, "alpha")
 	require.NoError(t, err)
-	assert.Equal(t, b1.CommitHash, b2.CommitHash)
+	assert.Equal(t, b1.CommitSum, b2.CommitSum)
 }
 
 func TestBranchCmdMove(t *testing.T) {
@@ -118,14 +119,14 @@ func TestBranchCmdMove(t *testing.T) {
 	assert.Equal(t, `branch "beta" already exist`, cmd.Execute().Error())
 
 	setCmdArgs(cmd, rd, cf, "branch", "alpha", "--move", "gamma")
-	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", sum))
+	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", hex.EncodeToString(sum)))
 
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
 	b1, err := versioning.GetBranch(db, "gamma")
 	require.NoError(t, err)
-	assert.Equal(t, sum, b1.CommitHash)
+	assert.Equal(t, sum, b1.CommitSum)
 	_, err = versioning.GetBranch(db, "alpha")
 	assert.Error(t, err)
 }
@@ -171,18 +172,18 @@ func TestBranchCmdCreate(t *testing.T) {
 	assert.Equal(t, "please specify both branch name and start point (could be branch name, commit hash)", cmd.Execute().Error())
 
 	setCmdArgs(cmd, rd, cf, "branch", "delta", "alpha")
-	assertCmdOutput(t, cmd, fmt.Sprintf("created branch delta (%s)\n", sum))
+	assertCmdOutput(t, cmd, fmt.Sprintf("created branch delta (%s)\n", hex.EncodeToString(sum)))
 
-	setCmdArgs(cmd, rd, cf, "branch", "beta", sum)
-	assertCmdOutput(t, cmd, fmt.Sprintf("created branch beta (%s)\n", sum))
+	setCmdArgs(cmd, rd, cf, "branch", "beta", hex.EncodeToString(sum))
+	assertCmdOutput(t, cmd, fmt.Sprintf("created branch beta (%s)\n", hex.EncodeToString(sum)))
 
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
 	b1, err := versioning.GetBranch(db, "delta")
 	require.NoError(t, err)
-	assert.Equal(t, sum, b1.CommitHash)
+	assert.Equal(t, sum, b1.CommitSum)
 	b2, err := versioning.GetBranch(db, "beta")
 	require.NoError(t, err)
-	assert.Equal(t, b1.CommitHash, b2.CommitHash)
+	assert.Equal(t, b1.CommitSum, b2.CommitSum)
 }

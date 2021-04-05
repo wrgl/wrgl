@@ -32,7 +32,7 @@ func parseRows(rows []string, pk []uint32) ([][]string, []uint32) {
 	return records, pk
 }
 
-func fillTable(t *testing.T, db kv.DB, ts table.Store, records [][]string, pk []uint32) string {
+func fillTable(t *testing.T, db kv.DB, ts table.Store, records [][]string, pk []uint32) []byte {
 	t.Helper()
 	rh := ingest.NewRowHasher(pk, 0)
 	for i, rec := range records[1:] {
@@ -46,7 +46,7 @@ func fillTable(t *testing.T, db kv.DB, ts table.Store, records [][]string, pk []
 	return sum
 }
 
-func BuildSmallTable(t *testing.T, db kv.DB, rows []string, pk []uint32) (string, table.Store) {
+func BuildSmallTable(t *testing.T, db kv.DB, rows []string, pk []uint32) ([]byte, table.Store) {
 	t.Helper()
 	records, pk := parseRows(rows, pk)
 	ts := table.NewSmallStore(db, records[0], pk, 0)
@@ -54,7 +54,7 @@ func BuildSmallTable(t *testing.T, db kv.DB, rows []string, pk []uint32) (string
 	return sum, ts
 }
 
-func BuildBigTable(t *testing.T, db kv.Store, fs kv.FileStore, rows []string, pk []uint32) (string, table.Store) {
+func BuildBigTable(t *testing.T, db kv.Store, fs kv.FileStore, rows []string, pk []uint32) ([]byte, table.Store) {
 	t.Helper()
 	records, pk := parseRows(rows, pk)
 	ts, err := table.NewBigStore(db, fs, records[0], pk, 0)

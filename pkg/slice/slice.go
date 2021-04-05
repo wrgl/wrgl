@@ -109,3 +109,17 @@ func InsertToSortedStringSlice(sl []string, s string) []string {
 	}
 	return sl
 }
+
+func InsertToSortedBytesSlice(sl [][]byte, b []byte) [][]byte {
+	s := string(b)
+	i := sort.Search(len(sl), func(i int) bool {
+		return string(sl[i]) >= s
+	})
+	if i == 0 {
+		sl = append([][]byte{b}, sl...)
+	} else {
+		sl = append(sl[:i], sl[i-1:]...)
+		sl[i] = b
+	}
+	return sl
+}

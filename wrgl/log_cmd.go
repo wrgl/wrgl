@@ -43,8 +43,8 @@ func writeCommitLog(cmd *cobra.Command, kvStore kv.Store, branchName string, out
 	if err != nil {
 		return err
 	}
-	hash := branch.CommitHash
-	for hash != "" {
+	hash := branch.CommitSum
+	for len(hash) > 0 {
 		c, err := versioning.GetCommit(kvStore, hash)
 		if err != nil {
 			return err
@@ -53,7 +53,7 @@ func writeCommitLog(cmd *cobra.Command, kvStore kv.Store, branchName string, out
 		fmt.Fprintf(out, "Author: %s <%s>\n", c.Author.Name, c.Author.Email)
 		fmt.Fprintf(out, "Date: %s\n", c.Timestamp)
 		fmt.Fprintf(out, "\n    %s\n\n", c.Message)
-		hash = c.PrevCommitHash
+		hash = c.PrevCommitSum
 	}
 	return nil
 }

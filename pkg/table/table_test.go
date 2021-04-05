@@ -1,6 +1,7 @@
 package table
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func TestHashTable(t *testing.T) {
 
 	sum, err := hashTable(seed, columns, primaryKeyIndices, rowHashReader)
 	require.NoError(t, err)
-	assert.Equal(t, "bf1096ae00c76254772641a02c221db0", sum)
+	assert.Equal(t, "9961a6dca881108fa152410e45a3c3d6", hex.EncodeToString(sum))
 
 	rowHashReader = &MockRowHashReader{
 		rows: [][2]string{
@@ -38,5 +39,5 @@ func TestHashTable(t *testing.T) {
 	}
 	sum, err = hashTable(seed, columns, primaryKeyIndices, rowHashReader)
 	require.NoError(t, err)
-	assert.Equal(t, "a2a7caaa151575dbe5f413f53ee002eb", sum)
+	assert.Equal(t, "731dd4b0ffcfa44a643aa81cf7817d03", hex.EncodeToString(sum))
 }

@@ -12,8 +12,8 @@ import (
 
 var smallTablePrefix = []byte("tables/")
 
-func smallTableKey(hash string) []byte {
-	return append(smallTablePrefix, []byte(hash)...)
+func smallTableKey(hash []byte) []byte {
+	return append(smallTablePrefix, hash...)
 }
 
 type KeyHash struct {
@@ -131,24 +131,24 @@ func (s *SmallStore) NewRowReader() (RowReader, error) {
 	}, nil
 }
 
-func (s *SmallStore) Save() (string, error) {
+func (s *SmallStore) Save() ([]byte, error) {
 	r, err := s.NewRowHashReader(0, 0)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer r.Close()
 	sum, err := hashTable(s.seed, s.table.Columns, s.table.Pk, r)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	v, err := proto.Marshal(s.table)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return sum, s.db.Set(smallTableKey(sum), v)
 }
 
-func ReadSmallStore(s kv.DB, seed uint64, hash string) (*SmallStore, error) {
+func ReadSmallStore(s kv.DB, seed uint64, hash []byte) (*SmallStore, error) {
 	v, err := s.Get(smallTableKey(hash))
 	if err != nil {
 		return nil, err
@@ -165,19 +165,19 @@ func ReadSmallStore(s kv.DB, seed uint64, hash string) (*SmallStore, error) {
 	}, nil
 }
 
-func DeleteSmallStore(db kv.DB, hash string) error {
+func DeleteSmallStore(db kv.DB, hash []byte) error {
 	return db.Delete(smallTableKey(hash))
 }
 
-func GetAllSmallTableHashes(db kv.DB) ([]string, error) {
+func GetAllSmallTableHashes(db kv.DB) ([][]byte, error) {
 	sl, err := db.FilterKey(smallTablePrefix)
 	if err != nil {
 		return nil, err
 	}
 	l := len(smallTablePrefix)
-	result := []string{}
+	result := [][]byte{}
 	for _, h := range sl {
-		result = slice.InsertToSortedStringSlice(result, h[l:])
+		result = slice.InsertToSortedBytesSlice(result, []byte(h[l:]))
 	}
 	return result, nil
 }

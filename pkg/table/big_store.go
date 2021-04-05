@@ -11,7 +11,7 @@ const bufferSize = 256 * 1024
 
 var bigTablePrefix = []byte("big_tables/")
 
-func bigTableKey(hash string) []byte {
+func bigTableKey(hash []byte) []byte {
 	return append(bigTablePrefix, hash...)
 }
 
@@ -79,28 +79,28 @@ func (s *BigStore) NewRowReader() (RowReader, error) {
 	return s.rs.NewRowReader()
 }
 
-func (s *BigStore) Save() (string, error) {
+func (s *BigStore) Save() ([]byte, error) {
 	err := s.rs.Flush()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	r, err := s.NewRowHashReader(0, 0)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer r.Close()
 	sum, err := hashTable(s.seed, s.table.Columns, s.table.Pk, r)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	v, err := proto.Marshal(s.table)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return sum, s.db.Set(bigTableKey(sum), v)
 }
 
-func ReadBigStore(db kv.Store, fs kv.FileStore, seed uint64, hash string) (*BigStore, error) {
+func ReadBigStore(db kv.Store, fs kv.FileStore, seed uint64, hash []byte) (*BigStore, error) {
 	v, err := db.Get(bigTableKey(hash))
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func ReadBigStore(db kv.Store, fs kv.FileStore, seed uint64, hash string) (*BigS
 	}, nil
 }
 
-func DeleteBigStore(db kv.Store, fs kv.FileStore, hash string) error {
+func DeleteBigStore(db kv.Store, fs kv.FileStore, hash []byte) error {
 	v, err := db.Get(bigTableKey(hash))
 	if err != nil {
 		return err
@@ -146,15 +146,15 @@ func DeleteBigStore(db kv.Store, fs kv.FileStore, hash string) error {
 	return db.Delete(bigTableKey(hash))
 }
 
-func GetAllBigTableHashes(db kv.DB) ([]string, error) {
+func GetAllBigTableHashes(db kv.DB) ([][]byte, error) {
 	sl, err := db.FilterKey(bigTablePrefix)
 	if err != nil {
 		return nil, err
 	}
 	l := len(bigTablePrefix)
-	result := []string{}
+	result := [][]byte{}
 	for _, h := range sl {
-		result = slice.InsertToSortedStringSlice(result, h[l:])
+		result = slice.InsertToSortedBytesSlice(result, []byte(h[l:]))
 	}
 	return result, nil
 }

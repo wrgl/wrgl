@@ -12,6 +12,7 @@ import (
 type TabPages struct {
 	*tview.Flex
 	mu             sync.Mutex
+	app            *tview.Application
 	pages          *tview.Pages
 	tabBar, margin *tview.TextView
 	labels         []string
@@ -22,10 +23,11 @@ var (
 	tabKeys = []string{"q", "w", "e", "r"}
 )
 
-func NewTabPages() *TabPages {
+func NewTabPages(app *tview.Application) *TabPages {
 	p := &TabPages{
 		pages:  tview.NewPages(),
 		Flex:   tview.NewFlex(),
+		app:    app,
 		tabBar: tview.NewTextView(),
 		margin: tview.NewTextView(),
 	}
@@ -34,6 +36,11 @@ func NewTabPages() *TabPages {
 		SetWrap(false).
 		SetHighlightedFunc(func(added, removed, remaining []string) {
 			p.pages.SwitchToPage(added[0])
+			i, err := strconv.Atoi(added[0])
+			if err != nil {
+				panic(err)
+			}
+			p.app.SetFocus(p.items[i])
 		})
 	p.Flex.SetDirection(tview.FlexRow).
 		AddItem(p.tabBar, 1, 1, false).

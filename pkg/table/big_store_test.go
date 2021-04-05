@@ -43,7 +43,7 @@ func TestBigStoreInsertRow(t *testing.T) {
 	require.NoError(t, err)
 	sum, err := ts.Save()
 	require.NoError(t, err)
-	assert.Equal(t, "1b1ac80225ed9b798909885195e420d4", sum)
+	assert.Equal(t, "37ef611f3892b5b4b71d15e950ff6d0a", hex.EncodeToString(sum))
 
 	n, err := ts.NumRows()
 	require.NoError(t, err)
@@ -147,8 +147,8 @@ func TestGetAllBigTableHashes(t *testing.T) {
 
 	_, sum1 := buildBigStore(t, db, fs)
 	_, sum2 := buildBigStore(t, db, fs)
-	names := []string{sum1, sum2}
-	sort.Strings(names)
+	names := [][]byte{sum1, sum2}
+	sort.Slice(names, func(i, j int) bool { return string(names[i]) < string(names[j]) })
 
 	sl, err := GetAllBigTableHashes(db)
 	require.NoError(t, err)

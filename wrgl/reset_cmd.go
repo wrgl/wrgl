@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/versioning"
 )
 
@@ -25,11 +26,11 @@ func newResetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if hash == "" {
+			if len(hash) == 0 {
 				return fmt.Errorf("commit \"%s\" not found", args[1])
 			}
-			b := &versioning.Branch{CommitHash: hash}
-			return b.Save(kvStore, branch)
+			b := &objects.Branch{CommitSum: hash}
+			return versioning.SaveBranch(kvStore, branch, b)
 		},
 	}
 	return cmd
