@@ -42,6 +42,8 @@ func TestMoveOps(t *testing.T) {
 }
 
 func TestDetectMovedColumns(t *testing.T) {
+	zero := 0
+	one := 1
 	assert.Equal(t, detectMovedColumns([]*RowChangeColumn{{Name: "a"}}, []string{"a"}), []*RowChangeColumn{
 		{Name: "a"},
 	})
@@ -59,16 +61,16 @@ func TestDetectMovedColumns(t *testing.T) {
 		[]*RowChangeColumn{{Name: "a"}, {Name: "b"}})
 	assert.Equal(t,
 		detectMovedColumns([]*RowChangeColumn{{Name: "a"}, {Name: "b"}}, []string{"b", "a"}),
-		[]*RowChangeColumn{{Name: "a"}, {Name: "b", MovedFrom: 0}})
+		[]*RowChangeColumn{{Name: "a"}, {Name: "b", MovedFrom: &zero}})
 	assert.Equal(t,
 		detectMovedColumns(
 			[]*RowChangeColumn{{Name: "a"}, {Name: "b"}, {Name: "c"}},
 			[]string{"c", "a"},
 		),
-		[]*RowChangeColumn{{Name: "a"}, {Name: "b"}, {Name: "c", MovedFrom: 0}})
+		[]*RowChangeColumn{{Name: "a"}, {Name: "b"}, {Name: "c", MovedFrom: &zero}})
 	assert.Equal(t,
 		detectMovedColumns([]*RowChangeColumn{{Name: "a"}, {Name: "b"}}, []string{"b", "c", "a"}),
-		[]*RowChangeColumn{{Name: "a"}, {Name: "b", MovedFrom: 0}})
+		[]*RowChangeColumn{{Name: "a"}, {Name: "b", MovedFrom: &zero}})
 	assert.Equal(t,
 		detectMovedColumns(
 			[]*RowChangeColumn{
@@ -84,38 +86,40 @@ func TestDetectMovedColumns(t *testing.T) {
 			{Name: "a"},
 			{Name: "d"},
 			{Name: "e"},
-			{Name: "b", MovedFrom: 1},
-			{Name: "c", MovedFrom: 1},
+			{Name: "b", MovedFrom: &one},
+			{Name: "c", MovedFrom: &one},
 		})
 }
 
 func TestCompareColumns(t *testing.T) {
-	assert.Equal(t, compareColumns([]string{"a"}, []string{"a"}), []*RowChangeColumn{{Name: "a", MovedFrom: -1}})
+	zero := 0
+	two := 2
+	assert.Equal(t, compareColumns([]string{"a"}, []string{"a"}), []*RowChangeColumn{{Name: "a"}})
 	assert.Equal(t, compareColumns([]string{"a", "b"}, []string{"a"}), []*RowChangeColumn{
-		{Name: "a", MovedFrom: -1},
-		{Name: "b", Removed: true, MovedFrom: -1},
+		{Name: "a"},
+		{Name: "b", Removed: true},
 	})
 	assert.Equal(t, compareColumns([]string{"a"}, []string{"a", "b"}), []*RowChangeColumn{
-		{Name: "a", MovedFrom: -1},
-		{Name: "b", Added: true, MovedFrom: -1},
+		{Name: "a"},
+		{Name: "b", Added: true},
 	})
 	assert.Equal(t, compareColumns([]string{"b", "a"}, []string{"a", "b"}), []*RowChangeColumn{
-		{Name: "a", MovedFrom: -1},
-		{Name: "b", MovedFrom: 0},
+		{Name: "a"},
+		{Name: "b", MovedFrom: &zero},
 	})
 	assert.Equal(t, compareColumns([]string{"c", "b", "a"}, []string{"a", "b", "c"}), []*RowChangeColumn{
-		{Name: "a", MovedFrom: 2},
-		{Name: "b", MovedFrom: -1},
-		{Name: "c", MovedFrom: 0},
+		{Name: "a", MovedFrom: &two},
+		{Name: "b"},
+		{Name: "c", MovedFrom: &zero},
 	})
 	assert.Equal(t,
 		compareColumns([]string{"e", "b", "c", "d", "f"}, []string{"a", "b", "c", "d", "e"}),
 		[]*RowChangeColumn{
-			{Name: "a", Added: true, MovedFrom: -1},
-			{Name: "b", MovedFrom: -1},
-			{Name: "c", MovedFrom: -1},
-			{Name: "d", MovedFrom: -1},
-			{Name: "f", Removed: true, MovedFrom: -1},
-			{Name: "e", MovedFrom: 0},
+			{Name: "a", Added: true},
+			{Name: "b"},
+			{Name: "c"},
+			{Name: "d"},
+			{Name: "f", Removed: true},
+			{Name: "e", MovedFrom: &zero},
 		})
 }

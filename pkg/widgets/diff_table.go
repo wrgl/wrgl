@@ -39,8 +39,8 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 		} else if col.Removed {
 			colStatuses[i] = NewTableCell("Removed").SetStyle(removedStyle)
 			t.statusExist = true
-		} else if col.MovedFrom != -1 {
-			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved from position %d", col.MovedFrom)).SetStyle(movedStyle)
+		} else if col.MovedFrom != nil {
+			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved from position %d", *col.MovedFrom)).SetStyle(movedStyle)
 			t.statusExist = true
 		}
 	}
@@ -142,7 +142,7 @@ func (t *DiffTable) styledCells(row, column int) []*TableCell {
 		cells[0].SetStyle(addedStyle)
 	} else if t.reader.Columns[column].Removed {
 		cells[0].SetStyle(removedStyle)
-	} else if t.reader.Columns[column].MovedFrom != -1 {
+	} else if t.reader.Columns[column].MovedFrom != nil {
 		cells[0].SetStyle(movedStyle)
 	} else {
 		cells[0].SetStyle(cellStyle)

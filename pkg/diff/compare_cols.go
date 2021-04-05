@@ -62,7 +62,7 @@ type RowChangeColumn struct {
 	Added     bool   `json:"added,omitempty"`
 	Removed   bool   `json:"removed,omitempty"`
 	anchor    int    `json:"-"`
-	MovedFrom int    `json:"movedFrom"`
+	MovedFrom *int   `json:"movedFrom,omitempty"`
 }
 
 func detectMovedColumns(cols []*RowChangeColumn, origCols []string) []*RowChangeColumn {
@@ -101,9 +101,10 @@ func detectMovedColumns(cols []*RowChangeColumn, origCols []string) []*RowChange
 			}
 		}
 		if after != "" {
-			cols[newIndex].MovedFrom = newMap[after] + 1
-			if cols[newIndex].MovedFrom > len(cols) {
-				cols[newIndex].MovedFrom = len(cols)
+			ind := newMap[after] + 1
+			cols[newIndex].MovedFrom = &ind
+			if *cols[newIndex].MovedFrom > len(cols) {
+				*cols[newIndex].MovedFrom = len(cols)
 			}
 			continue
 		}
@@ -119,9 +120,10 @@ func detectMovedColumns(cols []*RowChangeColumn, origCols []string) []*RowChange
 			}
 		}
 		if before != "" {
-			cols[newIndex].MovedFrom = newMap[before] - 1
-			if cols[newIndex].MovedFrom < 0 {
-				cols[newIndex].MovedFrom = 0
+			ind := newMap[before] - 1
+			cols[newIndex].MovedFrom = &ind
+			if *cols[newIndex].MovedFrom < 0 {
+				*cols[newIndex].MovedFrom = 0
 			}
 		}
 	}
@@ -140,9 +142,9 @@ func compareColumns(oldCols, newCols []string) []*RowChangeColumn {
 	}
 	for _, name := range newCols {
 		if _, ok := oldMap[name]; ok {
-			result = append(result, &RowChangeColumn{Name: name, MovedFrom: -1})
+			result = append(result, &RowChangeColumn{Name: name})
 		} else {
-			result = append(result, &RowChangeColumn{Name: name, Added: true, MovedFrom: -1})
+			result = append(result, &RowChangeColumn{Name: name, Added: true})
 		}
 	}
 
@@ -160,7 +162,7 @@ func compareColumns(oldCols, newCols []string) []*RowChangeColumn {
 	})
 	for _, col := range removedCols {
 		result = append(result[:col.anchor+1], result[col.anchor:]...)
-		result[col.anchor+1] = &RowChangeColumn{Name: col.Name, Removed: true, MovedFrom: -1}
+		result[col.anchor+1] = &RowChangeColumn{Name: col.Name, Removed: true}
 	}
 
 	removedMap := map[string]int{}

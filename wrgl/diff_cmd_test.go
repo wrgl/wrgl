@@ -59,7 +59,7 @@ func TestDiffCmd(t *testing.T) {
 	setCmdArgs(cmd, rd, cf, "diff", "my-branch", "my-branch^", "--format", "json")
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		`{"t":1,"oldCols":["a","b","c"],"cols":["a","b","c"],"pk":["a"]}`,
-		`{"t":7,"rowChangeColumns":[{"name":"a","movedFrom":-1},{"name":"b","movedFrom":-1},{"name":"c","movedFrom":-1}]}`,
+		`{"t":7,"rowChangeColumns":[{"name":"a"},{"name":"b"},{"name":"c"}]}`,
 		`{"t":4,"rowChangeRow":[["1"],["q"],["e","w"]]}`,
 		`{"t":5,"row":["4","s","d"]}`,
 		`{"t":6,"row":["3","z","x"]}`,
@@ -77,20 +77,21 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 	defer os.Remove(fp1)
 
 	fp2 := createCSVFile(t, []string{
-		"a,b,c",
-		"1,q,e",
-		"2,a,s",
-		"4,s,d",
+		"a,c,b",
+		"1,e,q",
+		"2,s,a",
+		"4,d,s",
 	})
 	defer os.Remove(fp2)
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"diff", fp2, fp1, "--format", "json", "--primary-key", "a"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		`{"t":1,"oldCols":["a","b","c"],"cols":["a","b","c"],"pk":["a"]}`,
-		`{"t":7,"rowChangeColumns":[{"name":"a","movedFrom":-1},{"name":"b","movedFrom":-1},{"name":"c","movedFrom":-1}]}`,
-		`{"t":4,"rowChangeRow":[["1"],["q"],["e","w"]]}`,
-		`{"t":5,"row":["4","s","d"]}`,
+		`{"t":1,"oldCols":["a","b","c"],"cols":["a","c","b"],"pk":["a"]}`,
+		`{"t":7,"rowChangeColumns":[{"name":"a"},{"name":"c"},{"name":"b","movedFrom":1}]}`,
+		`{"t":4,"rowChangeRow":[["1"],["e","w"],["q"]]}`,
+		`{"t":4,"rowChangeRow":[["2"],["s"],["a"]]}`,
+		`{"t":5,"row":["4","d","s"]}`,
 		`{"t":6,"row":["3","z","x"]}`,
 		``,
 	}, "\n"))

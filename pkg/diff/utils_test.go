@@ -30,17 +30,18 @@ func TestStringSliceToMap(t *testing.T) {
 }
 
 func TestCombineRows(t *testing.T) {
+	zero := 0
 	cols, oldCols := []string{"a", "b", "c", "d", "e"}, []string{"e", "b", "c", "d", "f"}
 	rowChangeCols := compareColumns(oldCols, cols)
 	rowIndices := stringSliceToMap(cols)
 	oldRowIndices := stringSliceToMap(oldCols)
 	assert.Equal(t, []*RowChangeColumn{
-		{Name: "a", Added: true, MovedFrom: -1},
-		{Name: "b", MovedFrom: -1},
-		{Name: "c", MovedFrom: -1},
-		{Name: "d", MovedFrom: -1},
-		{Name: "f", Removed: true, MovedFrom: -1},
-		{Name: "e", MovedFrom: 0},
+		{Name: "a", Added: true},
+		{Name: "b"},
+		{Name: "c"},
+		{Name: "d"},
+		{Name: "f", Removed: true},
+		{Name: "e", MovedFrom: &zero},
 	}, rowChangeCols)
 	for i, c := range []struct {
 		row, oldRow []string
