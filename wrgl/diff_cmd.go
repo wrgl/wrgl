@@ -256,13 +256,13 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 
 		if !pkChanged && addedRowReader == nil && removedRowReader == nil && rowChangeReader == nil {
 			if len(cols) > 0 && !slice.StringSliceEqual(cols, oldCols) {
-				renamedCols := [][2]string{}
-				for i, col := range cols {
-					if col != oldCols[i] {
-						renamedCols = append(renamedCols, [2]string{oldCols[i], col})
+				if len(cols) == len(oldCols) {
+					renamedCols := [][2]string{}
+					for i, col := range cols {
+						if col != oldCols[i] {
+							renamedCols = append(renamedCols, [2]string{oldCols[i], col})
+						}
 					}
-				}
-				if len(renamedCols) > 0 {
 					renamedColumns := tview.NewTextView().
 						SetDynamicColors(true)
 					for _, names := range renamedCols {
@@ -272,6 +272,20 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 						fmt.Sprintf("%d renamed columns", len(renamedCols)),
 						renamedColumns,
 					)
+				} else {
+					_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
+					if len(addedCols) > 0 {
+						tabPages.AddTab(
+							fmt.Sprintf("+%d columns", len(addedCols)),
+							widgets.CreateColumnsList(nil, addedCols, nil),
+						)
+					}
+					if len(removedCols) > 0 {
+						tabPages.AddTab(
+							fmt.Sprintf("-%d columns", len(removedCols)),
+							widgets.CreateColumnsList(nil, nil, removedCols),
+						)
+					}
 				}
 			} else {
 				app.Stop()

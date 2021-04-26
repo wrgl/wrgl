@@ -31,6 +31,7 @@ func NewRowDecoder() *RowDecoder {
 	dec := new(RowDecoder)
 	dec.b = new(decBuffer)
 	dec.r = csv.NewReader(dec.b)
+	dec.r.FieldsPerRecord = -1
 	return dec
 }
 

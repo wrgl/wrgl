@@ -7,7 +7,7 @@ import (
 )
 
 func CreateColumnsList(unchanged, added, removed []string) *tview.TextView {
-	tv := tview.NewTextView()
+	tv := tview.NewTextView().SetDynamicColors(true)
 	tv.SetBorder(true)
 	for _, s := range unchanged {
 		fmt.Fprintf(tv, "%s\n", s)

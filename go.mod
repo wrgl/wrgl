@@ -7,7 +7,7 @@ require (
 	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gobwas/glob v0.2.3
 	github.com/golang/protobuf v1.5.2
-	github.com/google/go-cmp v0.5.5 // indirect
+	github.com/google/go-cmp v0.5.5
 	github.com/google/uuid v1.0.0
 	github.com/imdario/mergo v0.3.12
 	github.com/lucasb-eyer/go-colorful v1.2.0
