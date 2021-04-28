@@ -1,9 +1,11 @@
 package encoding
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func repeatStrSlice(sl []string, n int) []string {
@@ -20,19 +22,35 @@ func repeatStrSlice(sl []string, n int) []string {
 func TestEncodeStrList(t *testing.T) {
 	e := NewStrListEncoder()
 	d := NewStrListDecoder(false)
-	for _, sl := range [][]string{
+	slices := [][]string{
 		{"a", "b", "c"},
 		{"a"},
 		{},
 		{"chữ", "tiếng", "Việt", "にほんご", "汉字"},
 		repeatStrSlice([]string{"aa", "bb", "cc", "dd"}, 128),
-	} {
+	}
+
+	// test Encode & Decode
+	for _, sl := range slices {
 		b := e.Encode(sl)
 		assert.Equal(t, sl, d.Decode(b))
 	}
+
+	// test Read
+	buf := bytes.NewBufferString("")
+	for _, sl := range slices {
+		_, err := buf.Write(e.Encode(sl))
+		require.NoError(t, err)
+	}
+	for i := 0; i < len(slices); i++ {
+		n, sl, err := d.Read(buf)
+		require.NoError(t, err)
+		assert.Equal(t, slices[i], sl)
+		assert.NotEmpty(t, n)
+	}
 }
 
-func TestReuseRecords(t *testing.T) {
+func TestStrListDecoderReuseRecords(t *testing.T) {
 	b1 := NewStrListEncoder().Encode([]string{"a", "b"})
 	b2 := NewStrListEncoder().Encode([]string{"c", "d", "e"})
 
