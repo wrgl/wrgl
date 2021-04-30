@@ -1,10 +1,9 @@
-package encoding
+package objects
 
 import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"strings"
 )
 
 type Table struct {
@@ -23,31 +22,18 @@ func NewTableWriter(w io.Writer) *TableWriter {
 	}
 }
 
-func (e *TableWriter) writeLine(label string, b []byte) (err error) {
-	_, err = e.w.Write(append([]byte(label), ' '))
-	if err != nil {
-		return
-	}
-	_, err = e.w.Write(b)
-	if err != nil {
-		return
-	}
-	_, err = e.w.Write([]byte("\n"))
-	return
-}
-
 func (w *TableWriter) Write(t *Table) (err error) {
-	err = w.writeLine("columns", NewStrListEncoder().Encode(t.Columns))
+	err = writeLine(w.w, "columns", NewStrListEncoder().Encode(t.Columns))
 	if err != nil {
 		return
 	}
-	err = w.writeLine("pk", NewUintListEncoder().Encode(t.PK))
+	err = writeLine(w.w, "pk", NewUintListEncoder().Encode(t.PK))
 	if err != nil {
 		return
 	}
 	rowsCount := make([]byte, 4)
 	binary.BigEndian.PutUint32(rowsCount, uint32(len(t.Rows)))
-	err = w.writeLine("rows", rowsCount)
+	err = writeLine(w.w, "rows", rowsCount)
 	if err != nil {
 		return
 	}
@@ -61,9 +47,8 @@ func (w *TableWriter) Write(t *Table) (err error) {
 }
 
 type TableReader struct {
-	r    io.Reader
-	pos  int
-	line int
+	r   io.Reader
+	pos int
 }
 
 func NewTableReader(r io.Reader) *TableReader {
@@ -73,7 +58,7 @@ func NewTableReader(r io.Reader) *TableReader {
 }
 
 func (r *TableReader) parseError(format string, a ...interface{}) error {
-	return fmt.Errorf("parse error at pos=%d line=%d: %s", r.pos, r.line, fmt.Sprintf(format, a...))
+	return fmt.Errorf("parse error at pos=%d: %s", r.pos, fmt.Sprintf(format, a...))
 }
 
 func (r *TableReader) consumeStr(s string) error {
@@ -83,7 +68,6 @@ func (r *TableReader) consumeStr(s string) error {
 		return err
 	}
 	r.pos += n
-	r.line += strings.Count(s, "\n")
 	if string(b) != s {
 		return r.parseError("expected string %q, received %q", s, string(b))
 	}
