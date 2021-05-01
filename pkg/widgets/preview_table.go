@@ -3,7 +3,7 @@ package widgets
 import (
 	"io"
 
-	"github.com/wrgl/core/pkg/ingest"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 )
 
@@ -15,7 +15,7 @@ type PreviewTable struct {
 	pkMap            map[uint32]struct{}
 	columnsCount     int
 	bufStart, bufEnd int
-	dec              *ingest.RowDecoder
+	dec              *objects.StrListDecoder
 }
 
 func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, primaryKeyIndices []uint32) *PreviewTable {
@@ -33,7 +33,7 @@ func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, 
 		headerRow:    headerRow,
 		columnsCount: len(columns),
 		pkMap:        pkMap,
-		dec:          ingest.NewRowDecoder(),
+		dec:          objects.NewStrListDecoder(false),
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells).
 		SetShape(rowCount+1, len(columns)).
@@ -47,10 +47,7 @@ func (t *PreviewTable) SetRowCount(num int) *PreviewTable {
 }
 
 func (t *PreviewTable) decodeRow(b []byte) []*TableCell {
-	record, err := t.dec.Decode(b)
-	if err != nil {
-		panic(err)
-	}
+	record := t.dec.Decode(b)
 	sl := []*TableCell{}
 	for _, text := range record {
 		sl = append(sl, NewTableCell(text))

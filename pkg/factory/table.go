@@ -54,11 +54,11 @@ func BuildSmallTable(t *testing.T, db kv.DB, rows []string, pk []uint32) ([]byte
 	return sum, ts
 }
 
-func BuildBigTable(t *testing.T, db kv.Store, fs kv.FileStore, rows []string, pk []uint32) ([]byte, table.Store) {
-	t.Helper()
-	records, pk := parseRows(rows, pk)
-	ts, err := table.NewBigStore(db, fs, records[0], pk, 0)
-	require.NoError(t, err)
-	sum := fillTable(t, db, ts, records, pk)
-	return sum, ts
-}
+// func BuildBigTable(t *testing.T, db kv.Store, fs kv.FileStore, rows []string, pk []uint32) ([]byte, table.Store) {
+// 	t.Helper()
+// 	records, pk := parseRows(rows, pk)
+// 	ts, err := table.NewBigStore(db, fs, records[0], pk, 0)
+// 	require.NoError(t, err)
+// 	sum := fillTable(t, db, ts, records, pk)
+// 	return sum, ts
+// }

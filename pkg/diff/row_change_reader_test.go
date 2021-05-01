@@ -8,18 +8,17 @@ import (
 	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 )
 
 func insertRecord(t *testing.T, db kv.DB, row []string) string {
 	t.Helper()
-	enc := ingest.NewRowEncoder()
-	b, err := enc.Encode(row)
-	require.NoError(t, err)
+	enc := objects.NewStrListEncoder()
+	b := enc.Encode(row)
 	sumArr := meow.Checksum(0, b)
-	err = table.SaveRow(db, sumArr[:], b)
+	err := table.SaveRow(db, sumArr[:], b)
 	require.NoError(t, err)
 	return hex.EncodeToString(sumArr[:])
 }

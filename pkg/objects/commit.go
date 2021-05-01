@@ -7,12 +7,12 @@ import (
 )
 
 type Commit struct {
-	Table       [16]byte
+	Table       []byte
 	AuthorName  string
 	AuthorEmail string
 	Time        time.Time
 	Message     string
-	Parents     [][16]byte
+	Parents     [][]byte
 }
 
 type CommitWriter struct {
@@ -40,14 +40,14 @@ func (w *CommitWriter) Write(c *Commit) (err error) {
 		f     encodeFunc
 	}
 	lines := []line{
-		{"table", encodeBytes(c.Table[:])},
+		{"table", encodeBytes(c.Table)},
 		{"authorName", encodeStr(c.AuthorName)},
 		{"authorEmail", encodeStr(c.AuthorEmail)},
 		{"time", encodeTime(c.Time)},
 		{"message", encodeStr(c.Message)},
 	}
 	for _, parent := range c.Parents {
-		lines = append(lines, line{"parent", encodeBytes(parent[:])})
+		lines = append(lines, line{"parent", encodeBytes(parent)})
 	}
 	for _, l := range lines {
 		err = writeLine(w.w, l.label, l.f(w))
@@ -91,13 +91,13 @@ func (r *CommitReader) ReadBytes(b []byte) error {
 }
 
 func (r *CommitReader) Read() (*Commit, error) {
-	c := &Commit{}
+	c := &Commit{Table: make([]byte, 16)}
 	type line struct {
 		label string
 		f     decodeFunc
 	}
 	for _, l := range []line{
-		{"table", decodeBytes(c.Table[:])},
+		{"table", decodeBytes(c.Table)},
 		{"authorName", decodeStr(&c.AuthorName)},
 		{"authorEmail", decodeStr(&c.AuthorEmail)},
 		{"time", decodeTime(&c.Time)},
@@ -109,8 +109,8 @@ func (r *CommitReader) Read() (*Commit, error) {
 		}
 	}
 	for {
-		b := [16]byte{}
-		err := readLine(r, "parent", decodeBytes(b[:]))
+		b := make([]byte, 16)
+		err := readLine(r, "parent", decodeBytes(b))
 		if err == io.EOF {
 			break
 		}

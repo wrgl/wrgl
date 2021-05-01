@@ -3,8 +3,8 @@ package diff
 import (
 	"encoding/hex"
 
-	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 )
 
@@ -31,7 +31,7 @@ type InflatedDiff struct {
 	RowChangeRow     [][]string         `json:"rowChangeRow,omitempty"`
 }
 
-func fetchRow(db kv.DB, row string, dec *ingest.RowDecoder) ([]string, error) {
+func fetchRow(db kv.DB, row string, dec *objects.StrListDecoder) ([]string, error) {
 	k, err := hex.DecodeString(row)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func fetchRow(db kv.DB, row string, dec *ingest.RowDecoder) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return dec.Decode(b)
+	return dec.Decode(b), nil
 }
 
 func Inflate(db1, db2 kv.DB, diffChan <-chan Diff, errChan chan error) <-chan InflatedDiff {
@@ -49,7 +49,7 @@ func Inflate(db1, db2 kv.DB, diffChan <-chan Diff, errChan chan error) <-chan In
 		var (
 			cols, oldCols, pk []string
 			rowChangeReader   *RowChangeReader
-			dec               = ingest.NewRowDecoder()
+			dec               = objects.NewStrListDecoder(false)
 		)
 		defer close(ch)
 		for event := range diffChan {

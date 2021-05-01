@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 )
 
@@ -16,7 +16,7 @@ type RowChangeReader struct {
 	rowPairs                  [][2]string
 	off                       int
 	db1, db2                  kv.DB
-	dec                       *ingest.RowDecoder
+	dec                       *objects.StrListDecoder
 }
 
 func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeReader, error) {
@@ -37,7 +37,7 @@ func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeR
 		PKIndices:     pkIndices,
 		rowIndices:    stringSliceToMap(cols),
 		oldRowIndices: stringSliceToMap(oldCols),
-		dec:           ingest.NewRowDecoder(),
+		dec:           objects.NewStrListDecoder(false),
 	}, nil
 }
 

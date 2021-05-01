@@ -3,6 +3,7 @@ module github.com/wrgl/core
 go 1.16
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gobwas/glob v0.2.3

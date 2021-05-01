@@ -7,9 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -27,6 +29,13 @@ func readAllRowHashes(t *testing.T, reader RowHashReader) [][2][]byte {
 	return result
 }
 
+func mustDecodeHex(t *testing.T, s string) []byte {
+	t.Helper()
+	b, err := hex.DecodeString(s)
+	require.NoError(t, err)
+	return b
+}
+
 func TestSmallStoreInsertRow(t *testing.T) {
 	db := kv.NewMockStore(false)
 	columns := []string{"a", "b", "c"}
@@ -42,18 +51,20 @@ func TestSmallStoreInsertRow(t *testing.T) {
 	rh1 := mustDecodeHex(t, "2f8282cbe2f9696f3144c0aa4ced56db")
 	pkh2 := mustDecodeHex(t, "85fbe72b6064289004a531f967898df5")
 	rh2 := mustDecodeHex(t, "e2807d9c1dce26af00ca81d4fe11c23e")
-	err := ts.InsertRow(0, pkh1, rh1, []byte("q,w,e"))
+	enc := objects.NewStrListEncoder()
+	err := ts.InsertRow(0, pkh1, rh1, enc.Encode([]string{"q", "w", "e"}))
 	require.NoError(t, err)
-	err = ts.InsertRow(1, pkh2, rh2, []byte("d,e,f"))
+	err = ts.InsertRow(1, pkh2, rh2, enc.Encode([]string{"d", "e", "f"}))
 	require.NoError(t, err)
 	sum, err := ts.Save()
 	require.NoError(t, err)
-	assert.Equal(t, "37ef611f3892b5b4b71d15e950ff6d0a", hex.EncodeToString(sum))
+	assert.Equal(t, "bc95fc521469ef19bb4f9e7c8e35ad08", hex.EncodeToString(sum))
 	n, err := ts.NumRows()
 	require.NoError(t, err)
 	assert.Equal(t, 2, n)
 	rowHash, ok := ts.GetRowHash(pkh1)
 	assert.True(t, ok)
+	t.Logf("ts.table: %s", spew.Sdump((ts).(*SmallStore).table))
 	assert.Equal(t, rh1, rowHash)
 	rowHash, ok = ts.GetRowHash(pkh2)
 	assert.True(t, ok)

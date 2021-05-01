@@ -12,41 +12,41 @@ import (
 )
 
 var (
-	BranchPattern = regexp.MustCompile(`^[-_0-9a-zA-Z]+$`)
-	HashPattern   = regexp.MustCompile(`^[a-f0-9]{32}$`)
-	hatPattern    = regexp.MustCompile(`^(.*[^\^])(\^+)$`)
-	tildePattern  = regexp.MustCompile(`^(.*[^\~])\~(\d+)$`)
+	HeadPattern  = regexp.MustCompile(`^[-_0-9a-zA-Z]+$`)
+	HashPattern  = regexp.MustCompile(`^[a-f0-9]{32}$`)
+	peelPattern  = regexp.MustCompile(`^(.*[^\^])(\^+)$`)
+	tildePattern = regexp.MustCompile(`^(.*[^\~])\~(\d+)$`)
 )
 
-func parseNavigationChars(commitStr string) (commitName string, goBack int, err error) {
+func parseNavigationChars(commitStr string) (commitName string, numPeel int, err error) {
 	commitName = commitStr
-	if hatPattern.MatchString(commitStr) {
-		sl := hatPattern.FindStringSubmatch(commitStr)
+	if peelPattern.MatchString(commitStr) {
+		sl := peelPattern.FindStringSubmatch(commitStr)
 		commitName = sl[1]
-		goBack = len(sl[2])
+		numPeel = len(sl[2])
 	} else if tildePattern.MatchString(commitStr) {
 		sl := tildePattern.FindStringSubmatch(commitStr)
 		commitName = sl[1]
-		goBack, err = strconv.Atoi(sl[2])
+		numPeel, err = strconv.Atoi(sl[2])
 	}
 	return
 }
 
-func getPrevCommit(db kv.DB, hash []byte, commit *objects.Commit, goBack int) ([]byte, *objects.Commit, error) {
+func peelCommit(db kv.DB, hash []byte, commit *objects.Commit, numPeel int) ([]byte, *objects.Commit, error) {
 	var err error
-	for goBack > 0 {
-		hash = commit.PrevCommitSum
+	for numPeel > 0 {
+		hash = commit.Parents[0][:]
 		commit, err = GetCommit(db, hash)
 		if err != nil {
 			return nil, nil, err
 		}
-		goBack--
+		numPeel--
 	}
 	return hash, commit, nil
 }
 
 func InterpretCommitName(db kv.DB, commitStr string) (hash []byte, commit *objects.Commit, file *os.File, err error) {
-	commitName, goBack, err := parseNavigationChars(commitStr)
+	commitName, numPeel, err := parseNavigationChars(commitStr)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -57,20 +57,20 @@ func InterpretCommitName(db kv.DB, commitStr string) (hash []byte, commit *objec
 		}
 		commit, err = GetCommit(db, hash)
 		if err == nil {
-			hash, commit, err = getPrevCommit(db, hash, commit, goBack)
+			hash, commit, err = peelCommit(db, hash, commit, numPeel)
 			return
 		}
 	}
-	if db != nil && BranchPattern.MatchString(commitName) {
-		var branch *objects.Branch
-		branch, err = GetBranch(db, commitName)
+	if db != nil && HeadPattern.MatchString(commitName) {
+		var commitSum []byte
+		commitSum, err = GetHead(db, commitName)
 		if err == nil {
-			hash = branch.CommitSum
+			hash = commitSum[:]
 			commit, err = GetCommit(db, hash)
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			hash, commit, err = getPrevCommit(db, hash, commit, goBack)
+			hash, commit, err = peelCommit(db, hash, commit, numPeel)
 			return
 		}
 	}
@@ -80,7 +80,7 @@ func InterpretCommitName(db kv.DB, commitStr string) (hash []byte, commit *objec
 	}
 	if db != nil && HashPattern.MatchString(commitName) {
 		return nil, nil, nil, fmt.Errorf("can't find commit %s", commitName)
-	} else if db != nil && BranchPattern.MatchString(commitName) {
+	} else if db != nil && HeadPattern.MatchString(commitName) {
 		return nil, nil, nil, fmt.Errorf("can't find branch %s", commitName)
 	}
 	return nil, nil, nil, fmt.Errorf("can't find file %s", commitName)

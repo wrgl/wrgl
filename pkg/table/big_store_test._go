@@ -13,13 +13,6 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func mustDecodeHex(t *testing.T, s string) []byte {
-	t.Helper()
-	b, err := hex.DecodeString(s)
-	require.NoError(t, err)
-	return b
-}
-
 func TestBigStoreInsertRow(t *testing.T) {
 	db := kv.NewMockStore(false)
 	fs := kv.NewMockStore(false)

@@ -1,8 +1,9 @@
 package versioning
 
 import (
+	"bytes"
+
 	"github.com/mmcloughlin/meow"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
@@ -11,10 +12,10 @@ import (
 )
 
 func GetTable(db kv.Store, fs kv.FileStore, seed uint64, c *objects.Commit) (table.Store, error) {
-	if c.TableType == objects.TableType_TS_BIG {
-		return table.ReadBigStore(db, fs, seed, c.TableSum)
-	}
-	return table.ReadSmallStore(db, seed, c.TableSum)
+	// if c.TableType == objects.TableType_TS_BIG {
+	// 	return table.ReadBigStore(db, fs, seed, c.Table)
+	// }
+	return table.ReadSmallStore(db, seed, c.Table[:])
 }
 
 var commitPrefix = []byte("commit/")
@@ -24,10 +25,13 @@ func commitKey(hash []byte) []byte {
 }
 
 func SaveCommit(s kv.DB, seed uint64, c *objects.Commit) ([]byte, error) {
-	v, err := proto.MarshalOptions{Deterministic: true}.Marshal(c)
+	buf := bytes.NewBufferString("")
+	writer := objects.NewCommitWriter(buf)
+	err := writer.Write(c)
 	if err != nil {
 		return nil, err
 	}
+	v := buf.Bytes()
 	kb := meow.Checksum(seed, v)
 	sl := kb[:]
 	err = s.Set(commitKey(sl), v)
@@ -38,12 +42,8 @@ func SaveCommit(s kv.DB, seed uint64, c *objects.Commit) ([]byte, error) {
 }
 
 func decodeCommit(data []byte) (*objects.Commit, error) {
-	m := new(objects.Commit)
-	err := proto.Unmarshal(data, m)
-	if err != nil {
-		return nil, err
-	}
-	return m, nil
+	reader := objects.NewCommitReader(bytes.NewBuffer(data))
+	return reader.Read()
 }
 
 func GetCommit(s kv.DB, hash []byte) (*objects.Commit, error) {

@@ -1,14 +1,18 @@
 package table
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"sync"
 
+	"github.com/mmcloughlin/meow"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
-	"google.golang.org/protobuf/proto"
 )
+
+const maxRowsGrow = 1 << 22
 
 var smallTablePrefix = []byte("tables/")
 
@@ -43,20 +47,22 @@ func (r *smallRowHashReader) Close() error {
 
 type SmallStore struct {
 	db      kv.DB
-	table   *objects.SmallTable
+	table   *objects.Table
 	rowsMap map[string][]byte
 	seed    uint64
 	mu      sync.Mutex
+	grow    int
 }
 
 func NewSmallStore(db kv.DB, columns []string, primaryKeyIndices []uint32, seed uint64) Store {
 	return &SmallStore{
 		db: db,
-		table: &objects.SmallTable{
+		table: &objects.Table{
 			Columns: columns,
-			Pk:      primaryKeyIndices,
+			PK:      primaryKeyIndices,
 		},
 		seed: seed,
+		grow: 2,
 	}
 }
 
@@ -65,21 +71,48 @@ func (s *SmallStore) Columns() []string {
 }
 
 func (s *SmallStore) PrimaryKey() []string {
-	return slice.IndicesToValues(s.table.Columns, s.table.Pk)
+	return slice.IndicesToValues(s.table.Columns, s.table.PK)
 }
 
 func (s *SmallStore) PrimaryKeyIndices() []uint32 {
-	return s.table.Pk
+	return s.table.PK
+}
+
+func (s *SmallStore) growSize() int {
+	s.grow = s.grow << 1
+	if s.grow > maxRowsGrow {
+		s.grow = maxRowsGrow
+	}
+	return s.grow
+}
+
+func (s *SmallStore) maybeGrowRows(n int) {
+	l := len(s.table.Rows)
+	if n < l {
+		return
+	}
+	c := cap(s.table.Rows)
+	if n > c+maxRowsGrow {
+		panic(fmt.Sprintf("asking for too much space in advance: %d", n-c))
+	}
+	newlen := c
+	for n >= newlen {
+		newlen += s.growSize()
+	}
+	if newlen > c {
+		sl := make([][]byte, n+1, newlen)
+		copy(sl, s.table.Rows)
+		s.table.Rows = sl
+	} else {
+		s.table.Rows = s.table.Rows[:n+1]
+	}
 }
 
 func (s *SmallStore) InsertRow(n int, pkHash, rowHash, rowContent []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	kh := append(pkHash, rowHash...)
-	oldLen := len(s.table.Rows)
-	if n >= oldLen {
-		s.table.Rows = append(s.table.Rows, make([][]byte, n+1-oldLen)...)
-	}
+	s.maybeGrowRows(n)
 	s.table.Rows[n] = kh
 	return SaveRow(s.db, rowHash, rowContent)
 }
@@ -88,7 +121,7 @@ func (s *SmallStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 	if s.rowsMap == nil {
 		s.rowsMap = make(map[string][]byte, len(s.table.Rows))
 		for _, r := range s.table.Rows {
-			s.rowsMap[string(r[:16])] = r[16:]
+			s.rowsMap[string(r[:16])] = append(([]byte)(nil), r[16:]...)
 		}
 	}
 	rowHash, ok = s.rowsMap[string(pkHash)]
@@ -132,20 +165,15 @@ func (s *SmallStore) NewRowReader() (RowReader, error) {
 }
 
 func (s *SmallStore) Save() ([]byte, error) {
-	r, err := s.NewRowHashReader(0, 0)
+	buf := bytes.NewBuffer(nil)
+	writer := objects.NewTableWriter(buf)
+	err := writer.Write(s.table)
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
-	sum, err := hashTable(s.seed, s.table.Columns, s.table.Pk, r)
-	if err != nil {
-		return nil, err
-	}
-	v, err := proto.Marshal(s.table)
-	if err != nil {
-		return nil, err
-	}
-	return sum, s.db.Set(smallTableKey(sum), v)
+	v := buf.Bytes()
+	sum := meow.Checksum(s.seed, v)
+	return sum[:], s.db.Set(smallTableKey(sum[:]), v)
 }
 
 func ReadSmallStore(s kv.DB, seed uint64, hash []byte) (*SmallStore, error) {
@@ -153,8 +181,8 @@ func ReadSmallStore(s kv.DB, seed uint64, hash []byte) (*SmallStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := new(objects.SmallTable)
-	err = proto.Unmarshal(v, t)
+	reader := objects.NewTableReader(bytes.NewBuffer(v))
+	t, err := reader.Read()
 	if err != nil {
 		return nil, err
 	}

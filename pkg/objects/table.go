@@ -9,7 +9,7 @@ import (
 type Table struct {
 	Columns []string
 	PK      []uint32
-	Rows    [][32]byte
+	Rows    [][]byte
 }
 
 type TableWriter struct {
@@ -38,7 +38,7 @@ func (w *TableWriter) Write(t *Table) (err error) {
 		return
 	}
 	for _, b := range t.Rows {
-		_, err = w.w.Write(b[:])
+		_, err = w.w.Write(b)
 		if err != nil {
 			return
 		}
@@ -116,9 +116,10 @@ func (r *TableReader) Read() (t *Table, err error) {
 	if err != nil {
 		return
 	}
-	rows := make([][32]byte, rowsCount)
+	rows := make([][]byte, rowsCount)
 	for i, b := range rows {
-		n, err := r.r.Read(b[:])
+		b = make([]byte, 32)
+		n, err := r.r.Read(b)
 		if err != nil {
 			return nil, err
 		}

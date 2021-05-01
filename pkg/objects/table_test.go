@@ -9,23 +9,16 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func randomRow() [32]byte {
-	b := testutils.SecureRandomBytes(32)
-	arr := [32]byte{}
-	copy(arr[:], b)
-	return arr
-}
-
 func TestTableWriter(t *testing.T) {
 	buf := bytes.NewBufferString("")
 	w := NewTableWriter(buf)
 	table := &Table{
 		Columns: []string{"a", "b", "c", "d"},
 		PK:      []uint32{0, 1},
-		Rows: [][32]byte{
-			randomRow(),
-			randomRow(),
-			randomRow(),
+		Rows: [][]byte{
+			testutils.SecureRandomBytes(32),
+			testutils.SecureRandomBytes(32),
+			testutils.SecureRandomBytes(32),
 		},
 	}
 	err := w.Write(table)

@@ -6,41 +6,39 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/objects"
 )
 
 func TestRowHasher(t *testing.T) {
 	hasher := NewRowHasher([]uint32{0}, 0)
 	kh, rh, rc, err := hasher.Sum([]string{"a", "b", "c"})
 	require.NoError(t, err)
-	assert.Equal(t, "1fb7772791b00e4ec463f657072380c8", hex.EncodeToString(kh))
-	assert.Equal(t, "a3c100407f246730f722f7236a953a35", hex.EncodeToString(rh))
-	row, err := DecodeRow(rc)
-	require.NoError(t, err)
+	assert.Equal(t, "e49dd6a032e1b3c22c4c8239fb68d26a", hex.EncodeToString(kh))
+	assert.Equal(t, "48c31f77db575711d74a94602533b815", hex.EncodeToString(rh))
+	dec := objects.NewStrListDecoder(true)
+	row := dec.Decode(rc)
 	assert.Equal(t, []string{"a", "b", "c"}, row)
 
 	kh, rh, rc, err = hasher.Sum([]string{"d", "e", "f"})
 	require.NoError(t, err)
-	assert.Equal(t, "b324c026df2bb2f1d16815545fc4b390", hex.EncodeToString(kh))
-	assert.Equal(t, "9183acbd91b4bb6dbc3e74f4ca71085c", hex.EncodeToString(rh))
-	row, err = DecodeRow(rc)
-	require.NoError(t, err)
+	assert.Equal(t, "d74b96541b47a1e1b3f157227134c244", hex.EncodeToString(kh))
+	assert.Equal(t, "704751f79f24197a348fa7f942743914", hex.EncodeToString(rh))
+	row = dec.Decode(rc)
 	assert.Equal(t, []string{"d", "e", "f"}, row)
 
 	hasher = NewRowHasher([]uint32{1}, 0)
 	kh, rh, rc, err = hasher.Sum([]string{"a", "b", "c"})
 	require.NoError(t, err)
-	assert.Equal(t, "4a3614c34ef827dcb304d48fe2d1eae1", hex.EncodeToString(kh))
-	assert.Equal(t, "a3c100407f246730f722f7236a953a35", hex.EncodeToString(rh))
-	row, err = DecodeRow(rc)
-	require.NoError(t, err)
+	assert.Equal(t, "2c7cfd86e4bc3d8dc9e91ce4e6ffccdb", hex.EncodeToString(kh))
+	assert.Equal(t, "48c31f77db575711d74a94602533b815", hex.EncodeToString(rh))
+	row = dec.Decode(rc)
 	assert.Equal(t, []string{"a", "b", "c"}, row)
 
 	hasher = NewRowHasher([]uint32{}, 0)
 	kh, rh, rc, err = hasher.Sum([]string{"a", "b", "c"})
 	require.NoError(t, err)
-	assert.Equal(t, "a3c100407f246730f722f7236a953a35", hex.EncodeToString(kh))
-	assert.Equal(t, "a3c100407f246730f722f7236a953a35", hex.EncodeToString(rh))
-	row, err = DecodeRow(rc)
-	require.NoError(t, err)
+	assert.Equal(t, "48c31f77db575711d74a94602533b815", hex.EncodeToString(kh))
+	assert.Equal(t, "48c31f77db575711d74a94602533b815", hex.EncodeToString(rh))
+	row = dec.Decode(rc)
 	assert.Equal(t, []string{"a", "b", "c"}, row)
 }
