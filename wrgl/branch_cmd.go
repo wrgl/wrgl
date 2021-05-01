@@ -8,7 +8,6 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/versioning"
 )
@@ -94,7 +93,7 @@ func newBranchCmd() *cobra.Command {
 }
 
 func listBranch(cmd *cobra.Command, kvStore kv.Store, globs []glob.Glob) error {
-	branchMap, err := versioning.ListBranch(kvStore)
+	branchMap, err := versioning.ListHeads(kvStore)
 	if err != nil {
 		return err
 	}
@@ -118,10 +117,10 @@ func listBranch(cmd *cobra.Command, kvStore kv.Store, globs []glob.Glob) error {
 }
 
 func validateNewBranch(kvStore kv.Store, newBranch string) error {
-	if !versioning.BranchPattern.MatchString(newBranch) {
+	if !versioning.HeadPattern.MatchString(newBranch) {
 		return fmt.Errorf(`branch name "%s" is invalid`, newBranch)
 	}
-	_, err := versioning.GetBranch(kvStore, newBranch)
+	_, err := versioning.GetHead(kvStore, newBranch)
 	if err == nil {
 		return fmt.Errorf(`branch "%s" already exist`, newBranch)
 	}
@@ -133,15 +132,15 @@ func copyBranch(cmd *cobra.Command, kvStore kv.Store, newBranch string, args []s
 	if err != nil {
 		return err
 	}
-	b, err := versioning.GetBranch(kvStore, args[0])
+	b, err := versioning.GetHead(kvStore, args[0])
 	if err != nil {
 		return fmt.Errorf(`branch "%s" does not exist`, args[0])
 	}
-	err = versioning.SaveBranch(kvStore, newBranch, b)
+	err = versioning.SaveHead(kvStore, newBranch, b)
 	if err != nil {
 		return err
 	}
-	cmd.Printf("created branch %s (%s)\n", newBranch, hex.EncodeToString(b.CommitSum))
+	cmd.Printf("created branch %s (%s)\n", newBranch, hex.EncodeToString(b))
 	return nil
 }
 
@@ -150,24 +149,24 @@ func moveBranch(cmd *cobra.Command, kvStore kv.Store, newBranch string, args []s
 	if err != nil {
 		return err
 	}
-	b, err := versioning.GetBranch(kvStore, args[0])
+	b, err := versioning.GetHead(kvStore, args[0])
 	if err != nil {
 		return fmt.Errorf(`branch "%s" does not exist`, args[0])
 	}
-	err = versioning.SaveBranch(kvStore, newBranch, b)
+	err = versioning.SaveHead(kvStore, newBranch, b)
 	if err != nil {
 		return err
 	}
-	err = versioning.DeleteBranch(kvStore, args[0])
+	err = versioning.DeleteHead(kvStore, args[0])
 	if err != nil {
 		return err
 	}
-	cmd.Printf("created branch %s (%s)\n", newBranch, hex.EncodeToString(b.CommitSum))
+	cmd.Printf("created branch %s (%s)\n", newBranch, hex.EncodeToString(b))
 	return nil
 }
 
 func deleteBranch(cmd *cobra.Command, kvStore kv.Store, args []string) error {
-	err := versioning.DeleteBranch(kvStore, args[0])
+	err := versioning.DeleteHead(kvStore, args[0])
 	if err != nil {
 		return err
 	}
@@ -190,11 +189,10 @@ func createBranch(cmd *cobra.Command, kvStore kv.Store, args []string) error {
 	if commit == nil {
 		return fmt.Errorf(`commit "%s" not found`, args[1])
 	}
-	b := &objects.Branch{CommitSum: hash}
-	err = versioning.SaveBranch(kvStore, args[0], b)
+	err = versioning.SaveHead(kvStore, args[0], hash)
 	if err != nil {
 		return err
 	}
-	cmd.Printf("created branch %s (%s)\n", args[0], hex.EncodeToString(b.CommitSum))
+	cmd.Printf("created branch %s (%s)\n", args[0], hex.EncodeToString(hash))
 	return nil
 }

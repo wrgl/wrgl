@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/versioning"
 )
 
@@ -57,10 +57,7 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	if err != nil {
 		return err
 	}
-	writer.Flush()
-	if err = writer.Error(); err != nil {
-		return err
-	}
+	dec := objects.NewStrListDecoder(true)
 	for {
 		_, rowContent, err := reader.Read()
 		if err == io.EOF {
@@ -69,7 +66,11 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprint(cmd.OutOrStdout(), string(rowContent))
+		err = writer.Write(dec.Decode(rowContent))
+		if err != nil {
+			return err
+		}
 	}
-	return nil
+	writer.Flush()
+	return writer.Error()
 }

@@ -36,5 +36,5 @@ func TestTableReaderParseError(t *testing.T) {
 	buf.WriteString("\nbad input")
 	r := NewTableReader(buf)
 	_, err := r.Read()
-	assert.Equal(t, `parse error at pos=31: expected string "\npk ", received "\nbad"`, err.Error())
+	assert.Equal(t, `parse error at pos=33: expected string "\npk ", received "\nbad"`, err.Error())
 }

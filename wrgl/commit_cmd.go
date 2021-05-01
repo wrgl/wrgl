@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func newCommitCmd() *cobra.Command {
@@ -32,39 +31,39 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			bigTable, err := cmd.Flags().GetBool("big-table")
-			if err != nil {
-				return err
-			}
-			smallTable, err := cmd.Flags().GetBool("small-table")
-			if err != nil {
-				return err
-			}
-			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers, bigTable, smallTable)
+			// bigTable, err := cmd.Flags().GetBool("big-table")
+			// if err != nil {
+			// 	return err
+			// }
+			// smallTable, err := cmd.Flags().GetBool("small-table")
+			// if err != nil {
+			// 	return err
+			// }
+			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
-	cmd.Flags().Bool("small-table", false, "use small table store. This is the default table store.")
-	cmd.Flags().Bool("big-table", false, "use big table store. Big table store is great when dealing with files that are a few GiB or more.")
+	// cmd.Flags().Bool("small-table", false, "use small table store. This is the default table store.")
+	// cmd.Flags().Bool("big-table", false, "use big table store. Big table store is great when dealing with files that are a few GiB or more.")
 	return cmd
 }
 
-func decideTableStoreType(db kv.DB, branch *objects.Branch, bigTable, smallTable bool) (objects.TableType, error) {
-	if bigTable {
-		return objects.TableType_TS_BIG, nil
-	} else if smallTable {
-		return objects.TableType_TS_SMALL, nil
-	}
-	if branch.CommitSum != nil {
-		prevCommit, err := versioning.GetCommit(db, branch.CommitSum)
-		if err != nil {
-			return 0, err
-		}
-		return prevCommit.TableType, nil
-	}
-	return objects.TableType_TS_SMALL, nil
-}
+// func decideTableStoreType(db kv.DB, commit []byte, bigTable, smallTable bool) (objects.TableType, error) {
+// 	if bigTable {
+// 		return objects.TableType_TS_BIG, nil
+// 	} else if smallTable {
+// 		return objects.TableType_TS_SMALL, nil
+// 	}
+// 	if branch.CommitSum != nil {
+// 		prevCommit, err := versioning.GetCommit(db, commit)
+// 		if err != nil {
+// 			return 0, err
+// 		}
+// 		return prevCommit.TableType, nil
+// 	}
+// 	return objects.TableType_TS_SMALL, nil
+// }
 
 func getRepoDir(cmd *cobra.Command) *repoDir {
 	rootDir, err := cmd.Flags().GetString("root-dir")
@@ -98,8 +97,8 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *repoDir) {
 	}
 }
 
-func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, bigTable, smallTable bool) error {
-	if !versioning.BranchPattern.MatchString(branchName) {
+func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int) error {
+	if !versioning.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
 	c, err := aggregateConfig(cmd)
@@ -115,14 +114,11 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	defer kvStore.Close()
 
 	// detect table store type
-	branch, err := versioning.GetBranch(kvStore, branchName)
-	if err != nil {
-		branch = &objects.Branch{}
-	}
-	tsType, err := decideTableStoreType(kvStore, branch, bigTable, smallTable)
-	if err != nil {
-		return err
-	}
+	parent, _ := versioning.GetHead(kvStore, branchName)
+	// tsType, err := decideTableStoreType(kvStore, branch, bigTable, smallTable)
+	// if err != nil {
+	// 	return err
+	// }
 
 	f, err := os.Open(csvFilePath)
 	if err != nil {
@@ -134,36 +130,35 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		return err
 	}
 	var ts table.Store
-	if tsType == objects.TableType_TS_BIG {
-		fileStore := rd.OpenFileStore()
-		ts, err = table.NewBigStore(kvStore, fileStore, columns, primaryKeyIndices, seed)
-		if err != nil {
-			return err
-		}
-	} else {
-		ts = table.NewSmallStore(kvStore, columns, primaryKeyIndices, seed)
-	}
+	// if tsType == objects.TableType_TS_BIG {
+	// 	fileStore := rd.OpenFileStore()
+	// 	ts, err = table.NewBigStore(kvStore, fileStore, columns, primaryKeyIndices, seed)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// } else {
+	ts = table.NewSmallStore(kvStore, columns, primaryKeyIndices, seed)
+	// }
 	sum, err := ingest.Ingest(seed, numWorkers, csvReader, primaryKeyIndices, ts, cmd.OutOrStdout())
 	if err != nil {
 		return err
 	}
 	commit := &objects.Commit{
-		TableSum:      sum,
-		Message:       message,
-		PrevCommitSum: branch.CommitSum,
-		Timestamp:     timestamppb.Now(),
-		Author: &objects.Author{
-			Email: c.User.Email,
-			Name:  c.User.Name,
-		},
+		Table:       sum,
+		Message:     message,
+		Time:        time.Now(),
+		AuthorEmail: c.User.Email,
+		AuthorName:  c.User.Name,
 	}
-	commit.TableType = tsType
+	if parent != nil {
+		commit.Parents = [][]byte{parent}
+	}
+	// commit.TableType = tsType
 	commitSum, err := versioning.SaveCommit(kvStore, seed, commit)
 	if err != nil {
 		return err
 	}
-	branch.CommitSum = commitSum
-	err = versioning.SaveBranch(kvStore, branchName, branch)
+	err = versioning.SaveHead(kvStore, branchName, commitSum)
 	if err != nil {
 		return err
 	}

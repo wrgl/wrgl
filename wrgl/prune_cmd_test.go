@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 )
@@ -28,12 +27,12 @@ func assertSmallTablesCount(t *testing.T, db kv.Store, num int) {
 	assert.Len(t, sl, num)
 }
 
-func assertBigTablesCount(t *testing.T, db kv.Store, num int) {
-	t.Helper()
-	sl, err := table.GetAllBigTableHashes(db)
-	require.NoError(t, err)
-	assert.Len(t, sl, num)
-}
+// func assertBigTablesCount(t *testing.T, db kv.Store, num int) {
+// 	t.Helper()
+// 	sl, err := table.GetAllBigTableHashes(db)
+// 	require.NoError(t, err)
+// 	assert.Len(t, sl, num)
+// }
 
 func assertRowsCount(t *testing.T, db kv.Store, num int) {
 	t.Helper()
@@ -60,9 +59,8 @@ func TestFindAllCommitsToRemove(t *testing.T) {
 	sum2, _ := factory.CommitSmall(t, db, "branch-1", nil, nil, nil)
 	sum3, _ := factory.CommitSmall(t, db, "branch-1", nil, nil, nil)
 	sum4, _ := factory.CommitSmall(t, db, "branch-2", nil, nil, nil)
-	require.NoError(t, versioning.DeleteBranch(db, "branch-2"))
-	b := &objects.Branch{CommitSum: sum2}
-	require.NoError(t, versioning.SaveBranch(db, "branch-1", b))
+	require.NoError(t, versioning.DeleteHead(db, "branch-2"))
+	require.NoError(t, versioning.SaveHead(db, "branch-1", sum2))
 
 	cmd := newRootCmd()
 	cmd.SetOut(io.Discard)
@@ -112,9 +110,8 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	assertCommitsCount(t, db, 5)
 	assertSmallTablesCount(t, db, 4)
 	assertRowsCount(t, db, 8)
-	require.NoError(t, versioning.DeleteBranch(db, "branch-2"))
-	b := &objects.Branch{CommitSum: sum1}
-	require.NoError(t, versioning.SaveBranch(db, "branch-1", b))
+	require.NoError(t, versioning.DeleteHead(db, "branch-2"))
+	require.NoError(t, versioning.SaveHead(db, "branch-1", sum1))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
@@ -128,73 +125,73 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	assertCommitsCount(t, db, 2)
 	assertSmallTablesCount(t, db, 2)
 	assertRowsCount(t, db, 6)
-	m, err := versioning.ListBranch(db)
+	m, err := versioning.ListHeads(db)
 	require.NoError(t, err)
 	assert.Len(t, m, 2)
-	assert.Equal(t, sum1, m["branch-1"].CommitSum)
-	assert.Equal(t, sum2, m["branch-3"].CommitSum)
+	assert.Equal(t, sum1, m["branch-1"])
+	assert.Equal(t, sum2, m["branch-3"])
 }
 
-func TestPruneCmdBigCommits(t *testing.T) {
-	rd, cleanUp := createRepoDir(t)
-	defer cleanUp()
-	cf, cleanup := createConfigFile(t)
-	defer cleanup()
-	db, err := rd.OpenKVStore()
-	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	sum1, _ := factory.CommitBig(t, db, fs, "branch-1", []string{
-		"a,b,c",
-		"1,q,w",
-		"2,a,s",
-		"3,z,x",
-	}, []uint32{0}, nil)
-	factory.CommitBig(t, db, fs, "branch-1", []string{
-		"a,b,c",
-		"1,q,w",
-		"2,a,s",
-		"4,x,c",
-	}, []uint32{0}, nil)
-	factory.CommitBig(t, db, fs, "branch-2", []string{
-		"a,b,c",
-		"4,q,w",
-		"5,a,s",
-		"6,z,x",
-	}, []uint32{0}, nil)
-	factory.CommitBig(t, db, fs, "branch-2", []string{
-		"a,b,c",
-		"4,q,w",
-		"5,a,s",
-		"7,r,t",
-	}, []uint32{0}, nil)
-	sum2, _ := factory.CommitBig(t, db, fs, "branch-3", []string{
-		"a,b,c",
-		"4,q,w",
-		"5,a,s",
-		"6,z,x",
-	}, []uint32{0}, nil)
-	assertCommitsCount(t, db, 5)
-	assertBigTablesCount(t, db, 4)
-	assertRowsCount(t, db, 8)
-	require.NoError(t, versioning.DeleteBranch(db, "branch-2"))
-	b := &objects.Branch{CommitSum: sum1}
-	require.NoError(t, versioning.SaveBranch(db, "branch-1", b))
-	require.NoError(t, db.Close())
+// func TestPruneCmdBigCommits(t *testing.T) {
+// 	rd, cleanUp := createRepoDir(t)
+// 	defer cleanUp()
+// 	cf, cleanup := createConfigFile(t)
+// 	defer cleanup()
+// 	db, err := rd.OpenKVStore()
+// 	require.NoError(t, err)
+// 	fs := rd.OpenFileStore()
+// 	sum1, _ := factory.CommitBig(t, db, fs, "branch-1", []string{
+// 		"a,b,c",
+// 		"1,q,w",
+// 		"2,a,s",
+// 		"3,z,x",
+// 	}, []uint32{0}, nil)
+// 	factory.CommitBig(t, db, fs, "branch-1", []string{
+// 		"a,b,c",
+// 		"1,q,w",
+// 		"2,a,s",
+// 		"4,x,c",
+// 	}, []uint32{0}, nil)
+// 	factory.CommitBig(t, db, fs, "branch-2", []string{
+// 		"a,b,c",
+// 		"4,q,w",
+// 		"5,a,s",
+// 		"6,z,x",
+// 	}, []uint32{0}, nil)
+// 	factory.CommitBig(t, db, fs, "branch-2", []string{
+// 		"a,b,c",
+// 		"4,q,w",
+// 		"5,a,s",
+// 		"7,r,t",
+// 	}, []uint32{0}, nil)
+// 	sum2, _ := factory.CommitBig(t, db, fs, "branch-3", []string{
+// 		"a,b,c",
+// 		"4,q,w",
+// 		"5,a,s",
+// 		"6,z,x",
+// 	}, []uint32{0}, nil)
+// 	assertCommitsCount(t, db, 5)
+// 	assertBigTablesCount(t, db, 4)
+// 	assertRowsCount(t, db, 8)
+// 	require.NoError(t, versioning.DeleteHead(db, "branch-2"))
+// 	b := &objects.Branch{CommitSum: sum1}
+// 	require.NoError(t, versioning.SaveHead(db, "branch-1", b))
+// 	require.NoError(t, db.Close())
 
-	cmd := newRootCmd()
-	cmd.SetOut(io.Discard)
-	setCmdArgs(cmd, rd, cf, "prune")
-	require.NoError(t, cmd.Execute())
+// 	cmd := newRootCmd()
+// 	cmd.SetOut(io.Discard)
+// 	setCmdArgs(cmd, rd, cf, "prune")
+// 	require.NoError(t, cmd.Execute())
 
-	db, err = rd.OpenKVStore()
-	require.NoError(t, err)
-	defer db.Close()
-	assertCommitsCount(t, db, 2)
-	assertBigTablesCount(t, db, 2)
-	assertRowsCount(t, db, 6)
-	m, err := versioning.ListBranch(db)
-	require.NoError(t, err)
-	assert.Len(t, m, 2)
-	assert.Equal(t, sum1, m["branch-1"].CommitSum)
-	assert.Equal(t, sum2, m["branch-3"].CommitSum)
-}
+// 	db, err = rd.OpenKVStore()
+// 	require.NoError(t, err)
+// 	defer db.Close()
+// 	assertCommitsCount(t, db, 2)
+// 	assertBigTablesCount(t, db, 2)
+// 	assertRowsCount(t, db, 6)
+// 	m, err := versioning.ListHeads(db)
+// 	require.NoError(t, err)
+// 	assert.Len(t, m, 2)
+// 	assert.Equal(t, sum1, m["branch-1"].CommitSum)
+// 	assert.Equal(t, sum2, m["branch-3"].CommitSum)
+// }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -39,21 +40,24 @@ func newLogCmd() *cobra.Command {
 }
 
 func writeCommitLog(cmd *cobra.Command, kvStore kv.Store, branchName string, out io.Writer) error {
-	branch, err := versioning.GetBranch(kvStore, branchName)
+	commitSum, err := versioning.GetHead(kvStore, branchName)
 	if err != nil {
 		return err
 	}
-	hash := branch.CommitSum
-	for len(hash) > 0 {
+	hash := commitSum
+	for {
 		c, err := versioning.GetCommit(kvStore, hash)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(out, "commit %s\n", hash)
-		fmt.Fprintf(out, "Author: %s <%s>\n", c.Author.Name, c.Author.Email)
-		fmt.Fprintf(out, "Date: %s\n", c.Timestamp)
+		fmt.Fprintf(out, "commit %s\n", hex.EncodeToString(hash))
+		fmt.Fprintf(out, "Author: %s <%s>\n", c.AuthorName, c.AuthorEmail)
+		fmt.Fprintf(out, "Date: %s\n", c.Time)
 		fmt.Fprintf(out, "\n    %s\n\n", c.Message)
-		hash = c.PrevCommitSum
+		if len(c.Parents) == 0 {
+			break
+		}
+		hash = c.Parents[0]
 	}
 	return nil
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/pkg/widgets"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -85,9 +84,9 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (str
 		return "", nil, err
 	}
 	commit := &objects.Commit{
-		TableSum:  sum,
-		Timestamp: timestamppb.Now(),
-		TableType: objects.TableType_TS_SMALL,
+		Table: sum,
+		Time:  time.Now(),
+		// TableType: objects.TableType_TS_SMALL,
 	}
 	_, err = versioning.SaveCommit(db, seed, commit)
 	if err != nil {
@@ -318,7 +317,7 @@ func diffCommits(cmd *cobra.Command, cStr1, cStr2, format string) error {
 	if err != nil {
 		return err
 	}
-	if string(commit1.TableSum) == string(commit2.TableSum) {
+	if string(commit1.Table) == string(commit2.Table) {
 		cmd.Println("There are no changes!")
 		return nil
 	}

@@ -27,6 +27,7 @@ func TestEncodeStrList(t *testing.T) {
 		{"a"},
 		{},
 		{"chữ", "tiếng", "Việt", "にほんご", "汉字"},
+		{"", "a", "", "b", "", "", "c", ""},
 		repeatStrSlice([]string{"aa", "bb", "cc", "dd"}, 128),
 	}
 

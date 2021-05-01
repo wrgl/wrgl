@@ -91,12 +91,12 @@ func TestBranchCmdCopy(t *testing.T) {
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
-	b1, err := versioning.GetBranch(db, "gamma")
+	b1, err := versioning.GetHead(db, "gamma")
 	require.NoError(t, err)
-	assert.Equal(t, sum, b1.CommitSum)
-	b2, err := versioning.GetBranch(db, "alpha")
+	assert.Equal(t, sum, b1)
+	b2, err := versioning.GetHead(db, "alpha")
 	require.NoError(t, err)
-	assert.Equal(t, b1.CommitSum, b2.CommitSum)
+	assert.Equal(t, b1, b2)
 }
 
 func TestBranchCmdMove(t *testing.T) {
@@ -124,10 +124,10 @@ func TestBranchCmdMove(t *testing.T) {
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
-	b1, err := versioning.GetBranch(db, "gamma")
+	b1, err := versioning.GetHead(db, "gamma")
 	require.NoError(t, err)
-	assert.Equal(t, sum, b1.CommitSum)
-	_, err = versioning.GetBranch(db, "alpha")
+	assert.Equal(t, sum, b1)
+	_, err = versioning.GetHead(db, "alpha")
 	assert.Error(t, err)
 }
 
@@ -152,7 +152,7 @@ func TestBranchCmdDelete(t *testing.T) {
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
-	_, err = versioning.GetBranch(db, "alpha")
+	_, err = versioning.GetHead(db, "alpha")
 	assert.Error(t, err)
 }
 
@@ -180,10 +180,10 @@ func TestBranchCmdCreate(t *testing.T) {
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
-	b1, err := versioning.GetBranch(db, "delta")
+	b1, err := versioning.GetHead(db, "delta")
 	require.NoError(t, err)
-	assert.Equal(t, sum, b1.CommitSum)
-	b2, err := versioning.GetBranch(db, "beta")
+	assert.Equal(t, sum, b1)
+	b2, err := versioning.GetHead(db, "beta")
 	require.NoError(t, err)
-	assert.Equal(t, b1.CommitSum, b2.CommitSum)
+	assert.Equal(t, b1, b2)
 }

@@ -15,7 +15,7 @@ func GetTable(db kv.Store, fs kv.FileStore, seed uint64, c *objects.Commit) (tab
 	// if c.TableType == objects.TableType_TS_BIG {
 	// 	return table.ReadBigStore(db, fs, seed, c.Table)
 	// }
-	return table.ReadSmallStore(db, seed, c.Table[:])
+	return table.ReadSmallStore(db, seed, c.Table)
 }
 
 var commitPrefix = []byte("commit/")

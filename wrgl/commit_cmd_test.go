@@ -59,22 +59,22 @@ func TestCommitCmd(t *testing.T) {
 	assertCmdOutput(t, cmd, string(b))
 }
 
-func TestCommitCmdBigTable(t *testing.T) {
-	rd, cleanup := createRepoDir(t)
-	defer cleanup()
-	cf, cleanup := createConfigFile(t)
-	defer cleanup()
+// func TestCommitCmdBigTable(t *testing.T) {
+// 	rd, cleanup := createRepoDir(t)
+// 	defer cleanup()
+// 	cf, cleanup := createConfigFile(t)
+// 	defer cleanup()
 
-	fp := createRandomCSVFile(t)
-	defer os.Remove(fp)
+// 	fp := createRandomCSVFile(t)
+// 	defer os.Remove(fp)
 
-	cmd := newRootCmd()
-	setCmdArgs(cmd, rd, cf, "commit", "my-branch", fp, "initial commit", "-n", "1", "--big-table")
-	cmd.SetOut(ioutil.Discard)
-	require.NoError(t, cmd.Execute())
+// 	cmd := newRootCmd()
+// 	setCmdArgs(cmd, rd, cf, "commit", "my-branch", fp, "initial commit", "-n", "1", "--big-table")
+// 	cmd.SetOut(ioutil.Discard)
+// 	require.NoError(t, cmd.Execute())
 
-	setCmdArgs(cmd, rd, cf, "export", "my-branch")
-	b, err := ioutil.ReadFile(fp)
-	require.NoError(t, err)
-	assertCmdOutput(t, cmd, string(b))
-}
+// 	setCmdArgs(cmd, rd, cf, "export", "my-branch")
+// 	b, err := ioutil.ReadFile(fp)
+// 	require.NoError(t, err)
+// 	assertCmdOutput(t, cmd, string(b))
+// }

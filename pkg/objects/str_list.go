@@ -17,7 +17,7 @@ func NewStrListEncoder() *StrListEncoder {
 }
 
 func (e *StrListEncoder) Encode(sl []string) []byte {
-	bufLen := 2
+	bufLen := 4
 	for _, s := range sl {
 		bufLen += len(s) + 2
 	}
@@ -26,7 +26,8 @@ func (e *StrListEncoder) Encode(sl []string) []byte {
 	} else {
 		e.buf = e.buf[:bufLen]
 	}
-	var offset uint16
+	binary.BigEndian.PutUint32(e.buf, uint32(len(sl)))
+	var offset uint16 = 4
 	for _, s := range sl {
 		l := uint16(len(s))
 		binary.BigEndian.PutUint16(e.buf[offset:], l)
@@ -34,7 +35,6 @@ func (e *StrListEncoder) Encode(sl []string) []byte {
 		copy(e.buf[offset:], []byte(s))
 		offset += l
 	}
-	binary.BigEndian.PutUint16(e.buf[offset:], 0)
 	return e.buf
 }
 
@@ -47,7 +47,7 @@ type StrListDecoder struct {
 
 func NewStrListDecoder(reuseRecords bool) *StrListDecoder {
 	d := &StrListDecoder{
-		buf: make([]byte, 2),
+		buf: make([]byte, 4),
 	}
 	if reuseRecords {
 		d.strs = make([]string, 0, 256)
@@ -55,26 +55,28 @@ func NewStrListDecoder(reuseRecords bool) *StrListDecoder {
 	return d
 }
 
-func (d *StrListDecoder) strSlice() []string {
+func (d *StrListDecoder) strSlice(n uint32) []string {
 	if d.strs != nil {
+		if n > uint32(cap(d.strs)) {
+			d.strs = make([]string, 0, n)
+		}
 		return d.strs[:0]
 	}
-	return []string{}
+	return make([]string, 0, n)
 }
 
 func (d *StrListDecoder) Decode(b []byte) []string {
-	var offset uint16
-	sl := d.strSlice()
-	total := uint16(len(b))
-	for {
-		if offset >= total {
-			break
-		}
+	count := binary.BigEndian.Uint32(b)
+	sl := d.strSlice(count)
+	var offset uint16 = 4
+	var i uint32
+	for i = 0; i < count; i++ {
 		l := binary.BigEndian.Uint16(b[offset:])
-		if l == 0 {
-			break
-		}
 		offset += 2
+		if l == 0 {
+			sl = append(sl, "")
+			continue
+		}
 		s := make([]byte, l)
 		copy(s, b[offset:])
 		offset += l
@@ -84,7 +86,7 @@ func (d *StrListDecoder) Decode(b []byte) []string {
 }
 
 func (d *StrListDecoder) readUint16(r io.Reader) (uint16, error) {
-	b := d.buf
+	b := d.buf[:2]
 	n, err := r.Read(b)
 	if err != nil {
 		return 0, err
@@ -93,16 +95,32 @@ func (d *StrListDecoder) readUint16(r io.Reader) (uint16, error) {
 	return binary.BigEndian.Uint16(b), nil
 }
 
+func (d *StrListDecoder) readUint32(r io.Reader) (uint32, error) {
+	b := d.buf[:4]
+	n, err := r.Read(b)
+	if err != nil {
+		return 0, err
+	}
+	d.pos += n
+	return binary.BigEndian.Uint32(b), nil
+}
+
 func (d *StrListDecoder) Read(r io.Reader) (int, []string, error) {
 	d.pos = 0
-	sl := d.strSlice()
-	for {
+	count, err := d.readUint32(r)
+	if err != nil {
+		return 0, nil, err
+	}
+	sl := d.strSlice(count)
+	var i uint32
+	for i = 0; i < count; i++ {
 		l, err := d.readUint16(r)
 		if err != nil {
 			return d.pos, nil, err
 		}
 		if l == 0 {
-			break
+			sl = append(sl, "")
+			continue
 		}
 		s := make([]byte, l)
 		n, err := r.Read(s)

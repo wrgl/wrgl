@@ -31,7 +31,7 @@ func TestResetCmd(t *testing.T) {
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
-	b, err := versioning.GetBranch(db, "alpha")
+	b, err := versioning.GetHead(db, "alpha")
 	require.NoError(t, err)
-	assert.Equal(t, sum, b.CommitSum)
+	assert.Equal(t, sum, b)
 }

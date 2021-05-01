@@ -9,7 +9,7 @@ import (
 
 func writeLine(w io.Writer, label string, b []byte) (err error) {
 	for _, sl := range [][]byte{
-		[]byte(label), {' '}, b, []byte("\n"),
+		[]byte(label), {' '}, b, {'\n'},
 	} {
 		_, err = w.Write(sl)
 		if err != nil {
