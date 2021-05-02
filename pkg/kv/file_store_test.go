@@ -67,4 +67,12 @@ func TestFileStore(t *testing.T) {
 	err = s.Clear([]byte("proj2"))
 	require.NoError(t, err)
 	assert.False(t, s.Exist([]byte("proj2/qwe")))
+
+	// test move
+	err = s.Move([]byte("proj1/abc"), []byte("proj0/abc"))
+	require.NoError(t, err)
+	assert.False(t, s.Exist([]byte("proj1/abc")))
+	v, err = getFileStore(s, []byte("proj0/abc"))
+	require.NoError(t, err)
+	assert.Equal(t, []byte("123"), v)
 }

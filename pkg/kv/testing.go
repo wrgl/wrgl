@@ -88,6 +88,16 @@ func (s *MockStore) Set(k, v []byte) error {
 	return nil
 }
 
+func (s *MockStore) Move(a, b []byte) error {
+	if s.EnableMock {
+		args := s.Called(a, b)
+		return args.Error(0)
+	}
+	s.store[string(b)] = s.store[string(a)]
+	delete(s.store, string(a))
+	return nil
+}
+
 func (s *MockStore) Exist(k []byte) bool {
 	if s.EnableMock {
 		args := s.Called(k)
@@ -144,12 +154,38 @@ func (s *MockStore) BatchGet(keys [][]byte) ([][]byte, error) {
 	return result, nil
 }
 
-type mockFile struct {
+type MockFile struct {
 	b   []byte
 	off int
 }
 
-func (f *mockFile) Read(p []byte) (n int, err error) {
+func NewMockFile(b []byte) *MockFile {
+	return &MockFile{b: b}
+}
+
+func (f *MockFile) Write(p []byte) (n int, err error) {
+	n, err = f.WriteAt(p, int64(f.off))
+	f.off += len(p)
+	return
+}
+
+func (f *MockFile) WriteAt(p []byte, off int64) (n int, err error) {
+	n = len(p)
+	total := n + int(off)
+	if total > cap(f.b) {
+		sl := make([]byte, total)
+		copy(sl, f.b)
+		f.b = sl
+	}
+	copy(f.b[off:], p)
+	return
+}
+
+func (f *MockFile) Bytes() []byte {
+	return f.b
+}
+
+func (f *MockFile) Read(p []byte) (n int, err error) {
 	if f.off >= len(f.b) {
 		return 0, io.EOF
 	}
@@ -158,11 +194,11 @@ func (f *mockFile) Read(p []byte) (n int, err error) {
 	return
 }
 
-func (f *mockFile) Close() error {
+func (f *MockFile) Close() error {
 	return nil
 }
 
-func (f *mockFile) Seek(offset int64, whence int) (int64, error) {
+func (f *MockFile) Seek(offset int64, whence int) (int64, error) {
 	switch whence {
 	default:
 		return 0, errors.New("Seek: invalid whence")
@@ -180,7 +216,7 @@ func (f *mockFile) Seek(offset int64, whence int) (int64, error) {
 	return offset, nil
 }
 
-func (f *mockFile) ReadAt(p []byte, off int64) (n int, err error) {
+func (f *MockFile) ReadAt(p []byte, off int64) (n int, err error) {
 	if off < 0 || off >= int64(len(f.b)) {
 		return 0, io.EOF
 	}
@@ -200,7 +236,7 @@ func (s *MockStore) Reader(k []byte) (File, error) {
 	if !ok {
 		return nil, KeyNotFoundError
 	}
-	return &mockFile{
+	return &MockFile{
 		b: v,
 	}, nil
 }

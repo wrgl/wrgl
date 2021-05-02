@@ -2,15 +2,48 @@ package objects
 
 import (
 	"bytes"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestTableWriter(t *testing.T) {
-	buf := bytes.NewBufferString("")
+	buf := kv.NewMockFile(nil)
+	w := NewTableWriter(buf)
+	columns := []string{"q", "w", "e", "r"}
+	pk := []uint32{0}
+	rows := [][]byte{
+		testutils.SecureRandomBytes(32),
+		testutils.SecureRandomBytes(32),
+		testutils.SecureRandomBytes(32),
+		testutils.SecureRandomBytes(32),
+	}
+	storage := TableStorageDefault
+	err := w.WriteMeta(columns, pk, storage)
+	require.NoError(t, err)
+	for i := 3; i >= 0; i-- {
+		err = w.WriteRowAt(rows[i], i)
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Flush())
+	r, err := NewTableReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	table, err := r.ReadTable()
+	require.NoError(t, err)
+	assert.Equal(t, &Table{
+		Columns: columns,
+		PK:      pk,
+		Storage: storage,
+		Rows:    rows,
+	}, table)
+}
+
+func TestTableReader(t *testing.T) {
+	buf := kv.NewMockFile(nil)
 	w := NewTableWriter(buf)
 	table := &Table{
 		Columns: []string{"a", "b", "c", "d"},
@@ -20,21 +53,70 @@ func TestTableWriter(t *testing.T) {
 			testutils.SecureRandomBytes(32),
 			testutils.SecureRandomBytes(32),
 		},
+		Storage: TableStorageBig,
 	}
-	err := w.Write(table)
+	err := w.WriteTable(table)
 	require.NoError(t, err)
+	t.Logf("bytes %v", buf.Bytes())
 
-	r := NewTableReader(buf)
-	table2, err := r.Read()
+	// test ReadTable
+	r, err := NewTableReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	table2, err := r.ReadTable()
 	require.NoError(t, err)
 	assert.Equal(t, table, table2)
+	assert.Equal(t, 3, r.RowsCount())
+
+	// test ReadRow
+	r, err = NewTableReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	for i := 0; i < 3; i++ {
+		row, err := r.ReadRow()
+		require.NoError(t, err)
+		assert.Equal(t, table.Rows[i], row)
+	}
+
+	// test SeekStart
+	off, err := r.SeekRow(0, io.SeekStart)
+	require.NoError(t, err)
+	assert.Equal(t, 0, off)
+	row, err := r.ReadRow()
+	require.NoError(t, err)
+	assert.Equal(t, table.Rows[0], row)
+
+	// test SeekCurrent
+	off, err = r.SeekRow(1, io.SeekCurrent)
+	require.NoError(t, err)
+	assert.Equal(t, 2, off)
+	row, err = r.ReadRow()
+	require.NoError(t, err)
+	assert.Equal(t, table.Rows[2], row)
+
+	// test SeekEnd
+	off, err = r.SeekRow(-2, io.SeekEnd)
+	require.NoError(t, err)
+	assert.Equal(t, 1, off)
+	row, err = r.ReadRow()
+	require.NoError(t, err)
+	assert.Equal(t, table.Rows[1], row)
+
+	// test ReadAt
+	r, err = NewTableReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	for i := 0; i < 3; i++ {
+		row, err := r.ReadRowAt(i)
+		require.NoError(t, err)
+		assert.Equal(t, table.Rows[i], row)
+	}
+	row, err = r.ReadRow()
+	require.NoError(t, err)
+	assert.Equal(t, table.Rows[0], row)
 }
 
 func TestTableReaderParseError(t *testing.T) {
 	buf := bytes.NewBufferString("columns ")
 	buf.Write(NewStrListEncoder().Encode([]string{"a", "b", "c"}))
-	buf.WriteString("\nbad input")
-	r := NewTableReader(buf)
-	_, err := r.Read()
-	assert.Equal(t, `parse error at pos=33: expected string "\npk ", received "\nbad"`, err.Error())
+	buf.Write([]byte("\nbad input"))
+	_, err := NewTableReader(bytes.NewReader(buf.Bytes()))
+	assert.Equal(t, `parse error at pos=25: expected string "\npk ", received "\nbad"`, err.Error())
 }

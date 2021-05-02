@@ -7,16 +7,16 @@ import (
 	"time"
 )
 
-func writeLine(w io.Writer, label string, b []byte) (err error) {
+func writeLine(w io.Writer, label string, b []byte) (n int, err error) {
 	for _, sl := range [][]byte{
 		[]byte(label), {' '}, b, {'\n'},
 	} {
-		_, err = w.Write(sl)
+		n, err = w.Write(sl)
 		if err != nil {
 			return
 		}
 	}
-	return nil
+	return
 }
 
 type writer interface {

@@ -18,6 +18,7 @@ type FileStore interface {
 	Reader([]byte) (File, error)
 	Clear([]byte) error
 	Size(k []byte) (uint64, error)
+	Move(a, b []byte) error
 }
 
 type fileStore struct {
@@ -70,4 +71,12 @@ func (s *fileStore) Size(k []byte) (uint64, error) {
 		return 0, KeyNotFoundError
 	}
 	return uint64(fi.Size()), nil
+}
+
+func (s *fileStore) Move(a, b []byte) error {
+	err := os.MkdirAll(filepath.Dir(s.path(b)), 0755)
+	if err != nil {
+		return err
+	}
+	return os.Rename(s.path(a), s.path(b))
 }

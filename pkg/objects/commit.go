@@ -50,7 +50,7 @@ func (w *CommitWriter) Write(c *Commit) (err error) {
 		lines = append(lines, line{"parent", encodeBytes(parent)})
 	}
 	for _, l := range lines {
-		err = writeLine(w.w, l.label, l.f(w))
+		_, err = writeLine(w.w, l.label, l.f(w))
 		if err != nil {
 			return
 		}
