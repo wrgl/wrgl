@@ -54,6 +54,9 @@ func (w *HashIndexWriter) Swap(a, b int) {
 }
 
 func (w *HashIndexWriter) computeFanout() {
+	if len(w.hashes) == 0 {
+		return
+	}
 	var b uint8 = w.hashes[0][0]
 	for i, s := range w.hashes {
 		if s[0] > b {
@@ -61,10 +64,12 @@ func (w *HashIndexWriter) computeFanout() {
 				w.fanout[k] = uint32(i)
 			}
 			b = s[0]
-			w.fanout[b] = uint32(i) + 1
 		}
 	}
-	w.fanout[b] = uint32(len(w.hashes))
+	n := uint32(len(w.hashes))
+	for k := int(b); k < 256; k++ {
+		w.fanout[k] = n
+	}
 }
 
 func (w *HashIndexWriter) writeUint32(u uint32) error {
