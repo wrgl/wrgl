@@ -7,12 +7,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestTableWriter(t *testing.T) {
-	buf := kv.NewMockFile(nil)
+	buf := misc.NewBuffer(nil)
 	w := NewTableWriter(buf)
 	columns := []string{"q", "w", "e", "r"}
 	pk := []uint32{0}
@@ -43,7 +43,7 @@ func TestTableWriter(t *testing.T) {
 }
 
 func TestTableReader(t *testing.T) {
-	buf := kv.NewMockFile(nil)
+	buf := misc.NewBuffer(nil)
 	w := NewTableWriter(buf)
 	table := &Table{
 		Columns: []string{"a", "b", "c", "d"},
@@ -114,7 +114,7 @@ func TestTableReader(t *testing.T) {
 }
 
 func TestTableReaderParseError(t *testing.T) {
-	buf := bytes.NewBufferString("columns ")
+	buf := misc.NewBuffer([]byte("columns "))
 	buf.Write(NewStrListEncoder().Encode([]string{"a", "b", "c"}))
 	buf.Write([]byte("\nbad input"))
 	_, err := NewTableReader(bytes.NewReader(buf.Bytes()))

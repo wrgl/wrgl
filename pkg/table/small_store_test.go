@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
@@ -58,13 +57,12 @@ func TestSmallStoreInsertRow(t *testing.T) {
 	require.NoError(t, err)
 	sum, err := ts.Save()
 	require.NoError(t, err)
-	assert.Equal(t, "bc95fc521469ef19bb4f9e7c8e35ad08", hex.EncodeToString(sum))
+	assert.Equal(t, "86eb8cd2844bff335dee4a85a3ad2b97", hex.EncodeToString(sum))
 	n, err := ts.NumRows()
 	require.NoError(t, err)
 	assert.Equal(t, 2, n)
 	rowHash, ok := ts.GetRowHash(pkh1)
 	assert.True(t, ok)
-	t.Logf("ts.table: %s", spew.Sdump((ts).(*SmallStore).table))
 	assert.Equal(t, rh1, rowHash)
 	rowHash, ok = ts.GetRowHash(pkh2)
 	assert.True(t, ok)

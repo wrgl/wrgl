@@ -8,6 +8,7 @@ import (
 
 	"github.com/mmcloughlin/meow"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 )
@@ -165,9 +166,9 @@ func (s *SmallStore) NewRowReader() (RowReader, error) {
 }
 
 func (s *SmallStore) Save() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
+	buf := misc.NewBuffer(nil)
 	writer := objects.NewTableWriter(buf)
-	err := writer.Write(s.table)
+	err := writer.WriteTable(s.table)
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +182,11 @@ func ReadSmallStore(s kv.DB, seed uint64, hash []byte) (*SmallStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	reader := objects.NewTableReader(bytes.NewBuffer(v))
-	t, err := reader.Read()
+	reader, err := objects.NewTableReader(bytes.NewReader(v))
+	if err != nil {
+		return nil, err
+	}
+	t, err := reader.ReadTable()
 	if err != nil {
 		return nil, err
 	}
