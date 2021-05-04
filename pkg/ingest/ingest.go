@@ -21,7 +21,7 @@ type row struct {
 	Record []string
 }
 
-func insertRows(primaryKeyIndices []uint32, seed uint64, ts table.Store, rows <-chan row, errChan chan<- error, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
+func insertRows(primaryKeyIndices []uint32, seed uint64, tb *table.Builder, rows <-chan row, errChan chan<- error, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
 	defer wg.Done()
 	rh := NewRowHasher(primaryKeyIndices, seed)
 	for r := range rows {
@@ -30,7 +30,7 @@ func insertRows(primaryKeyIndices []uint32, seed uint64, ts table.Store, rows <-
 			errChan <- err
 			return
 		}
-		err = ts.InsertRow(r.Index, pkHash, rowHash, rowContent)
+		err = tb.InsertRow(r.Index, pkHash, rowHash, rowContent)
 		if err != nil {
 			errChan <- err
 			return
@@ -106,14 +106,14 @@ func pbar(max int64, desc string, out io.Writer) *progressbar.ProgressBar {
 	return bar
 }
 
-func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []uint32, ts table.Store, out io.Writer) ([]byte, error) {
+func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []uint32, tb *table.Builder, out io.Writer) ([]byte, error) {
 	errChan := make(chan error)
 	rows := make(chan row, 1000)
 	var wg sync.WaitGroup
 	bar := pbar(-1, fmt.Sprintf("Inserting rows using up to %d threads...", numWorkers), out)
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		go insertRows(primaryKeyIndices, seed, ts, rows, errChan, &wg, bar)
+		go insertRows(primaryKeyIndices, seed, tb, rows, errChan, &wg, bar)
 	}
 
 	n := 0
@@ -143,5 +143,5 @@ outer:
 	}
 	done := printSpinner(out, "Saving table...")
 	defer close(done)
-	return ts.Save()
+	return tb.SaveTable()
 }

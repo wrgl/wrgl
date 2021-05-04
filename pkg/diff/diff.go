@@ -93,23 +93,13 @@ func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<-
 }
 
 func diffRows(t1, t2 table.Store, diffChan chan<- Diff, progressPeriod time.Duration) error {
-	l1, err := t1.NumRows()
-	if err != nil {
-		return err
-	}
-	l2, err := t2.NumRows()
-	if err != nil {
-		return err
-	}
+	l1 := t1.NumRows()
+	l2 := t2.NumRows()
 	total := int64(l1 + l2)
 	var currentProgress int64
 	ticker := time.NewTicker(progressPeriod)
 	defer ticker.Stop()
-	r1, err := t1.NewRowHashReader(0, 0)
-	if err != nil {
-		return err
-	}
-	defer r1.Close()
+	r1 := t1.NewRowHashReader(0, 0)
 loop1:
 	for {
 		select {
@@ -144,11 +134,7 @@ loop1:
 			}
 		}
 	}
-	r2, err := t2.NewRowHashReader(0, 0)
-	if err != nil {
-		return err
-	}
-	defer r2.Close()
+	r2 := t2.NewRowHashReader(0, 0)
 loop2:
 	for {
 		select {

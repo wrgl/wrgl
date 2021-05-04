@@ -117,21 +117,19 @@ func (s *BadgerStore) Filter(prefix []byte) (map[string][]byte, error) {
 	return result, err
 }
 
-func (s *BadgerStore) FilterKey(prefix []byte) ([]string, error) {
-	result := []string{}
-	err := s.db.View(func(txn *badger.Txn) error {
+func (s *BadgerStore) FilterKey(prefix []byte) (keys [][]byte, err error) {
+	err = s.db.View(func(txn *badger.Txn) error {
 		opt := badger.DefaultIteratorOptions
 		opt.Prefix = prefix
 		it := txn.NewIterator(opt)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
-			k := string(item.KeyCopy(nil))
-			result = append(result, k)
+			keys = append(keys, item.KeyCopy(nil))
 		}
 		return nil
 	})
-	return result, err
+	return
 }
 
 func (s *BadgerStore) Exist(k []byte) bool {

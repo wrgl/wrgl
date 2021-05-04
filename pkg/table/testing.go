@@ -47,8 +47,8 @@ func (s *MockStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 	return nil, false
 }
 
-func (s *MockStore) NumRows() (int, error) {
-	return len(s.rows), nil
+func (s *MockStore) NumRows() int {
+	return len(s.rows)
 }
 
 type MockRowHashReader struct {
@@ -65,19 +65,15 @@ func (r *MockRowHashReader) Read() (pkHash, rowHash []byte, err error) {
 	return []byte(row[0]), []byte(row[1]), nil
 }
 
-func (r *MockRowHashReader) Close() error {
-	return nil
-}
-
-func (s *MockStore) NewRowHashReader(offset, size int) (RowHashReader, error) {
+func (s *MockStore) NewRowHashReader(offset, size int) RowHashReader {
 	if size == 0 {
 		size = len(s.rows) - offset
 	}
-	return &MockRowHashReader{rows: s.rows[offset : offset+size]}, nil
+	return &MockRowHashReader{rows: s.rows[offset : offset+size]}
 }
 
-func (s *MockStore) NewRowReader() (RowReader, error) {
-	return nil, fmt.Errorf("Unimplemented")
+func (s *MockStore) NewRowReader() RowReader {
+	return nil
 }
 
 func (s *MockStore) Save() ([]byte, error) {

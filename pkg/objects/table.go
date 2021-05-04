@@ -6,19 +6,10 @@ import (
 	"io"
 )
 
-type TableStorateType uint8
-
-const (
-	TableStorageDefault TableStorateType = iota
-	// TableStorageBig stores table and index in actual files
-	TableStorageBig
-)
-
 type Table struct {
 	Columns []string
 	PK      []uint32
 	Rows    [][]byte
-	Storage TableStorateType
 }
 
 type WriteSeekerAt interface {
@@ -48,16 +39,12 @@ func (w *TableWriter) writeLine(label string, b []byte) error {
 	return nil
 }
 
-func (w *TableWriter) WriteMeta(columns []string, pk []uint32, storage TableStorateType) (err error) {
+func (w *TableWriter) WriteMeta(columns []string, pk []uint32) (err error) {
 	err = w.writeLine("columns", NewStrListEncoder().Encode(columns))
 	if err != nil {
 		return
 	}
 	err = w.writeLine("pk", NewUintListEncoder().Encode(pk))
-	if err != nil {
-		return
-	}
-	err = w.writeLine("storage", []byte{uint8(storage)})
 	if err != nil {
 		return
 	}
@@ -106,7 +93,7 @@ func (w *TableWriter) WriteRowAt(b []byte, offset int) (err error) {
 }
 
 func (w *TableWriter) WriteTable(t *Table) (err error) {
-	err = w.WriteMeta(t.Columns, t.PK, t.Storage)
+	err = w.WriteMeta(t.Columns, t.PK)
 	if err != nil {
 		return
 	}
@@ -130,9 +117,8 @@ type TableReader struct {
 	off          int64
 	rowsStartOff int64
 	rowsCount    uint32
-	columns      []string
-	pk           []uint32
-	storage      TableStorateType
+	Columns      []string
+	PK           []uint32
 }
 
 func NewTableReader(r ReadSeekerAt) (*TableReader, error) {
@@ -189,7 +175,7 @@ func (r *TableReader) readMeta() (err error) {
 		return
 	}
 	var n int
-	n, r.columns, err = NewStrListDecoder(false).Read(r.r)
+	n, r.Columns, err = NewStrListDecoder(false).Read(r.r)
 	if err != nil {
 		return
 	}
@@ -198,20 +184,11 @@ func (r *TableReader) readMeta() (err error) {
 	if err != nil {
 		return
 	}
-	n, r.pk, err = NewUintListDecoder(false).Read(r.r)
+	n, r.PK, err = NewUintListDecoder(false).Read(r.r)
 	if err != nil {
 		return
 	}
 	r.off += int64(n)
-	err = r.consumeStr("\nstorage ")
-	if err != nil {
-		return
-	}
-	v, err := r.readUint8()
-	if err != nil {
-		return
-	}
-	r.storage = TableStorateType(v)
 	err = r.consumeStr("\nrows ")
 	if err != nil {
 		return
@@ -278,10 +255,9 @@ func (r *TableReader) ReadTable() (t *Table, err error) {
 		rows[i] = b
 	}
 	t = &Table{
-		Columns: r.columns,
-		PK:      r.pk,
+		Columns: r.Columns,
+		PK:      r.PK,
 		Rows:    rows,
-		Storage: r.storage,
 	}
 	return
 }

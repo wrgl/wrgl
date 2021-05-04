@@ -32,6 +32,8 @@ func newPreviewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			fs := rd.OpenFileStore()
+			defer kvStore.Close()
 			hash, commit, _, err := versioning.InterpretCommitName(kvStore, cStr)
 			if err != nil {
 				return err
@@ -39,7 +41,7 @@ func newPreviewCmd() *cobra.Command {
 			if commit == nil {
 				return fmt.Errorf("commit \"%s\" not found", cStr)
 			}
-			ts, err := versioning.GetTable(kvStore, rd.OpenFileStore(), seed, commit)
+			ts, err := table.ReadTable(kvStore, fs, commit.Table)
 			if err != nil {
 				return fmt.Errorf("GetTable: %v", err)
 			}
@@ -72,18 +74,11 @@ func previewTable(cmd *cobra.Command, hash string, commit *objects.Commit, ts ta
 
 	// create title bar
 	titleBar := tview.NewTextView().SetDynamicColors(true)
-	nRows, err := ts.NumRows()
-	if err != nil {
-		return fmt.Errorf("NumRows: %v", err)
-	}
+	nRows := ts.NumRows()
 	fmt.Fprintf(titleBar, "[yellow]%s[white]  ([teal]%d[white] x [teal]%d[white])", hash, nRows, len(ts.Columns()))
 
 	// create table
-	rowReader, err := ts.NewRowReader()
-	if err != nil {
-		return fmt.Errorf("NewRowReader: %v", err)
-	}
-	defer rowReader.Close()
+	rowReader := ts.NewRowReader()
 	tv := widgets.NewPreviewTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())
 
 	usageBar := tableUsageBar()

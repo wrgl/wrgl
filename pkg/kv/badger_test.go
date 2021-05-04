@@ -96,8 +96,8 @@ func TestBadger(t *testing.T) {
 
 	sl, err := s.FilterKey([]byte("123abc/"))
 	require.NoError(t, err)
-	sort.Slice(sl, func(i, j int) bool { return sl[i] < sl[j] })
-	assert.Equal(t, []string{"123abc/1", "123abc/2"}, sl)
+	sort.Slice(sl, func(i, j int) bool { return string(sl[i]) < string(sl[j]) })
+	assert.Equal(t, [][]byte{[]byte("123abc/1"), []byte("123abc/2")}, sl)
 
 	// Test Clear
 	err = s.Clear([]byte("123abc/"))

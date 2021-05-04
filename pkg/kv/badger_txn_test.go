@@ -51,8 +51,8 @@ func TestBadgerTxn(t *testing.T) {
 
 	sl, err := s.FilterKey([]byte("pdfs/"))
 	require.NoError(t, err)
-	sort.Slice(sl, func(i, j int) bool { return sl[i] < sl[j] })
-	assert.Equal(t, []string{"pdfs/1", "pdfs/2"}, sl)
+	sort.Slice(sl, func(i, j int) bool { return string(sl[i]) < string(sl[j]) })
+	assert.Equal(t, [][]byte{[]byte("pdfs/1"), []byte("pdfs/2")}, sl)
 
 	v, err = txn.Get([]byte("a"))
 	require.NoError(t, err)

@@ -29,11 +29,12 @@ func newCatFileCmd() *cobra.Command {
 				return err
 			}
 			defer kvStore.Close()
+			fs := rd.OpenFileStore()
 			commit, err := versioning.GetCommit(kvStore, hash)
 			if err == nil {
 				return catCommit(cmd, commit)
 			}
-			ts, err := table.ReadSmallStore(kvStore, seed, hash)
+			ts, err := table.ReadTable(kvStore, fs, hash)
 			if err == nil {
 				return catTable(cmd, ts)
 			}
@@ -61,14 +62,8 @@ func catCommit(cmd *cobra.Command, commit *objects.Commit) error {
 func catTable(cmd *cobra.Command, ts table.Store) error {
 	cols := ts.Columns()
 	pk := ts.PrimaryKey()
-	reader, err := ts.NewRowHashReader(0, 0)
-	if err != nil {
-		return err
-	}
-	n, err := ts.NumRows()
-	if err != nil {
-		return err
-	}
+	reader := ts.NewRowHashReader(0, 0)
+	n := ts.NumRows()
 	app := tview.NewApplication()
 	textView := widgets.NewPaginatedTextView().
 		SetPullText(func() ([]byte, error) {
@@ -93,7 +88,7 @@ func catTable(cmd *cobra.Command, ts table.Store) error {
 		}
 	}
 	fmt.Fprintf(textView, "\n[yellow]rows[white] ([cyan]%d[white])\n\n", n)
-	err = textView.PullText()
+	err := textView.PullText()
 	if err != nil {
 		return err
 	}

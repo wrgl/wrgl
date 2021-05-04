@@ -22,8 +22,7 @@ func TestTableWriter(t *testing.T) {
 		testutils.SecureRandomBytes(32),
 		testutils.SecureRandomBytes(32),
 	}
-	storage := TableStorageDefault
-	err := w.WriteMeta(columns, pk, storage)
+	err := w.WriteMeta(columns, pk)
 	require.NoError(t, err)
 	for i := 3; i >= 0; i-- {
 		err = w.WriteRowAt(rows[i], i)
@@ -37,7 +36,6 @@ func TestTableWriter(t *testing.T) {
 	assert.Equal(t, &Table{
 		Columns: columns,
 		PK:      pk,
-		Storage: storage,
 		Rows:    rows,
 	}, table)
 }
@@ -53,7 +51,6 @@ func TestTableReader(t *testing.T) {
 			testutils.SecureRandomBytes(32),
 			testutils.SecureRandomBytes(32),
 		},
-		Storage: TableStorageBig,
 	}
 	err := w.WriteTable(table)
 	require.NoError(t, err)
@@ -66,6 +63,8 @@ func TestTableReader(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, table, table2)
 	assert.Equal(t, 3, r.RowsCount())
+	assert.Equal(t, []string{"a", "b", "c", "d"}, r.Columns)
+	assert.Equal(t, []uint32{0, 1}, r.PK)
 
 	// test ReadRow
 	r, err = NewTableReader(bytes.NewReader(buf.Bytes()))

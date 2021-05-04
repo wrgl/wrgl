@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/table"
 )
 
 func newExportCmd() *cobra.Command {
@@ -44,14 +44,11 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	if err != nil {
 		return err
 	}
-	ts, err := versioning.GetTable(kvStore, fs, seed, commit)
+	ts, err := table.ReadTable(kvStore, fs, commit.Table)
 	if err != nil {
 		return err
 	}
-	reader, err := ts.NewRowReader()
-	if err != nil {
-		return err
-	}
+	reader := ts.NewRowReader()
 	writer := csv.NewWriter(cmd.OutOrStdout())
 	err = writer.Write(ts.Columns())
 	if err != nil {

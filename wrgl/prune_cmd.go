@@ -26,7 +26,7 @@ func newPruneCmd() *cobra.Command {
 				return err
 			}
 			defer kvStore.Close()
-			// fileStore := rd.OpenFileStore()
+			fileStore := rd.OpenFileStore()
 
 			commitsToRemove, survivingCommits, err := findCommitsToRemove(cmd, kvStore)
 			if err != nil {
@@ -43,14 +43,10 @@ func newPruneCmd() *cobra.Command {
 			keepRow := make([]bool, len(allRowKeys))
 
 			// remove orphaned tables
-			err = pruneSmallTables(cmd, kvStore, survivingCommits, allRowKeys, keepRow)
+			err = pruneSmallTables(cmd, kvStore, fileStore, survivingCommits, allRowKeys, keepRow)
 			if err != nil {
 				return err
 			}
-			// err = pruneBigTables(cmd, kvStore, fileStore, survivingCommits, allRowKeys, keepRow)
-			// if err != nil {
-			// 	return err
-			// }
 
 			// remove orphaned rows
 			bar := pbar(-1, "removing rows", cmd.OutOrStdout(), cmd.ErrOrStderr())
@@ -138,10 +134,10 @@ func findCommitsToRemove(cmd *cobra.Command, kvStore kv.Store) (commitsToRemove 
 	return
 }
 
-func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, survivingCommits [][]byte, allRowKeys []string, keepRow []bool) (err error) {
+func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, fs kv.FileStore, survivingCommits [][]byte, allRowKeys []string, keepRow []bool) (err error) {
 	bar := pbar(-1, "removing small tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
-	tableHashes, err := table.GetAllSmallTableHashes(kvStore)
+	tableHashes, err := table.GetAllTableHashes(kvStore, fs)
 	if err != nil {
 		return
 	}
@@ -160,20 +156,17 @@ func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, survivingCommits [][
 	for i, keep := range tableFound {
 		hash := tableHashes[i]
 		if !keep {
-			err := table.DeleteSmallStore(kvStore, hash)
+			err := table.DeleteTable(kvStore, fs, hash)
 			if err != nil {
 				return err
 			}
 			bar.Add(1)
 		} else {
-			ts, err := table.ReadSmallStore(kvStore, 0, hash)
+			ts, err := table.ReadTable(kvStore, fs, hash)
 			if err != nil {
 				return err
 			}
-			reader, err := ts.NewRowHashReader(0, 0)
-			if err != nil {
-				return err
-			}
+			reader := ts.NewRowHashReader(0, 0)
 			for {
 				_, rowhash, err := reader.Read()
 				if err == io.EOF {
@@ -189,55 +182,3 @@ func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, survivingCommits [][
 	}
 	return nil
 }
-
-// func pruneBigTables(cmd *cobra.Command, kvStore kv.Store, fileStore kv.FileStore, survivingCommits [][]byte, allRowKeys []string, keepRow []bool) (err error) {
-// 	bar := pbar(-1, "removing big tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
-// 	defer bar.Finish()
-// 	tableHashes, err := table.GetAllBigTableHashes(kvStore)
-// 	if err != nil {
-// 		return
-// 	}
-// 	tableFound := make([]bool, len(tableHashes))
-// 	for _, commitHash := range survivingCommits {
-// 		commit, err := versioning.GetCommit(kvStore, commitHash)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if commit.TableType != objects.TableType_TS_BIG {
-// 			continue
-// 		}
-// 		i := sort.Search(len(tableHashes), func(i int) bool { return string(tableHashes[i]) >= string(commit.TableSum) })
-// 		tableFound[i] = true
-// 	}
-// 	for i, keep := range tableFound {
-// 		hash := tableHashes[i]
-// 		if !keep {
-// 			err := table.DeleteBigStore(kvStore, fileStore, hash)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			bar.Add(1)
-// 		} else {
-// 			ts, err := table.ReadBigStore(kvStore, fileStore, 0, hash)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			reader, err := ts.NewRowHashReader(0, 0)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			for {
-// 				_, rowhash, err := reader.Read()
-// 				if err == io.EOF {
-// 					break
-// 				}
-// 				if err != nil {
-// 					return err
-// 				}
-// 				j := sort.SearchStrings(allRowKeys, string(rowhash))
-// 				keepRow[j] = true
-// 			}
-// 		}
-// 	}
-// 	return nil
-// }

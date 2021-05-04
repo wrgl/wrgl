@@ -49,8 +49,9 @@ func TestBranchCmdList(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	factory.CommitSmall(t, db, "alpha", nil, nil, nil)
-	factory.CommitSmall(t, db, "beta", nil, nil, nil)
+	fs := rd.OpenFileStore()
+	factory.Commit(t, db, fs, "alpha", nil, nil, nil)
+	factory.Commit(t, db, fs, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	// test list branch
@@ -75,8 +76,9 @@ func TestBranchCmdCopy(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	sum, _ := factory.CommitSmall(t, db, "alpha", nil, nil, nil)
-	factory.CommitSmall(t, db, "beta", nil, nil, nil)
+	fs := rd.OpenFileStore()
+	sum, _ := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
+	factory.Commit(t, db, fs, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	setCmdArgs(cmd, rd, cf, "branch", "gamma", "--copy", "delta")
@@ -108,8 +110,9 @@ func TestBranchCmdMove(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	sum, _ := factory.CommitSmall(t, db, "alpha", nil, nil, nil)
-	factory.CommitSmall(t, db, "beta", nil, nil, nil)
+	fs := rd.OpenFileStore()
+	sum, _ := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
+	factory.Commit(t, db, fs, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	setCmdArgs(cmd, rd, cf, "branch", "gamma", "--move", "delta")
@@ -140,7 +143,8 @@ func TestBranchCmdDelete(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	factory.CommitSmall(t, db, "alpha", nil, nil, nil)
+	fs := rd.OpenFileStore()
+	factory.Commit(t, db, fs, "alpha", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	setCmdArgs(cmd, rd, cf, "branch", "gamma", "--delete")
@@ -165,7 +169,8 @@ func TestBranchCmdCreate(t *testing.T) {
 
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
-	sum, _ := factory.CommitSmall(t, db, "alpha", nil, nil, nil)
+	fs := rd.OpenFileStore()
+	sum, _ := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
 	require.NoError(t, db.Close())
 
 	setCmdArgs(cmd, rd, cf, "branch", "delta")

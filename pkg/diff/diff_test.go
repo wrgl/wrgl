@@ -184,22 +184,25 @@ func TestDiffTables(t *testing.T) {
 	}
 }
 
-func ingestRawCSV(b *testing.B, db kv.DB, rows [][]string) table.Store {
+func ingestRawCSV(b *testing.B, db kv.DB, fs kv.FileStore, rows [][]string) table.Store {
 	b.Helper()
 	cols := rows[0]
 	reader := testutils.RawCSVReader(rows[1:])
-	store := table.NewSmallStore(db, cols, []uint32{}, 0)
-	_, err := ingest.Ingest(0, 1, reader, []uint32{}, store, io.Discard)
+	tb := table.NewBuilder(db, fs, cols, nil, 0, 0)
+	sum, err := ingest.Ingest(0, 1, reader, []uint32{}, tb, io.Discard)
 	require.NoError(b, err)
-	return store
+	ts, err := table.ReadTable(db, fs, sum)
+	require.NoError(b, err)
+	return ts
 }
 
 func BenchmarkDiffRows(b *testing.B) {
 	rawCSV1 := testutils.BuildRawCSV(12, b.N)
 	rawCSV2 := testutils.ModifiedCSV(rawCSV1, 1)
 	db := kv.NewMockStore(false)
-	store1 := ingestRawCSV(b, db, rawCSV1)
-	store2 := ingestRawCSV(b, db, rawCSV2)
+	fs := kv.NewMockStore(false)
+	store1 := ingestRawCSV(b, db, fs, rawCSV1)
+	store2 := ingestRawCSV(b, db, fs, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
 	diffChan := DiffTables(store1, store2, 100*time.Minute, errChan)

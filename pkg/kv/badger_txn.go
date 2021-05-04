@@ -101,16 +101,14 @@ func (t *badgerTxn) Filter(prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
-func (t *badgerTxn) FilterKey(prefix []byte) ([]string, error) {
-	result := []string{}
+func (t *badgerTxn) FilterKey(prefix []byte) (keys [][]byte, err error) {
 	opt := badger.DefaultIteratorOptions
 	opt.Prefix = prefix
 	it := t.txn.NewIterator(opt)
 	defer it.Close()
 	for it.Rewind(); it.Valid(); it.Next() {
 		item := it.Item()
-		k := string(item.KeyCopy(nil))
-		result = append(result, k)
+		keys = append(keys, item.KeyCopy(nil))
 	}
-	return result, nil
+	return
 }

@@ -31,39 +31,13 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// bigTable, err := cmd.Flags().GetBool("big-table")
-			// if err != nil {
-			// 	return err
-			// }
-			// smallTable, err := cmd.Flags().GetBool("small-table")
-			// if err != nil {
-			// 	return err
-			// }
 			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
-	// cmd.Flags().Bool("small-table", false, "use small table store. This is the default table store.")
-	// cmd.Flags().Bool("big-table", false, "use big table store. Big table store is great when dealing with files that are a few GiB or more.")
 	return cmd
 }
-
-// func decideTableStoreType(db kv.DB, commit []byte, bigTable, smallTable bool) (objects.TableType, error) {
-// 	if bigTable {
-// 		return objects.TableType_TS_BIG, nil
-// 	} else if smallTable {
-// 		return objects.TableType_TS_SMALL, nil
-// 	}
-// 	if branch.CommitSum != nil {
-// 		prevCommit, err := versioning.GetCommit(db, commit)
-// 		if err != nil {
-// 			return 0, err
-// 		}
-// 		return prevCommit.TableType, nil
-// 	}
-// 	return objects.TableType_TS_SMALL, nil
-// }
 
 func getRepoDir(cmd *cobra.Command) *repoDir {
 	rootDir, err := cmd.Flags().GetString("root-dir")
@@ -112,13 +86,9 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		return err
 	}
 	defer kvStore.Close()
+	fs := rd.OpenFileStore()
 
-	// detect table store type
 	parent, _ := versioning.GetHead(kvStore, branchName)
-	// tsType, err := decideTableStoreType(kvStore, branch, bigTable, smallTable)
-	// if err != nil {
-	// 	return err
-	// }
 
 	f, err := os.Open(csvFilePath)
 	if err != nil {
@@ -129,17 +99,8 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	if err != nil {
 		return err
 	}
-	var ts table.Store
-	// if tsType == objects.TableType_TS_BIG {
-	// 	fileStore := rd.OpenFileStore()
-	// 	ts, err = table.NewBigStore(kvStore, fileStore, columns, primaryKeyIndices, seed)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// } else {
-	ts = table.NewSmallStore(kvStore, columns, primaryKeyIndices, seed)
-	// }
-	sum, err := ingest.Ingest(seed, numWorkers, csvReader, primaryKeyIndices, ts, cmd.OutOrStdout())
+	tb := table.NewBuilder(kvStore, fs, columns, primaryKeyIndices, seed, 0)
+	sum, err := ingest.Ingest(seed, numWorkers, csvReader, primaryKeyIndices, tb, cmd.OutOrStdout())
 	if err != nil {
 		return err
 	}

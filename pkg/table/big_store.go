@@ -1,63 +1,64 @@
 package table
 
 import (
-	"bytes"
-	"io"
-
-	"github.com/google/uuid"
-	"github.com/mmcloughlin/meow"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/slice"
 )
 
-var tempPrefix = []byte("tmp/")
-
-func tempKey() ([]byte, error) {
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-	return append(tempPrefix, []byte(id.String())...), nil
-}
-
 type BigStore struct {
-	t    *objects.Table
-	fs   kv.FileStore
-	seed uint64
+	reader *objects.TableReader
+	index  *HashIndex
+	db     kv.DB
 }
 
-func NewBigStore(fs kv.FileStore, t *objects.Table, seed uint64) *BigStore {
+func NewBigStore(db kv.DB, reader *objects.TableReader, index *HashIndex) *BigStore {
 	return &BigStore{
-		t:    t,
-		fs:   fs,
-		seed: seed,
+		db:     db,
+		reader: reader,
+		index:  index,
 	}
 }
 
-func (s *BigStore) Save() ([]byte, error) {
-	key, err := tempKey()
+func (s *BigStore) Columns() []string {
+	return s.reader.Columns
+}
+
+func (s *BigStore) PrimaryKey() []string {
+	return slice.IndicesToValues(s.reader.Columns, s.reader.PK)
+}
+
+func (s *BigStore) PrimaryKeyIndices() []uint32 {
+	return s.reader.PK
+}
+
+func (s *BigStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
+	off, err := s.index.IndexOf(pkHash)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	file, err := s.fs.Writer(key)
+	if off == -1 {
+		return nil, false
+	}
+	b, err := s.reader.ReadRowAt(off)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	defer file.Close()
-	buf := bytes.NewBufferString("")
-	writer := objects.NewTableWriter(io.MultiWriter(file, buf))
-	err = writer.Write(s.t)
-	if err != nil {
-		return nil, err
+	return b[16:], true
+}
+
+func (s *BigStore) NumRows() int {
+	return s.reader.RowsCount()
+}
+
+func (s *BigStore) NewRowHashReader(offset, size int) RowHashReader {
+	return newRowHashReader(s.reader, s.NumRows(), offset, size)
+}
+
+func (s *BigStore) NewRowReader() RowReader {
+	return &rowReader{
+		reader: s.reader,
+		db:     s.db,
+		limit:  s.NumRows(),
 	}
-	err = file.Close()
-	if err != nil {
-		return nil, err
-	}
-	sum := meow.Checksum(s.seed, buf.Bytes())
-	err = s.fs.Move(key, smallTableKey(sum[:]))
-	if err != nil {
-		return nil, err
-	}
-	return sum[:], nil
 }

@@ -66,12 +66,12 @@ func TestIngest(t *testing.T) {
 			PrimaryKeys:    []string{"name"},
 			ExpecteColumns: []string{"name", "age"},
 			ExpectedRows: [][2]string{
-				{"9510a7973269436b9627c409c77a5f2c", "1d2f16fe99e826a2157b0cede3bf4f10"},
-				{"aa0f4193a207c8f27560292761e98f1c", "b8f03f03f6990def324123b661f487f7"},
+				{"bb3eae9fd97b07e0e68397376cb3f91b", "cb09971aee2e66976aee18a0327ca566"},
+				{"03fe30af7e8206d446f19436e9f41721", "5b9dca9219b276aeb09a0ee8ce84b15c"},
 			},
 			ExpectedRowContent: [][2]string{
-				{"1d2f16fe99e826a2157b0cede3bf4f10", encodeStrList([]string{"Alex", "23"})},
-				{"b8f03f03f6990def324123b661f487f7", encodeStrList([]string{"Tom", "24"})},
+				{"cb09971aee2e66976aee18a0327ca566", encodeStrList([]string{"Alex", "23"})},
+				{"5b9dca9219b276aeb09a0ee8ce84b15c", encodeStrList([]string{"Tom", "24"})},
 			},
 			ExpectedError: nil,
 		},
@@ -83,12 +83,12 @@ func TestIngest(t *testing.T) {
 			}, "\n")),
 			ExpecteColumns: []string{"name", "age"},
 			ExpectedRows: [][2]string{
-				{"1d2f16fe99e826a2157b0cede3bf4f10", "1d2f16fe99e826a2157b0cede3bf4f10"},
-				{"b8f03f03f6990def324123b661f487f7", "b8f03f03f6990def324123b661f487f7"},
+				{"cb09971aee2e66976aee18a0327ca566", "cb09971aee2e66976aee18a0327ca566"},
+				{"5b9dca9219b276aeb09a0ee8ce84b15c", "5b9dca9219b276aeb09a0ee8ce84b15c"},
 			},
 			ExpectedRowContent: [][2]string{
-				{"1d2f16fe99e826a2157b0cede3bf4f10", encodeStrList([]string{"Alex", "23"})},
-				{"b8f03f03f6990def324123b661f487f7", encodeStrList([]string{"Tom", "24"})},
+				{"cb09971aee2e66976aee18a0327ca566", encodeStrList([]string{"Alex", "23"})},
+				{"5b9dca9219b276aeb09a0ee8ce84b15c", encodeStrList([]string{"Tom", "24"})},
 			},
 			ExpectedError: nil,
 		},
@@ -109,12 +109,12 @@ func TestIngest(t *testing.T) {
 			PrimaryKeys:    []string{"one"},
 			ExpecteColumns: []string{"one", "two"},
 			ExpectedRows: [][2]string{
-				{"d0d1db2e777905a83d878c000698a566", "8503952f1bf1b485691a2f98f8b45821"},
-				{"d0d1db2e777905a83d878c000698a566", "e48446853e98ea637ab1b72e992035ed"},
+				{"fd1c9513cc47feaf59fa9b76008f2521", "212684f52418cf420d72bcb96684259e"},
+				{"fd1c9513cc47feaf59fa9b76008f2521", "f5f678067f0893090ab139630617771a"},
 			},
 			ExpectedRowContent: [][2]string{
-				{"8503952f1bf1b485691a2f98f8b45821", encodeStrList([]string{"1", "2"})},
-				{"e48446853e98ea637ab1b72e992035ed", encodeStrList([]string{"1", "3"})},
+				{"212684f52418cf420d72bcb96684259e", encodeStrList([]string{"1", "2"})},
+				{"f5f678067f0893090ab139630617771a", encodeStrList([]string{"1", "3"})},
 			},
 			ExpectedError: nil,
 		},
@@ -122,18 +122,19 @@ func TestIngest(t *testing.T) {
 	for i, c := range cases {
 		buf := bytes.NewBuffer(c.RawCSV)
 		db := kv.NewMockStore(false)
+		fs := kv.NewMockStore(false)
 		var seed uint64 = 0
 		reader, columns, pk, err := ReadColumns(buf, c.PrimaryKeys)
 		if err != nil {
 			assert.Equal(t, c.ExpectedError, err, "case %d", i)
 			continue
 		}
-		ts := table.NewSmallStore(db, columns, pk, seed)
-		sum, err := Ingest(seed, 1, reader, pk, ts, io.Discard)
+		tb := table.NewBuilder(db, fs, columns, pk, seed, 0)
+		sum, err := Ingest(seed, 1, reader, pk, tb, io.Discard)
 		if c.ExpectedError != nil {
 			assert.Equal(t, c.ExpectedError, err, "case %d", i)
 		} else {
-			ts2, err := table.ReadSmallStore(db, seed, sum)
+			ts2, err := table.ReadTable(db, fs, sum)
 			require.NoError(t, err)
 			assert.Equal(t, c.ExpecteColumns, ts2.Columns(), "case %d", i)
 			if c.PrimaryKeys == nil {
@@ -141,11 +142,9 @@ func TestIngest(t *testing.T) {
 			} else {
 				assert.Equal(t, c.PrimaryKeys, ts2.PrimaryKey(), "case %d", i)
 			}
-			rhr, err := ts2.NewRowHashReader(0, 0)
-			require.NoError(t, err)
+			rhr := ts2.NewRowHashReader(0, 0)
 			assert.Equal(t, c.ExpectedRows, readAllRowHashes(t, rhr), "case %d", i)
-			rr, err := ts2.NewRowReader()
-			require.NoError(t, err)
+			rr := ts2.NewRowReader()
 			assert.Equal(t, c.ExpectedRowContent, readAllRowContents(t, rr), "case %d", i)
 		}
 	}

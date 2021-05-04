@@ -71,10 +71,6 @@ func (r *KeyListRowReader) ReadAt(offset int) (rowHash, rowContent []byte, err e
 	return b, rc, nil
 }
 
-func (r *KeyListRowReader) Close() error {
-	return nil
-}
-
 func (r *KeyListRowReader) NumRows() int {
 	return len(r.keys)
 }

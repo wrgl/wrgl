@@ -74,19 +74,18 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (str
 	if err != nil {
 		return "", nil, err
 	}
-	ts := table.NewSmallStore(db, columns, primaryKeyIndices, seed)
+	tb := table.NewBuilder(db, db, columns, primaryKeyIndices, seed, 0)
 	out := cmd.OutOrStdout()
 	if format == diffFormatJSON {
 		out = io.Discard
 	}
-	sum, err := ingest.Ingest(seed, 1, csvReader, primaryKeyIndices, ts, out)
+	sum, err := ingest.Ingest(seed, 1, csvReader, primaryKeyIndices, tb, out)
 	if err != nil {
 		return "", nil, err
 	}
 	commit := &objects.Commit{
 		Table: sum,
 		Time:  time.Now(),
-		// TableType: objects.TableType_TS_SMALL,
 	}
 	_, err = versioning.SaveCommit(db, seed, commit)
 	if err != nil {
@@ -321,11 +320,11 @@ func diffCommits(cmd *cobra.Command, cStr1, cStr2, format string) error {
 		cmd.Println("There are no changes!")
 		return nil
 	}
-	ts1, err := versioning.GetTable(db1, fs, seed, commit1)
+	ts1, err := table.ReadTable(db1, fs, commit1.Table)
 	if err != nil {
 		return err
 	}
-	ts2, err := versioning.GetTable(db2, fs, seed, commit2)
+	ts2, err := table.ReadTable(db2, fs, commit2.Table)
 	if err != nil {
 		return err
 	}

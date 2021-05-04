@@ -19,6 +19,7 @@ type FileStore interface {
 	Clear([]byte) error
 	Size(k []byte) (uint64, error)
 	Move(a, b []byte) error
+	FilterKey([]byte) ([][]byte, error)
 }
 
 type fileStore struct {
@@ -79,4 +80,18 @@ func (s *fileStore) Move(a, b []byte) error {
 		return err
 	}
 	return os.Rename(s.path(a), s.path(b))
+}
+
+func (s *fileStore) FilterKey(prefix []byte) (keys [][]byte, err error) {
+	files, err := os.ReadDir(s.path(prefix))
+	if err != nil {
+		if _, ok := err.(*os.PathError); ok {
+			return nil, nil
+		}
+		return
+	}
+	for _, f := range files {
+		keys = append(keys, []byte(f.Name()))
+	}
+	return
 }

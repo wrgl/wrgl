@@ -8,7 +8,7 @@ type DB interface {
 	Delete([]byte) error
 	Exist([]byte) bool
 	Filter([]byte) (map[string][]byte, error)
-	FilterKey([]byte) ([]string, error)
+	FilterKey([]byte) ([][]byte, error)
 }
 
 type Store interface {

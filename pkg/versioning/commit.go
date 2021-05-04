@@ -8,15 +8,7 @@ import (
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
-	"github.com/wrgl/core/pkg/table"
 )
-
-func GetTable(db kv.Store, fs kv.FileStore, seed uint64, c *objects.Commit) (table.Store, error) {
-	// if c.TableType == objects.TableType_TS_BIG {
-	// 	return table.ReadBigStore(db, fs, seed, c.Table)
-	// }
-	return table.ReadSmallStore(db, seed, c.Table)
-}
 
 var commitPrefix = []byte("commit/")
 

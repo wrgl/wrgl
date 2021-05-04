@@ -304,15 +304,15 @@ func (s *MockStore) Filter(prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
-func (s *MockStore) FilterKey(prefix []byte) ([]string, error) {
+func (s *MockStore) FilterKey(prefix []byte) ([][]byte, error) {
 	if s.EnableMock {
 		args := s.Called(prefix)
-		return args.Get(0).([]string), args.Error(1)
+		return args.Get(0).([][]byte), args.Error(1)
 	}
-	result := []string{}
+	result := [][]byte{}
 	for k := range s.store {
 		if strings.HasPrefix(k, string(prefix)) {
-			result = append(result, k)
+			result = append(result, []byte(k))
 		}
 	}
 	return result, nil

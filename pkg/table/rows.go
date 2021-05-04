@@ -1,8 +1,9 @@
 package table
 
 import (
+	"sort"
+
 	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/slice"
 )
 
 var rowPrefix = []byte("rows/")
@@ -41,9 +42,10 @@ func GetAllRowKeys(db kv.DB) ([]string, error) {
 		return nil, err
 	}
 	l := len(rowPrefix)
-	result := []string{}
+	result := make([]string, 0, len(sl))
 	for _, h := range sl {
-		result = slice.InsertToSortedStringSlice(result, h[l:])
+		result = append(result, string(h[l:]))
 	}
+	sort.Strings(result)
 	return result, nil
 }
