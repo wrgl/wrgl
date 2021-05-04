@@ -1,6 +1,7 @@
 package table
 
 import (
+	"encoding/hex"
 	"io"
 
 	"github.com/wrgl/core/pkg/kv"
@@ -11,7 +12,7 @@ import (
 var tablePrefix = []byte("tables/")
 
 func tableKey(hash []byte) []byte {
-	return append(tablePrefix, hash...)
+	return append(tablePrefix, []byte(hex.EncodeToString(hash))...)
 }
 
 type KeyHash struct {

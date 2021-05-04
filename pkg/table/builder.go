@@ -2,6 +2,7 @@ package table
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"sync"
@@ -20,7 +21,7 @@ const (
 var tableIndexPrefix = []byte("table_indices/")
 
 func tableIndexKey(hash []byte) []byte {
-	return append(tableIndexPrefix, hash...)
+	return append(tableIndexPrefix, []byte(hex.EncodeToString(hash))...)
 }
 
 // Builder insert rows and build table object in a thread-safe manner.
@@ -196,11 +197,19 @@ func GetAllTableHashes(db kv.DB, fs kv.FileStore) (sl [][]byte, err error) {
 	}
 	sl = make([][]byte, 0, len(sl1)+len(sl2))
 	n := len(tablePrefix)
-	for _, b := range sl1 {
-		sl = append(sl, b[n:])
+	for _, s := range sl1 {
+		b, err := hex.DecodeString(string(s[n:]))
+		if err != nil {
+			return nil, err
+		}
+		sl = append(sl, b)
 	}
-	for _, b := range sl2 {
-		sl = append(sl, b[n:])
+	for _, s := range sl2 {
+		b, err := hex.DecodeString(string(s[n:]))
+		if err != nil {
+			return nil, err
+		}
+		sl = append(sl, b)
 	}
 	sort.Slice(sl, func(i, j int) bool {
 		return string(sl[i]) < string(sl[j])
