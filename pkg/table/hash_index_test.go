@@ -2,9 +2,10 @@ package table
 
 import (
 	"bytes"
+	"io/ioutil"
+	"os"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/testutils"
@@ -42,9 +43,6 @@ func TestHashIndex(t *testing.T) {
 		buf := bytes.NewBuffer(nil)
 		w := NewHashIndexWriter(buf, rows)
 		require.NoError(t, w.Flush())
-		if c == 1 {
-			spew.Dump(buf.Bytes())
-		}
 
 		i, err := NewHashIndex(bytes.NewReader(buf.Bytes()))
 		require.NoError(t, err)
@@ -58,5 +56,28 @@ func TestHashIndex(t *testing.T) {
 			require.NoError(t, err, "case %d", c)
 			assert.Equal(t, -1, k, "case %d", c)
 		}
+	}
+}
+
+func BenchmarkHashIndex1M(b *testing.B) {
+	n := 1024 * 1024
+	rows := makeBytesMatrix(n, 32)
+	f, err := ioutil.TempFile("", "test_hash_index")
+	require.NoError(b, err)
+	defer os.Remove(f.Name())
+	w := NewHashIndexWriter(f, rows)
+	require.NoError(b, w.Flush())
+	require.NoError(b, f.Close())
+
+	f, err = os.Open(f.Name())
+	require.NoError(b, err)
+	defer f.Close()
+	i, err := NewHashIndex(f)
+	require.NoError(b, err)
+	b.ResetTimer()
+	for j := 0; j < b.N; j++ {
+		k, err := i.IndexOf(rows[j%n])
+		require.NoError(b, err)
+		assert.Equal(b, j%n, k)
 	}
 }

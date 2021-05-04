@@ -132,8 +132,16 @@ func (i *HashIndex) readFanout(b uint8) (u uint32, err error) {
 	return
 }
 
-func (i *HashIndex) seekHash(ind uint32) (err error) {
+func (i *HashIndex) readHash(ind uint32) (h []byte, err error) {
 	_, err = i.r.Seek(int64(ind)*16+1024, io.SeekStart)
+	if err != nil {
+		return
+	}
+	_, err = i.r.Read(i.buf[:16])
+	if err != nil {
+		return
+	}
+	h = i.buf[:16]
 	return
 }
 
@@ -165,25 +173,33 @@ func (i *HashIndex) IndexOf(b []byte) (off int, err error) {
 	if startInd == endInd {
 		return -1, nil
 	}
-	err = i.seekHash(startInd)
+	searchSize := int(endInd - startInd)
+	pos := sort.Search(searchSize, func(pos int) bool {
+		h, err := i.readHash(startInd + uint32(pos))
+		if err != nil {
+			panic(err)
+		}
+		for k := 0; k < 16; k++ {
+			if h[k] < b[k] {
+				return false
+			} else if h[k] > b[k] {
+				return true
+			}
+		}
+		return true
+	})
+	if pos == searchSize {
+		return -1, nil
+	}
+	pos = pos + int(startInd)
+	h, err := i.readHash(uint32(pos))
 	if err != nil {
 		return
 	}
-	for j := startInd; j < endInd; j++ {
-		_, err = i.r.Read(i.buf)
-		if err != nil {
-			return
-		}
-		eq := true
-		for k := 0; k < 16; k++ {
-			if b[k] != i.buf[k] {
-				eq = false
-				break
-			}
-		}
-		if eq {
-			return i.readOffset(j)
+	for k := 0; k < 16; k++ {
+		if h[k] != b[k] {
+			return -1, nil
 		}
 	}
-	return -1, nil
+	return i.readOffset(uint32(pos))
 }
