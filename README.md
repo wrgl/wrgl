@@ -42,16 +42,18 @@ wrgl branch
 wrgl branch -d my-branch
 ```
 
+## Version compatibility
+
+This software isn't ready for production so all new minor version introduce breaking changes. You will need to throw away the entire `.wrgl` folder once you upgrade to a new minor version e.g. `0.1.x` to `0.2.x`.
+
 ## Dealing with big file
 
-There are 2 storage formats for table: `small` and `big`. For files that can easily fit in memory (up to a few Gigabytes in size), `small` table format should be used. This is the default storage mode. For larger files, use `big` format instead. `big` table operations interact with disk more and are therefore slower but require less memory than `small` tables for the same file size. Add flag `--big-table` during commit to use `big` format:
+For tables that have more than 1 << 24 (~16M) rows, the system automatically save table to big store. Big store does not keep the table in memory so while it is slightly slower it should be able to deal with arbitrarily large files. If you are committing huge files remember to set `ulimit` to something big:
 
 ```bash
-# Make sure to set ulimit to something large if you're dealing with a large file
 ulimit -n 10000
 
-# Add flag --big-table during commit
-wrgl commit my-branch big_file.csv --primary-key my_key --big-table
+wrgl commit my-branch big_file.csv --primary-key my_key
 ```
 
 ## Roadmap
