@@ -1,13 +1,17 @@
 package versioning
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/wrgl/core/pkg/kv"
 )
 
 var (
-	refPrefix  = []byte("refs/")
-	headPrefix = append(refPrefix, []byte("heads/")...)
-	tagPrefix  = append(refPrefix, []byte("tags/")...)
+	refPrefix       = []byte("refs/")
+	headPrefix      = append(refPrefix, []byte("heads/")...)
+	tagPrefix       = append(refPrefix, []byte("tags/")...)
+	remoteRefPrefix = append(refPrefix, []byte("remotes/")...)
 )
 
 func headKey(name string) []byte {
@@ -18,20 +22,32 @@ func tagKey(name string) []byte {
 	return append(tagPrefix, []byte(name)...)
 }
 
+func remoteRefKey(remote, name string) []byte {
+	return []byte(fmt.Sprintf("%s%s/%s", string(remoteRefPrefix), remote, name))
+}
+
 func SaveHead(s kv.DB, name string, commit []byte) error {
-	return s.Set([]byte(headKey(name)), commit[:])
+	return s.Set(headKey(name), commit)
 }
 
 func SaveTag(s kv.DB, name string, commit []byte) error {
-	return s.Set([]byte(tagKey(name)), commit[:])
+	return s.Set(tagKey(name), commit)
+}
+
+func SaveRemoteRef(s kv.DB, remote, name string, commit []byte) error {
+	return s.Set(remoteRefKey(remote, name), commit)
 }
 
 func GetHead(s kv.DB, name string) ([]byte, error) {
-	return s.Get([]byte(headKey(name)))
+	return s.Get(headKey(name))
 }
 
 func GetTag(s kv.DB, name string) ([]byte, error) {
-	return s.Get([]byte(tagKey(name)))
+	return s.Get(tagKey(name))
+}
+
+func GetRemoteRef(s kv.DB, remote, name string) ([]byte, error) {
+	return s.Get(remoteRefKey(remote, name))
 }
 
 func listRefs(s kv.DB, prefix []byte) (map[string][]byte, error) {
@@ -60,10 +76,27 @@ func ListAllRefs(s kv.DB) (map[string][]byte, error) {
 	return s.Filter(refPrefix)
 }
 
+func ListLocalRefs(s kv.DB) (map[string][]byte, error) {
+	m, err := ListAllRefs(s)
+	if err != nil {
+		return nil, err
+	}
+	for k := range m {
+		if strings.HasPrefix(k, string(remoteRefPrefix)) {
+			delete(m, k)
+		}
+	}
+	return m, nil
+}
+
 func DeleteHead(s kv.DB, name string) error {
 	return s.Delete(headKey(name))
 }
 
 func DeleteTag(s kv.DB, name string) error {
 	return s.Delete(tagKey(name))
+}
+
+func DeleteRemoteRef(s kv.DB, remote, name string) error {
+	return s.Delete(remoteRefKey(remote, name))
 }

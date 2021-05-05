@@ -1,6 +1,7 @@
 package versioning
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -61,6 +62,23 @@ func TestRefTag(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRemoteRef(t *testing.T) {
+	db := kv.NewMockStore(false)
+	remote := "origin"
+	name := "abc"
+	sum := testutils.SecureRandomBytes(16)
+	err := SaveRemoteRef(db, remote, name, sum)
+	require.NoError(t, err)
+	b, err := GetRemoteRef(db, remote, name)
+	require.NoError(t, err)
+	assert.Equal(t, sum[:], b)
+
+	err = DeleteRemoteRef(db, remote, name)
+	require.NoError(t, err)
+	_, err = GetRemoteRef(db, remote, name)
+	assert.Error(t, err)
+}
+
 func TestListAllRefs(t *testing.T) {
 	db := kv.NewMockStore(false)
 	sum1 := testutils.SecureRandomBytes(16)
@@ -71,7 +89,21 @@ func TestListAllRefs(t *testing.T) {
 	tag := "my-tag"
 	err = SaveTag(db, tag, sum2)
 	require.NoError(t, err)
+	sum3 := testutils.SecureRandomBytes(16)
+	remote := "origin"
+	name := "main"
+	err = SaveRemoteRef(db, remote, name, sum3)
+	require.NoError(t, err)
+
 	m, err := ListAllRefs(db)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]byte{
+		"refs/heads/" + head:                            sum1,
+		"refs/tags/" + tag:                              sum2,
+		fmt.Sprintf("refs/remotes/%s/%s", remote, name): sum3,
+	}, m)
+
+	m, err = ListLocalRefs(db)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"refs/heads/" + head: sum1,
