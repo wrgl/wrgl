@@ -1,4 +1,4 @@
-package main
+package versioning
 
 import (
 	"io/ioutil"
@@ -13,9 +13,7 @@ func TestRepoDirInit(t *testing.T) {
 	dir, err := ioutil.TempDir("", "test_repo_dir")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
-	rd := &repoDir{
-		rootDir: dir,
-	}
+	rd := NewRepoDir(dir, false, false)
 	assert.False(t, rd.Exist())
 	err = rd.Init()
 	require.NoError(t, err)

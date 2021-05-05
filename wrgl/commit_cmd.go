@@ -39,7 +39,7 @@ func newCommitCmd() *cobra.Command {
 	return cmd
 }
 
-func getRepoDir(cmd *cobra.Command) *repoDir {
+func getRepoDir(cmd *cobra.Command) *versioning.RepoDir {
 	rootDir, err := cmd.Flags().GetString("root-dir")
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -55,17 +55,13 @@ func getRepoDir(cmd *cobra.Command) *repoDir {
 		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
-	rd := &repoDir{
-		rootDir:        rootDir,
-		badgerLogInfo:  badgerLogInfo,
-		badgerLogDebug: badgerLogDebug,
-	}
+	rd := versioning.NewRepoDir(rootDir, badgerLogInfo, badgerLogDebug)
 	return rd
 }
 
-func quitIfRepoDirNotExist(cmd *cobra.Command, rd *repoDir) {
+func quitIfRepoDirNotExist(cmd *cobra.Command, rd *versioning.RepoDir) {
 	if !rd.Exist() {
-		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rd.rootDir)
+		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rd.RootDir)
 		cmd.PrintErrln("  wrgl init")
 		os.Exit(1)
 	}

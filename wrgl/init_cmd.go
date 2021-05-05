@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/versioning"
 )
 
 func newInitCmd() *cobra.Command {
@@ -24,9 +25,7 @@ func newInitCmd() *cobra.Command {
 }
 
 func initRepo(cmd *cobra.Command, rootDir string) error {
-	rd := &repoDir{
-		rootDir: rootDir,
-	}
+	rd := versioning.NewRepoDir(rootDir, false, false)
 	err := rd.Init()
 	if err != nil {
 		return err
@@ -35,7 +34,7 @@ func initRepo(cmd *cobra.Command, rootDir string) error {
 	if err != nil {
 		return err
 	}
-	p, err := filepath.Rel(wd, rd.fullPath())
+	p, err := filepath.Rel(wd, rd.FullPath())
 	if err != nil {
 		return err
 	}

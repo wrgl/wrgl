@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/versioning"
 )
 
 func createCSVFile(t *testing.T, content []string) (filePath string) {
@@ -23,7 +24,7 @@ func createCSVFile(t *testing.T, content []string) (filePath string) {
 	return file.Name()
 }
 
-func commitFile(t *testing.T, rd *repoDir, configFilePath, branchName, filePath, primaryKey string, args ...string) {
+func commitFile(t *testing.T, rd *versioning.RepoDir, configFilePath, branchName, filePath, primaryKey string, args ...string) {
 	t.Helper()
 	cmd := newRootCmd()
 	cmd.SetOut(io.Discard)

@@ -15,13 +15,11 @@ import (
 	"github.com/wrgl/core/pkg/versioning"
 )
 
-func createRepoDir(t *testing.T) (rd *repoDir, cleanup func()) {
+func createRepoDir(t *testing.T) (rd *versioning.RepoDir, cleanup func()) {
 	t.Helper()
 	rootDir, err := ioutil.TempDir("", "test_wrgl_*")
 	require.NoError(t, err)
-	rd = &repoDir{
-		rootDir: rootDir,
-	}
+	rd = versioning.NewRepoDir(rootDir, false, false)
 	err = rd.Init()
 	require.NoError(t, err)
 	return rd, func() { os.RemoveAll(rootDir) }
@@ -36,8 +34,8 @@ func assertCmdOutput(t *testing.T, cmd *cobra.Command, output string) {
 	assert.Equal(t, output, buf.String())
 }
 
-func setCmdArgs(cmd *cobra.Command, rd *repoDir, configFilePath string, args ...string) {
-	cmd.SetArgs(append(args, "--root-dir", rd.rootDir, "--config-file", configFilePath))
+func setCmdArgs(cmd *cobra.Command, rd *versioning.RepoDir, configFilePath string, args ...string) {
+	cmd.SetArgs(append(args, "--root-dir", rd.RootDir, "--config-file", configFilePath))
 }
 
 func TestBranchCmdList(t *testing.T) {

@@ -83,3 +83,9 @@ func (b *Buffer) Seek(offset int64, whence int) (int64, error) {
 	b.off = offset
 	return offset, nil
 }
+
+func (b *Buffer) Buffer(n int) []byte {
+	b.off = 0
+	b.maybeGrow(n)
+	return b.b[:n]
+}

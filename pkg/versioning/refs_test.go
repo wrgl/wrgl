@@ -60,3 +60,21 @@ func TestRefTag(t *testing.T) {
 	_, err = GetTag(db, name)
 	assert.Error(t, err)
 }
+
+func TestListAllRefs(t *testing.T) {
+	db := kv.NewMockStore(false)
+	sum1 := testutils.SecureRandomBytes(16)
+	head := "my-branch"
+	err := SaveHead(db, head, sum1)
+	require.NoError(t, err)
+	sum2 := testutils.SecureRandomBytes(16)
+	tag := "my-tag"
+	err = SaveTag(db, tag, sum2)
+	require.NoError(t, err)
+	m, err := ListAllRefs(db)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]byte{
+		"refs/heads/" + head: sum1,
+		"refs/tags/" + tag:   sum2,
+	}, m)
+}

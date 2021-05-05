@@ -1,9 +1,10 @@
 package objects
 
 import (
-	"fmt"
 	"io"
 	"time"
+
+	"github.com/wrgl/core/pkg/encoding"
 )
 
 type Commit struct {
@@ -37,17 +38,17 @@ func (r *CommitWriter) Buffer(n int) []byte {
 func (w *CommitWriter) Write(c *Commit) (err error) {
 	type line struct {
 		label string
-		f     encodeFunc
+		f     encoding.EncodeFunc
 	}
 	lines := []line{
-		{"table", encodeBytes(c.Table)},
-		{"authorName", encodeStr(c.AuthorName)},
-		{"authorEmail", encodeStr(c.AuthorEmail)},
-		{"time", encodeTime(c.Time)},
-		{"message", encodeStr(c.Message)},
+		{"table", encoding.EncodeBytes(c.Table)},
+		{"authorName", encoding.EncodeStr(c.AuthorName)},
+		{"authorEmail", encoding.EncodeStr(c.AuthorEmail)},
+		{"time", encoding.EncodeTime(c.Time)},
+		{"message", encoding.EncodeStr(c.Message)},
 	}
 	for _, parent := range c.Parents {
-		lines = append(lines, line{"parent", encodeBytes(parent)})
+		lines = append(lines, line{"parent", encoding.EncodeBytes(parent)})
 	}
 	for _, l := range lines {
 		_, err = writeLine(w.w, l.label, l.f(w))
@@ -59,58 +60,36 @@ func (w *CommitWriter) Write(c *Commit) (err error) {
 }
 
 type CommitReader struct {
-	r   io.Reader
-	buf []byte
-	pos int
+	parser *encoding.Parser
 }
 
 func NewCommitReader(r io.Reader) *CommitReader {
 	return &CommitReader{
-		r:   r,
-		buf: make([]byte, 128),
+		parser: encoding.NewParser(r),
 	}
-}
-
-func (r *CommitReader) ParseError(format string, a ...interface{}) error {
-	return fmt.Errorf("parse error at pos=%d: %s", r.pos, fmt.Sprintf(format, a...))
-}
-
-func (r *CommitReader) NextBytes(n int) ([]byte, error) {
-	if n > cap(r.buf) {
-		r.buf = make([]byte, n)
-	}
-	b := r.buf[:n]
-	err := r.ReadBytes(b)
-	return b, err
-}
-
-func (r *CommitReader) ReadBytes(b []byte) error {
-	n, err := r.r.Read(b)
-	r.pos += n
-	return err
 }
 
 func (r *CommitReader) Read() (*Commit, error) {
 	c := &Commit{Table: make([]byte, 16)}
 	type line struct {
 		label string
-		f     decodeFunc
+		f     encoding.DecodeFunc
 	}
 	for _, l := range []line{
-		{"table", decodeBytes(c.Table)},
-		{"authorName", decodeStr(&c.AuthorName)},
-		{"authorEmail", decodeStr(&c.AuthorEmail)},
-		{"time", decodeTime(&c.Time)},
-		{"message", decodeStr(&c.Message)},
+		{"table", encoding.DecodeBytes(c.Table)},
+		{"authorName", encoding.DecodeStr(&c.AuthorName)},
+		{"authorEmail", encoding.DecodeStr(&c.AuthorEmail)},
+		{"time", encoding.DecodeTime(&c.Time)},
+		{"message", encoding.DecodeStr(&c.Message)},
 	} {
-		err := readLine(r, l.label, l.f)
+		err := readLine(r.parser, l.label, l.f)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for {
 		b := make([]byte, 16)
-		err := readLine(r, "parent", decodeBytes(b))
+		err := readLine(r.parser, "parent", encoding.DecodeBytes(b))
 		if err == io.EOF {
 			break
 		}

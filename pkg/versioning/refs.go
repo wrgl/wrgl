@@ -56,6 +56,10 @@ func ListTags(s kv.DB) (map[string][]byte, error) {
 	return listRefs(s, tagPrefix)
 }
 
+func ListAllRefs(s kv.DB) (map[string][]byte, error) {
+	return s.Filter(refPrefix)
+}
+
 func DeleteHead(s kv.DB, name string) error {
 	return s.Delete(headKey(name))
 }

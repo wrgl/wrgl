@@ -45,4 +45,9 @@ func TestBuffer(t *testing.T) {
 	assert.Equal(t, 1, n)
 
 	assert.Equal(t, "abcdef123\x004\x00zx\x00qw5", string(b.Bytes()))
+
+	sl := b.Buffer(3)
+	assert.Equal(t, "abc", string(sl))
+	copy(sl, []byte("asd"))
+	assert.Equal(t, "asddef123\x004\x00zx\x00qw5", string(b.Bytes()))
 }
