@@ -25,7 +25,8 @@ func NewServer(db kv.Store, fs kv.FileStore) *Server {
 		db:       db,
 		fs:       fs,
 	}
-	s.serveMux.HandleFunc("/info/refs/", s.logging("GET", s.HandleInfoRefs))
+	s.serveMux.HandleFunc("/info/refs/", s.logging(http.MethodGet, s.HandleInfoRefs))
+	// s.serveMux.HandleFunc("/upload-pack/", s.logging(http.MethodPost, s.HandleNegotiateUpload))
 	return s
 }
 
@@ -44,7 +45,7 @@ func (*Server) logging(method string, f func(rw http.ResponseWriter, r *http.Req
 }
 
 func (s *Server) HandleInfoRefs(rw http.ResponseWriter, r *http.Request) error {
-	refs, err := versioning.ListAllRefs(s.db)
+	refs, err := versioning.ListLocalRefs(s.db)
 	if err != nil {
 		return err
 	}
@@ -57,6 +58,7 @@ func (s *Server) HandleInfoRefs(rw http.ResponseWriter, r *http.Request) error {
 	sort.Slice(pairs, func(i, j int) bool {
 		return pairs[i][1] < pairs[j][1]
 	})
+	rw.Header().Add("Content-Type", "application/x-wrgl-upload-pack-advertisement")
 	buf := misc.NewBuffer(nil)
 	for _, sl := range pairs {
 		err := encoding.WritePktLine(rw, buf, strings.Join(sl, " "))
@@ -70,3 +72,5 @@ func (s *Server) HandleInfoRefs(rw http.ResponseWriter, r *http.Request) error {
 	}
 	return nil
 }
+
+// func (s *Server) HandleNegotiateUpload(rw http.ResponseWriter, r *http.Request) error {}

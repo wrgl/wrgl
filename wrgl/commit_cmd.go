@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/config"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
@@ -67,15 +68,31 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *versioning.RepoDir) {
 	}
 }
 
+func ensureUserSet(cmd *cobra.Command, c *config.Config) {
+	out := cmd.ErrOrStderr()
+	if c.User == nil || c.User.Email == "" {
+		fmt.Fprintln(out, "User config not set. Set your user config with like this:")
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, `  wrgl config --global user.email "john-doe@domain.com"`)
+		fmt.Fprintln(out, `  wrgl config --global user.name "John Doe"`)
+		os.Exit(1)
+	}
+}
+
 func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int) error {
 	if !versioning.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
-	c, err := aggregateConfig(cmd)
+	rd := getRepoDir(cmd)
+	file, err := cmd.Flags().GetString("config-file")
 	if err != nil {
 		return err
 	}
-	rd := getRepoDir(cmd)
+	c, err := config.AggregateConfig(file, rd.RootDir)
+	if err != nil {
+		return err
+	}
+	ensureUserSet(cmd, c)
 	quitIfRepoDirNotExist(cmd, rd)
 	kvStore, err := rd.OpenKVStore()
 	if err != nil {

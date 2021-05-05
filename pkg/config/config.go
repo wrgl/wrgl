@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -8,20 +8,23 @@ import (
 	"runtime"
 
 	"github.com/imdario/mergo"
-	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
-
-const localConfigName = ".wrglconfig.yaml"
 
 type ConfigUser struct {
 	Email string `yaml:"email,omitempty" json:"email,omitempty"`
 	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
 }
 
+type ConfigRemote struct {
+	Fetch []string `yaml:"fetch,omitempty" json:"fetch,omitempty"`
+	Push  []string `yaml:"push,omitempty" json:"push,omitempty"`
+}
+
 type Config struct {
-	User *ConfigUser `yaml:"user,omitempty" json:"user,omitempty"`
-	path string      `yaml:"-" json:"-"`
+	User   *ConfigUser              `yaml:"user,omitempty" json:"user,omitempty"`
+	Remote map[string]*ConfigRemote `yaml:"remote,omitempty" json:"remote,omitempty"`
+	path   string                   `yaml:"-" json:"-"`
 }
 
 func (c *Config) Save() error {
@@ -65,28 +68,6 @@ func findGlobalConfigFile() (string, error) {
 	return filepath.Join(configDir, "wrgl", "config.yaml"), nil
 }
 
-func findLocalConfigFile() (string, error) {
-	var childDir string
-	var configRoot string
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	for dir != childDir {
-		if _, err := os.Stat(filepath.Join(dir, localConfigName)); os.IsNotExist(err) {
-			childDir = dir
-			dir = filepath.Dir(dir)
-			continue
-		}
-		configRoot = dir
-		break
-	}
-	if configRoot == "" {
-		configRoot = dir
-	}
-	return filepath.Join(configRoot, localConfigName), nil
-}
-
 func readConfig(fp string) (*Config, error) {
 	if fp == "" {
 		return &Config{}, nil
@@ -111,7 +92,7 @@ func readConfig(fp string) (*Config, error) {
 	return c, nil
 }
 
-func openConfig(global bool, file string) (*Config, error) {
+func OpenConfig(global bool, rootDir, file string) (*Config, error) {
 	var (
 		fp  string
 		err error
@@ -124,28 +105,17 @@ func openConfig(global bool, file string) (*Config, error) {
 			return nil, err
 		}
 	} else {
-		fp, err = findLocalConfigFile()
-		if err != nil {
-			return nil, err
-		}
+		fp = filepath.Join(rootDir, "config.yaml")
 	}
 	return readConfig(fp)
 }
 
-func aggregateConfig(cmd *cobra.Command) (*Config, error) {
-	fp, err := cmd.Flags().GetString("config-file")
-	if err != nil {
-		return nil, err
-	}
+func AggregateConfig(fp, rootDir string) (*Config, error) {
 	fileConfig, err := readConfig(fp)
 	if err != nil {
 		return nil, err
 	}
-	fp, err = findLocalConfigFile()
-	if err != nil {
-		return nil, err
-	}
-	localConfig, err := readConfig(fp)
+	localConfig, err := readConfig(filepath.Join(rootDir, "config.yaml"))
 	if err != nil {
 		return nil, err
 	}
@@ -166,13 +136,5 @@ func aggregateConfig(cmd *cobra.Command) (*Config, error) {
 		return nil, err
 	}
 	fileConfig.path = ""
-	out := cmd.ErrOrStderr()
-	if fileConfig.User == nil || fileConfig.User.Email == "" {
-		fmt.Fprintln(out, "User config not set. Set your user config with like this:")
-		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, `  wrgl config --global user.email "john-doe@domain.com"`)
-		fmt.Fprintln(out, `  wrgl config --global user.name "John Doe"`)
-		os.Exit(1)
-	}
 	return fileConfig, nil
 }

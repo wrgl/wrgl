@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/config"
 )
 
 func newConfigCmd() *cobra.Command {
@@ -33,7 +34,8 @@ func newConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, err := openConfig(global, file)
+			rd := getRepoDir(cmd)
+			c, err := config.OpenConfig(global, rd.RootDir, file)
 			if err != nil {
 				return fmt.Errorf("open config error: %v", err)
 			}
@@ -46,7 +48,7 @@ func newConfigCmd() *cobra.Command {
 				return err
 			}
 			if file == "" && !global && !local {
-				c, err = aggregateConfig(cmd)
+				c, err = config.AggregateConfig("", rd.RootDir)
 				if err != nil {
 					return fmt.Errorf("aggregate config error: %v", err)
 				}
@@ -59,7 +61,7 @@ func newConfigCmd() *cobra.Command {
 	return cmd
 }
 
-func writeConfigProp(cmd *cobra.Command, c *Config, prop, val string) error {
+func writeConfigProp(cmd *cobra.Command, c *config.Config, prop, val string) error {
 	err := SetWithDotNotation(c, prop, val)
 	if err != nil {
 		return err
@@ -67,7 +69,7 @@ func writeConfigProp(cmd *cobra.Command, c *Config, prop, val string) error {
 	return c.Save()
 }
 
-func readConfigProp(cmd *cobra.Command, c *Config, prop string) error {
+func readConfigProp(cmd *cobra.Command, c *config.Config, prop string) error {
 	v, err := GetWithDotNotation(c, prop)
 	if err != nil {
 		return fmt.Errorf("config is not set")

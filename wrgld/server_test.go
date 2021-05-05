@@ -28,12 +28,18 @@ func TestHandleInfoRefs(t *testing.T) {
 	tag := "my-tag"
 	err = versioning.SaveTag(db, tag, sum2)
 	require.NoError(t, err)
+	sum3 := testutils.SecureRandomBytes(16)
+	remote := "origin"
+	name := "main"
+	err = versioning.SaveRemoteRef(db, remote, name, sum3)
+	require.NoError(t, err)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/info/refs/", nil)
 	err = s.HandleInfoRefs(rec, req)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, []string{"application/x-wrgl-upload-pack-advertisement"}, rec.Header()["Content-Type"])
 
 	parser := encoding.NewParser(rec.Body)
 	str, err := encoding.ReadPktLine(parser)
