@@ -1,4 +1,4 @@
-package config
+package versioning
 
 import (
 	"io/ioutil"
@@ -21,11 +21,11 @@ func TestSaveConfig(t *testing.T) {
 		},
 		Remote: map[string]*ConfigRemote{
 			"origin": {
-				Fetch: []string{
-					"+refs/heads/*:refs/remotes/origin/*",
+				Fetch: []*Refspec{
+					MustRefspec("+refs/heads/*:refs/remotes/origin/*"),
 				},
-				Push: []string{
-					"refs/heads/main:refs/heads/main",
+				Push: []*Refspec{
+					MustRefspec("refs/heads/main:refs/heads/main"),
 				},
 			},
 		},

@@ -1,4 +1,4 @@
-package config
+package versioning
 
 import (
 	"fmt"
@@ -17,8 +17,10 @@ type ConfigUser struct {
 }
 
 type ConfigRemote struct {
-	Fetch []string `yaml:"fetch,omitempty" json:"fetch,omitempty"`
-	Push  []string `yaml:"push,omitempty" json:"push,omitempty"`
+	URL    string
+	Fetch  []*Refspec `yaml:"fetch,omitempty" json:"fetch,omitempty"`
+	Push   []*Refspec `yaml:"push,omitempty" json:"push,omitempty"`
+	Mirror bool       `yaml:"mirror,omitempty" json:"mirror,omitempty"`
 }
 
 type Config struct {
@@ -92,14 +94,12 @@ func readConfig(fp string) (*Config, error) {
 	return c, nil
 }
 
-func OpenConfig(global bool, rootDir, file string) (*Config, error) {
+func OpenConfig(global bool, rootDir string) (*Config, error) {
 	var (
 		fp  string
 		err error
 	)
-	if file != "" {
-		fp = file
-	} else if global {
+	if global {
 		fp, err = findGlobalConfigFile()
 		if err != nil {
 			return nil, err
@@ -110,16 +110,12 @@ func OpenConfig(global bool, rootDir, file string) (*Config, error) {
 	return readConfig(fp)
 }
 
-func AggregateConfig(fp, rootDir string) (*Config, error) {
-	fileConfig, err := readConfig(fp)
-	if err != nil {
-		return nil, err
-	}
+func AggregateConfig(rootDir string) (*Config, error) {
 	localConfig, err := readConfig(filepath.Join(rootDir, "config.yaml"))
 	if err != nil {
 		return nil, err
 	}
-	fp, err = findGlobalConfigFile()
+	fp, err := findGlobalConfigFile()
 	if err != nil {
 		return nil, err
 	}
@@ -131,10 +127,6 @@ func AggregateConfig(fp, rootDir string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = mergo.Merge(fileConfig, localConfig)
-	if err != nil {
-		return nil, err
-	}
-	fileConfig.path = ""
-	return fileConfig, nil
+	localConfig.path = ""
+	return localConfig, nil
 }

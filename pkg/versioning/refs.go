@@ -72,6 +72,10 @@ func ListTags(s kv.DB) (map[string][]byte, error) {
 	return listRefs(s, tagPrefix)
 }
 
+func ListRemoteRefs(s kv.DB, remote string) (map[string][]byte, error) {
+	return listRefs(s, remoteRefKey(remote, ""))
+}
+
 func ListAllRefs(s kv.DB) (map[string][]byte, error) {
 	return s.Filter(refPrefix)
 }
@@ -99,4 +103,38 @@ func DeleteTag(s kv.DB, name string) error {
 
 func DeleteRemoteRef(s kv.DB, remote, name string) error {
 	return s.Delete(remoteRefKey(remote, name))
+}
+
+func DeleteAllRemoteRefs(s kv.DB, remote string) error {
+	keys, err := s.FilterKey(remoteRefKey(remote, ""))
+	if err != nil {
+		return err
+	}
+	for _, b := range keys {
+		err = s.Delete(b)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func RenameAllRemoteRefs(s kv.DB, oldRemote, newRemote string) error {
+	prefix := remoteRefKey(oldRemote, "")
+	n := len(prefix)
+	m, err := s.Filter(prefix)
+	if err != nil {
+		return err
+	}
+	for k, v := range m {
+		err = s.Set(remoteRefKey(newRemote, k[n:]), v)
+		if err != nil {
+			return err
+		}
+		err = s.Delete([]byte(k))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

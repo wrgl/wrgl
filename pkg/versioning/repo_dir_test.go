@@ -3,6 +3,7 @@ package versioning
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,9 @@ func TestRepoDirInit(t *testing.T) {
 	dir, err := ioutil.TempDir("", "test_repo_dir")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
-	rd := NewRepoDir(dir, false, false)
+	wrglDir := filepath.Join(dir, ".wrgl")
+	rd := NewRepoDir(wrglDir, false, false)
+	assert.Equal(t, wrglDir, rd.FullPath)
 	assert.False(t, rd.Exist())
 	err = rd.Init()
 	require.NoError(t, err)

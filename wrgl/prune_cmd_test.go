@@ -67,8 +67,6 @@ func TestFindAllCommitsToRemove(t *testing.T) {
 func TestPruneCmdSmallCommits(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	cf, cleanup := createConfigFile(t)
-	defer cleanup()
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
 	fs := rd.OpenFileStore()
@@ -111,7 +109,7 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 
 	cmd := newRootCmd()
 	cmd.SetOut(io.Discard)
-	setCmdArgs(cmd, rd, cf, "prune")
+	cmd.SetArgs([]string{"prune"})
 	require.NoError(t, cmd.Execute())
 
 	db, err = rd.OpenKVStore()

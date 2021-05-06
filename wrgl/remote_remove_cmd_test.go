@@ -1,0 +1,48 @@
+package main
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/core/pkg/versioning"
+)
+
+func TestRemoteRemoveCmd(t *testing.T) {
+	rd, cleanUp := createRepoDir(t)
+	defer cleanUp()
+	db, err := rd.OpenKVStore()
+	require.NoError(t, err)
+
+	// add remote
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"remote", "add", "origin", "https://my-repo.com"})
+	require.NoError(t, cmd.Execute())
+
+	// add some refs under remote origin
+	names := []string{"branch-1", "branch-2"}
+	sums := [][]byte{
+		testutils.SecureRandomBytes(16),
+		testutils.SecureRandomBytes(16),
+	}
+	for i, name := range names {
+		err := versioning.SaveRemoteRef(db, "origin", name, sums[i])
+		require.NoError(t, err)
+	}
+	require.NoError(t, db.Close())
+
+	// rename remote
+	cmd.SetArgs([]string{"remote", "remove", "origin"})
+	require.NoError(t, cmd.Execute())
+	cmd.SetArgs([]string{"remote", "-v"})
+	assertCmdOutput(t, cmd, "")
+
+	// assert refs are updated
+	db, err = rd.OpenKVStore()
+	require.NoError(t, err)
+	defer db.Close()
+	m, err := versioning.ListRemoteRefs(db, "origin")
+	require.NoError(t, err)
+	assert.Len(t, m, 0)
+}

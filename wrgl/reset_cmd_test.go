@@ -14,8 +14,6 @@ import (
 func TestResetCmd(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	cf, cleanup := createConfigFile(t)
-	defer cleanup()
 	cmd := newRootCmd()
 
 	db, err := rd.OpenKVStore()
@@ -25,7 +23,7 @@ func TestResetCmd(t *testing.T) {
 	factory.Commit(t, db, fs, "alpha", nil, nil, nil)
 	require.NoError(t, db.Close())
 
-	setCmdArgs(cmd, rd, cf, "reset", "alpha", hex.EncodeToString(sum))
+	cmd.SetArgs([]string{"reset", "alpha", hex.EncodeToString(sum)})
 	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 

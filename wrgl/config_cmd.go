@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/config"
+	"github.com/wrgl/core/pkg/versioning"
 )
 
 func newConfigCmd() *cobra.Command {
@@ -26,16 +26,12 @@ func newConfigCmd() *cobra.Command {
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			prop := args[0]
-			file, err := cmd.Flags().GetString("config-file")
-			if err != nil {
-				return err
-			}
 			global, err := cmd.Flags().GetBool("global")
 			if err != nil {
 				return err
 			}
 			rd := getRepoDir(cmd)
-			c, err := config.OpenConfig(global, rd.RootDir, file)
+			c, err := versioning.OpenConfig(global, rd.FullPath)
 			if err != nil {
 				return fmt.Errorf("open config error: %v", err)
 			}
@@ -47,8 +43,8 @@ func newConfigCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if file == "" && !global && !local {
-				c, err = config.AggregateConfig("", rd.RootDir)
+			if !global && !local {
+				c, err = versioning.AggregateConfig(rd.FullPath)
 				if err != nil {
 					return fmt.Errorf("aggregate config error: %v", err)
 				}
@@ -57,11 +53,11 @@ func newConfigCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().Bool("global", false, "Read from/write to global file $XDG_CONFIG_HOME/wrgl/config.yaml.")
-	cmd.Flags().Bool("local", false, "Read from/write to file .wrglconfig.yaml. If no flag are set during write then --local is assumed. However if no flag are set during read then all config sources will be aggregated.")
+	cmd.Flags().Bool("local", false, "Read from/write to file .wrgl/config.yaml. If no flag are set during write then --local is assumed. However if no flag are set during read then all available files will be aggregated.")
 	return cmd
 }
 
-func writeConfigProp(cmd *cobra.Command, c *config.Config, prop, val string) error {
+func writeConfigProp(cmd *cobra.Command, c *versioning.Config, prop, val string) error {
 	err := SetWithDotNotation(c, prop, val)
 	if err != nil {
 		return err
@@ -69,7 +65,7 @@ func writeConfigProp(cmd *cobra.Command, c *config.Config, prop, val string) err
 	return c.Save()
 }
 
-func readConfigProp(cmd *cobra.Command, c *config.Config, prop string) error {
+func readConfigProp(cmd *cobra.Command, c *versioning.Config, prop string) error {
 	v, err := GetWithDotNotation(c, prop)
 	if err != nil {
 		return fmt.Errorf("config is not set")

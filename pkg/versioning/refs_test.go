@@ -79,6 +79,49 @@ func TestRemoteRef(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestListRemoteRefs(t *testing.T) {
+	db := kv.NewMockStore(false)
+	remote1 := "origin"
+	remote2 := "org"
+	names := []string{"def", "qwe"}
+	sums := [][]byte{
+		testutils.SecureRandomBytes(16),
+		testutils.SecureRandomBytes(16),
+	}
+
+	// test ListRemoteRefs
+	for i, name := range names {
+		err := SaveRemoteRef(db, remote1, name, sums[i])
+		require.NoError(t, err)
+	}
+	m, err := ListRemoteRefs(db, remote1)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]byte{
+		names[0]: sums[0],
+		names[1]: sums[1],
+	}, m)
+
+	// test RenameAllRemoteRefs
+	err = RenameAllRemoteRefs(db, remote1, remote2)
+	require.NoError(t, err)
+	m, err = ListRemoteRefs(db, remote1)
+	require.NoError(t, err)
+	assert.Len(t, m, 0)
+	m, err = ListRemoteRefs(db, remote2)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]byte{
+		names[0]: sums[0],
+		names[1]: sums[1],
+	}, m)
+
+	// test DeleteAllRemoteRefs
+	err = DeleteAllRemoteRefs(db, remote2)
+	require.NoError(t, err)
+	m, err = ListRemoteRefs(db, remote2)
+	require.NoError(t, err)
+	assert.Len(t, m, 0)
+}
+
 func TestListAllRefs(t *testing.T) {
 	db := kv.NewMockStore(false)
 	sum1 := testutils.SecureRandomBytes(16)

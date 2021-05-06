@@ -9,29 +9,25 @@ import (
 )
 
 type RepoDir struct {
-	RootDir        string
+	FullPath       string
 	badgerLogInfo  bool
 	badgerLogDebug bool
 }
 
-func NewRepoDir(rootDir string, badgerLogInfo, badgerLogDebug bool) *RepoDir {
+func NewRepoDir(wrglDir string, badgerLogInfo, badgerLogDebug bool) *RepoDir {
 	return &RepoDir{
-		RootDir:        rootDir,
+		FullPath:       wrglDir,
 		badgerLogInfo:  badgerLogInfo,
 		badgerLogDebug: badgerLogDebug,
 	}
 }
 
-func (d *RepoDir) FullPath() string {
-	return filepath.Join(d.RootDir, ".wrgl")
-}
-
 func (d *RepoDir) FilesPath() string {
-	return filepath.Join(d.FullPath(), "files")
+	return filepath.Join(d.FullPath, "files")
 }
 
 func (d *RepoDir) KVPath() string {
-	return filepath.Join(d.FullPath(), "kv")
+	return filepath.Join(d.FullPath, "kv")
 }
 
 func (d *RepoDir) OpenKVStore() (kv.Store, error) {
@@ -54,8 +50,7 @@ func (d *RepoDir) OpenFileStore() kv.FileStore {
 }
 
 func (d *RepoDir) Init() error {
-	fp := d.FullPath()
-	err := os.Mkdir(fp, 0755)
+	err := os.Mkdir(d.FullPath, 0755)
 	if err != nil {
 		return err
 	}
@@ -67,7 +62,6 @@ func (d *RepoDir) Init() error {
 }
 
 func (d *RepoDir) Exist() bool {
-	fp := d.FullPath()
-	_, err := os.Stat(fp)
+	_, err := os.Stat(d.FullPath)
 	return err == nil
 }

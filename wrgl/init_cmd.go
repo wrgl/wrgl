@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
 func newInitCmd() *cobra.Command {
@@ -14,18 +15,18 @@ func newInitCmd() *cobra.Command {
 		Short: "Initialize repository with specified name",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rd, err := cmd.Flags().GetString("root-dir")
+			wrglDir, err := utils.GetWRGLDir()
 			if err != nil {
 				return err
 			}
-			return initRepo(cmd, rd)
+			return initRepo(cmd, wrglDir)
 		},
 	}
 	return cmd
 }
 
-func initRepo(cmd *cobra.Command, rootDir string) error {
-	rd := versioning.NewRepoDir(rootDir, false, false)
+func initRepo(cmd *cobra.Command, wrglDir string) error {
+	rd := versioning.NewRepoDir(wrglDir, false, false)
 	err := rd.Init()
 	if err != nil {
 		return err
@@ -34,7 +35,7 @@ func initRepo(cmd *cobra.Command, rootDir string) error {
 	if err != nil {
 		return err
 	}
-	p, err := filepath.Rel(wd, rd.FullPath())
+	p, err := filepath.Rel(wd, rd.FullPath)
 	if err != nil {
 		return err
 	}

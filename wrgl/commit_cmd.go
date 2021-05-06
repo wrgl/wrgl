@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/config"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
 func newCommitCmd() *cobra.Command {
@@ -41,11 +41,7 @@ func newCommitCmd() *cobra.Command {
 }
 
 func getRepoDir(cmd *cobra.Command) *versioning.RepoDir {
-	rootDir, err := cmd.Flags().GetString("root-dir")
-	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
-	}
+	wrglDir := utils.MustWRGLDir(cmd)
 	badgerLogInfo, err := cmd.Flags().GetBool("badger-log-info")
 	if err != nil {
 		cmd.PrintErrln(err)
@@ -56,19 +52,19 @@ func getRepoDir(cmd *cobra.Command) *versioning.RepoDir {
 		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
-	rd := versioning.NewRepoDir(rootDir, badgerLogInfo, badgerLogDebug)
+	rd := versioning.NewRepoDir(wrglDir, badgerLogInfo, badgerLogDebug)
 	return rd
 }
 
 func quitIfRepoDirNotExist(cmd *cobra.Command, rd *versioning.RepoDir) {
 	if !rd.Exist() {
-		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rd.RootDir)
+		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rd.FullPath)
 		cmd.PrintErrln("  wrgl init")
 		os.Exit(1)
 	}
 }
 
-func ensureUserSet(cmd *cobra.Command, c *config.Config) {
+func ensureUserSet(cmd *cobra.Command, c *versioning.Config) {
 	out := cmd.ErrOrStderr()
 	if c.User == nil || c.User.Email == "" {
 		fmt.Fprintln(out, "User config not set. Set your user config with like this:")
@@ -84,11 +80,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
 	rd := getRepoDir(cmd)
-	file, err := cmd.Flags().GetString("config-file")
-	if err != nil {
-		return err
-	}
-	c, err := config.AggregateConfig(file, rd.RootDir)
+	c, err := versioning.AggregateConfig(rd.FullPath)
 	if err != nil {
 		return err
 	}

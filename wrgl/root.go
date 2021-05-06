@@ -1,10 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/wrgl/core/wrgl/remote"
 )
 
 func newRootCmd() *cobra.Command {
@@ -20,15 +21,12 @@ func newRootCmd() *cobra.Command {
 			return cmd.Usage()
 		},
 	}
-	wd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Cannot get current working directory.")
-		os.Exit(1)
-	}
-	rootCmd.PersistentFlags().StringP("root-dir", "r", wd, "parent directory of repo, default to current working directory.")
+	viper.SetEnvPrefix("")
+	rootCmd.PersistentFlags().String("wrgl-dir", "", "parent directory of repo, default to current working directory.")
+	viper.BindEnv("wrgl_dir")
+	viper.BindPFlag("wrgl_dir", rootCmd.PersistentFlags().Lookup("wrgl-dir"))
 	rootCmd.PersistentFlags().Bool("badger-log-info", false, "set Badger log level to INFO")
 	rootCmd.PersistentFlags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
-	rootCmd.PersistentFlags().String("config-file", "", "Use the given config file instead.")
 	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newCommitCmd())
@@ -41,6 +39,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newPruneCmd())
 	rootCmd.AddCommand(newResetCmd())
 	rootCmd.AddCommand(newCatFileCmd())
+	rootCmd.AddCommand(remote.RootCmd())
 	return rootCmd
 }
 

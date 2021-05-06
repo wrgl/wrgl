@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 func createCSVFile(t *testing.T, content []string) (filePath string) {
@@ -24,18 +23,16 @@ func createCSVFile(t *testing.T, content []string) (filePath string) {
 	return file.Name()
 }
 
-func commitFile(t *testing.T, rd *versioning.RepoDir, configFilePath, branchName, filePath, primaryKey string, args ...string) {
+func commitFile(t *testing.T, branchName, filePath, primaryKey string, args ...string) {
 	t.Helper()
 	cmd := newRootCmd()
 	cmd.SetOut(io.Discard)
-	setCmdArgs(cmd, rd, configFilePath, append([]string{"commit", branchName, filePath, "commit message", "--primary-key", primaryKey, "-n", "1"}, args...)...)
+	cmd.SetArgs(append([]string{"commit", branchName, filePath, "commit message", "--primary-key", primaryKey, "-n", "1"}, args...))
 	require.NoError(t, cmd.Execute())
 }
 
 func TestDiffCmd(t *testing.T) {
-	rd, cleanup := createRepoDir(t)
-	defer cleanup()
-	cf, cleanup := createConfigFile(t)
+	_, cleanup := createRepoDir(t)
 	defer cleanup()
 
 	fp1 := createCSVFile(t, []string{
@@ -45,7 +42,7 @@ func TestDiffCmd(t *testing.T) {
 		"3,z,x",
 	})
 	defer os.Remove(fp1)
-	commitFile(t, rd, cf, "my-branch", fp1, "a")
+	commitFile(t, "my-branch", fp1, "a")
 
 	fp2 := createCSVFile(t, []string{
 		"a,b,c",
@@ -54,10 +51,10 @@ func TestDiffCmd(t *testing.T) {
 		"4,s,d",
 	})
 	defer os.Remove(fp2)
-	commitFile(t, rd, cf, "my-branch", fp2, "a")
+	commitFile(t, "my-branch", fp2, "a")
 
 	cmd := newRootCmd()
-	setCmdArgs(cmd, rd, cf, "diff", "my-branch", "my-branch^", "--format", "json")
+	cmd.SetArgs([]string{"diff", "my-branch", "my-branch^", "--format", "json"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		`{"t":1,"oldCols":["a","b","c"],"cols":["a","b","c"],"pk":["a"]}`,
 		`{"t":7,"rowChangeColumns":[{"name":"a"},{"name":"b"},{"name":"c"}]}`,
