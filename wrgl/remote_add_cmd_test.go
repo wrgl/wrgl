@@ -88,4 +88,9 @@ func TestRemoteAddCmd(t *testing.T) {
 			},
 		},
 	}, c.Remote)
+
+	// test get-url
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"remote", "get-url", "origin"})
+	assertCmdOutput(t, cmd, "https://my-repo.com\n")
 }

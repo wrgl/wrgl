@@ -1,0 +1,43 @@
+package remote
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/wrgl/utils"
+)
+
+func setBranchesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "set-branches NAME BRANCH",
+		Short: "Changes the list of branches tracked by the named remote.",
+		Long:  "This can be used to track a subset of the available remote branches after the initial setup for a remote.",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			branch := args[1]
+			add, err := cmd.Flags().GetBool("add")
+			if err != nil {
+				return err
+			}
+			wrglDir := utils.MustWRGLDir(cmd)
+			c, err := versioning.OpenConfig(false, wrglDir)
+			if err != nil {
+				return err
+			}
+			rem := mustGetRemote(cmd, c, name)
+			refspec := versioning.MustRefspec(
+				fmt.Sprintf("+refs/heads/%s:refs/remotes/%s/%s", branch, name, branch),
+			)
+			if add {
+				rem.Fetch = append(rem.Fetch, refspec)
+			} else {
+				rem.Fetch = []*versioning.Refspec{refspec}
+			}
+			return c.Save()
+		},
+	}
+	cmd.Flags().Bool("add", false, "instead of replacing the list of currently tracked branches, adds to that list.")
+	return cmd
+}

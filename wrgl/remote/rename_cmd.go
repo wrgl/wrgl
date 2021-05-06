@@ -23,6 +23,7 @@ func renameCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			mustGetRemote(cmd, c, oldRem)
 			rd := versioning.NewRepoDir(wrglDir, false, false)
 			db, err := rd.OpenKVStore()
 			if err != nil {

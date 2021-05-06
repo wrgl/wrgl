@@ -1,12 +1,22 @@
 package remote
 
 import (
+	"os"
 	"sort"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/wrgl/utils"
 )
+
+func mustGetRemote(cmd *cobra.Command, c *versioning.Config, name string) *versioning.ConfigRemote {
+	v, ok := c.Remote[name]
+	if !ok {
+		cmd.PrintErrf("fatal: No such remote '%s'\n", name)
+		os.Exit(1)
+	}
+	return v
+}
 
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -44,5 +54,7 @@ func RootCmd() *cobra.Command {
 	cmd.AddCommand(addCmd())
 	cmd.AddCommand(renameCmd())
 	cmd.AddCommand(removeCmd())
+	cmd.AddCommand(setBranchesCmd())
+	cmd.AddCommand(getURLCmd())
 	return cmd
 }
