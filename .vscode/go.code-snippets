@@ -23,7 +23,7 @@
       "\tcmd := &cobra.Command{",
       "\t\tUse:   \"$2\",",
       "\t\tShort: \"$3\",",
-      "\t\tArgs:  cobra.ExactArgs(0),",
+      "\t\tArgs:  cobra.ExactArgs(${4:0}),",
       "\t\tRunE:  func(cmd *cobra.Command, args []string) error {$0},",
       "\t}",
       "\treturn cmd",

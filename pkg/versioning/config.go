@@ -16,13 +16,6 @@ type ConfigUser struct {
 	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
 }
 
-type ConfigRemote struct {
-	URL    string
-	Fetch  []*Refspec `yaml:"fetch,omitempty" json:"fetch,omitempty"`
-	Push   []*Refspec `yaml:"push,omitempty" json:"push,omitempty"`
-	Mirror bool       `yaml:"mirror,omitempty" json:"mirror,omitempty"`
-}
-
 type Config struct {
 	User   *ConfigUser              `yaml:"user,omitempty" json:"user,omitempty"`
 	Remote map[string]*ConfigRemote `yaml:"remote,omitempty" json:"remote,omitempty"`

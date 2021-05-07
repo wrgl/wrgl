@@ -56,5 +56,7 @@ func RootCmd() *cobra.Command {
 	cmd.AddCommand(removeCmd())
 	cmd.AddCommand(setBranchesCmd())
 	cmd.AddCommand(getURLCmd())
+	cmd.AddCommand(setURLCmd())
+	cmd.AddCommand(showCmd())
 	return cmd
 }

@@ -6,11 +6,13 @@ import (
 )
 
 type Refspec struct {
-	Plus   bool
-	Negate bool
-	src    string
-	dst    string
-	tag    string
+	Plus       bool
+	Negate     bool
+	src        string
+	srcStarInd int
+	dst        string
+	dstStarInd int
+	tag        string
 }
 
 func (s *Refspec) Src() string {
@@ -25,6 +27,52 @@ func (s *Refspec) Dst() string {
 		return "refs/tags/" + s.tag
 	}
 	return s.dst
+}
+
+func (s *Refspec) SrcMatchRef(r string) bool {
+	src := s.Src()
+	if s.srcStarInd == -1 {
+		return src == r
+	}
+	if s.srcStarInd >= len(r) {
+		return false
+	}
+	return r[:s.srcStarInd] == src[:s.srcStarInd]
+}
+
+func (s *Refspec) Exclude(r string) bool {
+	return s.Negate && s.SrcMatchRef(r)
+}
+
+func (s *Refspec) DstMatchRef(r string) bool {
+	dst := s.Dst()
+	if dst == "" || r == "" {
+		return false
+	}
+	if s.dstStarInd == -1 {
+		return dst == r
+	}
+	if s.dstStarInd >= len(r) {
+		return false
+	}
+	return r[:s.dstStarInd] == dst[:s.dstStarInd]
+}
+
+func (s *Refspec) DstForRef(p string) string {
+	dst := s.Dst()
+	if dst == "" || p == "" {
+		return ""
+	}
+	src := s.Src()
+	if s.srcStarInd == -1 {
+		if src == p {
+			return dst
+		}
+		return ""
+	} else if p[:s.srcStarInd] != src[:s.srcStarInd] {
+		return ""
+	}
+	return dst[:s.dstStarInd] + p[s.srcStarInd:]
 }
 
 func (s *Refspec) String() string {
@@ -48,6 +96,17 @@ func (s *Refspec) String() string {
 
 func (s *Refspec) MarshalText() (text []byte, err error) {
 	return []byte(s.String()), nil
+}
+
+func isGlobPattern(s string) (int, error) {
+	i := strings.IndexRune(s, '*')
+	if i == -1 {
+		return -1, nil
+	}
+	if i != len(s)-1 {
+		return 0, fmt.Errorf("invalid glob pattern %q: there can only be one '*' at the end", s)
+	}
+	return i, nil
 }
 
 func (s *Refspec) UnmarshalText(text []byte) error {
@@ -75,13 +134,20 @@ func (s *Refspec) UnmarshalText(text []byte) error {
 	if i < n {
 		s.dst = string(text[i+1:])
 	}
-	srcIsPat := strings.ContainsRune(s.src, '*')
-	dstIsPat := strings.ContainsRune(s.dst, '*')
+	var err error
+	s.srcStarInd, err = isGlobPattern(s.src)
+	if err != nil {
+		return err
+	}
+	s.dstStarInd, err = isGlobPattern(s.dst)
+	if err != nil {
+		return err
+	}
 	if s.Negate {
 		if s.dst != "" {
 			return fmt.Errorf("must not specify dst in negated refspec")
 		}
-	} else if (srcIsPat && !dstIsPat) || (dstIsPat && !srcIsPat) {
+	} else if (s.srcStarInd != -1 && s.dstStarInd == -1) || (s.dstStarInd != -1 && s.srcStarInd == -1) {
 		return fmt.Errorf("both src and dst must be pattern if one is pattern")
 	}
 	return nil

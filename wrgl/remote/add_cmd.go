@@ -2,6 +2,7 @@ package remote
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,11 @@ func addCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			url := args[1]
+			u := args[1]
+			_, err := url.ParseRequestURI(u)
+			if err != nil {
+				return err
+			}
 			wrglDir := utils.MustWRGLDir(cmd)
 			c, err := versioning.OpenConfig(false, wrglDir)
 			if err != nil {
@@ -39,7 +44,7 @@ func addCmd() *cobra.Command {
 				c.Remote = map[string]*versioning.ConfigRemote{}
 			}
 			c.Remote[name] = &versioning.ConfigRemote{
-				URL: url,
+				URL: u,
 			}
 			remote := c.Remote[name]
 			if mirror == "fetch" {
