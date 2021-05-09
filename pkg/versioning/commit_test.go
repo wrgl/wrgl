@@ -29,6 +29,7 @@ func TestCommitSave(t *testing.T) {
 	require.NoError(t, err)
 	c2, err := GetCommit(s, hash)
 	require.NoError(t, err)
+	assert.True(t, CommitExist(s, hash))
 	objects.AssertCommitEqual(t, c1, c2)
 
 	err = DeleteCommit(s, hash)
@@ -36,6 +37,7 @@ func TestCommitSave(t *testing.T) {
 
 	_, err = GetCommit(s, hash)
 	assert.Equal(t, kv.KeyNotFoundError, err)
+	assert.False(t, CommitExist(s, hash))
 }
 
 func assertCommitsSliceEqual(t *testing.T, sl1, sl2 []*objects.Commit) {

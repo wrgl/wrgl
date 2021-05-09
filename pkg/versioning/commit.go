@@ -51,6 +51,10 @@ func GetCommit(s kv.DB, hash []byte) (*objects.Commit, error) {
 	return c, nil
 }
 
+func CommitExist(s kv.DB, hash []byte) bool {
+	return s.Exist(commitKey(hash))
+}
+
 func GetAllCommits(s kv.DB) ([]*objects.Commit, error) {
 	m, err := s.Filter(commitPrefix)
 	if err != nil {
