@@ -22,7 +22,7 @@ require (
 	github.com/spf13/viper v1.7.1 // indirect
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210314154223-e6e6c4f2bb5b // indirect
-	golang.org/x/sys v0.0.0-20210315160823-c6e025ad8005 // indirect
+	golang.org/x/net v0.0.0-20210508051633-16afe75a6701 // indirect
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
