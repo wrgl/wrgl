@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/testutils"
 	"github.com/wrgl/core/pkg/versioning"
 )
@@ -15,8 +16,8 @@ func TestNegotiatorHandleUploadPackRequest(t *testing.T) {
 	db := kv.NewMockStore(false)
 	sum1, _ := versioning.SaveTestCommit(t, db, nil)
 	sum2, _ := versioning.SaveTestCommit(t, db, nil)
-	sum3, _ := versioning.SaveTestCommit(t, db, [][]byte{sum1})
-	sum4, _ := versioning.SaveTestCommit(t, db, [][]byte{sum2})
+	sum3, c3 := versioning.SaveTestCommit(t, db, [][]byte{sum1})
+	sum4, c4 := versioning.SaveTestCommit(t, db, [][]byte{sum2})
 	sum5, _ := versioning.SaveTestCommit(t, db, [][]byte{sum3})
 	sum6, _ := versioning.SaveTestCommit(t, db, [][]byte{sum4})
 	require.NoError(t, versioning.SaveHead(db, "main", sum5))
@@ -27,29 +28,25 @@ func TestNegotiatorHandleUploadPackRequest(t *testing.T) {
 	require.NoError(t, err)
 	// acks is nil mean no more negotiation needed
 	assert.Empty(t, acks)
-	assert.Equal(t, map[string]struct{}{
-		string(sum4): {},
-		string(sum3): {},
-	}, neg.reachableWants)
-	assert.Equal(t, map[string]struct{}{
-		string(sum1): {},
-		string(sum2): {},
-	}, neg.commons)
+	commits := neg.CommitsToSend()
+	assert.Len(t, commits, 2)
+	objects.AssertCommitEqual(t, c3, commits[0])
+	objects.AssertCommitEqual(t, c4, commits[1])
 }
 
 func TestNegotiatorSendACKs(t *testing.T) {
 	db := kv.NewMockStore(false)
 	sum1, _ := versioning.SaveTestCommit(t, db, nil)
 	sum2, _ := versioning.SaveTestCommit(t, db, nil)
-	sum3, _ := versioning.SaveTestCommit(t, db, [][]byte{sum1})
-	sum4, _ := versioning.SaveTestCommit(t, db, [][]byte{sum2})
-	sum5, _ := versioning.SaveTestCommit(t, db, [][]byte{sum3})
-	sum6, _ := versioning.SaveTestCommit(t, db, [][]byte{sum4})
+	sum3, c3 := versioning.SaveTestCommit(t, db, [][]byte{sum1})
+	sum4, c4 := versioning.SaveTestCommit(t, db, [][]byte{sum2})
+	sum5, c5 := versioning.SaveTestCommit(t, db, [][]byte{sum3})
+	sum6, c6 := versioning.SaveTestCommit(t, db, [][]byte{sum4})
 	require.NoError(t, versioning.SaveHead(db, "main", sum5))
 	require.NoError(t, versioning.SaveTag(db, "v1", sum6))
 
 	neg := NewNegotiator()
-	acks, err := neg.HandleUploadPackRequest(db, [][]byte{sum3, sum4}, [][]byte{sum1}, false)
+	acks, err := neg.HandleUploadPackRequest(db, [][]byte{sum5, sum6}, [][]byte{sum1}, false)
 	require.NoError(t, err)
 	// ACK sum1
 	assert.Equal(t, [][]byte{sum1}, acks)
@@ -57,14 +54,12 @@ func TestNegotiatorSendACKs(t *testing.T) {
 	require.NoError(t, err)
 	// server has found closed set of objects, therefore acks is nil
 	assert.Empty(t, acks)
-	assert.Equal(t, map[string]struct{}{
-		string(sum4): {},
-		string(sum3): {},
-	}, neg.reachableWants)
-	assert.Equal(t, map[string]struct{}{
-		string(sum1): {},
-		string(sum2): {},
-	}, neg.commons)
+	commits := neg.CommitsToSend()
+	assert.Len(t, commits, 4)
+	objects.AssertCommitEqual(t, c5, commits[0])
+	objects.AssertCommitEqual(t, c3, commits[1])
+	objects.AssertCommitEqual(t, c6, commits[2])
+	objects.AssertCommitEqual(t, c4, commits[3])
 }
 
 func TestNegotiatorFoundUnrecognizedWants(t *testing.T) {

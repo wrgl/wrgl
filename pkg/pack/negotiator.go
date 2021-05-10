@@ -7,37 +7,32 @@ import (
 	"strings"
 
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/versioning"
 )
 
 type Negotiator struct {
-	commons        map[string]struct{}
-	wants          map[string]struct{}
-	reachableWants map[string]struct{}
+	Commons map[string]struct{}
+	wants   map[string]struct{}
+	lists   []*list.List
 }
 
 func NewNegotiator() *Negotiator {
 	return &Negotiator{
-		commons:        map[string]struct{}{},
-		wants:          map[string]struct{}{},
-		reachableWants: map[string]struct{}{},
+		Commons: map[string]struct{}{},
+		wants:   map[string]struct{}{},
 	}
 }
 
-func mapToBytes(m map[string]struct{}) [][]byte {
-	sl := make([][]byte, 0, len(m))
-	for k := range m {
-		sl = append(sl, []byte(k))
+func (n *Negotiator) CommitsToSend() (commits []*objects.Commit) {
+	for _, l := range n.lists {
+		e := l.Front()
+		for e != nil {
+			commits = append(commits, e.Value.(*objects.Commit))
+			e = e.Next()
+		}
 	}
-	return sl
-}
-
-func (n *Negotiator) CommonCommits() [][]byte {
-	return mapToBytes(n.commons)
-}
-
-func (n *Negotiator) ReachableWants() [][]byte {
-	return mapToBytes(n.reachableWants)
+	return
 }
 
 func (n *Negotiator) ensureWantsAreReachable(queue *versioning.CommitsQueue, wants [][]byte) error {
@@ -127,6 +122,7 @@ func (n *Negotiator) findClosedSetOfObjects(db kv.DB) (err error) {
 	wants := map[string]struct{}{}
 wantsLoop:
 	for want := range n.wants {
+		l := list.New()
 		q := list.New()
 		q.PushBack([]byte(want))
 		sums := [][]byte{}
@@ -138,13 +134,14 @@ wantsLoop:
 			if _, ok := extraCommons[string(sum)]; ok {
 				continue
 			}
-			if _, ok := n.commons[string(sum)]; ok {
+			if _, ok := n.Commons[string(sum)]; ok {
 				continue
 			}
 			c, err := versioning.GetCommit(db, sum)
 			if err != nil {
 				return err
 			}
+			l.PushBack(c)
 			// reached a root commit but still haven't seen anything in common
 			if len(c.Parents) == 0 {
 				wants[string(want)] = struct{}{}
@@ -155,7 +152,7 @@ wantsLoop:
 			}
 		}
 		// queue is exhausted mean everything is reachable from commons
-		n.reachableWants[string(want)] = struct{}{}
+		n.lists = append(n.lists, l)
 		for _, sum := range sums {
 			extraCommons[string(sum)] = struct{}{}
 		}
@@ -199,15 +196,15 @@ func (n *Negotiator) HandleUploadPackRequest(db kv.DB, wants, haves [][]byte, do
 		return
 	}
 	for _, b := range commons {
-		n.commons[string(b)] = struct{}{}
+		n.Commons[string(b)] = struct{}{}
 	}
 	err = n.findClosedSetOfObjects(db)
 	if err != nil {
 		return
 	}
 	if len(n.wants) > 0 && !done {
-		acks = make([][]byte, 0, len(n.commons))
-		for b := range n.commons {
+		acks = make([][]byte, 0, len(n.Commons))
+		for b := range n.Commons {
 			acks = append(acks, []byte(b))
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/core/pkg/misc"
 )
 
 type Commit struct {
@@ -18,21 +19,14 @@ type Commit struct {
 
 type CommitWriter struct {
 	w   io.Writer
-	buf []byte
+	buf *misc.Buffer
 }
 
 func NewCommitWriter(w io.Writer) *CommitWriter {
 	return &CommitWriter{
 		w:   w,
-		buf: make([]byte, 128),
+		buf: misc.NewBuffer(nil),
 	}
-}
-
-func (r *CommitWriter) Buffer(n int) []byte {
-	if n > cap(r.buf) {
-		r.buf = make([]byte, n)
-	}
-	return r.buf[:n]
 }
 
 func (w *CommitWriter) Write(c *Commit) (err error) {
@@ -51,7 +45,7 @@ func (w *CommitWriter) Write(c *Commit) (err error) {
 		lines = append(lines, line{"parent", encoding.EncodeBytes(parent)})
 	}
 	for _, l := range lines {
-		_, err = writeLine(w.w, l.label, l.f(w))
+		_, err = writeLine(w.w, l.label, l.f(w.buf))
 		if err != nil {
 			return
 		}

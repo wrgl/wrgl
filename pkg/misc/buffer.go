@@ -48,6 +48,10 @@ func (b *Buffer) maybeGrow(n int) {
 	}
 }
 
+func (b *Buffer) Reset() {
+	b.off = 0
+}
+
 func (b *Buffer) Write(p []byte) (n int, err error) {
 	n, err = b.WriteAt(p, int64(b.off))
 	b.off += int64(len(p))
