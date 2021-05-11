@@ -1,6 +1,8 @@
 package encoding
 
 import (
+	"encoding/binary"
+	"fmt"
 	"io"
 	"math"
 
@@ -14,15 +16,30 @@ const (
 )
 
 type PackfileWriter struct {
-	w   io.Writer
-	buf Bufferer
+	w        io.WriteSeeker
+	buf      Bufferer
+	off      int
+	objCount uint32
 }
 
-func NewPackfileWriter(w io.Writer) *PackfileWriter {
-	return &PackfileWriter{
+func NewPackfileWriter(w io.WriteSeeker) (*PackfileWriter, error) {
+	pw := &PackfileWriter{
 		w:   w,
 		buf: misc.NewBuffer(nil),
 	}
+	err := pw.writeVersion()
+	if err != nil {
+		return nil, err
+	}
+	return pw, nil
+}
+
+func (w *PackfileWriter) writeVersion() error {
+	b := w.buf.Buffer(12)
+	copy(b[:4], []byte("PACK"))
+	binary.BigEndian.PutUint32(b[4:], 1)
+	_, err := w.w.Write(b)
+	return err
 }
 
 func (w *PackfileWriter) WriteObject(objType int, b []byte) error {
@@ -41,27 +58,81 @@ func (w *PackfileWriter) WriteObject(objType int, b []byte) error {
 		bits += 7
 	}
 	buf[numBytes-1] &= 127
-	_, err := w.w.Write(buf)
+	n, err := w.w.Write(buf)
 	if err != nil {
 		return err
 	}
+	w.off += n
+	n, err = w.w.Write(b)
+	if err != nil {
+		return err
+	}
+	w.off += n
+	w.objCount++
+	return nil
+}
+
+func (w *PackfileWriter) Flush() error {
+	_, err := w.w.Seek(int64(-w.off-4), io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+	b := w.buf.Buffer(4)
+	binary.BigEndian.PutUint32(b, w.objCount)
 	_, err = w.w.Write(b)
 	return err
 }
 
 type PackfileReader struct {
-	r   io.Reader
-	buf Bufferer
+	r        io.ReadSeeker
+	buf      Bufferer
+	Version  int
+	objCount int
 }
 
-func NewPackfileReader(r io.Reader) *PackfileReader {
-	return &PackfileReader{
+func NewPackfileReader(r io.ReadSeeker) (*PackfileReader, error) {
+	pr := &PackfileReader{
 		r:   r,
 		buf: misc.NewBuffer(nil),
 	}
+	err := pr.readVersion()
+	if err != nil {
+		return nil, err
+	}
+	return pr, nil
+}
+
+func (r *PackfileReader) readVersion() error {
+	b := r.buf.Buffer(4)
+	_, err := r.r.Read(b)
+	if err != nil {
+		return err
+	}
+	if string(b) != "PACK" {
+		_, err = r.r.Seek(-4, io.SeekCurrent)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("not a packfile")
+	}
+	_, err = r.r.Read(b)
+	if err != nil {
+		return err
+	}
+	r.Version = int(binary.BigEndian.Uint32(b))
+	_, err = r.r.Read(b)
+	if err != nil {
+		return err
+	}
+	r.objCount = int(binary.BigEndian.Uint32(b))
+	return nil
 }
 
 func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
+	if r.objCount == 0 {
+		err = io.EOF
+		return
+	}
 	b = r.buf.Buffer(1)
 	_, err = r.r.Read(b)
 	if err != nil {
@@ -83,5 +154,9 @@ func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
 	}
 	b = r.buf.Buffer(int(u))
 	_, err = r.r.Read(b)
+	if err != nil {
+		return
+	}
+	r.objCount--
 	return
 }
