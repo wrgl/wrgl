@@ -23,6 +23,9 @@ func NewCommitsQueue(db kv.DB, initialSums [][]byte) (*CommitsQueue, error) {
 	commits := []*objects.Commit{}
 	seen := map[string]struct{}{}
 	for _, v := range initialSums {
+		if _, ok := seen[string(v)]; ok {
+			continue
+		}
 		sums = append(sums, v)
 		commit, err := GetCommit(db, v)
 		if err != nil {
@@ -103,8 +106,11 @@ func (q *CommitsQueue) Pop() (sum []byte, commit *objects.Commit, err error) {
 	commit = q.commits[0]
 	q.sums = q.sums[1:]
 	q.commits = q.commits[1:]
-	// add back parents to queue
-	for _, p := range commit.Parents {
+	return
+}
+
+func (q *CommitsQueue) InsertParents(c *objects.Commit) (err error) {
+	for _, p := range c.Parents {
 		err = q.Insert(p)
 		if err != nil {
 			return
@@ -113,9 +119,18 @@ func (q *CommitsQueue) Pop() (sum []byte, commit *objects.Commit, err error) {
 	return
 }
 
+func (q *CommitsQueue) PopInsertParents() (sum []byte, commit *objects.Commit, err error) {
+	sum, commit, err = q.Pop()
+	if err != nil {
+		return
+	}
+	err = q.InsertParents(commit)
+	return
+}
+
 func (q *CommitsQueue) PopUntil(b []byte) (sum []byte, commit *objects.Commit, err error) {
 	for {
-		sum, commit, err = q.Pop()
+		sum, commit, err = q.PopInsertParents()
 		if err == io.EOF {
 			return
 		}
@@ -126,6 +141,50 @@ func (q *CommitsQueue) PopUntil(b []byte) (sum []byte, commit *objects.Commit, e
 			return
 		}
 	}
+}
+
+func (q *CommitsQueue) RemoveAncestors(sums [][]byte) error {
+	q2, err := NewCommitsQueue(q.db, sums)
+	if err != nil {
+		return err
+	}
+	indicesToRemove := map[int]struct{}{}
+	for i, sum := range q.sums {
+		if q2.Seen(sum) {
+			indicesToRemove[i] = struct{}{}
+			continue
+		}
+		for {
+			ancestor, _, err := q2.PopInsertParents()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			if string(sum) == string(ancestor) {
+				indicesToRemove[i] = struct{}{}
+				break
+			}
+		}
+	}
+	k := len(indicesToRemove)
+	if k == 0 {
+		return nil
+	}
+	n := q.Len()
+	j := 0
+	for i := 0; i < n; i++ {
+		if _, ok := indicesToRemove[i]; ok {
+			continue
+		}
+		q.sums[j] = q.sums[i]
+		q.commits[j] = q.commits[i]
+		j++
+	}
+	q.sums = q.sums[:n-k]
+	q.commits = q.commits[:n-k]
+	return nil
 }
 
 func (q *CommitsQueue) Seen(b []byte) bool {

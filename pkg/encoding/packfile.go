@@ -16,13 +16,11 @@ const (
 )
 
 type PackfileWriter struct {
-	w        io.WriteSeeker
-	buf      Bufferer
-	off      int
-	objCount uint32
+	w   io.Writer
+	buf Bufferer
 }
 
-func NewPackfileWriter(w io.WriteSeeker) (*PackfileWriter, error) {
+func NewPackfileWriter(w io.Writer) (*PackfileWriter, error) {
 	pw := &PackfileWriter{
 		w:   w,
 		buf: misc.NewBuffer(nil),
@@ -35,7 +33,7 @@ func NewPackfileWriter(w io.WriteSeeker) (*PackfileWriter, error) {
 }
 
 func (w *PackfileWriter) writeVersion() error {
-	b := w.buf.Buffer(12)
+	b := w.buf.Buffer(8)
 	copy(b[:4], []byte("PACK"))
 	binary.BigEndian.PutUint32(b[4:], 1)
 	_, err := w.w.Write(b)
@@ -58,39 +56,24 @@ func (w *PackfileWriter) WriteObject(objType int, b []byte) error {
 		bits += 7
 	}
 	buf[numBytes-1] &= 127
-	n, err := w.w.Write(buf)
+	_, err := w.w.Write(buf)
 	if err != nil {
 		return err
 	}
-	w.off += n
-	n, err = w.w.Write(b)
+	_, err = w.w.Write(b)
 	if err != nil {
 		return err
 	}
-	w.off += n
-	w.objCount++
 	return nil
 }
 
-func (w *PackfileWriter) Flush() error {
-	_, err := w.w.Seek(int64(-w.off-4), io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-	b := w.buf.Buffer(4)
-	binary.BigEndian.PutUint32(b, w.objCount)
-	_, err = w.w.Write(b)
-	return err
-}
-
 type PackfileReader struct {
-	r        io.ReadSeeker
-	buf      Bufferer
-	Version  int
-	objCount int
+	r       io.Reader
+	buf     Bufferer
+	Version int
 }
 
-func NewPackfileReader(r io.ReadSeeker) (*PackfileReader, error) {
+func NewPackfileReader(r io.Reader) (*PackfileReader, error) {
 	pr := &PackfileReader{
 		r:   r,
 		buf: misc.NewBuffer(nil),
@@ -109,10 +92,6 @@ func (r *PackfileReader) readVersion() error {
 		return err
 	}
 	if string(b) != "PACK" {
-		_, err = r.r.Seek(-4, io.SeekCurrent)
-		if err != nil {
-			return err
-		}
 		return fmt.Errorf("not a packfile")
 	}
 	_, err = r.r.Read(b)
@@ -120,19 +99,10 @@ func (r *PackfileReader) readVersion() error {
 		return err
 	}
 	r.Version = int(binary.BigEndian.Uint32(b))
-	_, err = r.r.Read(b)
-	if err != nil {
-		return err
-	}
-	r.objCount = int(binary.BigEndian.Uint32(b))
 	return nil
 }
 
 func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
-	if r.objCount == 0 {
-		err = io.EOF
-		return
-	}
 	b = r.buf.Buffer(1)
 	_, err = r.r.Read(b)
 	if err != nil {
@@ -157,6 +127,5 @@ func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
 	if err != nil {
 		return
 	}
-	r.objCount--
 	return
 }

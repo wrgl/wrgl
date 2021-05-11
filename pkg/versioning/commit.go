@@ -23,10 +23,13 @@ func SaveCommit(s kv.DB, seed uint64, c *objects.Commit) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	v := buf.Bytes()
-	kb := meow.Checksum(seed, v)
+	return SaveCommitBytes(s, seed, buf.Bytes())
+}
+
+func SaveCommitBytes(s kv.DB, seed uint64, b []byte) ([]byte, error) {
+	kb := meow.Checksum(seed, b)
 	sl := kb[:]
-	err = s.Set(commitKey(sl), v)
+	err := s.Set(commitKey(sl), b)
 	if err != nil {
 		return nil, err
 	}

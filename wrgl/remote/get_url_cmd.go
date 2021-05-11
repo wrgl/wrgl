@@ -18,7 +18,7 @@ func getURLCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rem := mustGetRemote(cmd, c, name)
+			rem := utils.MustGetRemote(cmd, c, name)
 			cmd.Println(rem.URL)
 			return nil
 		},

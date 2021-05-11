@@ -3,7 +3,6 @@ package encoding
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +21,6 @@ func TestPackfileWriter(t *testing.T) {
 	require.NoError(t, w.WriteObject(ObjectCommit, commit))
 	require.NoError(t, w.WriteObject(ObjectTable, table))
 	require.NoError(t, w.WriteObject(ObjectRow, row))
-	require.NoError(t, w.Flush())
 
 	r, err := NewPackfileReader(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
@@ -48,7 +46,4 @@ func TestPackfileReaderPutBackBytesIfNotAPackfile(t *testing.T) {
 	reader := bytes.NewReader(b)
 	_, err := NewPackfileReader(reader)
 	assert.Error(t, err, "not a packfile")
-	b2, err := ioutil.ReadAll(reader)
-	require.NoError(t, err)
-	assert.Equal(t, b, b2)
 }

@@ -118,8 +118,12 @@ func (b *Builder) SaveTable() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	v := buf.Bytes()
+	return b.SaveTableBytes(buf.Bytes(), n)
+}
+
+func (b *Builder) SaveTableBytes(v []byte, n int) ([]byte, error) {
 	sum := meow.Checksum(b.seed, v)
+	var err error
 	if n <= b.bigStoreThreshold {
 		err = b.db.Set(tableKey(sum[:]), v)
 	} else {

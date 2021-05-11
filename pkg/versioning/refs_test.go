@@ -10,6 +10,16 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
+func TestSaveRef(t *testing.T) {
+	db := kv.NewMockStore(false)
+	sum := testutils.SecureRandomBytes(16)
+	err := SaveRef(db, "remotes/origin/abc", sum)
+	require.NoError(t, err)
+	b, err := GetRemoteRef(db, "origin", "abc")
+	require.NoError(t, err)
+	assert.Equal(t, sum, b)
+}
+
 func TestRefHead(t *testing.T) {
 	db := kv.NewMockStore(false)
 	name := "abc"

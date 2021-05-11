@@ -21,7 +21,7 @@ func showCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rem := mustGetRemote(cmd, c, name)
+			rem := utils.MustGetRemote(cmd, c, name)
 			rd := versioning.NewRepoDir(wrglDir, false, false)
 			db, err := rd.OpenKVStore()
 			if err != nil {

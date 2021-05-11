@@ -14,6 +14,10 @@ var (
 	remoteRefPrefix = append(refPrefix, []byte("remotes/")...)
 )
 
+func refKey(name string) []byte {
+	return append(refPrefix, []byte(name)...)
+}
+
 func headKey(name string) []byte {
 	return append(headPrefix, []byte(name)...)
 }
@@ -36,6 +40,10 @@ func SaveTag(s kv.DB, name string, commit []byte) error {
 
 func SaveRemoteRef(s kv.DB, remote, name string, commit []byte) error {
 	return s.Set(remoteRefKey(remote, name), commit)
+}
+
+func SaveRef(s kv.DB, name string, commit []byte) error {
+	return s.Set(refKey(name), commit)
 }
 
 func GetHead(s kv.DB, name string) ([]byte, error) {
