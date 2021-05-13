@@ -43,9 +43,7 @@ func TestNegotiatorHandleUploadPackRequest(t *testing.T) {
 	// acks is nil mean no more negotiation needed
 	assert.Empty(t, acks)
 	commits = neg.CommitsToSend()
-	assert.Len(t, commits, 2)
-	objects.AssertCommitEqual(t, c3, commits[0])
-	objects.AssertCommitEqual(t, c4, commits[1])
+	objects.AssertCommitsEqual(t, []*objects.Commit{c3, c4}, commits, true)
 }
 
 func TestNegotiatorSendACKs(t *testing.T) {

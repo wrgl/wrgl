@@ -1,4 +1,4 @@
-package pack_test
+package pack
 
 import (
 	"io"
@@ -14,7 +14,6 @@ import (
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/pack"
 	packclient "github.com/wrgl/core/pkg/pack/client"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/testutils"
@@ -121,6 +120,49 @@ func assertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan
 	}
 }
 
+func fetchObjects(t *testing.T, db kv.DB, fs kv.FileStore, advertised [][]byte) <-chan *packclient.Object {
+	t.Helper()
+	c, err := packclient.NewClient(testOrigin)
+	require.NoError(t, err)
+	wg := sync.WaitGroup{}
+	oc := make(chan *packclient.Object, 100)
+	neg, err := packclient.NewNegotiator(db, fs, &wg, c, advertised, oc)
+	require.NoError(t, err)
+	err = neg.Start()
+	require.NoError(t, err)
+	close(oc)
+	return oc
+}
+
+func copyCommitsToNewStore(t *testing.T, dba, dbb kv.DB, fsa, fsb kv.FileStore, commits [][]byte) {
+	t.Helper()
+	for _, sum := range commits {
+		c, err := versioning.GetCommit(dba, sum)
+		require.NoError(t, err)
+		_, err = versioning.SaveCommit(dbb, 0, c)
+		require.NoError(t, err)
+		tbl, err := table.ReadTable(dba, fsa, c.Table)
+		require.NoError(t, err)
+		builder := table.NewBuilder(dbb, fsb, tbl.Columns(), tbl.PrimaryKeyIndices(), 0, 0)
+		r1 := tbl.NewRowReader()
+		r2 := tbl.NewRowHashReader(0, 0)
+		i := 0
+		for {
+			pk, sum, err := r2.Read()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			_, rc, err := r1.Read()
+			require.NoError(t, err)
+			require.NoError(t, builder.InsertRow(i, pk, sum, rc))
+			i++
+		}
+		_, err = builder.SaveTable()
+		require.NoError(t, err)
+	}
+}
+
 func TestUploadPack(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
@@ -129,19 +171,14 @@ func TestUploadPack(t *testing.T) {
 	sum1, _ := createCommit(t, db, fs, nil)
 	sum2, _ := createCommit(t, db, fs, [][]byte{sum1})
 	require.NoError(t, versioning.SaveHead(db, "main", sum2))
-	register(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db, fs))
+	register(http.MethodPost, "/upload-pack/", NewUploadPackHandler(db, fs))
 
-	c, err := packclient.NewClient(testOrigin)
-	require.NoError(t, err)
-	wg := sync.WaitGroup{}
-	oc := make(chan *packclient.Object, 100)
 	dbc := kv.NewMockStore(false)
 	fsc := kv.NewMockStore(false)
-	neg, err := packclient.NewNegotiator(dbc, fsc, &wg, c, [][]byte{sum2}, oc)
-	require.NoError(t, err)
-	err = neg.Start()
-	require.NoError(t, err)
-	close(oc)
-
+	oc := fetchObjects(t, dbc, fsc, [][]byte{sum2})
 	assertSentMissingCommits(t, db, fs, oc, [][]byte{sum1, sum2}, nil)
+
+	copyCommitsToNewStore(t, db, dbc, fs, fsc, [][]byte{sum1})
+	oc = fetchObjects(t, dbc, fsc, [][]byte{sum2})
+	assertSentMissingCommits(t, db, fs, oc, [][]byte{sum2}, [][]byte{sum1})
 }

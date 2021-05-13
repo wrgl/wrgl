@@ -1,4 +1,4 @@
-package pack_test
+package pack
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/pack"
 	packclient "github.com/wrgl/core/pkg/pack/client"
 	"github.com/wrgl/core/pkg/testutils"
 	"github.com/wrgl/core/pkg/versioning"
@@ -63,7 +62,7 @@ func TestInfoRefs(t *testing.T) {
 	name := "main"
 	err = versioning.SaveRemoteRef(db, remote, name, sum3)
 	require.NoError(t, err)
-	register(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db))
+	register(http.MethodGet, "/info/refs/", NewInfoRefsHandler(db))
 
 	c, err := packclient.NewClient(testOrigin)
 	require.NoError(t, err)
