@@ -9,6 +9,7 @@ import (
 
 	"github.com/jarcoal/httpmock"
 	"github.com/mmcloughlin/meow"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/ingest"
@@ -83,11 +84,16 @@ func assertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan
 		case encoding.ObjectTable:
 			sum := meow.Checksum(0, obj.Content)
 			tableMap[string(sum[:])] = struct{}{}
+			_, ok := commonTables[string(sum[:])]
+			assert.False(t, ok)
 		case encoding.ObjectRow:
 			sum := meow.Checksum(0, obj.Content)
 			rowMap[string(sum[:])] = struct{}{}
+			_, ok := commonRows[string(sum[:])]
+			assert.False(t, ok)
 		}
 	}
+	assert.Equal(t, len(sentCommits), len(commitMap))
 	for _, sum := range sentCommits {
 		if _, ok := commitMap[string(sum)]; !ok {
 			t.Errorf("commit %x not found", sum)
@@ -120,13 +126,13 @@ func assertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan
 	}
 }
 
-func fetchObjects(t *testing.T, db kv.DB, fs kv.FileStore, advertised [][]byte) <-chan *packclient.Object {
+func fetchObjects(t *testing.T, db kv.DB, fs kv.FileStore, advertised [][]byte, havesPerRoundTrip int) <-chan *packclient.Object {
 	t.Helper()
 	c, err := packclient.NewClient(testOrigin)
 	require.NoError(t, err)
 	wg := sync.WaitGroup{}
 	oc := make(chan *packclient.Object, 100)
-	neg, err := packclient.NewNegotiator(db, fs, &wg, c, advertised, oc)
+	neg, err := packclient.NewNegotiator(db, fs, &wg, c, advertised, oc, havesPerRoundTrip)
 	require.NoError(t, err)
 	err = neg.Start()
 	require.NoError(t, err)
@@ -170,15 +176,24 @@ func TestUploadPack(t *testing.T) {
 	fs := kv.NewMockStore(false)
 	sum1, _ := createCommit(t, db, fs, nil)
 	sum2, _ := createCommit(t, db, fs, [][]byte{sum1})
+	sum3, _ := createCommit(t, db, fs, nil)
+	sum4, _ := createCommit(t, db, fs, [][]byte{sum3})
 	require.NoError(t, versioning.SaveHead(db, "main", sum2))
+	require.NoError(t, versioning.SaveTag(db, "v1", sum4))
 	register(http.MethodPost, "/upload-pack/", NewUploadPackHandler(db, fs))
 
 	dbc := kv.NewMockStore(false)
 	fsc := kv.NewMockStore(false)
-	oc := fetchObjects(t, dbc, fsc, [][]byte{sum2})
+	oc := fetchObjects(t, dbc, fsc, [][]byte{sum2}, 0)
 	assertSentMissingCommits(t, db, fs, oc, [][]byte{sum1, sum2}, nil)
 
 	copyCommitsToNewStore(t, db, dbc, fs, fsc, [][]byte{sum1})
-	oc = fetchObjects(t, dbc, fsc, [][]byte{sum2})
+	require.NoError(t, versioning.SaveHead(dbc, "main", sum1))
+	oc = fetchObjects(t, dbc, fsc, [][]byte{sum2}, 0)
 	assertSentMissingCommits(t, db, fs, oc, [][]byte{sum2}, [][]byte{sum1})
+
+	copyCommitsToNewStore(t, db, dbc, fs, fsc, [][]byte{sum3})
+	require.NoError(t, versioning.SaveTag(dbc, "v0", sum3))
+	oc = fetchObjects(t, dbc, fsc, [][]byte{sum2, sum4}, 1)
+	assertSentMissingCommits(t, db, fs, oc, [][]byte{sum2, sum4}, [][]byte{sum1, sum3})
 }

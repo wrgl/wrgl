@@ -10,31 +10,38 @@ import (
 	"github.com/wrgl/core/pkg/versioning"
 )
 
+const defaultHavesPerRoundTrip = 32
+
 type Object struct {
 	Type    int
 	Content []byte
 }
 
 type Negotiator struct {
-	c          *Client
-	db         kv.DB
-	fs         kv.FileStore
-	oc         chan<- *Object
-	wants      [][]byte
-	q          *versioning.CommitsQueue
-	done       bool
-	popCount   int
-	wg         *sync.WaitGroup
-	Advertised map[string][]byte
+	c                 *Client
+	db                kv.DB
+	fs                kv.FileStore
+	oc                chan<- *Object
+	wants             [][]byte
+	q                 *versioning.CommitsQueue
+	done              bool
+	popCount          int
+	wg                *sync.WaitGroup
+	Advertised        map[string][]byte
+	havesPerRoundTrip int
 }
 
-func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, advertised [][]byte, oc chan<- *Object) (*Negotiator, error) {
+func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, advertised [][]byte, oc chan<- *Object, havesPerRoundTrip int) (*Negotiator, error) {
+	if havesPerRoundTrip == 0 {
+		havesPerRoundTrip = defaultHavesPerRoundTrip
+	}
 	neg := &Negotiator{
-		c:  c,
-		db: db,
-		fs: fs,
-		oc: oc,
-		wg: wg,
+		c:                 c,
+		db:                db,
+		fs:                fs,
+		oc:                oc,
+		wg:                wg,
+		havesPerRoundTrip: havesPerRoundTrip,
 	}
 	for _, b := range advertised {
 		if !versioning.CommitExist(db, b) {
@@ -62,7 +69,7 @@ func (n *Negotiator) popHaves() (haves [][]byte, err error) {
 			return nil, err
 		}
 	}
-	for i := 0; i < 32; i++ {
+	for i := 0; i < n.havesPerRoundTrip; i++ {
 		sum, _, err := n.q.PopInsertParents()
 		if err == io.EOF {
 			n.done = true

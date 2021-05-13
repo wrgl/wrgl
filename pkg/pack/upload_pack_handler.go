@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/kv"
@@ -214,7 +213,6 @@ func (h *UploadPackHandler) sendPackfile(rw http.ResponseWriter, r *http.Request
 	buf := misc.NewBuffer(nil)
 	tables := h.getTablesToSend(neg, buf, pw, commonTables)
 	rows := h.getRowsToSend(buf, pw, commonRows, tables)
-	spew.Dump(rows)
 	h.sendRows(pw, rows)
 }
 
