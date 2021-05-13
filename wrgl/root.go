@@ -39,6 +39,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newPruneCmd())
 	rootCmd.AddCommand(newResetCmd())
 	rootCmd.AddCommand(newCatFileCmd())
+	rootCmd.AddCommand(newFetchCmd())
 	rootCmd.AddCommand(remote.RootCmd())
 	return rootCmd
 }

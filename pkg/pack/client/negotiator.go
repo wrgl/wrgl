@@ -1,0 +1,123 @@
+package packclient
+
+import (
+	"fmt"
+	"io"
+	"sync"
+
+	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/versioning"
+)
+
+type Object struct {
+	Type    int
+	Content []byte
+}
+
+type Negotiator struct {
+	c          *Client
+	db         kv.DB
+	fs         kv.FileStore
+	oc         chan<- *Object
+	wants      [][]byte
+	q          *versioning.CommitsQueue
+	done       bool
+	popCount   int
+	wg         *sync.WaitGroup
+	Advertised map[string][]byte
+}
+
+func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, advertised [][]byte, oc chan<- *Object) (*Negotiator, error) {
+	neg := &Negotiator{
+		c:  c,
+		db: db,
+		fs: fs,
+		oc: oc,
+		wg: wg,
+	}
+	for _, b := range advertised {
+		if !versioning.CommitExist(db, b) {
+			neg.wants = append(neg.wants, b)
+		}
+	}
+	if len(neg.wants) == 0 {
+		return nil, fmt.Errorf("nothing wanted")
+	}
+	return neg, nil
+}
+
+func (n *Negotiator) popHaves() (haves [][]byte, err error) {
+	if n.q == nil {
+		m, err := versioning.ListAllRefs(n.db)
+		if err != nil {
+			return nil, err
+		}
+		sl := [][]byte{}
+		for _, v := range m {
+			sl = append(sl, v)
+		}
+		n.q, err = versioning.NewCommitsQueue(n.db, sl)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i := 0; i < 32; i++ {
+		sum, _, err := n.q.PopInsertParents()
+		if err == io.EOF {
+			n.done = true
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		haves = append(haves, sum)
+		n.popCount++
+	}
+	if n.popCount >= 256 {
+		n.done = true
+	}
+	return
+}
+
+func (n *Negotiator) emitObjects(pr *encoding.PackfileReader) error {
+	for {
+		n.wg.Add(1)
+		t, b, err := pr.ReadObject()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		n.oc <- &Object{t, b}
+	}
+	return nil
+}
+
+func (n *Negotiator) Start() error {
+	for {
+		haves, err := n.popHaves()
+		if err != nil {
+			return err
+		}
+		acks, pr, err := n.c.PostUploadPack(n.wants, haves, n.done)
+		if err != nil {
+			return err
+		}
+		if acks == nil {
+			defer pr.Close()
+			err = n.emitObjects(pr)
+			if err != nil {
+				return err
+			}
+			break
+		}
+		err = n.q.RemoveAncestors(acks)
+		if err != nil {
+			return err
+		}
+		n.wants = nil
+	}
+	return nil
+}

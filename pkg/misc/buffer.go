@@ -15,7 +15,8 @@ type Buffer struct {
 }
 
 func NewBuffer(b []byte) *Buffer {
-	return &Buffer{b: b, grow: 2, off: int64(len(b))}
+	total := int64(len(b))
+	return &Buffer{b: b, grow: 2, off: total}
 }
 
 func (b *Buffer) growSize() int {
@@ -28,7 +29,7 @@ func (b *Buffer) growSize() int {
 
 func (b *Buffer) maybeGrow(n int) {
 	l := len(b.b)
-	if n < l {
+	if n <= l {
 		return
 	}
 	c := cap(b.b)
@@ -36,19 +37,20 @@ func (b *Buffer) maybeGrow(n int) {
 		panic(fmt.Sprintf("asking for too much space in advance: %d", n-c))
 	}
 	newlen := c
-	for n >= newlen {
+	for n > newlen {
 		newlen += b.growSize()
 	}
 	if newlen > c {
-		sl := make([]byte, n+1, newlen)
+		sl := make([]byte, n, newlen)
 		copy(sl, b.b)
 		b.b = sl
 	} else {
-		b.b = b.b[:n+1]
+		b.b = b.b[:n]
 	}
 }
 
 func (b *Buffer) Reset() {
+	b.b = b.b[:0]
 	b.off = 0
 }
 
@@ -60,7 +62,7 @@ func (b *Buffer) Write(p []byte) (n int, err error) {
 
 func (b *Buffer) WriteAt(p []byte, off int64) (n int, err error) {
 	n = len(p)
-	b.maybeGrow(n + int(off) - 1)
+	b.maybeGrow(n + int(off))
 	copy(b.b[off:], p)
 	return
 }
@@ -83,7 +85,7 @@ func (b *Buffer) Seek(offset int64, whence int) (int64, error) {
 	if offset < 0 {
 		return 0, errors.New("Seek: invalid offset")
 	}
-	b.maybeGrow(int(offset))
+	b.maybeGrow(int(offset) + 1)
 	b.off = offset
 	return offset, nil
 }

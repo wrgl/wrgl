@@ -49,7 +49,7 @@ func (w *PackfileWriter) WriteObject(objType int, b []byte) error {
 	}
 	u := uint64(n)
 	buf := w.buf.Buffer(numBytes)
-	buf[0] = 128 | uint8(objType<<4) | (uint8(u) & 13)
+	buf[0] = 128 | uint8(objType)<<4 | (uint8(u) & 15)
 	bits = 4
 	for i := 1; i < numBytes; i++ {
 		buf[i] = 128 | uint8(u>>bits)
@@ -68,12 +68,12 @@ func (w *PackfileWriter) WriteObject(objType int, b []byte) error {
 }
 
 type PackfileReader struct {
-	r       io.Reader
+	r       io.ReadCloser
 	buf     Bufferer
 	Version int
 }
 
-func NewPackfileReader(r io.Reader) (*PackfileReader, error) {
+func NewPackfileReader(r io.ReadCloser) (*PackfileReader, error) {
 	pr := &PackfileReader{
 		r:   r,
 		buf: misc.NewBuffer(nil),
@@ -89,14 +89,14 @@ func (r *PackfileReader) readVersion() error {
 	b := r.buf.Buffer(4)
 	_, err := r.r.Read(b)
 	if err != nil {
-		return err
+		return fmt.Errorf("error reading PACK string: %v", err)
 	}
 	if string(b) != "PACK" {
 		return fmt.Errorf("not a packfile")
 	}
 	_, err = r.r.Read(b)
 	if err != nil {
-		return err
+		return fmt.Errorf("error reading packfile version: %v", err)
 	}
 	r.Version = int(binary.BigEndian.Uint32(b))
 	return nil
@@ -109,10 +109,13 @@ func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
 		return
 	}
 	objType = int((b[0] >> 4) & 7)
-	u := uint64(b[0] & 13)
+	u := uint64(b[0] & 15)
 	bits := 4
 	for {
 		_, err = r.r.Read(b)
+		if err == io.EOF {
+			return 0, nil, fmt.Errorf("reading size: data corrupted")
+		}
 		if err != nil {
 			return
 		}
@@ -122,10 +125,17 @@ func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
 		}
 		bits += 7
 	}
-	b = r.buf.Buffer(int(u))
+	b = make([]byte, int(u))
 	_, err = r.r.Read(b)
+	if err == io.EOF {
+		return 0, nil, fmt.Errorf("reading object: data corrupted")
+	}
 	if err != nil {
 		return
 	}
 	return
+}
+
+func (r *PackfileReader) Close() error {
+	return r.r.Close()
 }

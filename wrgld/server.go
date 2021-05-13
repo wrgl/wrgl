@@ -1,76 +1,21 @@
 package main
 
 import (
-	"encoding/hex"
-	"log"
 	"net/http"
-	"sort"
-	"strings"
 
-	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/misc"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/pack"
 )
 
 type Server struct {
 	serveMux *http.ServeMux
-	db       kv.Store
-	fs       kv.FileStore
 }
 
 func NewServer(db kv.Store, fs kv.FileStore) *Server {
 	s := &Server{
 		serveMux: http.NewServeMux(),
-		db:       db,
-		fs:       fs,
 	}
-	s.serveMux.HandleFunc("/info/refs/", s.logging(http.MethodGet, s.HandleInfoRefs))
-	// s.serveMux.HandleFunc("/upload-pack/", s.logging(http.MethodPost, s.HandleNegotiateUpload))
+	s.serveMux.HandleFunc("/info/refs/", logging(pack.NewInfoRefsHandler(db)))
+	s.serveMux.HandleFunc("/upload-pack/", logging(pack.NewUploadPackHandler(db, fs)))
 	return s
 }
-
-func (*Server) logging(method string, f func(rw http.ResponseWriter, r *http.Request) error) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.RequestURI())
-		if r.Method != method {
-			http.Error(rw, "forbidden", http.StatusForbidden)
-		}
-		err := f(rw, r)
-		if err != nil {
-			log.Printf("Error: %v", err)
-			http.Error(rw, "internal server error", http.StatusInternalServerError)
-		}
-	}
-}
-
-func (s *Server) HandleInfoRefs(rw http.ResponseWriter, r *http.Request) error {
-	refs, err := versioning.ListLocalRefs(s.db)
-	if err != nil {
-		return err
-	}
-	pairs := make([][]string, 0, len(refs))
-	for k, v := range refs {
-		pairs = append(pairs, []string{
-			hex.EncodeToString(v), k,
-		})
-	}
-	sort.Slice(pairs, func(i, j int) bool {
-		return pairs[i][1] < pairs[j][1]
-	})
-	rw.Header().Add("Content-Type", "application/x-wrgl-upload-pack-advertisement")
-	buf := misc.NewBuffer(nil)
-	for _, sl := range pairs {
-		err := encoding.WritePktLine(rw, buf, strings.Join(sl, " "))
-		if err != nil {
-			return err
-		}
-	}
-	err = encoding.WritePktLine(rw, buf, "")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// func (s *Server) HandleNegotiateUpload(rw http.ResponseWriter, r *http.Request) error {}

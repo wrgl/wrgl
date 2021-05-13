@@ -118,7 +118,7 @@ func (n *Negotiator) findCommons(db kv.DB, queue *versioning.CommitsQueue, haves
 }
 
 func (n *Negotiator) findClosedSetOfObjects(db kv.DB) (err error) {
-	extraCommons := map[string]struct{}{}
+	alreadySeenCommits := map[string]struct{}{}
 	wants := map[string]struct{}{}
 wantsLoop:
 	for want := range n.wants {
@@ -131,7 +131,7 @@ wantsLoop:
 			q.Remove(e)
 			sum := e.Value.([]byte)
 			sums = append(sums, sum)
-			if _, ok := extraCommons[string(sum)]; ok {
+			if _, ok := alreadySeenCommits[string(sum)]; ok {
 				continue
 			}
 			if _, ok := n.Commons[string(sum)]; ok {
@@ -144,6 +144,10 @@ wantsLoop:
 			l.PushBack(c)
 			// reached a root commit but still haven't seen anything in common
 			if len(c.Parents) == 0 {
+				// if there's nothing in common then everything including the root should be sent
+				if len(n.Commons) == 0 {
+					break
+				}
 				wants[string(want)] = struct{}{}
 				continue wantsLoop
 			}
@@ -154,7 +158,7 @@ wantsLoop:
 		// queue is exhausted mean everything is reachable from commons
 		n.lists = append(n.lists, l)
 		for _, sum := range sums {
-			extraCommons[string(sum)] = struct{}{}
+			alreadySeenCommits[string(sum)] = struct{}{}
 		}
 	}
 	n.wants = wants
