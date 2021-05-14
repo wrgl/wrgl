@@ -18,6 +18,9 @@ func TestSaveRef(t *testing.T) {
 	b, err := GetRemoteRef(db, "origin", "abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum, b)
+	b, err = GetRef(db, "remotes/origin/abc")
+	require.NoError(t, err)
+	assert.Equal(t, sum, b)
 }
 
 func TestRefHead(t *testing.T) {

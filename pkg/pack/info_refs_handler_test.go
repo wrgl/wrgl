@@ -1,12 +1,7 @@
 package pack
 
 import (
-	"bytes"
-	"compress/gzip"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
@@ -14,36 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
 	packclient "github.com/wrgl/core/pkg/pack/client"
+	packtest "github.com/wrgl/core/pkg/pack/test"
 	"github.com/wrgl/core/pkg/testutils"
 	"github.com/wrgl/core/pkg/versioning"
 )
-
-const (
-	testOrigin = "https://wrgl.test"
-)
-
-func register(method, path string, handler http.Handler) {
-	httpmock.RegisterResponder(method, testOrigin+path,
-		func(req *http.Request) (*http.Response, error) {
-			rec := httptest.NewRecorder()
-			handler.ServeHTTP(rec, req)
-			resp := rec.Result()
-			if resp.Header.Get("Content-Encoding") == "gzip" {
-				gzr, err := gzip.NewReader(resp.Body)
-				if err != nil {
-					return nil, err
-				}
-				b, err := ioutil.ReadAll(gzr)
-				if err != nil {
-					return nil, err
-				}
-				resp.Body = io.NopCloser(bytes.NewReader(b))
-				resp.Header.Del("Content-Encoding")
-			}
-			return resp, nil
-		},
-	)
-}
 
 func TestInfoRefs(t *testing.T) {
 	httpmock.Activate()
@@ -62,9 +31,9 @@ func TestInfoRefs(t *testing.T) {
 	name := "main"
 	err = versioning.SaveRemoteRef(db, remote, name, sum3)
 	require.NoError(t, err)
-	register(http.MethodGet, "/info/refs/", NewInfoRefsHandler(db))
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", NewInfoRefsHandler(db))
 
-	c, err := packclient.NewClient(testOrigin)
+	c, err := packclient.NewClient(packtest.TestOrigin)
 	require.NoError(t, err)
 	m, err := c.GetRefsInfo()
 	require.NoError(t, err)

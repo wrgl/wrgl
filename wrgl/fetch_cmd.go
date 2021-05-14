@@ -141,7 +141,7 @@ func identifyRefsToFetch(client *packclient.Client, specs []*versioning.Refspec)
 
 func saveFetchedRefs(db kv.Store, refs map[string][]byte) error {
 	for ref, sum := range refs {
-		err := versioning.SaveRef(db, ref[4:], sum)
+		err := versioning.SaveRef(db, ref[5:], sum)
 		if err != nil {
 			return err
 		}
@@ -160,7 +160,7 @@ func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, remote string, cr *
 	}
 	var wg sync.WaitGroup
 	oc := make(chan *packclient.Object, 100)
-	neg, err := packclient.NewNegotiator(db, fs, &wg, client, advertised, oc)
+	neg, err := packclient.NewNegotiator(db, fs, &wg, client, advertised, oc, 0)
 	if err != nil {
 		if err.Error() == "nothing wanted" {
 			return nil

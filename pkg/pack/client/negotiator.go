@@ -89,7 +89,6 @@ func (n *Negotiator) popHaves() (haves [][]byte, err error) {
 
 func (n *Negotiator) emitObjects(pr *encoding.PackfileReader) error {
 	for {
-		n.wg.Add(1)
 		t, b, err := pr.ReadObject()
 		if err == io.EOF {
 			break
@@ -97,6 +96,7 @@ func (n *Negotiator) emitObjects(pr *encoding.PackfileReader) error {
 		if err != nil {
 			return err
 		}
+		n.wg.Add(1)
 		n.oc <- &Object{t, b}
 	}
 	return nil

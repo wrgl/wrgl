@@ -46,6 +46,10 @@ func SaveRef(s kv.DB, name string, commit []byte) error {
 	return s.Set(refKey(name), commit)
 }
 
+func GetRef(s kv.DB, name string) ([]byte, error) {
+	return s.Get(refKey(name))
+}
+
 func GetHead(s kv.DB, name string) ([]byte, error) {
 	return s.Get(headKey(name))
 }
