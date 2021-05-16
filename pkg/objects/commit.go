@@ -38,7 +38,7 @@ func (w *CommitWriter) Write(c *Commit) (err error) {
 		{"table", encoding.EncodeBytes(c.Table)},
 		{"authorName", encoding.EncodeStr(c.AuthorName)},
 		{"authorEmail", encoding.EncodeStr(c.AuthorEmail)},
-		{"time", encoding.EncodeTime(c.Time)},
+		{"time", encoding.EncodeTimeFunc(c.Time)},
 		{"message", encoding.EncodeStr(c.Message)},
 	}
 	for _, parent := range c.Parents {
@@ -73,7 +73,7 @@ func (r *CommitReader) Read() (*Commit, error) {
 		{"table", encoding.DecodeBytes(c.Table)},
 		{"authorName", encoding.DecodeStr(&c.AuthorName)},
 		{"authorEmail", encoding.DecodeStr(&c.AuthorEmail)},
-		{"time", encoding.DecodeTime(&c.Time)},
+		{"time", encoding.DecodeTimeFunc(&c.Time)},
 		{"message", encoding.DecodeStr(&c.Message)},
 	} {
 		err := readLine(r.parser, l.label, l.f)

@@ -15,6 +15,7 @@ type FileStore interface {
 	Delete([]byte) error
 	Exist([]byte) bool
 	Writer(k []byte) (io.WriteCloser, error)
+	AppendWriter(k []byte) (io.WriteCloser, error)
 	Reader([]byte) (File, error)
 	Clear([]byte) error
 	Size(k []byte) (uint64, error)
@@ -43,6 +44,15 @@ func (s *fileStore) Writer(k []byte) (io.WriteCloser, error) {
 		return nil, err
 	}
 	return os.Create(s.path(k))
+}
+
+func (s *fileStore) AppendWriter(k []byte) (io.WriteCloser, error) {
+	p := s.path(k)
+	err := os.MkdirAll(filepath.Dir(p), 0755)
+	if err != nil {
+		return nil, err
+	}
+	return os.OpenFile(s.path(k), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 }
 
 func (s *fileStore) Reader(k []byte) (File, error) {

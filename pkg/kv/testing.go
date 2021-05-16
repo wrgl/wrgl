@@ -264,6 +264,14 @@ func (s *MockStore) Writer(k []byte) (io.WriteCloser, error) {
 	}, nil
 }
 
+func (s *MockStore) AppendWriter(k []byte) (io.WriteCloser, error) {
+	return &mockStoreWriter{
+		s:   s,
+		key: string(k),
+		buf: bytes.NewBuffer(s.store[string(k)]),
+	}, nil
+}
+
 func (s *MockStore) BatchSet(data map[string][]byte) error {
 	if s.EnableMock {
 		args := s.Called(data)

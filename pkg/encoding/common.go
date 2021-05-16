@@ -2,6 +2,8 @@ package encoding
 
 import (
 	"encoding/binary"
+	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -27,14 +29,14 @@ func EncodeStr(s string) EncodeFunc {
 	}
 }
 
-func EncodeTime(t time.Time) EncodeFunc {
+func EncodeTimeFunc(t time.Time) EncodeFunc {
 	return func(w Bufferer) []byte {
-		z := t.Format("-0700")
-		b := w.Buffer(8 + 5)
-		binary.BigEndian.PutUint64(b, uint64(t.Unix()))
-		copy(b[8:], []byte(z))
-		return b
+		return []byte(EncodeTime(t))
 	}
+}
+
+func EncodeTime(t time.Time) []byte {
+	return []byte(fmt.Sprintf("%d %s", t.Unix(), t.Format("-0700")))
 }
 
 type DecodeFunc func(p *Parser) error
@@ -61,18 +63,31 @@ func DecodeStr(s *string) DecodeFunc {
 	}
 }
 
-func DecodeTime(t *time.Time) DecodeFunc {
+func DecodeTimeFunc(t *time.Time) DecodeFunc {
 	return func(p *Parser) error {
-		b, err := p.NextBytes(8 + 5)
+		b, err := p.NextBytes(16)
 		if err != nil {
 			return err
 		}
-		*t = time.Unix(int64(binary.BigEndian.Uint64(b)), 0)
-		tz, err := time.Parse("-0700", string(b[8:]))
+		*t, err = DecodeTime(string(b))
 		if err != nil {
 			return err
 		}
-		*t = (*t).In(tz.Location())
 		return nil
 	}
+}
+
+func DecodeTime(s string) (t time.Time, err error) {
+	var sec int64
+	sec, err = strconv.ParseInt(s[0:10], 10, 64)
+	if err != nil {
+		return
+	}
+	t = time.Unix(sec, 0)
+	tz, err := time.Parse("-0700", s[11:16])
+	if err != nil {
+		return
+	}
+	t = t.In(tz.Location())
+	return
 }

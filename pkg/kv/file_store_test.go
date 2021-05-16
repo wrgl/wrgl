@@ -75,4 +75,14 @@ func TestFileStore(t *testing.T) {
 	v, err = getFileStore(s, []byte("proj0/abc"))
 	require.NoError(t, err)
 	assert.Equal(t, []byte("123"), v)
+
+	// test AppendWriter
+	w, err := s.AppendWriter([]byte("proj0/abc"))
+	require.NoError(t, err)
+	_, err = w.Write([]byte("456"))
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	v, err = getFileStore(s, []byte("proj0/abc"))
+	require.NoError(t, err)
+	assert.Equal(t, []byte("123456"), v)
 }
