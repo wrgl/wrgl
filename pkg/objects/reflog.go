@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"time"
 
@@ -138,24 +137,12 @@ mainLoop:
 				return nil, fmt.Errorf("invalid reflog record: couldn't parse author email in record %q", line)
 			}
 		case rlStateTime:
-			i := off + 1
-			for ; i < n; i++ {
-				if line[i] == ' ' {
-					sec, err := strconv.ParseInt(line[off:i], 10, 64)
-					if err != nil {
-						return nil, err
-					}
-					rec.Time = time.Unix(sec, 0)
-					break
-				}
-			}
-			tz, err := time.Parse("-0700", line[i+1:i+6])
+			rec.Time, err = encoding.DecodeTime(line[off:])
 			if err != nil {
 				return nil, err
 			}
-			rec.Time = rec.Time.In(tz.Location())
 			state = rlStateAction
-			off = i + 7
+			off += 17
 		case rlStateAction:
 			for i := off + 1; i < n; i++ {
 				c := line[i]

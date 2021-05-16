@@ -159,16 +159,6 @@ func (r *TableReader) readUint32() (uint32, error) {
 	return binary.BigEndian.Uint32(b), nil
 }
 
-func (r *TableReader) readUint8() (uint8, error) {
-	b := make([]byte, 1)
-	n, err := r.r.Read(b)
-	if err != nil {
-		return 0, err
-	}
-	r.off += int64(n)
-	return b[0], nil
-}
-
 func (r *TableReader) readMeta() (err error) {
 	err = r.consumeStr("columns ")
 	if err != nil {
