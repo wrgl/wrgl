@@ -112,3 +112,24 @@ func TestCommitQueueRemoveAncestors(t *testing.T) {
 	_, _, err = q.Pop()
 	assert.Equal(t, io.EOF, err)
 }
+
+func TestIsAncestorOf(t *testing.T) {
+	db := kv.NewMockStore(false)
+	sum1, _ := SaveTestCommit(t, db, nil)
+	sum2, _ := SaveTestCommit(t, db, nil)
+	sum3, _ := SaveTestCommit(t, db, [][]byte{sum1})
+	sum4, _ := SaveTestCommit(t, db, [][]byte{sum3, sum2})
+	sum5, _ := SaveTestCommit(t, db, nil)
+	ok, err := IsAncestorOf(db, sum4, sum1)
+	require.NoError(t, err)
+	assert.False(t, ok)
+	ok, err = IsAncestorOf(db, sum1, sum4)
+	require.NoError(t, err)
+	assert.True(t, ok)
+	ok, err = IsAncestorOf(db, sum2, sum4)
+	require.NoError(t, err)
+	assert.True(t, ok)
+	ok, err = IsAncestorOf(db, sum5, sum4)
+	require.NoError(t, err)
+	assert.False(t, ok)
+}

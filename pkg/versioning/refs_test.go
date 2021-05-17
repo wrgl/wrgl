@@ -30,6 +30,20 @@ func TestSaveRef(t *testing.T) {
 		Action:      "fetch",
 		Message:     "from origin",
 	})
+
+	// test RenameRef
+	sum1, err := RenameRef(db, fs, "remotes/origin/abc", "remotes/origin2/abc")
+	require.NoError(t, err)
+	assert.Equal(t, sum, sum1)
+	_, err = fs.Reader([]byte("logs/refs/remotes/origin/abc"))
+	assert.Error(t, err)
+	AssertLatestReflogEqual(t, fs, "remotes/origin2/abc", &objects.Reflog{
+		NewOID:      sum,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@doe.com",
+		Action:      "fetch",
+		Message:     "from origin",
+	})
 }
 
 func TestCommitHead(t *testing.T) {

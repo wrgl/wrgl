@@ -179,22 +179,26 @@ func DeleteAllRemoteRefs(s kv.DB, fs kv.FileStore, remote string) error {
 	return nil
 }
 
-func RenameRef(s kv.DB, fs kv.FileStore, oldName, newName string) error {
+func RenameRef(s kv.DB, fs kv.FileStore, oldName, newName string) (sum []byte, err error) {
 	oldKey := refKey(oldName)
 	newKey := refKey(newName)
-	v, err := s.Get(oldKey)
+	sum, err = s.Get(oldKey)
 	if err != nil {
-		return err
+		return
 	}
-	err = s.Set(newKey, v)
+	err = s.Set(newKey, sum)
 	if err != nil {
-		return err
+		return
 	}
 	err = s.Delete(oldKey)
 	if err != nil {
-		return err
+		return
 	}
-	return fs.Move(reflogKey(oldKey), reflogKey(newKey))
+	err = fs.Move(reflogKey(oldKey), reflogKey(newKey))
+	if err != nil {
+		return
+	}
+	return sum, nil
 }
 
 func RenameAllRemoteRefs(s kv.DB, fs kv.FileStore, oldRemote, newRemote string) error {
@@ -206,7 +210,7 @@ func RenameAllRemoteRefs(s kv.DB, fs kv.FileStore, oldRemote, newRemote string) 
 	}
 	for _, k := range keys {
 		name := string(k[n:])
-		err = RenameRef(s, fs, string(remoteRef(oldRemote, name)), string(remoteRef(newRemote, name)))
+		_, err = RenameRef(s, fs, string(remoteRef(oldRemote, name)), string(remoteRef(newRemote, name)))
 		if err != nil {
 			return err
 		}

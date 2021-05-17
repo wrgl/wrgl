@@ -69,25 +69,27 @@ func TestInterpretCommitName(t *testing.T) {
 	for i, c := range []struct {
 		db        kv.DB
 		commitStr string
+		name      string
 		sum       []byte
 		commit    *objects.Commit
 		fileIsNil bool
 		err       error
 	}{
-		{db, "my-branch", sum2, commit2, true, nil},
-		{db, "my-branch^", sum1, commit1, true, nil},
-		{db, hex.EncodeToString(sum2), sum2, commit2, true, nil},
-		{db, fmt.Sprintf("%s~1", hex.EncodeToString(sum2)), sum1, commit1, true, nil},
-		{db, file.Name(), nil, nil, false, nil},
-		{db, "aaaabbbbccccdddd0000111122223333", nil, nil, true, fmt.Errorf("can't find commit aaaabbbbccccdddd0000111122223333")},
-		{db, "some-branch", nil, nil, true, fmt.Errorf("can't find branch some-branch")},
-		{db, "abc.csv", nil, nil, true, fmt.Errorf("can't find file abc.csv")},
-		{nil, "my-branch", nil, nil, true, fmt.Errorf("can't find file my-branch")},
-		{nil, hex.EncodeToString(sum2), nil, nil, true, fmt.Errorf("can't find file %s", hex.EncodeToString(sum2))},
-		{nil, file.Name(), nil, nil, false, nil},
+		{db, "my-branch", "refs/heads/my-branch", sum2, commit2, true, nil},
+		{db, "my-branch^", "refs/heads/my-branch", sum1, commit1, true, nil},
+		{db, hex.EncodeToString(sum2), hex.EncodeToString(sum2), sum2, commit2, true, nil},
+		{db, fmt.Sprintf("%s~1", hex.EncodeToString(sum2)), hex.EncodeToString(sum1), sum1, commit1, true, nil},
+		{db, file.Name(), file.Name(), nil, nil, false, nil},
+		{db, "aaaabbbbccccdddd0000111122223333", "", nil, nil, true, fmt.Errorf("can't find commit aaaabbbbccccdddd0000111122223333")},
+		{db, "some-branch", "", nil, nil, true, fmt.Errorf("can't find branch some-branch")},
+		{db, "abc.csv", "", nil, nil, true, fmt.Errorf("can't find file abc.csv")},
+		{nil, "my-branch", "", nil, nil, true, fmt.Errorf("can't find file my-branch")},
+		{nil, hex.EncodeToString(sum2), "", nil, nil, true, fmt.Errorf("can't find file %s", hex.EncodeToString(sum2))},
+		{nil, file.Name(), file.Name(), nil, nil, false, nil},
 	} {
-		sum, commit, file, err := InterpretCommitName(c.db, c.commitStr)
+		name, sum, commit, file, err := InterpretCommitName(c.db, c.commitStr, false)
 		require.Equal(t, c.err, err, "case %d", i)
+		assert.Equal(t, c.name, name)
 		assert.Equal(t, c.sum, sum)
 		if c.commit == nil {
 			assert.Nil(t, commit)
@@ -96,4 +98,65 @@ func TestInterpretCommitName(t *testing.T) {
 		}
 		assert.Equal(t, c.fileIsNil, file == nil)
 	}
+}
+
+func TestInterpretRefName(t *testing.T) {
+	db := kv.NewMockStore(false)
+	fs := kv.NewMockStore(false)
+	sum1, c1 := SaveTestCommit(t, db, nil)
+	require.NoError(t, CommitHead(db, fs, "abc", sum1, c1))
+	sum2, c2 := SaveTestCommit(t, db, nil)
+	require.NoError(t, SaveTag(db, "abc", sum2))
+	sum3, c3 := SaveTestCommit(t, db, nil)
+	require.NoError(t, SaveRemoteRef(db, fs, "origin", "abc", sum3, "test", "test@domain.com", "test", "test interpret ref"))
+	sum4, c4 := SaveTestCommit(t, db, nil)
+	require.NoError(t, SaveTag(db, "def", sum4))
+	sum5, c5 := SaveTestCommit(t, db, nil)
+	require.NoError(t, SaveRemoteRef(db, fs, "origin", "def", sum5, "test", "test@domain.com", "test", "test interpret ref"))
+	sum6, c6 := SaveTestCommit(t, db, nil)
+	require.NoError(t, SaveRemoteRef(db, fs, "origin", "ghj", sum6, "test", "test@domain.com", "test", "test interpret ref"))
+	sum7, c7 := SaveTestCommit(t, db, nil)
+	require.NoError(t, SaveRef(db, fs, "custom/ghj", sum7, "test", "test@domain.com", "test", "test interpret ref"))
+
+	name, sum, c, _, err := InterpretCommitName(db, "abc", false)
+	require.NoError(t, err)
+	assert.Equal(t, "refs/heads/abc", name)
+	assert.Equal(t, sum1, sum)
+	objects.AssertCommitEqual(t, c1, c)
+
+	name, sum, c, _, err = InterpretCommitName(db, "tags/abc", false)
+	require.NoError(t, err)
+	assert.Equal(t, "refs/tags/abc", name)
+	assert.Equal(t, sum2, sum)
+	objects.AssertCommitEqual(t, c2, c)
+
+	name, sum, c, _, err = InterpretCommitName(db, "refs/remotes/origin/abc", false)
+	require.NoError(t, err)
+	assert.Equal(t, "refs/remotes/origin/abc", name)
+	assert.Equal(t, sum3, sum)
+	objects.AssertCommitEqual(t, c3, c)
+
+	name, sum, c, _, err = InterpretCommitName(db, "def", false)
+	require.NoError(t, err)
+	assert.Equal(t, "refs/tags/def", name)
+	assert.Equal(t, sum4, sum)
+	objects.AssertCommitEqual(t, c4, c)
+
+	name, sum, c, _, err = InterpretCommitName(db, "def", true)
+	require.NoError(t, err)
+	assert.Equal(t, "refs/remotes/origin/def", name)
+	assert.Equal(t, sum5, sum)
+	objects.AssertCommitEqual(t, c5, c)
+
+	name, sum, c, _, err = InterpretCommitName(db, "ghj", false)
+	require.NoError(t, err)
+	assert.Equal(t, "refs/remotes/origin/ghj", name)
+	assert.Equal(t, sum6, sum)
+	objects.AssertCommitEqual(t, c6, c)
+
+	name, sum, c, _, err = InterpretCommitName(db, "custom/ghj", false)
+	require.NoError(t, err)
+	assert.Equal(t, "refs/custom/ghj", name)
+	assert.Equal(t, sum7, sum)
+	objects.AssertCommitEqual(t, c7, c)
 }

@@ -6,7 +6,7 @@ import (
 )
 
 type Refspec struct {
-	Plus       bool
+	Force      bool
 	Negate     bool
 	src        string
 	srcStarInd int
@@ -77,7 +77,7 @@ func (s *Refspec) DstForRef(p string) string {
 
 func (s *Refspec) String() string {
 	sl := []string{}
-	if s.Plus {
+	if s.Force {
 		sl = append(sl, "+")
 	}
 	if s.Negate {
@@ -113,7 +113,7 @@ func (s *Refspec) UnmarshalText(text []byte) error {
 	off := 0
 	n := len(text)
 	if text[0] == '+' {
-		s.Plus = true
+		s.Force = true
 		off += 1
 	}
 	if text[0] == '^' {

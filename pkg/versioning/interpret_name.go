@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 )
 
 var (
-	HeadPattern  = regexp.MustCompile(`^[-_0-9a-zA-Z]+$`)
+	HeadPattern  = regexp.MustCompile(`^[-_0-9a-zA-Z/]+$`)
 	HashPattern  = regexp.MustCompile(`^[a-f0-9]{32}$`)
 	peelPattern  = regexp.MustCompile(`^(.*[^\^])(\^+)$`)
 	tildePattern = regexp.MustCompile(`^(.*[^\~])\~(\d+)$`)
@@ -45,43 +47,93 @@ func peelCommit(db kv.DB, hash []byte, commit *objects.Commit, numPeel int) ([]b
 	return hash, commit, nil
 }
 
-func InterpretCommitName(db kv.DB, commitStr string) (hash []byte, commit *objects.Commit, file *os.File, err error) {
-	commitName, numPeel, err := parseNavigationChars(commitStr)
+func interpretRef(db kv.DB, name string, excludeTag bool) (ref string, sum []byte, err error) {
+	m, err := ListAllRefs(db)
 	if err != nil {
-		return nil, nil, nil, err
+		return
 	}
-	if db != nil && HashPattern.MatchString(commitName) {
-		hash, err = hex.DecodeString(commitName)
+	sl := make([]string, 0, len(m))
+	for k := range m {
+		if excludeTag && strings.HasPrefix(k, "refs/tags/") {
+			continue
+		}
+		sl = append(sl, k)
+	}
+	sort.Slice(sl, func(i, j int) bool {
+		if strings.HasPrefix(sl[i], "refs/heads/") {
+			if strings.HasPrefix(sl[j], "refs/heads/") {
+				return sl[i] < sl[j]
+			}
+			return true
+		} else if strings.HasPrefix(sl[i], "refs/tags/") {
+			if strings.HasPrefix(sl[j], "refs/heads/") {
+				return false
+			} else if strings.HasPrefix(sl[j], "refs/tags/") {
+				return sl[i] < sl[j]
+			}
+			return true
+		} else if strings.HasPrefix(sl[i], "refs/remotes/") {
+			if strings.HasPrefix(sl[j], "refs/heads/") || strings.HasPrefix(sl[j], "refs/tags/") {
+				return false
+			} else if strings.HasPrefix(sl[j], "refs/remotes/") {
+				return sl[i] < sl[j]
+			}
+			return true
+		}
+		if strings.HasPrefix(sl[j], "refs/heads/") || strings.HasPrefix(sl[j], "refs/tags/") || strings.HasPrefix(sl[j], "refs/remotes/") {
+			return false
+		}
+		return sl[i] < sl[j]
+	})
+	for _, ref := range sl {
+		if ref == name || strings.HasSuffix(ref, "/"+name) {
+			sum, err := GetRef(db, ref[5:])
+			if err != nil {
+				return name, nil, err
+			}
+			return ref, sum, nil
+		}
+	}
+	return name, nil, kv.KeyNotFoundError
+}
+
+func InterpretCommitName(db kv.DB, commitStr string, excludeTag bool) (name string, hash []byte, commit *objects.Commit, file *os.File, err error) {
+	name, numPeel, err := parseNavigationChars(commitStr)
+	if err != nil {
+		return "", nil, nil, nil, err
+	}
+	if db != nil && HashPattern.MatchString(name) {
+		hash, err = hex.DecodeString(name)
 		if err != nil {
 			return
 		}
 		commit, err = GetCommit(db, hash)
 		if err == nil {
 			hash, commit, err = peelCommit(db, hash, commit, numPeel)
+			name = hex.EncodeToString(hash)
 			return
 		}
 	}
-	if db != nil && HeadPattern.MatchString(commitName) {
+	if db != nil && HeadPattern.MatchString(name) {
 		var commitSum []byte
-		commitSum, err = GetHead(db, commitName)
+		name, commitSum, err = interpretRef(db, name, excludeTag)
 		if err == nil {
-			hash = commitSum[:]
-			commit, err = GetCommit(db, hash)
+			commit, err = GetCommit(db, commitSum)
 			if err != nil {
-				return nil, nil, nil, err
+				return "", nil, nil, nil, err
 			}
-			hash, commit, err = peelCommit(db, hash, commit, numPeel)
+			hash, commit, err = peelCommit(db, commitSum, commit, numPeel)
 			return
 		}
 	}
-	file, err = os.Open(commitName)
+	file, err = os.Open(name)
 	if err == nil {
-		return nil, nil, file, err
+		return file.Name(), nil, nil, file, nil
 	}
-	if db != nil && HashPattern.MatchString(commitName) {
-		return nil, nil, nil, fmt.Errorf("can't find commit %s", commitName)
-	} else if db != nil && HeadPattern.MatchString(commitName) {
-		return nil, nil, nil, fmt.Errorf("can't find branch %s", commitName)
+	if db != nil && HashPattern.MatchString(name) {
+		return "", nil, nil, nil, fmt.Errorf("can't find commit %s", name)
+	} else if db != nil && HeadPattern.MatchString(name) {
+		return "", nil, nil, nil, fmt.Errorf("can't find branch %s", name)
 	}
-	return nil, nil, nil, fmt.Errorf("can't find file %s", commitName)
+	return "", nil, nil, nil, fmt.Errorf("can't find file %s", name)
 }

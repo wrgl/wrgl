@@ -25,7 +25,7 @@ func TestRefSpec(t *testing.T) {
 		require.NoError(t, err, "case %d", i)
 		assert.Equal(t, c.Src, rs.Src(), "case %d", i)
 		assert.Equal(t, c.Dst, rs.Dst(), "case %d", i)
-		assert.Equal(t, c.Plus, rs.Plus, "case %d", i)
+		assert.Equal(t, c.Plus, rs.Force, "case %d", i)
 		assert.Equal(t, c.Negate, rs.Negate, "case %d", i)
 		b, err := rs.MarshalText()
 		require.NoError(t, err, "case %d", i)

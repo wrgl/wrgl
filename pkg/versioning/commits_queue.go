@@ -191,3 +191,23 @@ func (q *CommitsQueue) Seen(b []byte) bool {
 	_, ok := q.seen[string(b)]
 	return ok
 }
+
+// IsAncestorOf returns true if "commit1" is ancestor of "commit2"
+func IsAncestorOf(db kv.DB, commit1, commit2 []byte) (ok bool, err error) {
+	q, err := NewCommitsQueue(db, [][]byte{commit2})
+	if err != nil {
+		return
+	}
+	for {
+		sum, _, err := q.PopInsertParents()
+		if err == io.EOF {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if string(sum) == string(commit1) {
+			return true, nil
+		}
+	}
+}
