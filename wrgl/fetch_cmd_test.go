@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/pack"
 	packtest "github.com/wrgl/core/pkg/pack/test"
 	"github.com/wrgl/core/pkg/table"
@@ -47,6 +48,7 @@ func TestFetchCmd(t *testing.T) {
 	sum4, c4 := packtest.CreateCommit(t, dbs, fss, [][]byte{sum3})
 	require.NoError(t, versioning.CommitHead(dbs, fss, "main", sum2, c2))
 	require.NoError(t, versioning.CommitHead(dbs, fss, "tickets", sum4, c4))
+	require.NoError(t, versioning.SaveTag(dbs, "2020", sum1))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(dbs))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, fss))
 
@@ -70,6 +72,7 @@ func TestFetchCmd(t *testing.T) {
 		"From " + packtest.TestOrigin,
 		" * [new branch]        main        -> origin/main",
 		" * [new branch]        tickets     -> origin/tickets",
+		" * [new tag]           2020        -> 2020",
 		"",
 	}, "\n"))
 	db, err = rd.OpenKVStore()
@@ -81,7 +84,24 @@ func TestFetchCmd(t *testing.T) {
 	sum, err = versioning.GetRemoteRef(db, "origin", "tickets")
 	require.NoError(t, err)
 	assert.Equal(t, sum4, sum)
+	sum, err = versioning.GetTag(db, "2020")
+	require.NoError(t, err)
+	assert.Equal(t, sum1, sum)
 	assertCommitsPersisted(t, db, fs, [][]byte{sum2, sum4})
+	versioning.AssertLatestReflogEqual(t, fs, "remotes/origin/main", &objects.Reflog{
+		NewOID:      sum2,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "fetch",
+		Message:     "storing head",
+	})
+	versioning.AssertLatestReflogEqual(t, fs, "remotes/origin/tickets", &objects.Reflog{
+		NewOID:      sum4,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "fetch",
+		Message:     "storing head",
+	})
 }
 
 func TestFetchCmdAllRepos(t *testing.T) {
@@ -189,6 +209,13 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
 	assertCommitsPersisted(t, db, fs, [][]byte{sum1})
+	versioning.AssertLatestReflogEqual(t, fs, "custom/abc", &objects.Reflog{
+		NewOID:      sum,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "fetch",
+		Message:     "storing ref",
+	})
 }
 
 func TestFetchCmdTag(t *testing.T) {
@@ -204,18 +231,27 @@ func TestFetchCmdTag(t *testing.T) {
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
 
-	_, cleanUp := createRepoDir(t)
+	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
+	db, err := rd.OpenKVStore()
+	require.NoError(t, err)
+	fs := rd.OpenFileStore()
+	sum3, _ := packtest.CreateCommit(t, db, fs, nil)
+	require.NoError(t, versioning.SaveTag(db, "2020-dec", sum3))
+	sum4, _ := packtest.CreateCommit(t, db, fs, nil)
+	require.NoError(t, versioning.SaveTag(db, "2021-dec", sum4))
+	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", packtest.TestOrigin})
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
-	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/2020*:refs/tags/2020*"})
+	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/202*:refs/tags/202*"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
 		" ! [rejected]          2020-dec    -> 2020-dec (would clobber existing tag)",
+		" ! [rejected]          2021-dec    -> 2021-dec (would clobber existing tag)",
 		"",
 	}, "\n"), fmt.Errorf("failed to fetch some refs from "+packtest.TestOrigin))
 
@@ -226,6 +262,21 @@ func TestFetchCmdTag(t *testing.T) {
 		" t [tag update]        2020-dec    -> 2020-dec",
 		"",
 	}, "\n"))
+	db, err = rd.OpenKVStore()
+	require.NoError(t, err)
+	sum, err := versioning.GetTag(db, "2020-dec")
+	require.NoError(t, err)
+	assert.Equal(t, sum1, sum)
+	assertCommitsPersisted(t, db, fs, [][]byte{sum1})
+	versioning.AssertLatestReflogEqual(t, fs, "tags/2020-dec", &objects.Reflog{
+		OldOID:      sum3,
+		NewOID:      sum1,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "fetch",
+		Message:     "updating tag",
+	})
+	require.NoError(t, db.Close())
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/2021*:refs/tags/2021*", "--force"})
@@ -234,6 +285,21 @@ func TestFetchCmdTag(t *testing.T) {
 		" t [tag update]        2021-dec    -> 2021-dec",
 		"",
 	}, "\n"))
+	db, err = rd.OpenKVStore()
+	require.NoError(t, err)
+	sum, err = versioning.GetTag(db, "2021-dec")
+	require.NoError(t, err)
+	assert.Equal(t, sum2, sum)
+	assertCommitsPersisted(t, db, fs, [][]byte{sum2})
+	versioning.AssertLatestReflogEqual(t, fs, "tags/2021-dec", &objects.Reflog{
+		OldOID:      sum4,
+		NewOID:      sum2,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "fetch",
+		Message:     "updating tag",
+	})
+	require.NoError(t, db.Close())
 }
 
 func TestFetchCmdForceUpdate(t *testing.T) {
@@ -275,4 +341,20 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 		fmt.Sprintf(" + %s..%s    abc         -> abc (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum1)[:7]),
 		"",
 	}, "\n"))
+
+	db, err = rd.OpenKVStore()
+	require.NoError(t, err)
+	defer db.Close()
+	sum, err := versioning.GetHead(db, "abc")
+	require.NoError(t, err)
+	assert.Equal(t, sum1, sum)
+	assertCommitsPersisted(t, db, fs, [][]byte{sum1})
+	versioning.AssertLatestReflogEqual(t, fs, "heads/abc", &objects.Reflog{
+		OldOID:      sum2,
+		NewOID:      sum1,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "fetch",
+		Message:     "forced-update",
+	})
 }

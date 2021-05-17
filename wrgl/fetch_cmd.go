@@ -5,10 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mmcloughlin/meow"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/encoding"
@@ -134,13 +134,15 @@ type Ref struct {
 	Force bool
 }
 
-func identifyRefsToFetch(client *packclient.Client, specs []*versioning.Refspec) (refs []*Ref, dstRefs map[string][]byte, advertised [][]byte, err error) {
+func identifyRefsToFetch(client *packclient.Client, specs []*versioning.Refspec) (refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
 	m, err := client.GetRefsInfo()
 	if err != nil {
 		return
 	}
 	dstRefs = map[string][]byte{}
+	maybeSaveTags = map[string][]byte{}
 	for ref, sum := range m {
+		covered := false
 		for _, spec := range specs {
 			dst := spec.DstForRef(ref)
 			if dst != "" {
@@ -149,7 +151,11 @@ func identifyRefsToFetch(client *packclient.Client, specs []*versioning.Refspec)
 				refs = append(refs, &Ref{
 					ref, dst, spec.Force,
 				})
+				covered = true
 			}
+		}
+		if !covered && strings.HasPrefix(ref, "refs/tags/") {
+			maybeSaveTags[ref] = sum
 		}
 	}
 	return
@@ -172,12 +178,32 @@ func displayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, remote, lo
 	cmd.Printf(" %c %-19s %-11s -> %s%s\n", code, summary, remote, local, errStr)
 }
 
-func saveFetchedRefs(cmd *cobra.Command, u *versioning.ConfigUser, db kv.Store, fs kv.FileStore, remoteURL string, refs []*Ref, dstRefs map[string][]byte, force bool) error {
+func saveFetchedRefs(cmd *cobra.Command, u *versioning.ConfigUser, db kv.Store, fs kv.FileStore, remoteURL string, refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, force bool) error {
 	someFailed := false
+	// if a remote tag point to an existing object then save that tag
+	for ref, sum := range maybeSaveTags {
+		if !versioning.CommitExist(db, sum) {
+			continue
+		}
+		_, err := versioning.GetRef(db, ref[5:])
+		if err != nil {
+			refs = append(refs, &Ref{ref, ref, false})
+			dstRefs[ref] = sum
+		}
+	}
+	// sort refs so that output is always deterministic
+	sort.Slice(refs, func(i, j int) bool {
+		if refs[i].Src < refs[j].Src {
+			return true
+		} else if refs[i].Src > refs[j].Src {
+			return false
+		}
+		return refs[i].Dst < refs[j].Dst
+	})
 	for _, ref := range refs {
 		oldSum, _ := versioning.GetRef(db, ref.Dst[5:])
 		sum := dstRefs[ref.Dst]
-		if strings.HasPrefix(ref.Dst, "refs/tags/") {
+		if oldSum != nil && strings.HasPrefix(ref.Dst, "refs/tags/") {
 			if force || ref.Force {
 				err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "updating tag")
 				if err != nil {
@@ -246,18 +272,7 @@ func saveFetchedRefs(cmd *cobra.Command, u *versioning.ConfigUser, db kv.Store, 
 	return nil
 }
 
-func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, dryRun, force bool) (refs []*Ref, dstRefs map[string][]byte, err error) {
-	cmd.Printf("From %s\n", cr.URL)
-	client, err := packclient.NewClient(cr.URL)
-	if err != nil {
-		return
-	}
-	refs, dstRefs, advertised, err := identifyRefsToFetch(client, specs)
-	if err != nil {
-		return
-	}
-	spew.Dump(refs)
-	spew.Dump(dstRefs)
+func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *packclient.Client, advertised [][]byte, dryRun bool) (err error) {
 	var wg sync.WaitGroup
 	oc := make(chan *packclient.Object, 100)
 	neg, err := packclient.NewNegotiator(db, fs, &wg, client, advertised, oc, 0)
@@ -282,9 +297,18 @@ func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versionin
 }
 
 func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, dryRun, force bool) error {
-	refs, dstRefs, err := fetchObjects(cmd, db, fs, u, remote, cr, specs, dryRun, force)
+	cmd.Printf("From %s\n", cr.URL)
+	client, err := packclient.NewClient(cr.URL)
 	if err != nil {
 		return err
 	}
-	return saveFetchedRefs(cmd, u, db, fs, cr.URL, refs, dstRefs, force)
+	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(client, specs)
+	if err != nil {
+		return err
+	}
+	err = fetchObjects(cmd, db, fs, client, advertised, dryRun)
+	if err != nil {
+		return err
+	}
+	return saveFetchedRefs(cmd, u, db, fs, cr.URL, refs, dstRefs, maybeSaveTags, force)
 }

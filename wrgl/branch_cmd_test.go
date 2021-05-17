@@ -48,7 +48,7 @@ func assertCmdFailed(t *testing.T, cmd *cobra.Command, output string, err error)
 	t.Helper()
 	buf := bytes.NewBufferString("")
 	cmd.SetOut(buf)
-	assert.Equal(t, cmd.Execute(), err)
+	assert.Equal(t, err, cmd.Execute())
 	assert.Equal(t, output, buf.String())
 }
 
