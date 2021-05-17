@@ -7,13 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/testutils"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestParseNavigationChars(t *testing.T) {
@@ -36,42 +33,33 @@ func TestParseNavigationChars(t *testing.T) {
 
 func TestGetPrevCommit(t *testing.T) {
 	db := kv.NewMockStore(false)
-	commit1 := &objects.Commit{Table: testutils.SecureRandomBytes(16)}
-	sum1, err := SaveCommit(db, 0, commit1)
-	require.NoError(t, err)
-	commit2 := &objects.Commit{Table: testutils.SecureRandomBytes(16), Parents: [][]byte{sum1}}
-	sum2, err := SaveCommit(db, 0, commit2)
-	require.NoError(t, err)
-	commit3 := &objects.Commit{Table: testutils.SecureRandomBytes(16), Parents: [][]byte{sum2}}
-	sum3, err := SaveCommit(db, 0, commit3)
-	require.NoError(t, err)
+	sum1, commit1 := SaveTestCommit(t, db, nil)
+	sum2, commit2 := SaveTestCommit(t, db, [][]byte{sum1})
+	sum3, commit3 := SaveTestCommit(t, db, [][]byte{sum2})
 
 	sum, commit, err := peelCommit(db, sum3, commit3, 0)
 	require.NoError(t, err)
 	assert.Equal(t, sum3, sum)
-	assert.True(t, cmp.Equal(commit3, commit, protocmp.Transform()))
+	objects.AssertCommitEqual(t, commit3, commit)
 
 	sum, commit, err = peelCommit(db, sum3, commit3, 1)
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	assert.True(t, cmp.Equal(commit2, commit, protocmp.Transform()))
+	objects.AssertCommitEqual(t, commit2, commit)
 
 	sum, commit, err = peelCommit(db, sum3, commit3, 2)
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	assert.True(t, cmp.Equal(commit1, commit, protocmp.Transform()))
+	objects.AssertCommitEqual(t, commit1, commit)
 }
 
 func TestInterpretCommitName(t *testing.T) {
 	db := kv.NewMockStore(false)
-	commit1 := &objects.Commit{Table: testutils.SecureRandomBytes(16)}
-	sum1, err := SaveCommit(db, 0, commit1)
-	require.NoError(t, err)
-	commit2 := &objects.Commit{Table: testutils.SecureRandomBytes(16), Parents: [][]byte{sum1}}
-	sum2, err := SaveCommit(db, 0, commit2)
-	require.NoError(t, err)
+	fs := kv.NewMockStore(false)
+	sum1, commit1 := SaveTestCommit(t, db, nil)
+	sum2, commit2 := SaveTestCommit(t, db, [][]byte{sum1})
 	branchName := "my-branch"
-	err = SaveHead(db, branchName, sum2)
+	err := CommitHead(db, fs, branchName, sum2, commit2)
 	require.NoError(t, err)
 	file, err := ioutil.TempFile("", "test_versioning_*.csv")
 	require.NoError(t, err)
@@ -101,7 +89,11 @@ func TestInterpretCommitName(t *testing.T) {
 		sum, commit, file, err := InterpretCommitName(c.db, c.commitStr)
 		require.Equal(t, c.err, err, "case %d", i)
 		assert.Equal(t, c.sum, sum)
-		assert.True(t, cmp.Equal(c.commit, commit, protocmp.Transform()))
+		if c.commit == nil {
+			assert.Nil(t, commit)
+		} else {
+			objects.AssertCommitEqual(t, c.commit, commit)
+		}
 		assert.Equal(t, c.fileIsNil, file == nil)
 	}
 }

@@ -16,11 +16,11 @@ func TestUploadPack(t *testing.T) {
 	defer httpmock.Deactivate()
 	db := kv.NewMockStore(false)
 	fs := kv.NewMockStore(false)
-	sum1, _ := packtest.CreateCommit(t, db, fs, nil)
-	sum2, _ := packtest.CreateCommit(t, db, fs, [][]byte{sum1})
+	sum1, c1 := packtest.CreateCommit(t, db, fs, nil)
+	sum2, c2 := packtest.CreateCommit(t, db, fs, [][]byte{sum1})
 	sum3, _ := packtest.CreateCommit(t, db, fs, nil)
 	sum4, _ := packtest.CreateCommit(t, db, fs, [][]byte{sum3})
-	require.NoError(t, versioning.SaveHead(db, "main", sum2))
+	require.NoError(t, versioning.CommitHead(db, fs, "main", sum2, c2))
 	require.NoError(t, versioning.SaveTag(db, "v1", sum4))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", NewUploadPackHandler(db, fs))
 
@@ -30,7 +30,7 @@ func TestUploadPack(t *testing.T) {
 	packtest.AssertSentMissingCommits(t, db, fs, oc, [][]byte{sum1, sum2}, nil)
 
 	packtest.CopyCommitsToNewStore(t, db, dbc, fs, fsc, [][]byte{sum1})
-	require.NoError(t, versioning.SaveHead(dbc, "main", sum1))
+	require.NoError(t, versioning.CommitHead(dbc, fsc, "main", sum1, c1))
 	oc = packtest.FetchObjects(t, dbc, fsc, [][]byte{sum2}, 0)
 	packtest.AssertSentMissingCommits(t, db, fs, oc, [][]byte{sum2}, [][]byte{sum1})
 

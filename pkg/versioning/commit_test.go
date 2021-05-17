@@ -57,6 +57,7 @@ func TestGetAllCommits(t *testing.T) {
 			Message:     "msg-1",
 			Table:       testutils.SecureRandomBytes(16),
 			Parents:     [][]byte{testutils.SecureRandomBytes(16)},
+			Time:        time.Now().Round(time.Second),
 		},
 		{
 			AuthorEmail: "author-2@domain.com",
@@ -64,6 +65,7 @@ func TestGetAllCommits(t *testing.T) {
 			Message:     "msg-2",
 			Table:       testutils.SecureRandomBytes(16),
 			Parents:     [][]byte{testutils.SecureRandomBytes(16)},
+			Time:        time.Now().Add(24 * time.Hour).Round(time.Second),
 		},
 	}
 	sort.Slice(commits, func(i, j int) bool { return string(commits[i].Table[:]) < string(commits[j].Table[:]) })

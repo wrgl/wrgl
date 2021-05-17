@@ -36,7 +36,7 @@ func EncodeTimeFunc(t time.Time) EncodeFunc {
 }
 
 func EncodeTime(t time.Time) []byte {
-	return []byte(fmt.Sprintf("%d %s", t.Unix(), t.Format("-0700")))
+	return []byte(fmt.Sprintf("%010d %s", t.Unix(), t.Format("-0700")))
 }
 
 type DecodeFunc func(p *Parser) error

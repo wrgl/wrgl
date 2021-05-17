@@ -18,18 +18,25 @@ func TestInfoRefs(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 	db := kv.NewMockStore(false)
-	sum1 := testutils.SecureRandomBytes(16)
+	fs := kv.NewMockStore(false)
+	sum1, commit1 := versioning.SaveTestCommit(t, db, nil)
 	head := "my-branch"
-	err := versioning.SaveHead(db, head, sum1)
+	err := versioning.CommitHead(db, fs, head, sum1, commit1)
 	require.NoError(t, err)
-	sum2 := testutils.SecureRandomBytes(16)
+	sum2, _ := versioning.SaveTestCommit(t, db, nil)
 	tag := "my-tag"
 	err = versioning.SaveTag(db, tag, sum2)
 	require.NoError(t, err)
-	sum3 := testutils.SecureRandomBytes(16)
+	sum3, _ := versioning.SaveTestCommit(t, db, nil)
 	remote := "origin"
 	name := "main"
-	err = versioning.SaveRemoteRef(db, remote, name, sum3)
+	err = versioning.SaveRemoteRef(
+		db, fs, remote, name, sum3,
+		testutils.BrokenRandomAlphaNumericString(8),
+		testutils.BrokenRandomAlphaNumericString(10),
+		"fetch",
+		"from origin",
+	)
 	require.NoError(t, err)
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", NewInfoRefsHandler(db))
 

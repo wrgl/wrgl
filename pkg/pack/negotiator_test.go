@@ -14,13 +14,14 @@ import (
 
 func TestNegotiatorHandleUploadPackRequest(t *testing.T) {
 	db := kv.NewMockStore(false)
+	fs := kv.NewMockStore(false)
 	sum1, c1 := versioning.SaveTestCommit(t, db, nil)
 	sum2, c2 := versioning.SaveTestCommit(t, db, nil)
 	sum3, c3 := versioning.SaveTestCommit(t, db, [][]byte{sum1})
 	sum4, c4 := versioning.SaveTestCommit(t, db, [][]byte{sum2})
 	sum5, c5 := versioning.SaveTestCommit(t, db, [][]byte{sum3})
 	sum6, c6 := versioning.SaveTestCommit(t, db, [][]byte{sum4})
-	require.NoError(t, versioning.SaveHead(db, "main", sum5))
+	require.NoError(t, versioning.CommitHead(db, fs, "main", sum5, c5))
 	require.NoError(t, versioning.SaveTag(db, "v1", sum6))
 
 	// send everything if haves are empty
@@ -42,13 +43,14 @@ func TestNegotiatorHandleUploadPackRequest(t *testing.T) {
 
 func TestNegotiatorSendACKs(t *testing.T) {
 	db := kv.NewMockStore(false)
+	fs := kv.NewMockStore(false)
 	sum1, _ := versioning.SaveTestCommit(t, db, nil)
 	sum2, _ := versioning.SaveTestCommit(t, db, nil)
 	sum3, c3 := versioning.SaveTestCommit(t, db, [][]byte{sum1})
 	sum4, c4 := versioning.SaveTestCommit(t, db, [][]byte{sum2})
 	sum5, c5 := versioning.SaveTestCommit(t, db, [][]byte{sum3})
 	sum6, c6 := versioning.SaveTestCommit(t, db, [][]byte{sum4})
-	require.NoError(t, versioning.SaveHead(db, "main", sum5))
+	require.NoError(t, versioning.CommitHead(db, fs, "main", sum5, c5))
 	require.NoError(t, versioning.SaveTag(db, "v1", sum6))
 
 	neg := NewNegotiator()
@@ -70,9 +72,10 @@ func TestNegotiatorSendACKs(t *testing.T) {
 
 func TestNegotiatorFoundUnrecognizedWants(t *testing.T) {
 	db := kv.NewMockStore(false)
+	fs := kv.NewMockStore(false)
 	sum1, _ := versioning.SaveTestCommit(t, db, nil)
-	sum2, _ := versioning.SaveTestCommit(t, db, [][]byte{sum1})
-	require.NoError(t, versioning.SaveHead(db, "main", sum2))
+	sum2, c2 := versioning.SaveTestCommit(t, db, [][]byte{sum1})
+	require.NoError(t, versioning.CommitHead(db, fs, "main", sum2, c2))
 	sum3 := testutils.SecureRandomBytes(16)
 	neg := NewNegotiator()
 	_, err := neg.HandleUploadPackRequest(db, nil, [][]byte{sum1}, false)
