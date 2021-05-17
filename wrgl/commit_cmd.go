@@ -119,12 +119,11 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	if parent != nil {
 		commit.Parents = [][]byte{parent}
 	}
-	// commit.TableType = tsType
 	commitSum, err := versioning.SaveCommit(kvStore, seed, commit)
 	if err != nil {
 		return err
 	}
-	err = versioning.SaveHead(kvStore, branchName, commitSum)
+	err = versioning.CommitHead(kvStore, fs, branchName, commitSum, commit)
 	if err != nil {
 		return err
 	}

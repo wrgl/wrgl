@@ -35,9 +35,39 @@ func TestSaveRef(t *testing.T) {
 	sum1, err := RenameRef(db, fs, "remotes/origin/abc", "remotes/origin2/abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum, sum1)
+	_, err = GetRef(db, "remotes/origin/abc")
+	assert.Error(t, err)
+	sum1, err = GetRef(db, "remotes/origin2/abc")
+	require.NoError(t, err)
+	assert.Equal(t, sum, sum1)
 	_, err = fs.Reader([]byte("logs/refs/remotes/origin/abc"))
 	assert.Error(t, err)
 	AssertLatestReflogEqual(t, fs, "remotes/origin2/abc", &objects.Reflog{
+		NewOID:      sum,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@doe.com",
+		Action:      "fetch",
+		Message:     "from origin",
+	})
+
+	// test CopyRef
+	sum2, err := CopyRef(db, fs, "remotes/origin2/abc", "remotes/origin2/def")
+	require.NoError(t, err)
+	assert.Equal(t, sum, sum2)
+	sum2, err = GetRef(db, "remotes/origin2/abc")
+	require.NoError(t, err)
+	assert.Equal(t, sum, sum2)
+	sum2, err = GetRef(db, "remotes/origin2/def")
+	require.NoError(t, err)
+	assert.Equal(t, sum, sum2)
+	AssertLatestReflogEqual(t, fs, "remotes/origin2/abc", &objects.Reflog{
+		NewOID:      sum,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@doe.com",
+		Action:      "fetch",
+		Message:     "from origin",
+	})
+	AssertLatestReflogEqual(t, fs, "remotes/origin2/def", &objects.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",

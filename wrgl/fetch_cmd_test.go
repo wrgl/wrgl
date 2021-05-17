@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
@@ -38,12 +41,12 @@ func TestFetchCmd(t *testing.T) {
 	defer httpmock.Deactivate()
 	dbs := kv.NewMockStore(false)
 	fss := kv.NewMockStore(false)
-	sum1, _ := packtest.CreateCommit(t, dbs, fss, nil)
-	sum2, _ := packtest.CreateCommit(t, dbs, fss, [][]byte{sum1})
-	sum3, _ := packtest.CreateCommit(t, dbs, fss, nil)
-	sum4, _ := packtest.CreateCommit(t, dbs, fss, [][]byte{sum3})
-	require.NoError(t, versioning.SaveHead(dbs, "main", sum2))
-	require.NoError(t, versioning.SaveHead(dbs, "tickets", sum4))
+	sum1, c1 := packtest.CreateCommit(t, dbs, fss, nil)
+	sum2, c2 := packtest.CreateCommit(t, dbs, fss, [][]byte{sum1})
+	sum3, c3 := packtest.CreateCommit(t, dbs, fss, nil)
+	sum4, c4 := packtest.CreateCommit(t, dbs, fss, [][]byte{sum3})
+	require.NoError(t, versioning.CommitHead(dbs, fss, "main", sum2, c2))
+	require.NoError(t, versioning.CommitHead(dbs, fss, "tickets", sum4, c4))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(dbs))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, fss))
 
@@ -53,8 +56,8 @@ func TestFetchCmd(t *testing.T) {
 	require.NoError(t, err)
 	fs := rd.OpenFileStore()
 	packtest.CopyCommitsToNewStore(t, dbs, db, fss, fs, [][]byte{sum1, sum3})
-	require.NoError(t, versioning.SaveHead(db, "main", sum1))
-	require.NoError(t, versioning.SaveHead(db, "tickets", sum3))
+	require.NoError(t, versioning.CommitHead(db, fs, "main", sum1, c1))
+	require.NoError(t, versioning.CommitHead(db, fs, "tickets", sum3, c3))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
@@ -63,7 +66,12 @@ func TestFetchCmd(t *testing.T) {
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch"})
-	require.NoError(t, cmd.Execute())
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"From " + packtest.TestOrigin,
+		" * [new branch]        main        -> origin/main",
+		" * [new branch]        tickets     -> origin/tickets",
+		"",
+	}, "\n"))
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
@@ -82,24 +90,24 @@ func TestFetchCmdAllRepos(t *testing.T) {
 
 	db1 := kv.NewMockStore(false)
 	fs1 := kv.NewMockStore(false)
-	sum1, _ := packtest.CreateCommit(t, db1, fs1, nil)
-	require.NoError(t, versioning.SaveHead(db1, "main", sum1))
+	sum1, c1 := packtest.CreateCommit(t, db1, fs1, nil)
+	require.NoError(t, versioning.CommitHead(db1, fs1, "main", sum1, c1))
 	url1 := "https://origin.remote"
 	packtest.RegisterHandlerWithOrigin(url1, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
 	packtest.RegisterHandlerWithOrigin(url1, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
 
 	db2 := kv.NewMockStore(false)
 	fs2 := kv.NewMockStore(false)
-	sum2, _ := packtest.CreateCommit(t, db2, fs2, nil)
-	require.NoError(t, versioning.SaveHead(db2, "main", sum2))
+	sum2, c2 := packtest.CreateCommit(t, db2, fs2, nil)
+	require.NoError(t, versioning.CommitHead(db2, fs2, "main", sum2, c2))
 	url2 := "https://acme.remote"
 	packtest.RegisterHandlerWithOrigin(url2, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db2))
 	packtest.RegisterHandlerWithOrigin(url2, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db2, fs2))
 
 	db3 := kv.NewMockStore(false)
 	fs3 := kv.NewMockStore(false)
-	sum3, _ := packtest.CreateCommit(t, db3, fs3, nil)
-	require.NoError(t, versioning.SaveHead(db3, "main", sum3))
+	sum3, c3 := packtest.CreateCommit(t, db3, fs3, nil)
+	require.NoError(t, versioning.CommitHead(db3, fs3, "main", sum3, c3))
 	url3 := "https://home.remote"
 	packtest.RegisterHandlerWithOrigin(url3, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db3))
 	packtest.RegisterHandlerWithOrigin(url3, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db3, fs3))
@@ -155,7 +163,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	db1 := kv.NewMockStore(false)
 	fs1 := kv.NewMockStore(false)
 	sum1, _ := packtest.CreateCommit(t, db1, fs1, nil)
-	require.NoError(t, versioning.SaveTag(db1, "v1", sum1))
+	require.NoError(t, versioning.SaveRef(db1, fs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom"))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
 
@@ -168,13 +176,103 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
-	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/*:refs/remotes/origin/tags/*"})
-	require.NoError(t, cmd.Execute())
+	cmd.SetArgs([]string{"fetch", "origin", "refs/custom/abc:refs/custom/abc"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"From " + packtest.TestOrigin,
+		" * [new ref]           refs/custom/abc -> refs/custom/abc",
+		"",
+	}, "\n"))
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetRef(db, "remotes/origin/tags/v1")
+	sum, err := versioning.GetRef(db, "custom/abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
 	assertCommitsPersisted(t, db, fs, [][]byte{sum1})
+}
+
+func TestFetchCmdTag(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.Deactivate()
+
+	db1 := kv.NewMockStore(false)
+	fs1 := kv.NewMockStore(false)
+	sum1, _ := packtest.CreateCommit(t, db1, fs1, nil)
+	require.NoError(t, versioning.SaveTag(db1, "2020-dec", sum1))
+	sum2, _ := packtest.CreateCommit(t, db1, fs1, nil)
+	require.NoError(t, versioning.SaveTag(db1, "2021-dec", sum2))
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
+
+	_, cleanUp := createRepoDir(t)
+	defer cleanUp()
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"remote", "add", "origin", packtest.TestOrigin})
+	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/2020*:refs/tags/2020*"})
+	assertCmdFailed(t, cmd, strings.Join([]string{
+		"From " + packtest.TestOrigin,
+		" ! [rejected]          2020-dec    -> 2020-dec (would clobber existing tag)",
+		"",
+	}, "\n"), fmt.Errorf("failed to fetch some refs from "+packtest.TestOrigin))
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"fetch", "origin", "+refs/tags/2020*:refs/tags/2020*"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"From " + packtest.TestOrigin,
+		" t [tag update]        2020-dec    -> 2020-dec",
+		"",
+	}, "\n"))
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/2021*:refs/tags/2021*", "--force"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"From " + packtest.TestOrigin,
+		" t [tag update]        2021-dec    -> 2021-dec",
+		"",
+	}, "\n"))
+}
+
+func TestFetchCmdForceUpdate(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.Deactivate()
+
+	db1 := kv.NewMockStore(false)
+	fs1 := kv.NewMockStore(false)
+	sum1, c1 := packtest.CreateCommit(t, db1, fs1, nil)
+	require.NoError(t, versioning.CommitHead(db1, fs1, "abc", sum1, c1))
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
+
+	rd, cleanUp := createRepoDir(t)
+	db, err := rd.OpenKVStore()
+	require.NoError(t, err)
+	defer cleanUp()
+	fs := rd.OpenFileStore()
+	sum2, c2 := packtest.CreateCommit(t, db, fs, nil)
+	require.NoError(t, versioning.CommitHead(db, fs, "abc", sum2, c2))
+	require.NoError(t, db.Close())
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"remote", "add", "origin", packtest.TestOrigin})
+	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"fetch", "origin", "refs/heads/abc:refs/heads/abc"})
+	assertCmdFailed(t, cmd, strings.Join([]string{
+		"From " + packtest.TestOrigin,
+		" ! [rejected]          abc         -> abc (non-fast-forward)",
+		"",
+	}, "\n"), fmt.Errorf("failed to fetch some refs from "+packtest.TestOrigin))
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"fetch", "origin", "+refs/heads/abc:refs/heads/abc"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"From " + packtest.TestOrigin,
+		fmt.Sprintf(" + %s..%s    abc         -> abc (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum1)[:7]),
+		"",
+	}, "\n"))
 }

@@ -3,8 +3,6 @@ package versioning
 import (
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -61,10 +59,6 @@ func TestInterpretCommitName(t *testing.T) {
 	branchName := "my-branch"
 	err := CommitHead(db, fs, branchName, sum2, commit2)
 	require.NoError(t, err)
-	file, err := ioutil.TempFile("", "test_versioning_*.csv")
-	require.NoError(t, err)
-	defer os.Remove(file.Name())
-	require.NoError(t, file.Close())
 
 	for i, c := range []struct {
 		db        kv.DB
@@ -72,22 +66,16 @@ func TestInterpretCommitName(t *testing.T) {
 		name      string
 		sum       []byte
 		commit    *objects.Commit
-		fileIsNil bool
 		err       error
 	}{
-		{db, "my-branch", "refs/heads/my-branch", sum2, commit2, true, nil},
-		{db, "my-branch^", "refs/heads/my-branch", sum1, commit1, true, nil},
-		{db, hex.EncodeToString(sum2), hex.EncodeToString(sum2), sum2, commit2, true, nil},
-		{db, fmt.Sprintf("%s~1", hex.EncodeToString(sum2)), hex.EncodeToString(sum1), sum1, commit1, true, nil},
-		{db, file.Name(), file.Name(), nil, nil, false, nil},
-		{db, "aaaabbbbccccdddd0000111122223333", "", nil, nil, true, fmt.Errorf("can't find commit aaaabbbbccccdddd0000111122223333")},
-		{db, "some-branch", "", nil, nil, true, fmt.Errorf("can't find branch some-branch")},
-		{db, "abc.csv", "", nil, nil, true, fmt.Errorf("can't find file abc.csv")},
-		{nil, "my-branch", "", nil, nil, true, fmt.Errorf("can't find file my-branch")},
-		{nil, hex.EncodeToString(sum2), "", nil, nil, true, fmt.Errorf("can't find file %s", hex.EncodeToString(sum2))},
-		{nil, file.Name(), file.Name(), nil, nil, false, nil},
+		{db, "my-branch", "refs/heads/my-branch", sum2, commit2, nil},
+		{db, "my-branch^", "refs/heads/my-branch", sum1, commit1, nil},
+		{db, hex.EncodeToString(sum2), hex.EncodeToString(sum2), sum2, commit2, nil},
+		{db, fmt.Sprintf("%s~1", hex.EncodeToString(sum2)), hex.EncodeToString(sum1), sum1, commit1, nil},
+		{db, "aaaabbbbccccdddd0000111122223333", "", nil, nil, fmt.Errorf("can't find commit aaaabbbbccccdddd0000111122223333")},
+		{db, "some-branch", "", nil, nil, fmt.Errorf("can't find branch some-branch")},
 	} {
-		name, sum, commit, file, err := InterpretCommitName(c.db, c.commitStr, false)
+		name, sum, commit, err := InterpretCommitName(c.db, c.commitStr, false)
 		require.Equal(t, c.err, err, "case %d", i)
 		assert.Equal(t, c.name, name)
 		assert.Equal(t, c.sum, sum)
@@ -96,7 +84,6 @@ func TestInterpretCommitName(t *testing.T) {
 		} else {
 			objects.AssertCommitEqual(t, c.commit, commit)
 		}
-		assert.Equal(t, c.fileIsNil, file == nil)
 	}
 }
 
@@ -118,43 +105,43 @@ func TestInterpretRefName(t *testing.T) {
 	sum7, c7 := SaveTestCommit(t, db, nil)
 	require.NoError(t, SaveRef(db, fs, "custom/ghj", sum7, "test", "test@domain.com", "test", "test interpret ref"))
 
-	name, sum, c, _, err := InterpretCommitName(db, "abc", false)
+	name, sum, c, err := InterpretCommitName(db, "abc", false)
 	require.NoError(t, err)
 	assert.Equal(t, "refs/heads/abc", name)
 	assert.Equal(t, sum1, sum)
 	objects.AssertCommitEqual(t, c1, c)
 
-	name, sum, c, _, err = InterpretCommitName(db, "tags/abc", false)
+	name, sum, c, err = InterpretCommitName(db, "tags/abc", false)
 	require.NoError(t, err)
 	assert.Equal(t, "refs/tags/abc", name)
 	assert.Equal(t, sum2, sum)
 	objects.AssertCommitEqual(t, c2, c)
 
-	name, sum, c, _, err = InterpretCommitName(db, "refs/remotes/origin/abc", false)
+	name, sum, c, err = InterpretCommitName(db, "refs/remotes/origin/abc", false)
 	require.NoError(t, err)
 	assert.Equal(t, "refs/remotes/origin/abc", name)
 	assert.Equal(t, sum3, sum)
 	objects.AssertCommitEqual(t, c3, c)
 
-	name, sum, c, _, err = InterpretCommitName(db, "def", false)
+	name, sum, c, err = InterpretCommitName(db, "def", false)
 	require.NoError(t, err)
 	assert.Equal(t, "refs/tags/def", name)
 	assert.Equal(t, sum4, sum)
 	objects.AssertCommitEqual(t, c4, c)
 
-	name, sum, c, _, err = InterpretCommitName(db, "def", true)
+	name, sum, c, err = InterpretCommitName(db, "def", true)
 	require.NoError(t, err)
 	assert.Equal(t, "refs/remotes/origin/def", name)
 	assert.Equal(t, sum5, sum)
 	objects.AssertCommitEqual(t, c5, c)
 
-	name, sum, c, _, err = InterpretCommitName(db, "ghj", false)
+	name, sum, c, err = InterpretCommitName(db, "ghj", false)
 	require.NoError(t, err)
 	assert.Equal(t, "refs/remotes/origin/ghj", name)
 	assert.Equal(t, sum6, sum)
 	objects.AssertCommitEqual(t, c6, c)
 
-	name, sum, c, _, err = InterpretCommitName(db, "custom/ghj", false)
+	name, sum, c, err = InterpretCommitName(db, "custom/ghj", false)
 	require.NoError(t, err)
 	assert.Equal(t, "refs/custom/ghj", name)
 	assert.Equal(t, sum7, sum)

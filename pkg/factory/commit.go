@@ -30,7 +30,6 @@ func Commit(t *testing.T, db kv.Store, fs kv.FileStore, branch string, rows []st
 		c.Parents = append(c.Parents, commitSum)
 	}
 	c.Table = sum
-	// c.TableType = objects.TableType_TS_SMALL
 	sum, err = versioning.SaveCommit(db, 0, c)
 	require.NoError(t, err)
 	require.NoError(t, versioning.CommitHead(db, fs, branch, sum, c))

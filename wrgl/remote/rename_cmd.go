@@ -30,7 +30,8 @@ func renameCmd() *cobra.Command {
 				return err
 			}
 			defer db.Close()
-			err = versioning.RenameAllRemoteRefs(db, oldRem, newRem)
+			fs := rd.OpenFileStore()
+			err = versioning.RenameAllRemoteRefs(db, fs, oldRem, newRem)
 			if err != nil {
 				return err
 			}

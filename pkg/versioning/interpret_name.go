@@ -3,7 +3,6 @@ package versioning
 import (
 	"encoding/hex"
 	"fmt"
-	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -97,12 +96,12 @@ func interpretRef(db kv.DB, name string, excludeTag bool) (ref string, sum []byt
 	return name, nil, kv.KeyNotFoundError
 }
 
-func InterpretCommitName(db kv.DB, commitStr string, excludeTag bool) (name string, hash []byte, commit *objects.Commit, file *os.File, err error) {
+func InterpretCommitName(db kv.DB, commitStr string, excludeTag bool) (name string, hash []byte, commit *objects.Commit, err error) {
 	name, numPeel, err := parseNavigationChars(commitStr)
 	if err != nil {
-		return "", nil, nil, nil, err
+		return "", nil, nil, err
 	}
-	if db != nil && HashPattern.MatchString(name) {
+	if HashPattern.MatchString(name) {
 		hash, err = hex.DecodeString(name)
 		if err != nil {
 			return
@@ -114,26 +113,20 @@ func InterpretCommitName(db kv.DB, commitStr string, excludeTag bool) (name stri
 			return
 		}
 	}
-	if db != nil && HeadPattern.MatchString(name) {
+	if HeadPattern.MatchString(name) {
 		var commitSum []byte
 		name, commitSum, err = interpretRef(db, name, excludeTag)
 		if err == nil {
 			commit, err = GetCommit(db, commitSum)
 			if err != nil {
-				return "", nil, nil, nil, err
+				return "", nil, nil, err
 			}
 			hash, commit, err = peelCommit(db, commitSum, commit, numPeel)
 			return
 		}
 	}
-	file, err = os.Open(name)
-	if err == nil {
-		return file.Name(), nil, nil, file, nil
+	if HashPattern.MatchString(name) {
+		return "", nil, nil, fmt.Errorf("can't find commit %s", name)
 	}
-	if db != nil && HashPattern.MatchString(name) {
-		return "", nil, nil, nil, fmt.Errorf("can't find commit %s", name)
-	} else if db != nil && HeadPattern.MatchString(name) {
-		return "", nil, nil, nil, fmt.Errorf("can't find branch %s", name)
-	}
-	return "", nil, nil, nil, fmt.Errorf("can't find file %s", name)
+	return "", nil, nil, fmt.Errorf("can't find branch %s", name)
 }

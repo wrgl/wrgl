@@ -53,8 +53,8 @@ func TestFindAllCommitsToRemove(t *testing.T) {
 	sum2, _ := factory.Commit(t, db, fs, "branch-1", nil, nil, nil)
 	sum3, _ := factory.Commit(t, db, fs, "branch-1", nil, nil, nil)
 	sum4, _ := factory.Commit(t, db, fs, "branch-2", nil, nil, nil)
-	require.NoError(t, versioning.DeleteHead(db, "branch-2"))
-	require.NoError(t, versioning.SaveHead(db, "branch-1", sum2))
+	require.NoError(t, versioning.DeleteHead(db, fs, "branch-2"))
+	require.NoError(t, versioning.SaveRef(db, fs, "heads/branch-1", sum2, "test", "test@domain.com", "test", "test pruning"))
 
 	cmd := newRootCmd()
 	cmd.SetOut(io.Discard)
@@ -103,8 +103,8 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	assertCommitsCount(t, db, 5)
 	assertTablesCount(t, db, fs, 4)
 	assertRowsCount(t, db, 8)
-	require.NoError(t, versioning.DeleteHead(db, "branch-2"))
-	require.NoError(t, versioning.SaveHead(db, "branch-1", sum1))
+	require.NoError(t, versioning.DeleteHead(db, fs, "branch-2"))
+	require.NoError(t, versioning.SaveRef(db, fs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning"))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()

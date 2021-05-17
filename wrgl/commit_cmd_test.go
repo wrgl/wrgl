@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/core/pkg/versioning"
 )
 
 func createRandomCSVFile(t *testing.T) (filePath string) {
@@ -28,7 +30,7 @@ func createRandomCSVFile(t *testing.T) (filePath string) {
 }
 
 func TestCommitCmd(t *testing.T) {
-	_, cleanup := createRepoDir(t)
+	rd, cleanup := createRepoDir(t)
 	defer cleanup()
 
 	fp := createRandomCSVFile(t)
@@ -43,24 +45,18 @@ func TestCommitCmd(t *testing.T) {
 	b, err := ioutil.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
+
+	fs := rd.OpenFileStore()
+	db, err := rd.OpenKVStore()
+	require.NoError(t, err)
+	defer db.Close()
+	sum, err := versioning.GetHead(db, "my-branch")
+	require.NoError(t, err)
+	versioning.AssertLatestReflogEqual(t, fs, "heads/my-branch", &objects.Reflog{
+		NewOID:      sum,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "commit",
+		Message:     "initial commit",
+	})
 }
-
-// func TestCommitCmdBigTable(t *testing.T) {
-// 	rd, cleanup := createRepoDir(t)
-// 	defer cleanup()
-// 	cf, cleanup := createConfigFile(t)
-// 	defer cleanup()
-
-// 	fp := createRandomCSVFile(t)
-// 	defer os.Remove(fp)
-
-// 	cmd := newRootCmd()
-// 	setCmdArgs(cmd, rd, cf, "commit", "my-branch", fp, "initial commit", "-n", "1", "--big-table")
-// 	cmd.SetOut(ioutil.Discard)
-// 	require.NoError(t, cmd.Execute())
-
-// 	setCmdArgs(cmd, rd, cf, "export", "my-branch")
-// 	b, err := ioutil.ReadFile(fp)
-// 	require.NoError(t, err)
-// 	assertCmdOutput(t, cmd, string(b))
-// }

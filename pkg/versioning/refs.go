@@ -3,6 +3,7 @@ package versioning
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -195,6 +196,34 @@ func RenameRef(s kv.DB, fs kv.FileStore, oldName, newName string) (sum []byte, e
 		return
 	}
 	err = fs.Move(reflogKey(oldKey), reflogKey(newKey))
+	if err != nil {
+		return
+	}
+	return sum, nil
+}
+
+func CopyRef(s kv.DB, fs kv.FileStore, oldName, newName string) (sum []byte, err error) {
+	oldKey := refKey(oldName)
+	newKey := refKey(newName)
+	sum, err = s.Get(oldKey)
+	if err != nil {
+		return
+	}
+	err = s.Set(newKey, sum)
+	if err != nil {
+		return
+	}
+	w, err := fs.Writer(reflogKey(newKey))
+	if err != nil {
+		return
+	}
+	defer w.Close()
+	r, err := fs.Reader(reflogKey(oldKey))
+	if err != nil {
+		return
+	}
+	defer r.Close()
+	_, err = io.Copy(w, r)
 	if err != nil {
 		return
 	}

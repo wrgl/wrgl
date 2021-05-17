@@ -34,7 +34,7 @@ func newPreviewCmd() *cobra.Command {
 			}
 			fs := rd.OpenFileStore()
 			defer kvStore.Close()
-			hash, commit, _, err := versioning.InterpretCommitName(kvStore, cStr)
+			_, hash, commit, err := versioning.InterpretCommitName(kvStore, cStr, false)
 			if err != nil {
 				return err
 			}

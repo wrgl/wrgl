@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/versioning"
 )
 
@@ -40,6 +41,14 @@ func assertCmdOutput(t *testing.T, cmd *cobra.Command, output string) {
 	cmd.SetOut(buf)
 	err := cmd.Execute()
 	require.NoError(t, err)
+	assert.Equal(t, output, buf.String())
+}
+
+func assertCmdFailed(t *testing.T, cmd *cobra.Command, output string, err error) {
+	t.Helper()
+	buf := bytes.NewBufferString("")
+	cmd.SetOut(buf)
+	assert.Equal(t, cmd.Execute(), err)
 	assert.Equal(t, output, buf.String())
 }
 
@@ -76,7 +85,7 @@ func TestBranchCmdCopy(t *testing.T) {
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
 	fs := rd.OpenFileStore()
-	sum, _ := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
+	sum, c := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
 	factory.Commit(t, db, fs, "beta", nil, nil, nil)
 	require.NoError(t, db.Close())
 
@@ -98,6 +107,13 @@ func TestBranchCmdCopy(t *testing.T) {
 	b2, err := versioning.GetHead(db, "alpha")
 	require.NoError(t, err)
 	assert.Equal(t, b1, b2)
+	versioning.AssertLatestReflogEqual(t, fs, "heads/gamma", &objects.Reflog{
+		NewOID:      sum,
+		AuthorName:  c.AuthorName,
+		AuthorEmail: c.AuthorEmail,
+		Action:      "commit",
+		Message:     c.Message,
+	})
 }
 
 func TestBranchCmdMove(t *testing.T) {
@@ -143,7 +159,7 @@ func TestBranchCmdDelete(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd.SetArgs([]string{"branch", "gamma", "--delete"})
-	assertCmdOutput(t, cmd, "deleted branch gamma\n")
+	assert.Equal(t, `branch "gamma" does not exist`, cmd.Execute().Error())
 
 	cmd.SetArgs([]string{"branch", "alpha", "--delete"})
 	assertCmdOutput(t, cmd, "deleted branch alpha\n")
@@ -184,4 +200,18 @@ func TestBranchCmdCreate(t *testing.T) {
 	b2, err := versioning.GetHead(db, "beta")
 	require.NoError(t, err)
 	assert.Equal(t, b1, b2)
+	versioning.AssertLatestReflogEqual(t, fs, "heads/delta", &objects.Reflog{
+		NewOID:      sum,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "branch",
+		Message:     "created from alpha",
+	})
+	versioning.AssertLatestReflogEqual(t, fs, "heads/beta", &objects.Reflog{
+		NewOID:      sum,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "branch",
+		Message:     "created from " + hex.EncodeToString(sum),
+	})
 }

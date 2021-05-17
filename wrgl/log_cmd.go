@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
 func getKVStore(cmd *cobra.Command) (kv.Store, error) {
@@ -23,7 +24,7 @@ func newLogCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branchName := args[0]
-			out, cleanOut, err := pagerOrOut(cmd)
+			out, cleanOut, err := utils.PagerOrOut(cmd)
 			if err != nil {
 				return err
 			}

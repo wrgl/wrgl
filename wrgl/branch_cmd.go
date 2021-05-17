@@ -10,6 +10,7 @@ import (
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
 func newBranchCmd() *cobra.Command {
@@ -35,12 +36,18 @@ func newBranchCmd() *cobra.Command {
 		}, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
+			wrglDir := utils.MustWRGLDir(cmd)
+			conf, err := versioning.AggregateConfig(wrglDir)
+			if err != nil {
+				return err
+			}
 			quitIfRepoDirNotExist(cmd, rd)
 			kvStore, err := rd.OpenKVStore()
 			if err != nil {
 				return err
 			}
 			defer kvStore.Close()
+			fs := rd.OpenFileStore()
 
 			patterns, err := cmd.Flags().GetStringSlice("list")
 			if err != nil {
@@ -63,7 +70,7 @@ func newBranchCmd() *cobra.Command {
 				return err
 			}
 			if newBranch != "" {
-				return copyBranch(cmd, kvStore, newBranch, args)
+				return copyBranch(cmd, conf.User, kvStore, fs, args[0], newBranch)
 			}
 
 			newBranch, err = cmd.Flags().GetString("move")
@@ -71,7 +78,7 @@ func newBranchCmd() *cobra.Command {
 				return err
 			}
 			if newBranch != "" {
-				return moveBranch(cmd, kvStore, newBranch, args)
+				return moveBranch(cmd, kvStore, fs, args[0], newBranch)
 			}
 
 			del, err := cmd.Flags().GetBool("delete")
@@ -79,10 +86,10 @@ func newBranchCmd() *cobra.Command {
 				return err
 			}
 			if del {
-				return deleteBranch(cmd, kvStore, args)
+				return deleteBranch(cmd, kvStore, fs, args)
 			}
 
-			return createBranch(cmd, kvStore, args)
+			return createBranch(cmd, conf.User, kvStore, fs, args)
 		},
 	}
 	cmd.Flags().StringSliceP("list", "l", nil, "list branches that match wildcard patterns")
@@ -116,48 +123,27 @@ func listBranch(cmd *cobra.Command, kvStore kv.Store, globs []glob.Glob) error {
 	return nil
 }
 
-func validateNewBranch(kvStore kv.Store, newBranch string) error {
+func validateNewBranch(db kv.DB, newBranch string) error {
 	if !versioning.HeadPattern.MatchString(newBranch) {
 		return fmt.Errorf(`branch name "%s" is invalid`, newBranch)
 	}
-	_, err := versioning.GetHead(kvStore, newBranch)
+	_, err := versioning.GetHead(db, newBranch)
 	if err == nil {
 		return fmt.Errorf(`branch "%s" already exist`, newBranch)
 	}
 	return nil
 }
 
-func copyBranch(cmd *cobra.Command, kvStore kv.Store, newBranch string, args []string) error {
-	err := validateNewBranch(kvStore, newBranch)
+func copyBranch(cmd *cobra.Command, u *versioning.ConfigUser, db kv.DB, fs kv.FileStore, oldBranch, newBranch string) error {
+	err := validateNewBranch(db, newBranch)
 	if err != nil {
 		return err
 	}
-	b, err := versioning.GetHead(kvStore, args[0])
+	b, err := versioning.GetHead(db, oldBranch)
 	if err != nil {
-		return fmt.Errorf(`branch "%s" does not exist`, args[0])
+		return fmt.Errorf(`branch %q does not exist`, oldBranch)
 	}
-	err = versioning.SaveHead(kvStore, newBranch, b)
-	if err != nil {
-		return err
-	}
-	cmd.Printf("created branch %s (%s)\n", newBranch, hex.EncodeToString(b))
-	return nil
-}
-
-func moveBranch(cmd *cobra.Command, kvStore kv.Store, newBranch string, args []string) error {
-	err := validateNewBranch(kvStore, newBranch)
-	if err != nil {
-		return err
-	}
-	b, err := versioning.GetHead(kvStore, args[0])
-	if err != nil {
-		return fmt.Errorf(`branch "%s" does not exist`, args[0])
-	}
-	err = versioning.SaveHead(kvStore, newBranch, b)
-	if err != nil {
-		return err
-	}
-	err = versioning.DeleteHead(kvStore, args[0])
+	_, err = versioning.CopyRef(db, fs, "heads/"+oldBranch, "heads/"+newBranch)
 	if err != nil {
 		return err
 	}
@@ -165,8 +151,29 @@ func moveBranch(cmd *cobra.Command, kvStore kv.Store, newBranch string, args []s
 	return nil
 }
 
-func deleteBranch(cmd *cobra.Command, kvStore kv.Store, args []string) error {
-	err := versioning.DeleteHead(kvStore, args[0])
+func moveBranch(cmd *cobra.Command, db kv.DB, fs kv.FileStore, oldBranch, newBranch string) error {
+	err := validateNewBranch(db, newBranch)
+	if err != nil {
+		return err
+	}
+	_, err = versioning.GetHead(db, oldBranch)
+	if err != nil {
+		return fmt.Errorf(`branch %q does not exist`, oldBranch)
+	}
+	sum, err := versioning.RenameRef(db, fs, "heads/"+oldBranch, "heads/"+newBranch)
+	if err != nil {
+		return err
+	}
+	cmd.Printf("created branch %s (%s)\n", newBranch, hex.EncodeToString(sum))
+	return nil
+}
+
+func deleteBranch(cmd *cobra.Command, db kv.DB, fs kv.FileStore, args []string) error {
+	_, err := versioning.GetHead(db, args[0])
+	if err != nil {
+		return fmt.Errorf(`branch %q does not exist`, args[0])
+	}
+	err = versioning.DeleteHead(db, fs, args[0])
 	if err != nil {
 		return err
 	}
@@ -174,22 +181,23 @@ func deleteBranch(cmd *cobra.Command, kvStore kv.Store, args []string) error {
 	return nil
 }
 
-func createBranch(cmd *cobra.Command, kvStore kv.Store, args []string) error {
+func createBranch(cmd *cobra.Command, u *versioning.ConfigUser, db kv.DB, fs kv.FileStore, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("please specify both branch name and start point (could be branch name, commit hash)")
 	}
-	err := validateNewBranch(kvStore, args[0])
+	err := validateNewBranch(db, args[0])
 	if err != nil {
 		return err
 	}
-	hash, commit, _, err := versioning.InterpretCommitName(kvStore, args[1])
+	name, hash, commit, err := versioning.InterpretCommitName(db, args[1], false)
 	if err != nil {
 		return err
 	}
 	if commit == nil {
 		return fmt.Errorf(`commit "%s" not found`, args[1])
 	}
-	err = versioning.SaveHead(kvStore, args[0], hash)
+	name = strings.TrimPrefix(name, "refs/heads/")
+	err = versioning.SaveRef(db, fs, "heads/"+args[0], hash, u.Name, u.Email, "branch", "created from "+name)
 	if err != nil {
 		return err
 	}

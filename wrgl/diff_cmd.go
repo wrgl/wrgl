@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -94,12 +95,21 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (str
 	return file.Name(), commit, nil
 }
 
+var filePattern = regexp.MustCompile(`^.*\..+$`)
+
 func getCommit(cmd *cobra.Command, db kv.Store, memStore *kv.MockStore, cStr string) (inUsedDB kv.Store, hash string, commit *objects.Commit, err error) {
 	inUsedDB = db
 	var file *os.File
-	hashb, commit, file, err := versioning.InterpretCommitName(db, cStr)
+	_, hashb, commit, err := versioning.InterpretCommitName(db, cStr, false)
 	if err != nil {
-		return
+		file, err = os.Open(cStr)
+		if err != nil {
+			if filePattern.MatchString(cStr) {
+				err = fmt.Errorf("can't find file %s", cStr)
+				return
+			}
+			return
+		}
 	}
 	if memStore != nil && file != nil {
 		inUsedDB = memStore

@@ -25,7 +25,8 @@ func removeCmd() *cobra.Command {
 				return err
 			}
 			defer db.Close()
-			err = versioning.DeleteAllRemoteRefs(db, args[0])
+			fs := rd.OpenFileStore()
+			err = versioning.DeleteAllRemoteRefs(db, fs, args[0])
 			if err != nil {
 				return err
 			}

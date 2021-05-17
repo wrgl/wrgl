@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"io"
@@ -26,7 +26,7 @@ func getPager(cmd *cobra.Command) (*exec.Cmd, io.WriteCloser, error) {
 	return p, out, nil
 }
 
-func pagerOrOut(cmd *cobra.Command) (io.Writer, func(), error) {
+func PagerOrOut(cmd *cobra.Command) (io.Writer, func(), error) {
 	noPager, err := cmd.Flags().GetBool("no-pager")
 	if err != nil {
 		return nil, nil, err

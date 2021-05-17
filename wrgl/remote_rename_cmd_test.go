@@ -14,6 +14,7 @@ func TestRemoteRenameCmd(t *testing.T) {
 	defer cleanUp()
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
+	fs := rd.OpenFileStore()
 
 	// add remote
 	cmd := newRootCmd()
@@ -27,7 +28,7 @@ func TestRemoteRenameCmd(t *testing.T) {
 		testutils.SecureRandomBytes(16),
 	}
 	for i, name := range names {
-		err := versioning.SaveRemoteRef(db, "origin", name, sums[i])
+		err := versioning.SaveRemoteRef(db, fs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote rename")
 		require.NoError(t, err)
 	}
 	require.NoError(t, db.Close())

@@ -14,10 +14,11 @@ func TestRemoteShowCmd(t *testing.T) {
 	defer cleanUp()
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
+	fs := rd.OpenFileStore()
 	remote := "origin"
-	err = versioning.SaveRemoteRef(db, remote, "my-branch", testutils.SecureRandomBytes(16))
+	err = versioning.SaveRemoteRef(db, fs, remote, "my-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
 	require.NoError(t, err)
-	err = versioning.SaveRemoteRef(db, remote, "another-branch", testutils.SecureRandomBytes(16))
+	err = versioning.SaveRemoteRef(db, fs, remote, "another-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
