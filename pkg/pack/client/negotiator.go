@@ -24,7 +24,7 @@ type Negotiator struct {
 	c                 *Client
 	db                kv.DB
 	fs                kv.FileStore
-	oc                chan<- *Object
+	ObjectChan        chan *Object
 	wants             [][]byte
 	q                 *versioning.CommitsQueue
 	done              bool
@@ -34,7 +34,7 @@ type Negotiator struct {
 	havesPerRoundTrip int
 }
 
-func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, advertised [][]byte, oc chan<- *Object, havesPerRoundTrip int) (*Negotiator, error) {
+func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, advertised [][]byte, havesPerRoundTrip int) (*Negotiator, error) {
 	if havesPerRoundTrip == 0 {
 		havesPerRoundTrip = defaultHavesPerRoundTrip
 	}
@@ -42,7 +42,7 @@ func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, adv
 		c:                 c,
 		db:                db,
 		fs:                fs,
-		oc:                oc,
+		ObjectChan:        make(chan *Object, 100),
 		wg:                wg,
 		havesPerRoundTrip: havesPerRoundTrip,
 	}
@@ -100,8 +100,9 @@ func (n *Negotiator) emitObjects(pr *encoding.PackfileReader) error {
 			return err
 		}
 		n.wg.Add(1)
-		n.oc <- &Object{t, b}
+		n.ObjectChan <- &Object{t, b}
 	}
+	close(n.ObjectChan)
 	return nil
 }
 

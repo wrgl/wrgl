@@ -88,37 +88,43 @@ func newFetchCmd() *cobra.Command {
 	return cmd
 }
 
-func saveObjects(db kv.Store, fs kv.FileStore, wg *sync.WaitGroup, seed uint64, oc <-chan *packclient.Object, ec chan<- error) {
-	for o := range oc {
-		switch o.Type {
-		case encoding.ObjectCommit:
-			_, err := versioning.SaveCommitBytes(db, seed, o.Content)
-			if err != nil {
-				ec <- err
-				return
+func saveObjects(db kv.Store, fs kv.FileStore, wg *sync.WaitGroup, seed uint64, oc <-chan *packclient.Object, ec chan<- error) (commitsChan chan []byte) {
+	commitsChan = make(chan []byte)
+	go func() {
+		defer close(commitsChan)
+		for o := range oc {
+			switch o.Type {
+			case encoding.ObjectCommit:
+				sum, err := versioning.SaveCommitBytes(db, seed, o.Content)
+				if err != nil {
+					ec <- err
+					return
+				}
+				commitsChan <- sum
+			case encoding.ObjectTable:
+				tr, err := objects.NewTableReader(bytes.NewReader(o.Content))
+				if err != nil {
+					ec <- err
+					return
+				}
+				b := table.NewBuilder(db, fs, tr.Columns, tr.PK, seed, 0)
+				_, err = b.SaveTableBytes(o.Content, tr.RowsCount())
+				if err != nil {
+					ec <- err
+					return
+				}
+			case encoding.ObjectRow:
+				sum := meow.Checksum(seed, o.Content)
+				err := table.SaveRow(db, sum[:], o.Content)
+				if err != nil {
+					ec <- err
+					return
+				}
 			}
-		case encoding.ObjectTable:
-			tr, err := objects.NewTableReader(bytes.NewReader(o.Content))
-			if err != nil {
-				ec <- err
-				return
-			}
-			b := table.NewBuilder(db, fs, tr.Columns, tr.PK, seed, 0)
-			_, err = b.SaveTableBytes(o.Content, tr.RowsCount())
-			if err != nil {
-				ec <- err
-				return
-			}
-		case encoding.ObjectRow:
-			sum := meow.Checksum(seed, o.Content)
-			err := table.SaveRow(db, sum[:], o.Content)
-			if err != nil {
-				ec <- err
-				return
-			}
+			wg.Done()
 		}
-		wg.Done()
-	}
+	}()
+	return commitsChan
 }
 
 func exitOnError(cmd *cobra.Command, done <-chan bool, ec <-chan error) {
@@ -181,17 +187,28 @@ func displayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, remote, lo
 	cmd.Printf(" %c %-19s %-11s -> %s%s\n", code, summary, remote, local, errStr)
 }
 
-func saveFetchedRefs(cmd *cobra.Command, u *versioning.ConfigUser, db kv.Store, fs kv.FileStore, remoteURL string, refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, force bool) error {
+func bytesSliceToMap(sl [][]byte) (m map[string]struct{}) {
+	m = make(map[string]struct{})
+	for _, b := range sl {
+		m[string(b)] = struct{}{}
+	}
+	return m
+}
+
+func saveFetchedRefs(
+	cmd *cobra.Command, u *versioning.ConfigUser, db kv.Store, fs kv.FileStore, remoteURL string,
+	fetchedCommits [][]byte, refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, force bool,
+) error {
 	someFailed := false
 	// if a remote tag point to an existing object then save that tag
+	cm := bytesSliceToMap(fetchedCommits)
 	for ref, sum := range maybeSaveTags {
-		if !versioning.CommitExist(db, sum) {
-			continue
-		}
-		_, err := versioning.GetRef(db, ref[5:])
-		if err != nil {
-			refs = append(refs, &Ref{ref, ref, false})
-			dstRefs[ref] = sum
+		if _, ok := cm[string(sum)]; ok || versioning.CommitExist(db, sum) {
+			_, err := versioning.GetRef(db, ref[5:])
+			if err != nil {
+				refs = append(refs, &Ref{ref, ref, false})
+				dstRefs[ref] = sum
+			}
 		}
 	}
 	// sort refs so that output is always deterministic
@@ -275,10 +292,22 @@ func saveFetchedRefs(cmd *cobra.Command, u *versioning.ConfigUser, db kv.Store, 
 	return nil
 }
 
-func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *packclient.Client, advertised [][]byte, dryRun bool) (err error) {
+func collectCommitSums(commitsChan <-chan []byte) (commits *[][]byte, done chan bool) {
+	done = make(chan bool)
+	commits = &[][]byte{}
+	go func() {
+		defer close(done)
+		for commit := range commitsChan {
+			*commits = append(*commits, commit)
+		}
+		done <- true
+	}()
+	return
+}
+
+func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *packclient.Client, advertised [][]byte, dryRun bool) (fetchedCommits [][]byte, err error) {
 	var wg sync.WaitGroup
-	oc := make(chan *packclient.Object, 100)
-	neg, err := packclient.NewNegotiator(db, fs, &wg, client, advertised, oc, 0)
+	neg, err := packclient.NewNegotiator(db, fs, &wg, client, advertised, 0)
 	if err != nil {
 		if err.Error() == "nothing wanted" {
 			err = nil
@@ -289,14 +318,16 @@ func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *pack
 	done := make(chan bool)
 	ec := make(chan error)
 	go exitOnError(cmd, done, ec)
-	go saveObjects(db, fs, &wg, 0, oc, ec)
+	cc := saveObjects(db, fs, &wg, 0, neg.ObjectChan, ec)
+	sums, collectDone := collectCommitSums(cc)
 	err = neg.Start()
 	if err != nil {
 		return
 	}
 	wg.Wait()
+	<-collectDone
 	done <- true
-	return
+	return *sums, nil
 }
 
 func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, dryRun, force bool) error {
@@ -309,9 +340,9 @@ func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.Confi
 	if err != nil {
 		return err
 	}
-	err = fetchObjects(cmd, db, fs, client, advertised, dryRun)
+	fetchedCommits, err := fetchObjects(cmd, db, fs, client, advertised, dryRun)
 	if err != nil {
 		return err
 	}
-	return saveFetchedRefs(cmd, u, db, fs, cr.URL, refs, dstRefs, maybeSaveTags, force)
+	return saveFetchedRefs(cmd, u, db, fs, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
 }

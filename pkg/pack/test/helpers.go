@@ -169,13 +169,11 @@ func FetchObjects(t *testing.T, db kv.DB, fs kv.FileStore, advertised [][]byte, 
 	c, err := packclient.NewClient(TestOrigin)
 	require.NoError(t, err)
 	wg := sync.WaitGroup{}
-	oc := make(chan *packclient.Object, 100)
-	neg, err := packclient.NewNegotiator(db, fs, &wg, c, advertised, oc, havesPerRoundTrip)
+	neg, err := packclient.NewNegotiator(db, fs, &wg, c, advertised, havesPerRoundTrip)
 	require.NoError(t, err)
 	err = neg.Start()
 	require.NoError(t, err)
-	close(oc)
-	return oc
+	return neg.ObjectChan
 }
 
 func CopyCommitsToNewStore(t *testing.T, dba, dbb kv.DB, fsa, fsb kv.FileStore, commits [][]byte) {
