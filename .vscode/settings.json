@@ -1,0 +1,12 @@
+{
+  "fileHeaderCommentHelper.languageConfigs": {
+    "language_go": {
+      "template": [
+        "// SPDX-License-Identifier: Apache-2.0",
+        "// Copyright © $(date:yyyy) Wrangle Ltd",
+        "",
+        ""
+      ]
+    }
+  }
+}

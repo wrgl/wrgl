@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2021 Wrangle Ltd
+
 package widgets
 
 // tableColumn manages width of a column possibly with multiple sub-columns
