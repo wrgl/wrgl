@@ -14,6 +14,7 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/pack"
@@ -45,10 +46,10 @@ func TestFetchCmd(t *testing.T) {
 	defer httpmock.Deactivate()
 	dbs := kv.NewMockStore(false)
 	fss := kv.NewMockStore(false)
-	sum1, c1 := packtest.CreateCommit(t, dbs, fss, nil)
-	sum2, c2 := packtest.CreateCommit(t, dbs, fss, [][]byte{sum1})
-	sum3, c3 := packtest.CreateCommit(t, dbs, fss, nil)
-	sum4, c4 := packtest.CreateCommit(t, dbs, fss, [][]byte{sum3})
+	sum1, c1 := factory.CommitRandom(t, dbs, fss, nil)
+	sum2, c2 := factory.CommitRandom(t, dbs, fss, [][]byte{sum1})
+	sum3, c3 := factory.CommitRandom(t, dbs, fss, nil)
+	sum4, c4 := factory.CommitRandom(t, dbs, fss, [][]byte{sum3})
 	require.NoError(t, versioning.CommitHead(dbs, fss, "main", sum2, c2))
 	require.NoError(t, versioning.CommitHead(dbs, fss, "tickets", sum4, c4))
 	require.NoError(t, versioning.SaveTag(dbs, "2020", sum1))
@@ -113,7 +114,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 
 	db1 := kv.NewMockStore(false)
 	fs1 := kv.NewMockStore(false)
-	sum1, c1 := packtest.CreateCommit(t, db1, fs1, nil)
+	sum1, c1 := factory.CommitRandom(t, db1, fs1, nil)
 	require.NoError(t, versioning.CommitHead(db1, fs1, "main", sum1, c1))
 	url1 := "https://origin.remote"
 	packtest.RegisterHandlerWithOrigin(url1, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
@@ -121,7 +122,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 
 	db2 := kv.NewMockStore(false)
 	fs2 := kv.NewMockStore(false)
-	sum2, c2 := packtest.CreateCommit(t, db2, fs2, nil)
+	sum2, c2 := factory.CommitRandom(t, db2, fs2, nil)
 	require.NoError(t, versioning.CommitHead(db2, fs2, "main", sum2, c2))
 	url2 := "https://acme.remote"
 	packtest.RegisterHandlerWithOrigin(url2, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db2))
@@ -129,7 +130,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 
 	db3 := kv.NewMockStore(false)
 	fs3 := kv.NewMockStore(false)
-	sum3, c3 := packtest.CreateCommit(t, db3, fs3, nil)
+	sum3, c3 := factory.CommitRandom(t, db3, fs3, nil)
 	require.NoError(t, versioning.CommitHead(db3, fs3, "main", sum3, c3))
 	url3 := "https://home.remote"
 	packtest.RegisterHandlerWithOrigin(url3, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db3))
@@ -185,7 +186,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 
 	db1 := kv.NewMockStore(false)
 	fs1 := kv.NewMockStore(false)
-	sum1, _ := packtest.CreateCommit(t, db1, fs1, nil)
+	sum1, _ := factory.CommitRandom(t, db1, fs1, nil)
 	require.NoError(t, versioning.SaveRef(db1, fs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom"))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
@@ -227,9 +228,9 @@ func TestFetchCmdTag(t *testing.T) {
 
 	db1 := kv.NewMockStore(false)
 	fs1 := kv.NewMockStore(false)
-	sum1, _ := packtest.CreateCommit(t, db1, fs1, nil)
+	sum1, _ := factory.CommitRandom(t, db1, fs1, nil)
 	require.NoError(t, versioning.SaveTag(db1, "2020-dec", sum1))
-	sum2, _ := packtest.CreateCommit(t, db1, fs1, nil)
+	sum2, _ := factory.CommitRandom(t, db1, fs1, nil)
 	require.NoError(t, versioning.SaveTag(db1, "2021-dec", sum2))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
@@ -239,9 +240,9 @@ func TestFetchCmdTag(t *testing.T) {
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
 	fs := rd.OpenFileStore()
-	sum3, _ := packtest.CreateCommit(t, db, fs, nil)
+	sum3, _ := factory.CommitRandom(t, db, fs, nil)
 	require.NoError(t, versioning.SaveTag(db, "2020-dec", sum3))
-	sum4, _ := packtest.CreateCommit(t, db, fs, nil)
+	sum4, _ := factory.CommitRandom(t, db, fs, nil)
 	require.NoError(t, versioning.SaveTag(db, "2021-dec", sum4))
 	require.NoError(t, db.Close())
 
@@ -311,7 +312,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 
 	db1 := kv.NewMockStore(false)
 	fs1 := kv.NewMockStore(false)
-	sum1, c1 := packtest.CreateCommit(t, db1, fs1, nil)
+	sum1, c1 := factory.CommitRandom(t, db1, fs1, nil)
 	require.NoError(t, versioning.CommitHead(db1, fs1, "abc", sum1, c1))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
@@ -321,7 +322,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	require.NoError(t, err)
 	defer cleanUp()
 	fs := rd.OpenFileStore()
-	sum2, c2 := packtest.CreateCommit(t, db, fs, nil)
+	sum2, c2 := factory.CommitRandom(t, db, fs, nil)
 	require.NoError(t, versioning.CommitHead(db, fs, "abc", sum2, c2))
 	require.NoError(t, db.Close())
 

@@ -43,7 +43,9 @@ func TestInfoRefs(t *testing.T) {
 	require.NoError(t, err)
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", NewInfoRefsHandler(db))
 
-	c, err := packclient.NewClient(packtest.TestOrigin)
+	dbc := kv.NewMockStore(false)
+	fsc := kv.NewMockStore(false)
+	c, err := packclient.NewClient(dbc, fsc, packtest.TestOrigin)
 	require.NoError(t, err)
 	m, err := c.GetRefsInfo()
 	require.NoError(t, err)

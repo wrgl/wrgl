@@ -4,12 +4,15 @@
 package factory
 
 import (
+	"fmt"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/testutils"
 )
@@ -57,4 +60,30 @@ func BuildTable(t *testing.T, db kv.DB, fs kv.FileStore, rows []string, pk []uin
 	ts, err := table.ReadTable(db, fs, sum)
 	require.NoError(t, err)
 	return sum, ts
+}
+
+func SdumpTable(t *testing.T, db kv.DB, fs kv.FileStore, sum []byte, indent int) string {
+	t.Helper()
+	ts, err := table.ReadTable(db, fs, sum)
+	require.NoError(t, err)
+	lines := []string{
+		fmt.Sprintf("table %x", sum),
+		fmt.Sprintf("%s %s", strings.Repeat(" ", 32), strings.Join(ts.Columns(), ", ")),
+	}
+	rr := ts.NewRowReader()
+	dec := objects.NewStrListDecoder(true)
+	for {
+		rh, b, err := rr.Read()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		lines = append(lines, fmt.Sprintf("%x %s", rh, strings.Join(dec.Decode(b), ", ")))
+	}
+	if indent > 0 {
+		for i, line := range lines {
+			lines[i] = strings.Repeat(" ", indent) + line
+		}
+	}
+	return strings.Join(lines, "\n")
 }

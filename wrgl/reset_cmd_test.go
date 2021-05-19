@@ -23,8 +23,8 @@ func TestResetCmd(t *testing.T) {
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
 	fs := rd.OpenFileStore()
-	sum, _ := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
-	sum2, _ := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
+	sum, _ := factory.CommitHead(t, db, fs, "alpha", nil, nil)
+	sum2, _ := factory.CommitHead(t, db, fs, "alpha", nil, nil)
 	require.NoError(t, db.Close())
 
 	cmd.SetArgs([]string{"reset", "alpha", hex.EncodeToString(sum)})

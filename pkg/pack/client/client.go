@@ -5,6 +5,7 @@ package packclient
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -14,7 +15,10 @@ import (
 	"strings"
 
 	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/misc"
+	"github.com/wrgl/core/pkg/objects"
+	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -22,9 +26,11 @@ type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
 	origin string
+	db     kv.DB
+	fs     kv.FileStore
 }
 
-func NewClient(origin string) (*Client, error) {
+func NewClient(db kv.DB, fs kv.FileStore, origin string) (*Client, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, err
@@ -34,6 +40,8 @@ func NewClient(origin string) (*Client, error) {
 			Jar: jar,
 		},
 		origin: origin,
+		db:     db,
+		fs:     fs,
 	}, nil
 }
 
@@ -117,6 +125,50 @@ func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool) (resp *
 	})
 }
 
+func (c *Client) sendReceivePackRequest(updates map[string][][]byte, commits []*objects.Commit, commonCommits [][]byte) (resp *http.Response, err error) {
+	body := bytes.NewBuffer(nil)
+	gzw := gzip.NewWriter(body)
+	buf := misc.NewBuffer(nil)
+	strs := make([]string, 0, 3)
+	sendPackfile := false
+	for ref, sums := range updates {
+		strs = strs[:0]
+		for i := 0; i < 2; i++ {
+			if sums[i] == nil {
+				strs = append(strs, strings.Repeat("0", 32))
+			} else {
+				strs = append(strs, hex.EncodeToString(sums[i]))
+				if i == 1 {
+					sendPackfile = true
+				}
+			}
+		}
+		strs = append(strs, ref)
+		err = encoding.WritePktLine(gzw, buf, strings.Join(strs, " "))
+		if err != nil {
+			return
+		}
+	}
+	err = encoding.WritePktLine(gzw, buf, "")
+	if err != nil {
+		return
+	}
+	if sendPackfile {
+		err = packutils.WriteCommitsToPackfile(c.db, c.fs, commits, commonCommits, gzw)
+		if err != nil {
+			return
+		}
+	}
+	err = gzw.Flush()
+	if err != nil {
+		return
+	}
+	return c.request(http.MethodPost, "/receive-pack/", body, map[string]string{
+		"Content-Type":     "application/x-wrgl-receive-pack-request",
+		"Content-Encoding": "gzip",
+	})
+}
+
 func parseUploadPackResult(r io.ReadCloser) (acks [][]byte, err error) {
 	defer r.Close()
 	parser := encoding.NewParser(r)
@@ -154,4 +206,52 @@ func (c *Client) PostUploadPack(wants, haves [][]byte, done bool) (acks [][]byte
 		acks, err = parseUploadPackResult(resp.Body)
 	}
 	return
+}
+
+func (c *Client) parseReceivePackResult(r io.ReadCloser) (status map[string]string, err error) {
+	defer r.Close()
+	parser := encoding.NewParser(r)
+	s, err := encoding.ReadPktLine(parser)
+	if err != nil {
+		return
+	}
+	if !strings.HasPrefix(s, "unpack ") {
+		err = fmt.Errorf("unrecognized payload: %q", s)
+		return
+	}
+	if s[7:] != "ok" {
+		err = fmt.Errorf("unpack error: %s", s[7:])
+		return
+	}
+	status = map[string]string{}
+	for {
+		s, err = encoding.ReadPktLine(parser)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return
+		}
+		if s == "" {
+			break
+		}
+		if strings.HasPrefix(s, "ok ") {
+			status[s[3:]] = ""
+		} else if strings.HasPrefix(s, "ng ") {
+			i := bytes.LastIndexByte([]byte(s), ' ')
+			status[s[3:i]] = s[i:]
+		} else {
+			err = fmt.Errorf("unrecognized payload: %q", s)
+			return
+		}
+	}
+	return
+}
+
+func (c *Client) PostReceivePack(updates map[string][][]byte, commits []*objects.Commit, commonCommits [][]byte) (status map[string]string, err error) {
+	resp, err := c.sendReceivePackRequest(updates, commits, commonCommits)
+	if err != nil {
+		return
+	}
+	return c.parseReceivePackResult(resp.Body)
 }

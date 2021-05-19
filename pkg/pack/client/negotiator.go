@@ -10,21 +10,17 @@ import (
 
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/kv"
+	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/versioning"
 )
 
 const defaultHavesPerRoundTrip = 32
 
-type Object struct {
-	Type    int
-	Content []byte
-}
-
 type Negotiator struct {
 	c                 *Client
 	db                kv.DB
 	fs                kv.FileStore
-	ObjectChan        chan *Object
+	ObjectChan        chan *packutils.Object
 	wants             [][]byte
 	q                 *versioning.CommitsQueue
 	done              bool
@@ -42,7 +38,7 @@ func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, adv
 		c:                 c,
 		db:                db,
 		fs:                fs,
-		ObjectChan:        make(chan *Object, 100),
+		ObjectChan:        make(chan *packutils.Object, 100),
 		wg:                wg,
 		havesPerRoundTrip: havesPerRoundTrip,
 	}
@@ -100,7 +96,7 @@ func (n *Negotiator) emitObjects(pr *encoding.PackfileReader) error {
 			return err
 		}
 		n.wg.Add(1)
-		n.ObjectChan <- &Object{t, b}
+		n.ObjectChan <- &packutils.Object{t, b}
 	}
 	close(n.ObjectChan)
 	return nil

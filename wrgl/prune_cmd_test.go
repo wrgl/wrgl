@@ -52,10 +52,10 @@ func TestFindAllCommitsToRemove(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 	fs := rd.OpenFileStore()
-	sum1, _ := factory.Commit(t, db, fs, "branch-1", nil, nil, nil)
-	sum2, _ := factory.Commit(t, db, fs, "branch-1", nil, nil, nil)
-	sum3, _ := factory.Commit(t, db, fs, "branch-1", nil, nil, nil)
-	sum4, _ := factory.Commit(t, db, fs, "branch-2", nil, nil, nil)
+	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", nil, nil)
+	sum2, _ := factory.CommitHead(t, db, fs, "branch-1", nil, nil)
+	sum3, _ := factory.CommitHead(t, db, fs, "branch-1", nil, nil)
+	sum4, _ := factory.CommitHead(t, db, fs, "branch-2", nil, nil)
 	require.NoError(t, versioning.DeleteHead(db, fs, "branch-2"))
 	require.NoError(t, versioning.SaveRef(db, fs, "heads/branch-1", sum2, "test", "test@domain.com", "test", "test pruning"))
 
@@ -73,36 +73,36 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
 	fs := rd.OpenFileStore()
-	sum1, _ := factory.Commit(t, db, fs, "branch-1", []string{
+	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"3,z,x",
-	}, []uint32{0}, nil)
-	factory.Commit(t, db, fs, "branch-1", []string{
+	}, []uint32{0})
+	factory.CommitHead(t, db, fs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"4,x,c",
-	}, []uint32{0}, nil)
-	factory.Commit(t, db, fs, "branch-2", []string{
+	}, []uint32{0})
+	factory.CommitHead(t, db, fs, "branch-2", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"6,z,x",
-	}, []uint32{0}, nil)
-	factory.Commit(t, db, fs, "branch-2", []string{
+	}, []uint32{0})
+	factory.CommitHead(t, db, fs, "branch-2", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"7,r,t",
-	}, []uint32{0}, nil)
-	sum2, _ := factory.Commit(t, db, fs, "branch-3", []string{
+	}, []uint32{0})
+	sum2, _ := factory.CommitHead(t, db, fs, "branch-3", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"6,z,x",
-	}, []uint32{0}, nil)
+	}, []uint32{0})
 	assertCommitsCount(t, db, 5)
 	assertTablesCount(t, db, fs, 4)
 	assertRowsCount(t, db, 8)

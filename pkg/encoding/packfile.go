@@ -50,6 +50,9 @@ func (w *PackfileWriter) WriteObject(objType int, b []byte) error {
 	if (bits-4)%7 > 0 {
 		numBytes += 1
 	}
+	if numBytes == 1 {
+		numBytes = 2
+	}
 	u := uint64(n)
 	buf := w.buf.Buffer(numBytes)
 	buf[0] = 128 | uint8(objType)<<4 | (uint8(u) & 15)

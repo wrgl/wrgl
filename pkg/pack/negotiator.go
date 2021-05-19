@@ -15,16 +15,24 @@ import (
 )
 
 type Negotiator struct {
-	Commons map[string]struct{}
+	commons map[string]struct{}
 	wants   map[string]struct{}
 	lists   []*list.List
 }
 
 func NewNegotiator() *Negotiator {
 	return &Negotiator{
-		Commons: map[string]struct{}{},
+		commons: map[string]struct{}{},
 		wants:   map[string]struct{}{},
 	}
+}
+
+func (n *Negotiator) CommonCommmits() [][]byte {
+	result := [][]byte{}
+	for sum := range n.commons {
+		result = append(result, []byte(sum))
+	}
+	return result
 }
 
 func (n *Negotiator) CommitsToSend() (commits []*objects.Commit) {
@@ -137,7 +145,7 @@ wantsLoop:
 			if _, ok := alreadySeenCommits[string(sum)]; ok {
 				continue
 			}
-			if _, ok := n.Commons[string(sum)]; ok {
+			if _, ok := n.commons[string(sum)]; ok {
 				continue
 			}
 			c, err := versioning.GetCommit(db, sum)
@@ -148,7 +156,7 @@ wantsLoop:
 			// reached a root commit but still haven't seen anything in common
 			if len(c.Parents) == 0 {
 				// if there's nothing in common then everything including the root should be sent
-				if len(n.Commons) == 0 {
+				if len(n.commons) == 0 {
 					break
 				}
 				wants[string(want)] = struct{}{}
@@ -203,15 +211,15 @@ func (n *Negotiator) HandleUploadPackRequest(db kv.DB, wants, haves [][]byte, do
 		return
 	}
 	for _, b := range commons {
-		n.Commons[string(b)] = struct{}{}
+		n.commons[string(b)] = struct{}{}
 	}
 	err = n.findClosedSetOfObjects(db)
 	if err != nil {
 		return
 	}
 	if len(n.wants) > 0 && !done {
-		acks = make([][]byte, 0, len(n.Commons))
-		for b := range n.Commons {
+		acks = make([][]byte, 0, len(n.commons))
+		for b := range n.commons {
 			acks = append(acks, []byte(b))
 		}
 	}

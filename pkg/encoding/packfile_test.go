@@ -21,7 +21,7 @@ func TestPackfileWriter(t *testing.T) {
 	commit1 := testutils.SecureRandomBytes(166)
 	commit2 := testutils.SecureRandomBytes(2047)
 	table := testutils.SecureRandomBytes(4000)
-	row := testutils.SecureRandomBytes(165)
+	row := testutils.SecureRandomBytes(13)
 	require.NoError(t, w.WriteObject(ObjectCommit, commit1))
 	require.NoError(t, w.WriteObject(ObjectCommit, commit2))
 	require.NoError(t, w.WriteObject(ObjectTable, table))

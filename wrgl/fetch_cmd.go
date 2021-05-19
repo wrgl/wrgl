@@ -18,6 +18,7 @@ import (
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	packclient "github.com/wrgl/core/pkg/pack/client"
+	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/wrgl/utils"
@@ -83,7 +84,7 @@ func newFetchCmd() *cobra.Command {
 	return cmd
 }
 
-func saveObjects(db kv.Store, fs kv.FileStore, wg *sync.WaitGroup, seed uint64, oc <-chan *packclient.Object, ec chan<- error) (commitsChan chan []byte) {
+func saveObjects(db kv.Store, fs kv.FileStore, wg *sync.WaitGroup, seed uint64, oc <-chan *packutils.Object, ec chan<- error) (commitsChan chan []byte) {
 	commitsChan = make(chan []byte)
 	go func() {
 		defer close(commitsChan)
@@ -327,7 +328,7 @@ func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *pack
 
 func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, force bool) error {
 	cmd.Printf("From %s\n", cr.URL)
-	client, err := packclient.NewClient(cr.URL)
+	client, err := packclient.NewClient(db, fs, cr.URL)
 	if err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/kv"
 	packtest "github.com/wrgl/core/pkg/pack/test"
 	"github.com/wrgl/core/pkg/versioning"
@@ -19,10 +20,10 @@ func TestUploadPack(t *testing.T) {
 	defer httpmock.Deactivate()
 	db := kv.NewMockStore(false)
 	fs := kv.NewMockStore(false)
-	sum1, c1 := packtest.CreateCommit(t, db, fs, nil)
-	sum2, c2 := packtest.CreateCommit(t, db, fs, [][]byte{sum1})
-	sum3, _ := packtest.CreateCommit(t, db, fs, nil)
-	sum4, _ := packtest.CreateCommit(t, db, fs, [][]byte{sum3})
+	sum1, c1 := factory.CommitRandom(t, db, fs, nil)
+	sum2, c2 := factory.CommitRandom(t, db, fs, [][]byte{sum1})
+	sum3, _ := factory.CommitRandom(t, db, fs, nil)
+	sum4, _ := factory.CommitRandom(t, db, fs, [][]byte{sum3})
 	require.NoError(t, versioning.CommitHead(db, fs, "main", sum2, c2))
 	require.NoError(t, versioning.SaveTag(db, "v1", sum4))
 	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", NewUploadPackHandler(db, fs))

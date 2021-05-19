@@ -21,8 +21,8 @@ func TestReflogCmd(t *testing.T) {
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
 	fs := rd.OpenFileStore()
-	sum1, c1 := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
-	sum2, c2 := factory.Commit(t, db, fs, "alpha", nil, nil, nil)
+	sum1, c1 := factory.CommitHead(t, db, fs, "alpha", nil, nil)
+	sum2, c2 := factory.CommitHead(t, db, fs, "alpha", nil, nil)
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()

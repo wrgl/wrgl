@@ -15,9 +15,7 @@ import (
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/misc"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	packutils "github.com/wrgl/core/pkg/pack/utils"
 )
 
 type UploadPackHandler struct {
@@ -75,120 +73,6 @@ func (h *UploadPackHandler) sendACKs(rw http.ResponseWriter, nid string, neg *Ne
 	encoding.WritePktLine(rw, buf, "NAK")
 }
 
-func (h *UploadPackHandler) getCommonTables(neg *Negotiator) map[string]struct{} {
-	commonTables := map[string]struct{}{}
-	for b := range neg.Commons {
-		c, err := versioning.GetCommit(h.db, []byte(b))
-		if err != nil {
-			panic(err)
-		}
-		commonTables[string(c.Table)] = struct{}{}
-	}
-	return commonTables
-}
-
-func (h *UploadPackHandler) getTablesToSend(neg *Negotiator, buf *misc.Buffer, pw *encoding.PackfileWriter, commonTables map[string]struct{}) [][]byte {
-	tables := [][]byte{}
-	commits := neg.CommitsToSend()
-	cw := objects.NewCommitWriter(buf)
-	for _, c := range commits {
-		buf.Reset()
-		err := cw.Write(c)
-		if err != nil {
-			panic(err)
-		}
-		err = pw.WriteObject(encoding.ObjectCommit, buf.Bytes())
-		if err != nil {
-			panic(err)
-		}
-		if _, ok := commonTables[string(c.Table)]; ok {
-			continue
-		}
-		tables = append(tables, c.Table)
-	}
-	return tables
-}
-
-func (h *UploadPackHandler) getCommonRows(commonTables map[string]struct{}) map[string]struct{} {
-	commonRows := map[string]struct{}{}
-	for b := range commonTables {
-		t, err := table.ReadTable(h.db, h.fs, []byte(b))
-		if err != nil {
-			panic(err)
-		}
-		rhr := t.NewRowHashReader(0, 0)
-		for {
-			_, row, err := rhr.Read()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				panic(err)
-			}
-			commonRows[string(row)] = struct{}{}
-		}
-	}
-	return commonRows
-}
-
-func (h *UploadPackHandler) getRowsToSend(buf *misc.Buffer, pw *encoding.PackfileWriter, commonRows map[string]struct{}, tables [][]byte) [][]byte {
-	tw := objects.NewTableWriter(buf)
-	rows := [][]byte{}
-	for _, b := range tables {
-		buf.Reset()
-		t, err := table.ReadTable(h.db, h.fs, []byte(b))
-		if err != nil {
-			panic(err)
-		}
-		err = tw.WriteMeta(t.Columns(), t.PrimaryKeyIndices())
-		if err != nil {
-			panic(err)
-		}
-		rhr := t.NewRowHashReader(0, 0)
-		i := 0
-		for {
-			pk, row, err := rhr.Read()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				panic(err)
-			}
-			err = tw.WriteRowAt(append(pk, row...), i)
-			if err != nil {
-				panic(err)
-			}
-			i++
-			if _, ok := commonRows[string(row)]; ok {
-				continue
-			}
-			rows = append(rows, row)
-		}
-		err = tw.Flush()
-		if err != nil {
-			panic(err)
-		}
-		err = pw.WriteObject(encoding.ObjectTable, buf.Bytes())
-		if err != nil {
-			panic(err)
-		}
-	}
-	return rows
-}
-
-func (h *UploadPackHandler) sendRows(pw *encoding.PackfileWriter, rows [][]byte) {
-	for _, row := range rows {
-		obj, err := table.GetRow(h.db, row)
-		if err != nil {
-			panic(err)
-		}
-		err = pw.WriteObject(encoding.ObjectRow, obj)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
 func (h *UploadPackHandler) sendPackfile(rw http.ResponseWriter, r *http.Request, neg *Negotiator) {
 	rw.Header().Set("Content-Type", "application/x-wrgl-packfile")
 	rw.Header().Set("Content-Encoding", "gzip")
@@ -205,18 +89,13 @@ func (h *UploadPackHandler) sendPackfile(rw http.ResponseWriter, r *http.Request
 		delete(h.negotiators, c.Value)
 	}
 
-	commonTables := h.getCommonTables(neg)
-	commonRows := h.getCommonRows(commonTables)
 	gzw := gzip.NewWriter(rw)
 	defer gzw.Close()
-	pw, err := encoding.NewPackfileWriter(gzw)
+
+	err = packutils.WriteCommitsToPackfile(h.db, h.fs, neg.CommitsToSend(), neg.CommonCommmits(), gzw)
 	if err != nil {
 		panic(err)
 	}
-	buf := misc.NewBuffer(nil)
-	tables := h.getTablesToSend(neg, buf, pw, commonTables)
-	rows := h.getRowsToSend(buf, pw, commonRows, tables)
-	h.sendRows(pw, rows)
 }
 
 func parseUploadPackRequest(r io.Reader) (wants, haves [][]byte, done bool, err error) {

@@ -19,10 +19,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/objects"
 	packclient "github.com/wrgl/core/pkg/pack/client"
+	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/testutils"
 	"github.com/wrgl/core/pkg/versioning"
@@ -65,33 +64,7 @@ func RegisterHandlerWithOrigin(origin, method, path string, handler http.Handler
 	)
 }
 
-func CreateCommit(t *testing.T, db kv.DB, fs kv.FileStore, parents [][]byte) (sum []byte, commit *objects.Commit) {
-	t.Helper()
-	rows := testutils.BuildRawCSV(4, 4)
-	b := table.NewBuilder(db, fs, rows[0], []uint32{0}, 0, 0)
-	rh := ingest.NewRowHasher([]uint32{0}, 0)
-	for i, row := range rows[1:] {
-		keySum, rowSum, rowContent, err := rh.Sum(row)
-		require.NoError(t, err)
-		err = b.InsertRow(i, keySum, rowSum, rowContent)
-		require.NoError(t, err)
-	}
-	tSum, err := b.SaveTable()
-	require.NoError(t, err)
-	commit = &objects.Commit{
-		Table:       tSum,
-		AuthorName:  "John Doe",
-		AuthorEmail: "john@doe.com",
-		Time:        tg(),
-		Message:     testutils.BrokenRandomAlphaNumericString(40),
-		Parents:     parents,
-	}
-	sum, err = versioning.SaveCommit(db, 0, commit)
-	require.NoError(t, err)
-	return
-}
-
-func AssertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan *packclient.Object, sentCommits, commonCommits [][]byte) {
+func AssertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan *packutils.Object, sentCommits, commonCommits [][]byte) {
 	t.Helper()
 	commonTables := map[string]struct{}{}
 	commonRows := map[string]struct{}{}
@@ -118,14 +91,17 @@ func AssertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan
 		switch obj.Type {
 		case encoding.ObjectCommit:
 			sum := meow.Checksum(0, obj.Content)
+			t.Logf("received commit %x", sum)
 			commitMap[string(sum[:])] = struct{}{}
 		case encoding.ObjectTable:
 			sum := meow.Checksum(0, obj.Content)
+			t.Logf("received table %x", sum)
 			tableMap[string(sum[:])] = struct{}{}
 			_, ok := commonTables[string(sum[:])]
 			assert.False(t, ok)
 		case encoding.ObjectRow:
 			sum := meow.Checksum(0, obj.Content)
+			t.Logf("received row %x", sum)
 			rowMap[string(sum[:])] = struct{}{}
 			_, ok := commonRows[string(sum[:])]
 			assert.False(t, ok)
@@ -164,9 +140,9 @@ func AssertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan
 	}
 }
 
-func FetchObjects(t *testing.T, db kv.DB, fs kv.FileStore, advertised [][]byte, havesPerRoundTrip int) <-chan *packclient.Object {
+func FetchObjects(t *testing.T, db kv.DB, fs kv.FileStore, advertised [][]byte, havesPerRoundTrip int) <-chan *packutils.Object {
 	t.Helper()
-	c, err := packclient.NewClient(TestOrigin)
+	c, err := packclient.NewClient(db, fs, TestOrigin)
 	require.NoError(t, err)
 	wg := sync.WaitGroup{}
 	neg, err := packclient.NewNegotiator(db, fs, &wg, c, advertised, havesPerRoundTrip)
