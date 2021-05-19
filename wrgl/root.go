@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/wrgl/core/wrgl/reflog"
 	"github.com/wrgl/core/wrgl/remote"
 )
 
@@ -41,6 +42,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newCatFileCmd())
 	rootCmd.AddCommand(newFetchCmd())
 	rootCmd.AddCommand(remote.RootCmd())
+	rootCmd.AddCommand(reflog.RootCmd())
 	return rootCmd
 }
 
