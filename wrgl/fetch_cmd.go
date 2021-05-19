@@ -45,17 +45,13 @@ func newFetchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			dryRun, err := cmd.Flags().GetBool("dry-run")
-			if err != nil {
-				return err
-			}
 			force, err := cmd.Flags().GetBool("force")
 			if err != nil {
 				return err
 			}
 			if all {
 				for k, v := range c.Remote {
-					err := fetch(cmd, db, fs, c.User, k, v, v.Fetch, dryRun, force)
+					err := fetch(cmd, db, fs, c.User, k, v, v.Fetch, force)
 					if err != nil {
 						return err
 					}
@@ -79,11 +75,10 @@ func newFetchCmd() *cobra.Command {
 					specs[i] = rs
 				}
 			}
-			return fetch(cmd, db, fs, c.User, remote, rem, specs, dryRun, force)
+			return fetch(cmd, db, fs, c.User, remote, rem, specs, force)
 		},
 	}
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
-	cmd.Flags().Bool("dry-run", false, "Show what would be done, without making any changes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
 	return cmd
 }
@@ -305,7 +300,7 @@ func collectCommitSums(commitsChan <-chan []byte) (commits *[][]byte, done chan 
 	return
 }
 
-func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *packclient.Client, advertised [][]byte, dryRun bool) (fetchedCommits [][]byte, err error) {
+func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *packclient.Client, advertised [][]byte) (fetchedCommits [][]byte, err error) {
 	var wg sync.WaitGroup
 	neg, err := packclient.NewNegotiator(db, fs, &wg, client, advertised, 0)
 	if err != nil {
@@ -330,7 +325,7 @@ func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *pack
 	return *sums, nil
 }
 
-func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, dryRun, force bool) error {
+func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, force bool) error {
 	cmd.Printf("From %s\n", cr.URL)
 	client, err := packclient.NewClient(cr.URL)
 	if err != nil {
@@ -340,7 +335,7 @@ func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.Confi
 	if err != nil {
 		return err
 	}
-	fetchedCommits, err := fetchObjects(cmd, db, fs, client, advertised, dryRun)
+	fetchedCommits, err := fetchObjects(cmd, db, fs, client, advertised)
 	if err != nil {
 		return err
 	}
