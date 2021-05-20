@@ -68,9 +68,15 @@ func (h *UploadPackHandler) sendACKs(rw http.ResponseWriter, nid string, neg *Ne
 	h.negotiators[nid] = neg
 	buf := misc.NewBuffer(nil)
 	for _, ack := range acks {
-		encoding.WritePktLine(rw, buf, "ACK "+hex.EncodeToString(ack))
+		err := encoding.WritePktLine(rw, buf, "ACK "+hex.EncodeToString(ack))
+		if err != nil {
+			panic(err)
+		}
 	}
-	encoding.WritePktLine(rw, buf, "NAK")
+	err := encoding.WritePktLine(rw, buf, "NAK")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (h *UploadPackHandler) sendPackfile(rw http.ResponseWriter, r *http.Request, neg *Negotiator) {

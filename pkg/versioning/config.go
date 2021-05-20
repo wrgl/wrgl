@@ -19,10 +19,16 @@ type ConfigUser struct {
 	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
 }
 
+type ConfigReceive struct {
+	DenyNonFastForwards bool `yaml:"denyNonFastForwards,omitempty" json:"denyNonFastForwards,omitempty"`
+	DenyDeletes         bool `yaml:"denyDeletes,omitempty" json:"denyDeletes,omitempty"`
+}
+
 type Config struct {
-	User   *ConfigUser              `yaml:"user,omitempty" json:"user,omitempty"`
-	Remote map[string]*ConfigRemote `yaml:"remote,omitempty" json:"remote,omitempty"`
-	path   string                   `yaml:"-" json:"-"`
+	User    *ConfigUser              `yaml:"user,omitempty" json:"user,omitempty"`
+	Remote  map[string]*ConfigRemote `yaml:"remote,omitempty" json:"remote,omitempty"`
+	Receive *ConfigReceive           `yaml:"receive,omitempty" json:"receive,omitempty"`
+	path    string                   `yaml:"-" json:"-"`
 }
 
 func (c *Config) Save() error {

@@ -145,7 +145,7 @@ func ListLocalRefs(s kv.DB) (map[string][]byte, error) {
 	return m, nil
 }
 
-func deleteRef(s kv.DB, fs kv.FileStore, name string) error {
+func DeleteRef(s kv.DB, fs kv.FileStore, name string) error {
 	err := fs.Delete(reflogKey(refKey(name)))
 	if err != nil {
 		return err
@@ -154,7 +154,7 @@ func deleteRef(s kv.DB, fs kv.FileStore, name string) error {
 }
 
 func DeleteHead(s kv.DB, fs kv.FileStore, name string) error {
-	return deleteRef(s, fs, "heads/"+name)
+	return DeleteRef(s, fs, "heads/"+name)
 }
 
 func DeleteTag(s kv.DB, name string) error {
@@ -162,7 +162,7 @@ func DeleteTag(s kv.DB, name string) error {
 }
 
 func DeleteRemoteRef(s kv.DB, fs kv.FileStore, remote, name string) error {
-	return deleteRef(s, fs, fmt.Sprintf("remotes/%s/%s", remote, name))
+	return DeleteRef(s, fs, fmt.Sprintf("remotes/%s/%s", remote, name))
 }
 
 func DeleteAllRemoteRefs(s kv.DB, fs kv.FileStore, remote string) error {

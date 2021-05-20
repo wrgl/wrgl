@@ -22,15 +22,6 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
-type Update struct {
-	OldSum []byte
-	Sum    []byte
-	Src    string
-	Dst    string
-	Force  bool
-	ErrMsg string
-}
-
 type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
@@ -134,7 +125,7 @@ func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool) (resp *
 	})
 }
 
-func (c *Client) sendReceivePackRequest(updates []*Update, commits []*objects.Commit, commonCommits [][]byte) (resp *http.Response, err error) {
+func (c *Client) sendReceivePackRequest(updates []*packutils.Update, commits []*objects.Commit, commonCommits [][]byte) (resp *http.Response, err error) {
 	body := bytes.NewBuffer(nil)
 	gzw := gzip.NewWriter(body)
 	buf := misc.NewBuffer(nil)
@@ -142,15 +133,15 @@ func (c *Client) sendReceivePackRequest(updates []*Update, commits []*objects.Co
 	sendPackfile := false
 	for _, update := range updates {
 		strs = strs[:0]
-		for i, sum := range [][]byte{update.OldSum, update.Sum} {
+		for _, sum := range [][]byte{update.OldSum, update.Sum} {
 			if sum == nil {
 				strs = append(strs, strings.Repeat("0", 32))
 			} else {
 				strs = append(strs, hex.EncodeToString(sum))
-				if i == 1 {
-					sendPackfile = true
-				}
 			}
+		}
+		if update.Sum != nil {
+			sendPackfile = true
 		}
 		strs = append(strs, update.Dst)
 		err = encoding.WritePktLine(gzw, buf, strings.Join(strs, " "))
@@ -257,7 +248,7 @@ func (c *Client) parseReceivePackResult(r io.ReadCloser) (status map[string]stri
 	return
 }
 
-func (c *Client) PostReceivePack(updates []*Update, commits []*objects.Commit, commonCommits [][]byte) (err error) {
+func (c *Client) PostReceivePack(updates []*packutils.Update, commits []*objects.Commit, commonCommits [][]byte) (err error) {
 	resp, err := c.sendReceivePackRequest(updates, commits, commonCommits)
 	if err != nil {
 		return
@@ -270,7 +261,7 @@ func (c *Client) PostReceivePack(updates []*Update, commits []*objects.Commit, c
 		if s, ok := status[u.Dst]; ok {
 			u.ErrMsg = s
 		} else {
-			u.ErrMsg = "no status reported"
+			u.ErrMsg = "remote failed to report status"
 		}
 	}
 	return
