@@ -51,21 +51,21 @@ func addCmd() *cobra.Command {
 			}
 			remote := c.Remote[name]
 			if mirror == "fetch" {
-				remote.Fetch = append(remote.Fetch, versioning.MustRefspec("+refs/*:refs/*"))
+				remote.Fetch = append(remote.Fetch, versioning.MustParseRefspec("+refs/*:refs/*"))
 			} else {
 				if len(track) != 0 {
 					for _, t := range track {
-						remote.Fetch = append(remote.Fetch, versioning.MustRefspec(
+						remote.Fetch = append(remote.Fetch, versioning.MustParseRefspec(
 							fmt.Sprintf("+refs/heads/%s:refs/remotes/%s/%s", t, name, t),
 						))
 					}
 				} else {
-					remote.Fetch = append(remote.Fetch, versioning.MustRefspec(
+					remote.Fetch = append(remote.Fetch, versioning.MustParseRefspec(
 						fmt.Sprintf("+refs/heads/*:refs/remotes/%s/*", name),
 					))
 				}
 				if tags {
-					remote.Fetch = append(remote.Fetch, versioning.MustRefspec("tag *"))
+					remote.Fetch = append(remote.Fetch, versioning.MustParseRefspec("tag *"))
 				}
 			}
 			if mirror == "push" {

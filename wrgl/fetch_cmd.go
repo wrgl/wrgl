@@ -69,7 +69,7 @@ func newFetchCmd() *cobra.Command {
 			if len(args) > 1 {
 				specs = make([]*versioning.Refspec, len(args)-1)
 				for i, s := range args[1:] {
-					rs, err := versioning.NewRefspec(s)
+					rs, err := versioning.ParseRefspec(s)
 					if err != nil {
 						return err
 					}
@@ -166,21 +166,17 @@ func identifyRefsToFetch(client *packclient.Client, specs []*versioning.Refspec)
 	return
 }
 
-func displayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, remote, local string) {
+func displayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, from, to string) {
 	if errStr != "" {
 		errStr = fmt.Sprintf(" (%s)", errStr)
 	}
 	for _, prefix := range []string{
-		"refs/heads/", "refs/tags/",
-	} {
-		remote = strings.TrimPrefix(remote, prefix)
-	}
-	for _, prefix := range []string{
 		"refs/heads/", "refs/tags/", "refs/remotes/",
 	} {
-		local = strings.TrimPrefix(local, prefix)
+		from = strings.TrimPrefix(from, prefix)
+		to = strings.TrimPrefix(to, prefix)
 	}
-	cmd.Printf(" %c %-19s %-11s -> %s%s\n", code, summary, remote, local, errStr)
+	cmd.Printf(" %c %-19s %-11s -> %s%s\n", code, summary, from, to, errStr)
 }
 
 func bytesSliceToMap(sl [][]byte) (m map[string]struct{}) {
@@ -189,6 +185,15 @@ func bytesSliceToMap(sl [][]byte) (m map[string]struct{}) {
 		m[string(b)] = struct{}{}
 	}
 	return m
+}
+
+func quickref(oldSum, sum []byte, fastForward bool) string {
+	a := hex.EncodeToString(oldSum)[:7]
+	b := hex.EncodeToString(sum)[:7]
+	if fastForward {
+		return fmt.Sprintf("%s..%s", a, b)
+	}
+	return fmt.Sprintf("%s...%s", a, b)
 }
 
 func saveFetchedRefs(
@@ -261,21 +266,21 @@ func saveFetchedRefs(
 		}
 		if fastForward {
 			err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "fast-forward")
-			quickref := fmt.Sprintf("%s..%s", hex.EncodeToString(oldSum)[:7], hex.EncodeToString(sum)[:7])
+			qr := quickref(oldSum, sum, true)
 			if err != nil {
-				displayRefUpdate(cmd, '!', quickref, "unable to update local ref", ref.Src, ref.Dst)
+				displayRefUpdate(cmd, '!', qr, "unable to update local ref", ref.Src, ref.Dst)
 				someFailed = true
 			} else {
-				displayRefUpdate(cmd, ' ', quickref, "", ref.Src, ref.Dst)
+				displayRefUpdate(cmd, ' ', qr, "", ref.Src, ref.Dst)
 			}
 		} else if force || ref.Force {
 			err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "forced-update")
-			quickref := fmt.Sprintf("%s..%s", hex.EncodeToString(oldSum)[:7], hex.EncodeToString(sum)[:7])
+			qr := quickref(oldSum, sum, false)
 			if err != nil {
-				displayRefUpdate(cmd, '!', quickref, "unable to update local ref", ref.Src, ref.Dst)
+				displayRefUpdate(cmd, '!', qr, "unable to update local ref", ref.Src, ref.Dst)
 				someFailed = true
 			} else {
-				displayRefUpdate(cmd, '+', quickref, "forced update", ref.Src, ref.Dst)
+				displayRefUpdate(cmd, '+', qr, "forced update", ref.Src, ref.Dst)
 			}
 		} else {
 			displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", ref.Src, ref.Dst)

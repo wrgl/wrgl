@@ -22,6 +22,15 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
+type Update struct {
+	OldSum []byte
+	Sum    []byte
+	Src    string
+	Dst    string
+	Force  bool
+	ErrMsg string
+}
+
 type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
@@ -125,25 +134,25 @@ func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool) (resp *
 	})
 }
 
-func (c *Client) sendReceivePackRequest(updates map[string][][]byte, commits []*objects.Commit, commonCommits [][]byte) (resp *http.Response, err error) {
+func (c *Client) sendReceivePackRequest(updates []*Update, commits []*objects.Commit, commonCommits [][]byte) (resp *http.Response, err error) {
 	body := bytes.NewBuffer(nil)
 	gzw := gzip.NewWriter(body)
 	buf := misc.NewBuffer(nil)
 	strs := make([]string, 0, 3)
 	sendPackfile := false
-	for ref, sums := range updates {
+	for _, update := range updates {
 		strs = strs[:0]
-		for i := 0; i < 2; i++ {
-			if sums[i] == nil {
+		for i, sum := range [][]byte{update.OldSum, update.Sum} {
+			if sum == nil {
 				strs = append(strs, strings.Repeat("0", 32))
 			} else {
-				strs = append(strs, hex.EncodeToString(sums[i]))
+				strs = append(strs, hex.EncodeToString(sum))
 				if i == 1 {
 					sendPackfile = true
 				}
 			}
 		}
-		strs = append(strs, ref)
+		strs = append(strs, update.Dst)
 		err = encoding.WritePktLine(gzw, buf, strings.Join(strs, " "))
 		if err != nil {
 			return
@@ -248,10 +257,21 @@ func (c *Client) parseReceivePackResult(r io.ReadCloser) (status map[string]stri
 	return
 }
 
-func (c *Client) PostReceivePack(updates map[string][][]byte, commits []*objects.Commit, commonCommits [][]byte) (status map[string]string, err error) {
+func (c *Client) PostReceivePack(updates []*Update, commits []*objects.Commit, commonCommits [][]byte) (err error) {
 	resp, err := c.sendReceivePackRequest(updates, commits, commonCommits)
 	if err != nil {
 		return
 	}
-	return c.parseReceivePackResult(resp.Body)
+	status, err := c.parseReceivePackResult(resp.Body)
+	if err != nil {
+		return
+	}
+	for _, u := range updates {
+		if s, ok := status[u.Dst]; ok {
+			u.ErrMsg = s
+		} else {
+			u.ErrMsg = "no status reported"
+		}
+	}
+	return
 }

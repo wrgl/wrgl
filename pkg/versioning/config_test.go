@@ -25,10 +25,10 @@ func TestSaveConfig(t *testing.T) {
 		Remote: map[string]*ConfigRemote{
 			"origin": {
 				Fetch: []*Refspec{
-					MustRefspec("+refs/heads/*:refs/remotes/origin/*"),
+					MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
 				},
 				Push: []*Refspec{
-					MustRefspec("refs/heads/main:refs/heads/main"),
+					MustParseRefspec("refs/heads/main:refs/heads/main"),
 				},
 			},
 		},

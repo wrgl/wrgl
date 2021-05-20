@@ -18,6 +18,24 @@ type Refspec struct {
 	tag        string
 }
 
+func NewRefspec(src, dst string, negate, force bool) (rs *Refspec, err error) {
+	rs = &Refspec{
+		Force:  force,
+		Negate: negate,
+		src:    src,
+		dst:    dst,
+	}
+	rs.srcStarInd, err = isGlobPattern(rs.src)
+	if err != nil {
+		return nil, err
+	}
+	rs.dstStarInd, err = isGlobPattern(rs.dst)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
 func (s *Refspec) Src() string {
 	if s.tag != "" {
 		return "refs/tags/" + s.tag
@@ -156,7 +174,7 @@ func (s *Refspec) UnmarshalText(text []byte) error {
 	return nil
 }
 
-func NewRefspec(s string) (*Refspec, error) {
+func ParseRefspec(s string) (*Refspec, error) {
 	rs := &Refspec{}
 	err := rs.UnmarshalText([]byte(s))
 	if err != nil {
@@ -165,7 +183,7 @@ func NewRefspec(s string) (*Refspec, error) {
 	return rs, nil
 }
 
-func MustRefspec(s string) *Refspec {
+func MustParseRefspec(s string) *Refspec {
 	rs := &Refspec{}
 	err := rs.UnmarshalText([]byte(s))
 	if err != nil {

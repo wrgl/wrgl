@@ -15,7 +15,7 @@ func TestRefSpec(t *testing.T) {
 		Text   string
 		Src    string
 		Dst    string
-		Plus   bool
+		Force  bool
 		Negate bool
 	}{
 		{"+refs/heads/*:refs/remotes/origin/*", "refs/heads/*", "refs/remotes/origin/*", true, false},
@@ -23,12 +23,14 @@ func TestRefSpec(t *testing.T) {
 		{"refs/heads/main", "refs/heads/main", "", false, false},
 		{"^refs/heads/qa*", "refs/heads/qa*", "", false, true},
 		{"tag v1.0.*", "refs/tags/v1.0.*", "refs/tags/v1.0.*", false, false},
+		{"main~4:refs/heads/main", "main~4", "refs/heads/main", false, false},
+		{":refs/heads/main", "", "refs/heads/main", false, false},
 	} {
-		rs, err := NewRefspec(c.Text)
+		rs, err := ParseRefspec(c.Text)
 		require.NoError(t, err, "case %d", i)
 		assert.Equal(t, c.Src, rs.Src(), "case %d", i)
 		assert.Equal(t, c.Dst, rs.Dst(), "case %d", i)
-		assert.Equal(t, c.Plus, rs.Force, "case %d", i)
+		assert.Equal(t, c.Force, rs.Force, "case %d", i)
 		assert.Equal(t, c.Negate, rs.Negate, "case %d", i)
 		b, err := rs.MarshalText()
 		require.NoError(t, err, "case %d", i)
@@ -47,7 +49,7 @@ func TestSrcMatchRef(t *testing.T) {
 		{"refs/heads/abc", "refs/heads/abc", true},
 		{"refs/heads/main:refs/remotes/origin/mymain", "refs/remotes/origin/mymain", false},
 	} {
-		rs, err := NewRefspec(c.Text)
+		rs, err := ParseRefspec(c.Text)
 		require.NoError(t, err, "case %d", i)
 		assert.Equal(t, c.Match, rs.SrcMatchRef(c.Ref), "case %d", i)
 	}
@@ -65,7 +67,7 @@ func TestDstMatchRef(t *testing.T) {
 		{"refs/heads/main:refs/remotes/origin/mymain", "refs/remotes/origin/mymain", true},
 		{"refs/heads/main:refs/remotes/origin/mymain", "refs/heads/qwer", false},
 	} {
-		rs, err := NewRefspec(c.Text)
+		rs, err := ParseRefspec(c.Text)
 		require.NoError(t, err, "case %d", i)
 		assert.Equal(t, c.Match, rs.DstMatchRef(c.Ref), "case %d", i)
 	}
@@ -83,7 +85,7 @@ func TestDstForRef(t *testing.T) {
 		{"refs/heads/main:refs/remotes/origin/mymain", "refs/heads/main", "refs/remotes/origin/mymain"},
 		{"refs/heads/main:refs/remotes/origin/mymain", "refs/heads/qwer", ""},
 	} {
-		rs, err := NewRefspec(c.Text)
+		rs, err := ParseRefspec(c.Text)
 		require.NoError(t, err, "case %d", i)
 		assert.Equal(t, c.Dst, rs.DstForRef(c.Ref), "case %d", i)
 	}
@@ -101,8 +103,27 @@ func TestRefspecExclude(t *testing.T) {
 		{"^refs/heads/main", "refs/heads/abc", false},
 		{"+refs/tags/*:refs/remotes/origin/tags/*", "refs/heads/main", false},
 	} {
-		rs, err := NewRefspec(c.Text)
+		rs, err := ParseRefspec(c.Text)
 		require.NoError(t, err, "case %d", i)
 		assert.Equal(t, c.Exclude, rs.Exclude(c.Ref), "case %d", i)
+	}
+}
+
+func TestNewRefspec(t *testing.T) {
+	for i, c := range []struct {
+		Src    string
+		Dst    string
+		Negate bool
+		Force  bool
+		Result string
+	}{
+		{"main~4", "refs/heads/main", false, false, "main~4:refs/heads/main"},
+		{"main^", "refs/tags/dec-2020", true, false, "^main^:refs/tags/dec-2020"},
+		{"refs/heads/tickets", "refs/remotes/origin/tickets", false, true, "+refs/heads/tickets:refs/remotes/origin/tickets"},
+		{"refs/heads/tickets", "", false, true, "+refs/heads/tickets"},
+	} {
+		rs, err := NewRefspec(c.Src, c.Dst, c.Negate, c.Force)
+		require.NoError(t, err, "case %d", i)
+		assert.Equal(t, c.Result, rs.String(), "case %d", i)
 	}
 }

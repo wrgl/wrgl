@@ -96,7 +96,7 @@ func (n *Negotiator) emitObjects(pr *encoding.PackfileReader) error {
 			return err
 		}
 		n.wg.Add(1)
-		n.ObjectChan <- &packutils.Object{t, b}
+		n.ObjectChan <- &packutils.Object{Type: t, Content: b}
 	}
 	close(n.ObjectChan)
 	return nil

@@ -12,8 +12,8 @@ import (
 func TestConfigRemoteFetchDstMatchRef(t *testing.T) {
 	cr := &ConfigRemote{
 		Fetch: []*Refspec{
-			MustRefspec("+refs/heads/*:refs/remotes/origin/*"),
-			MustRefspec("refs/tags/v1.0.0:refs/tags/v1.0.0"),
+			MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
+			MustParseRefspec("refs/tags/v1.0.0:refs/tags/v1.0.0"),
 		},
 	}
 	assert.True(t, cr.FetchDstMatchRef("refs/remotes/origin/abc"))
@@ -24,9 +24,9 @@ func TestConfigRemoteFetchDstMatchRef(t *testing.T) {
 func TestConfigRemoteFetchDstForRef(t *testing.T) {
 	cr := &ConfigRemote{
 		Fetch: []*Refspec{
-			MustRefspec("+refs/heads/*:refs/remotes/origin/*"),
-			MustRefspec("refs/tags/v1.0.0:refs/tags/v1.0.0"),
-			MustRefspec("^refs/heads/nah"),
+			MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
+			MustParseRefspec("refs/tags/v1.0.0:refs/tags/v1.0.0"),
+			MustParseRefspec("^refs/heads/nah"),
 		},
 	}
 	assert.Equal(t, cr.FetchDstForRef("refs/heads/abc"), "refs/remotes/origin/abc")

@@ -30,7 +30,7 @@ func setBranchesCmd() *cobra.Command {
 				return err
 			}
 			rem := utils.MustGetRemote(cmd, c, name)
-			refspec := versioning.MustRefspec(
+			refspec := versioning.MustParseRefspec(
 				fmt.Sprintf("+refs/heads/%s:refs/remotes/%s/%s", branch, name, branch),
 			)
 			if add {

@@ -60,34 +60,34 @@ func TestRemoteAddCmd(t *testing.T) {
 		"acme": {
 			URL: "https://acme.com",
 			Fetch: []*versioning.Refspec{
-				versioning.MustRefspec("+refs/heads/*:refs/remotes/acme/*"),
-				versioning.MustRefspec("tag *"),
+				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/acme/*"),
+				versioning.MustParseRefspec("tag *"),
 			},
 		},
 		"beta": {
 			URL: "https://beta.com",
 			Fetch: []*versioning.Refspec{
-				versioning.MustRefspec("+refs/heads/main:refs/remotes/beta/main"),
-				versioning.MustRefspec("+refs/heads/tickets:refs/remotes/beta/tickets"),
+				versioning.MustParseRefspec("+refs/heads/main:refs/remotes/beta/main"),
+				versioning.MustParseRefspec("+refs/heads/tickets:refs/remotes/beta/tickets"),
 			},
 		},
 		"gamma": {
 			URL: "https://gamma.com",
 			Fetch: []*versioning.Refspec{
-				versioning.MustRefspec("+refs/*:refs/*"),
+				versioning.MustParseRefspec("+refs/*:refs/*"),
 			},
 		},
 		"theta": {
 			URL: "https://theta.com",
 			Fetch: []*versioning.Refspec{
-				versioning.MustRefspec("+refs/heads/*:refs/remotes/theta/*"),
+				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/theta/*"),
 			},
 			Mirror: true,
 		},
 		"origin": {
 			URL: "https://my-repo.com",
 			Fetch: []*versioning.Refspec{
-				versioning.MustRefspec("+refs/heads/*:refs/remotes/origin/*"),
+				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
 			},
 		},
 	}, c.Remote)
