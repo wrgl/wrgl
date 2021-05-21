@@ -128,7 +128,7 @@ func (h *ReceivePackHandler) saveRefs(updates []*packutils.Update) error {
 				u.ErrMsg = "remote does not support deleting refs"
 				continue
 			} else {
-				err := versioning.DeleteRef(h.db, h.fs, u.Dst)
+				err := versioning.DeleteRef(h.db, h.fs, u.Dst[5:])
 				if err != nil {
 					return err
 				}
@@ -137,7 +137,7 @@ func (h *ReceivePackHandler) saveRefs(updates []*packutils.Update) error {
 			u.ErrMsg = "remote did not receive commit"
 			continue
 		}
-		oldSum, _ := versioning.GetRef(h.db, u.Dst)
+		oldSum, _ := versioning.GetRef(h.db, u.Dst[5:])
 		var msg string
 		if oldSum != nil {
 			if string(u.OldSum) != string(oldSum) {
@@ -152,11 +152,11 @@ func (h *ReceivePackHandler) saveRefs(updates []*packutils.Update) error {
 					continue
 				}
 			}
-			msg = "create ref"
-		} else {
 			msg = "update ref"
+		} else {
+			msg = "create ref"
 		}
-		err := versioning.SaveRef(h.db, h.fs, u.Dst, u.Sum, h.c.User.Name, h.c.User.Email, "receive-pack", msg)
+		err := versioning.SaveRef(h.db, h.fs, u.Dst[5:], u.Sum, h.c.User.Name, h.c.User.Email, "receive-pack", msg)
 		if err != nil {
 			return err
 		}

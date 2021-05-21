@@ -6,7 +6,6 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -19,27 +18,8 @@ import (
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/pack"
 	packtest "github.com/wrgl/core/pkg/pack/test"
-	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 )
-
-func assertCommitsPersisted(t *testing.T, db kv.DB, fs kv.FileStore, commits [][]byte) {
-	t.Helper()
-	for _, sum := range commits {
-		c, err := versioning.GetCommit(db, sum)
-		require.NoError(t, err)
-		tbl, err := table.ReadTable(db, fs, c.Table)
-		require.NoError(t, err)
-		reader := tbl.NewRowReader()
-		for {
-			_, _, err := reader.Read()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-		}
-	}
-}
 
 func TestFetchCmd(t *testing.T) {
 	httpmock.Activate()
@@ -91,7 +71,7 @@ func TestFetchCmd(t *testing.T) {
 	sum, err = versioning.GetTag(db, "2020")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	assertCommitsPersisted(t, db, fs, [][]byte{sum2, sum4})
+	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum2, sum4})
 	versioning.AssertLatestReflogEqual(t, fs, "remotes/origin/main", &objects.Reflog{
 		NewOID:      sum2,
 		AuthorName:  "John Doe",
@@ -162,7 +142,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	assert.Equal(t, kv.KeyNotFoundError, err)
 	_, err = versioning.GetRemoteRef(db, "home", "main")
 	assert.Equal(t, kv.KeyNotFoundError, err)
-	assertCommitsPersisted(t, db, fs, [][]byte{sum2})
+	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum2})
 	require.NoError(t, db.Close())
 
 	cmd = newRootCmd()
@@ -176,7 +156,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	sum, err = versioning.GetRemoteRef(db, "home", "main")
 	require.NoError(t, err)
 	assert.Equal(t, sum3, sum)
-	assertCommitsPersisted(t, db, fs, [][]byte{sum1, sum3})
+	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum1, sum3})
 	require.NoError(t, db.Close())
 }
 
@@ -212,7 +192,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	sum, err := versioning.GetRef(db, "custom/abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	assertCommitsPersisted(t, db, fs, [][]byte{sum1})
+	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum1})
 	versioning.AssertLatestReflogEqual(t, fs, "custom/abc", &objects.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
@@ -271,7 +251,7 @@ func TestFetchCmdTag(t *testing.T) {
 	sum, err := versioning.GetTag(db, "2020-dec")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	assertCommitsPersisted(t, db, fs, [][]byte{sum1})
+	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum1})
 	versioning.AssertLatestReflogEqual(t, fs, "tags/2020-dec", &objects.Reflog{
 		OldOID:      sum3,
 		NewOID:      sum1,
@@ -294,7 +274,7 @@ func TestFetchCmdTag(t *testing.T) {
 	sum, err = versioning.GetTag(db, "2021-dec")
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	assertCommitsPersisted(t, db, fs, [][]byte{sum2})
+	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum2})
 	versioning.AssertLatestReflogEqual(t, fs, "tags/2021-dec", &objects.Reflog{
 		OldOID:      sum4,
 		NewOID:      sum2,
@@ -352,7 +332,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	sum, err := versioning.GetHead(db, "abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	assertCommitsPersisted(t, db, fs, [][]byte{sum1})
+	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum1})
 	versioning.AssertLatestReflogEqual(t, fs, "heads/abc", &objects.Reflog{
 		OldOID:      sum2,
 		NewOID:      sum1,

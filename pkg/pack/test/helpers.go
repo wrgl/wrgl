@@ -41,24 +41,38 @@ func RegisterHandler(method, path string, handler http.Handler) {
 	RegisterHandlerWithOrigin(TestOrigin, method, path, handler)
 }
 
+func decodeGzipPayload(header *http.Header, r io.ReadCloser) (io.ReadCloser, error) {
+	if header.Get("Content-Encoding") == "gzip" {
+		gzr, err := gzip.NewReader(r)
+		if err != nil {
+			return nil, err
+		}
+		b, err := ioutil.ReadAll(gzr)
+		if err != nil {
+			return nil, err
+		}
+		r = io.NopCloser(bytes.NewReader(b))
+		header.Del("Content-Encoding")
+	}
+	return r, nil
+}
+
 func RegisterHandlerWithOrigin(origin, method, path string, handler http.Handler) {
 	httpmock.RegisterResponder(method, origin+path,
 		func(req *http.Request) (*http.Response, error) {
 			rec := httptest.NewRecorder()
+			r, err := decodeGzipPayload(&req.Header, req.Body)
+			if err != nil {
+				return nil, err
+			}
+			req.Body = r
 			handler.ServeHTTP(rec, req)
 			resp := rec.Result()
-			if resp.Header.Get("Content-Encoding") == "gzip" {
-				gzr, err := gzip.NewReader(resp.Body)
-				if err != nil {
-					return nil, err
-				}
-				b, err := ioutil.ReadAll(gzr)
-				if err != nil {
-					return nil, err
-				}
-				resp.Body = io.NopCloser(bytes.NewReader(b))
-				resp.Header.Del("Content-Encoding")
+			r, err = decodeGzipPayload(&resp.Header, resp.Body)
+			if err != nil {
+				return nil, err
 			}
+			resp.Body = r
 			return resp, nil
 		},
 	)
@@ -178,5 +192,23 @@ func CopyCommitsToNewStore(t *testing.T, dba, dbb kv.DB, fsa, fsb kv.FileStore, 
 		}
 		_, err = builder.SaveTable()
 		require.NoError(t, err)
+	}
+}
+
+func AssertCommitsPersisted(t *testing.T, db kv.DB, fs kv.FileStore, commits [][]byte) {
+	t.Helper()
+	for _, sum := range commits {
+		c, err := versioning.GetCommit(db, sum)
+		require.NoError(t, err)
+		tbl, err := table.ReadTable(db, fs, c.Table)
+		require.NoError(t, err)
+		reader := tbl.NewRowReader()
+		for {
+			_, _, err := reader.Read()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
 	}
 }

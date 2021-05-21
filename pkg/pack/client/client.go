@@ -159,7 +159,7 @@ func (c *Client) sendReceivePackRequest(updates []*packutils.Update, commits []*
 			return
 		}
 	}
-	err = gzw.Flush()
+	err = gzw.Close()
 	if err != nil {
 		return
 	}
@@ -238,8 +238,8 @@ func (c *Client) parseReceivePackResult(r io.ReadCloser) (status map[string]stri
 		if strings.HasPrefix(s, "ok ") {
 			status[s[3:]] = ""
 		} else if strings.HasPrefix(s, "ng ") {
-			i := bytes.LastIndexByte([]byte(s), ' ')
-			status[s[3:i]] = s[i:]
+			i := bytes.IndexByte([]byte(s[3:]), ' ') + 3
+			status[s[3:i]] = s[i+1:]
 		} else {
 			err = fmt.Errorf("unrecognized payload: %q", s)
 			return
