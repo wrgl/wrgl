@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2021 Wrangle Ltd
+
 package main
 
 import (
@@ -236,6 +239,7 @@ func identifyUpdates(
 				Src:    src,
 				Dst:    dst,
 			})
+			commitsToSend = append(commitsToSend, commit)
 		}
 	}
 	return

@@ -20,19 +20,6 @@ import (
 	"github.com/wrgl/core/pkg/versioning"
 )
 
-func receivePackConfig(denyNonFastForwards, denyDeletes bool) *versioning.Config {
-	return &versioning.Config{
-		User: &versioning.ConfigUser{
-			Name:  "test",
-			Email: "test@domain.com",
-		},
-		Receive: &versioning.ConfigReceive{
-			DenyNonFastForwards: denyNonFastForwards,
-			DenyDeletes:         denyDeletes,
-		},
-	}
-}
-
 func assertRefEqual(t *testing.T, db kv.DB, ref string, sum []byte) {
 	t.Helper()
 	b, err := versioning.GetRef(db, ref)
@@ -54,7 +41,7 @@ func TestReceivePackHandler(t *testing.T) {
 	sum3, _ := factory.CommitHead(t, db, fs, "delta", nil, nil)
 	sum7, _ := factory.CommitHead(t, db, fs, "theta", nil, nil)
 	packtest.RegisterHandler(
-		http.MethodPost, "/receive-pack/", NewReceivePackHandler(db, fs, receivePackConfig(false, false)),
+		http.MethodPost, "/receive-pack/", NewReceivePackHandler(db, fs, packtest.ReceivePackConfig(false, false)),
 	)
 
 	dbc := kv.NewMockStore(false)
@@ -119,7 +106,7 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 	sum1, _ := factory.CommitHead(t, db, fs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, fs, "beta", nil, nil)
 	packtest.RegisterHandler(
-		http.MethodPost, "/receive-pack/", NewReceivePackHandler(db, fs, receivePackConfig(true, true)),
+		http.MethodPost, "/receive-pack/", NewReceivePackHandler(db, fs, packtest.ReceivePackConfig(true, true)),
 	)
 
 	dbc := kv.NewMockStore(false)

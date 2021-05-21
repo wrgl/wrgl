@@ -48,6 +48,13 @@ func CommitHead(t *testing.T, db kv.DB, fs kv.FileStore, branch string, rows []s
 	return sum, c
 }
 
+func CommitTag(t *testing.T, db kv.DB, fs kv.FileStore, tag string, rows []string, pk []uint32, parents [][]byte) ([]byte, *objects.Commit) {
+	t.Helper()
+	sum, c := Commit(t, db, fs, rows, pk, parents)
+	require.NoError(t, versioning.SaveTag(db, tag, sum))
+	return sum, c
+}
+
 func SdumpCommit(t *testing.T, db kv.DB, fs kv.FileStore, sum []byte) string {
 	t.Helper()
 	lines := []string{

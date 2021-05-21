@@ -322,7 +322,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	cmd.SetArgs([]string{"fetch", "origin", "+refs/heads/abc:refs/heads/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
-		fmt.Sprintf(" + %s..%s    abc         -> abc (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum1)[:7]),
+		fmt.Sprintf(" + %s...%s   abc         -> abc (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum1)[:7]),
 		"",
 	}, "\n"))
 

@@ -212,3 +212,16 @@ func AssertCommitsPersisted(t *testing.T, db kv.DB, fs kv.FileStore, commits [][
 		}
 	}
 }
+
+func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *versioning.Config {
+	return &versioning.Config{
+		User: &versioning.ConfigUser{
+			Name:  "test",
+			Email: "test@domain.com",
+		},
+		Receive: &versioning.ConfigReceive{
+			DenyNonFastForwards: denyNonFastForwards,
+			DenyDeletes:         denyDeletes,
+		},
+	}
+}
