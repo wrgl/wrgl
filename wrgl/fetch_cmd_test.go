@@ -54,9 +54,9 @@ func TestFetchCmd(t *testing.T) {
 	cmd.SetArgs([]string{"fetch"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
-		" * [new branch]        main        -> origin/main",
-		" * [new branch]        tickets     -> origin/tickets",
-		" * [new tag]           2020        -> 2020",
+		" * [new branch]      main        -> origin/main",
+		" * [new branch]      tickets     -> origin/tickets",
+		" * [new tag]         2020        -> 2020",
 		"",
 	}, "\n"))
 	db, err = rd.OpenKVStore()
@@ -183,7 +183,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	cmd.SetArgs([]string{"fetch", "origin", "refs/custom/abc:refs/custom/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
-		" * [new ref]           refs/custom/abc -> refs/custom/abc",
+		" * [new ref]         refs/custom/abc -> refs/custom/abc",
 		"",
 	}, "\n"))
 	db, err := rd.OpenKVStore()
@@ -234,8 +234,8 @@ func TestFetchCmdTag(t *testing.T) {
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/202*:refs/tags/202*"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
-		" ! [rejected]          2020-dec    -> 2020-dec (would clobber existing tag)",
-		" ! [rejected]          2021-dec    -> 2021-dec (would clobber existing tag)",
+		" ! [rejected]        2020-dec    -> 2020-dec (would clobber existing tag)",
+		" ! [rejected]        2021-dec    -> 2021-dec (would clobber existing tag)",
 		"",
 	}, "\n"), fmt.Errorf("failed to fetch some refs from "+packtest.TestOrigin))
 
@@ -243,7 +243,7 @@ func TestFetchCmdTag(t *testing.T) {
 	cmd.SetArgs([]string{"fetch", "origin", "+refs/tags/2020*:refs/tags/2020*"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
-		" t [tag update]        2020-dec    -> 2020-dec",
+		" t [tag update]      2020-dec    -> 2020-dec",
 		"",
 	}, "\n"))
 	db, err = rd.OpenKVStore()
@@ -266,7 +266,7 @@ func TestFetchCmdTag(t *testing.T) {
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/2021*:refs/tags/2021*", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
-		" t [tag update]        2021-dec    -> 2021-dec",
+		" t [tag update]      2021-dec    -> 2021-dec",
 		"",
 	}, "\n"))
 	db, err = rd.OpenKVStore()
@@ -314,7 +314,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	cmd.SetArgs([]string{"fetch", "origin", "refs/heads/abc:refs/heads/abc"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
-		" ! [rejected]          abc         -> abc (non-fast-forward)",
+		" ! [rejected]        abc         -> abc (non-fast-forward)",
 		"",
 	}, "\n"), fmt.Errorf("failed to fetch some refs from "+packtest.TestOrigin))
 
@@ -322,7 +322,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	cmd.SetArgs([]string{"fetch", "origin", "+refs/heads/abc:refs/heads/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + packtest.TestOrigin,
-		fmt.Sprintf(" + %s...%s   abc         -> abc (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum1)[:7]),
+		fmt.Sprintf(" + %s...%s abc         -> abc (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum1)[:7]),
 		"",
 	}, "\n"))
 

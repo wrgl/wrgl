@@ -220,8 +220,8 @@ func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *versioning.Config
 			Email: "test@domain.com",
 		},
 		Receive: &versioning.ConfigReceive{
-			DenyNonFastForwards: denyNonFastForwards,
-			DenyDeletes:         denyDeletes,
+			DenyNonFastForwards: &denyNonFastForwards,
+			DenyDeletes:         &denyDeletes,
 		},
 	}
 }

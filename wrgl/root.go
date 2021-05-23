@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/wrgl/core/wrgl/config"
 	"github.com/wrgl/core/wrgl/reflog"
 	"github.com/wrgl/core/wrgl/remote"
 )
@@ -32,7 +33,6 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().Bool("badger-log-info", false, "set Badger log level to INFO")
 	rootCmd.PersistentFlags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
 	rootCmd.AddCommand(newInitCmd())
-	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newCommitCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newLogCmd())
@@ -45,6 +45,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newCatFileCmd())
 	rootCmd.AddCommand(newFetchCmd())
 	rootCmd.AddCommand(newPushCmd())
+	rootCmd.AddCommand(config.RootCmd())
 	rootCmd.AddCommand(remote.RootCmd())
 	rootCmd.AddCommand(reflog.RootCmd())
 	return rootCmd

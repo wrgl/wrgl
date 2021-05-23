@@ -92,19 +92,20 @@ func TestPushCmd(t *testing.T) {
 		"theta:theta",
 	})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		" ! [rejected]          delta       -> delta (non-fast-forward)",
-		" ! [rejected]          2017        -> 2017 (would clobber existing tag)",
-		" = [up to date]        theta       -> theta",
-		" * [new branch]        alpha       -> alpha",
-		" * [new branch]        xi          -> xi",
-		" * [new tag]           omega       -> omega",
-		" * [new tag]           epsilon     -> epsilon",
-		fmt.Sprintf("   %s..%s    beta        -> beta", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7]),
-		" * [new tag]           2020        -> 2020",
-		fmt.Sprintf(" + %s...%s   2018        -> 2018 (forced update)", hex.EncodeToString(sum6)[:7], hex.EncodeToString(sum7)[:7]),
-		" * [new reference]     refs/custom/abc -> refs/custom/abc",
-		" - [deleted]                       -> 2019",
-		fmt.Sprintf(" + %s...%s   gamma       -> gamma (forced update)", hex.EncodeToString(sum4)[:7], hex.EncodeToString(sum5)[:7]),
+		fmt.Sprintf("To %s", packtest.TestOrigin),
+		" ! [rejected]        delta       -> delta (non-fast-forward)",
+		" ! [rejected]        2017        -> 2017 (would clobber existing tag)",
+		" = [up to date]      theta       -> theta",
+		" * [new branch]      alpha       -> alpha",
+		" * [new branch]      xi          -> xi",
+		" * [new tag]         omega       -> omega",
+		" * [new tag]         epsilon     -> epsilon",
+		fmt.Sprintf("   %s..%s  beta        -> beta", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7]),
+		" * [new tag]         2020        -> 2020",
+		fmt.Sprintf(" + %s...%s 2018        -> 2018 (forced update)", hex.EncodeToString(sum6)[:7], hex.EncodeToString(sum7)[:7]),
+		" * [new reference]   refs/custom/abc -> refs/custom/abc",
+		" - [deleted]                     -> 2019",
+		fmt.Sprintf(" + %s...%s gamma       -> gamma (forced update)", hex.EncodeToString(sum4)[:7], hex.EncodeToString(sum5)[:7]),
 		"",
 	}, "\n"))
 
@@ -158,9 +159,10 @@ func TestPushCmdForce(t *testing.T) {
 		"refs/tags/2017:",
 	})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		fmt.Sprintf(" + %s...%s   alpha       -> alpha (forced update)", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum3)[:7]),
-		" ! [remote rejected]               -> beta (remote does not support deleting refs)",
-		fmt.Sprintf(" + %s...%s   2017        -> 2017 (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum4)[:7]),
+		fmt.Sprintf("To %s", packtest.TestOrigin),
+		fmt.Sprintf(" + %s...%s alpha       -> alpha (forced update)", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum3)[:7]),
+		" ! [remote rejected]             -> beta (remote does not support deleting refs)",
+		fmt.Sprintf(" + %s...%s 2017        -> 2017 (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum4)[:7]),
 		"",
 	}, "\n"))
 

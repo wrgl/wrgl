@@ -25,7 +25,7 @@ func TestRemoteSetBranches(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"remote", "set-branches", "origin", "main"})
 	require.NoError(t, cmd.Execute())
-	c, err := versioning.OpenConfig(false, viper.GetString("wrgl_dir"))
+	c, err := versioning.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
 	assert.Equal(t, []*versioning.Refspec{
 		versioning.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
@@ -35,7 +35,7 @@ func TestRemoteSetBranches(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"remote", "set-branches", "origin", "data", "--add"})
 	require.NoError(t, cmd.Execute())
-	c, err = versioning.OpenConfig(false, viper.GetString("wrgl_dir"))
+	c, err = versioning.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
 	assert.Equal(t, []*versioning.Refspec{
 		versioning.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),

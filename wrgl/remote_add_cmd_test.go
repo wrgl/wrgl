@@ -54,7 +54,7 @@ func TestRemoteAddCmd(t *testing.T) {
 	}, "\n"))
 
 	// test config
-	c, err := versioning.OpenConfig(false, viper.GetString("wrgl_dir"))
+	c, err := versioning.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*versioning.ConfigRemote{
 		"acme": {

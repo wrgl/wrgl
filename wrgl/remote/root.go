@@ -22,7 +22,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, err := versioning.OpenConfig(false, wrglDir)
+			c, err := versioning.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}

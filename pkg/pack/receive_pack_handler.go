@@ -124,7 +124,7 @@ func (h *ReceivePackHandler) saveObjects(pr *encoding.PackfileReader) error {
 func (h *ReceivePackHandler) saveRefs(updates []*packutils.Update) error {
 	for _, u := range updates {
 		if u.Sum == nil {
-			if h.c.Receive.DenyDeletes {
+			if *h.c.Receive.DenyDeletes {
 				u.ErrMsg = "remote does not support deleting refs"
 				continue
 			} else {
@@ -143,7 +143,7 @@ func (h *ReceivePackHandler) saveRefs(updates []*packutils.Update) error {
 			if string(u.OldSum) != string(oldSum) {
 				u.ErrMsg = "remote ref updated since checkout"
 				continue
-			} else if h.c.Receive.DenyNonFastForwards {
+			} else if *h.c.Receive.DenyNonFastForwards {
 				fastForward, err := versioning.IsAncestorOf(h.db, oldSum, u.Sum)
 				if err != nil {
 					return err

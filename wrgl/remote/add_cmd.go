@@ -27,7 +27,7 @@ func addCmd() *cobra.Command {
 				return err
 			}
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := versioning.OpenConfig(false, wrglDir)
+			c, err := versioning.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}

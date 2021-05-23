@@ -31,9 +31,9 @@ func createRepoDir(t *testing.T) (rd *versioning.RepoDir, cleanup func()) {
 	require.NoError(t, err)
 	viper.Set("wrgl_dir", wrglDir)
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"config", "user.email", "john@domain.com"})
+	cmd.SetArgs([]string{"config", "set", "user.email", "john@domain.com"})
 	require.NoError(t, cmd.Execute())
-	cmd.SetArgs([]string{"config", "user.name", "John Doe"})
+	cmd.SetArgs([]string{"config", "set", "user.name", "John Doe"})
 	require.NoError(t, cmd.Execute())
 	return rd, func() { os.RemoveAll(rootDir) }
 }

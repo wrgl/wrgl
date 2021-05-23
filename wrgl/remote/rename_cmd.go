@@ -22,7 +22,7 @@ func renameCmd() *cobra.Command {
 			if oldRem == newRem {
 				return nil
 			}
-			c, err := versioning.OpenConfig(false, wrglDir)
+			c, err := versioning.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}

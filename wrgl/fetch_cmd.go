@@ -176,7 +176,7 @@ func displayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, from, to s
 		from = strings.TrimPrefix(from, prefix)
 		to = strings.TrimPrefix(to, prefix)
 	}
-	cmd.Printf(" %c %-19s %-11s -> %s%s\n", code, summary, from, to, errStr)
+	cmd.Printf(" %c %-17s %-11s -> %s%s\n", code, summary, from, to, errStr)
 }
 
 func bytesSliceToMap(sl [][]byte) (m map[string]struct{}) {

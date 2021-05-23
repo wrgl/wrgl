@@ -43,12 +43,10 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
 			refspecs, err := getRefspecsToPush(cr, args)
 			if err != nil {
 				return err
 			}
-
 			client, err := packclient.NewClient(db, fs, cr.URL)
 			if err != nil {
 				return err
@@ -57,6 +55,7 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cmd.Printf("To %s\n", cr.URL)
 			updates, commits, err := identifyUpdates(cmd, db, refspecs, remoteRefs, force)
 			if err != nil {
 				return err
