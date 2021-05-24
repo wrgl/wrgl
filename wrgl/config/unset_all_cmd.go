@@ -4,8 +4,6 @@
 package config
 
 import (
-	"reflect"
-
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -27,20 +25,29 @@ func unsetAllCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				sl := v.Interface().([]string)
-				if len(idxMap) == len(sl) {
+				sl := MustBeTextSlice(v.Interface())
+				if len(idxMap) == sl.Len() {
 					err = unsetField(c, args[0], true)
 					if err != nil {
 						return err
 					}
 				} else {
 					result := []string{}
-					for i, s := range sl {
+					n := sl.Len()
+					for i := 0; i < n; i++ {
 						if _, ok := idxMap[i]; !ok {
+							s, err := sl.Get(i)
+							if err != nil {
+								return err
+							}
 							result = append(result, s)
 						}
 					}
-					v.Set(reflect.ValueOf(result))
+					sl, err := TextSliceFromStrSlice(v.Type(), result)
+					if err != nil {
+						return err
+					}
+					v.Set(sl.Value)
 				}
 			} else {
 				err := unsetField(c, args[0], true)

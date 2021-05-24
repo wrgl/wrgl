@@ -1,6 +1,9 @@
 package config
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -15,6 +18,9 @@ func getAllCmd() *cobra.Command {
 			c := openConfigToRead(cmd, dir)
 			v, err := getFieldValue(c, args[0], false)
 			if err != nil {
+				if strings.HasSuffix(err.Error(), " is zero") {
+					return fmt.Errorf("key %q is not set", args[0])
+				}
 				return err
 			}
 			if len(args) == 2 {
