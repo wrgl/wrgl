@@ -150,14 +150,18 @@ func TestPushCmdForce(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", packtest.TestOrigin})
 	require.NoError(t, cmd.Execute())
+	for _, ref := range []string{
+		"refs/heads/alpha:refs/heads/alpha",
+		":refs/heads/beta",
+		"refs/tags/2017:refs/tags/2017",
+	} {
+		cmd = newRootCmd()
+		cmd.SetArgs([]string{"config", "add", "remote.origin.push", ref})
+		require.NoError(t, cmd.Execute())
+	}
 
 	cmd = newRootCmd()
-	cmd.SetArgs([]string{
-		"push", "--force",
-		"refs/heads/alpha:",
-		":refs/heads/beta",
-		"refs/tags/2017:",
-	})
+	cmd.SetArgs([]string{"push", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("To %s", packtest.TestOrigin),
 		fmt.Sprintf(" + %s...%s alpha       -> alpha (forced update)", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum3)[:7]),

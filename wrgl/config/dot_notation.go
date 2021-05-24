@@ -76,12 +76,17 @@ func getFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value
 	return v, nil
 }
 
-func unsetField(s interface{}, prop string, all bool) (err error) {
+func getParentField(s interface{}, prop string) (parent reflect.Value, name string, err error) {
 	props := strings.Split(prop, ".")
 	n := len(props) - 1
-	name := props[n]
+	name = props[n]
 	props = props[:n]
-	parent, err := getFieldValue(s, strings.Join(props, "."), false)
+	parent, err = getFieldValue(s, strings.Join(props, "."), false)
+	return
+}
+
+func unsetField(s interface{}, prop string, all bool) (err error) {
+	parent, name, err := getParentField(s, prop)
 	if err != nil {
 		return
 	}
