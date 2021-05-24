@@ -13,12 +13,12 @@ func getFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value
 	props := strings.Split(prop, ".")
 	v := reflect.ValueOf(s)
 	t := reflect.TypeOf(s)
+	if prop == "" {
+		return v, nil
+	}
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 		v = v.Elem()
-	}
-	if t.Kind() != reflect.Struct {
-		return reflect.Value{}, fmt.Errorf("interface isn't a struct")
 	}
 	for _, p := range props {
 		name := p
@@ -40,6 +40,8 @@ func getFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value
 				if createIfZero {
 					if t.Kind() == reflect.Ptr {
 						v.Set(reflect.New(t.Elem()))
+					} else if t.Kind() == reflect.Map {
+						v.Set(reflect.MakeMap(t))
 					} else {
 						v.Set(reflect.New(t).Elem())
 					}
@@ -68,10 +70,46 @@ func getFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value
 			}
 			v = e
 		default:
-			return reflect.Value{}, fmt.Errorf("invalid kind %v", t.Kind())
+			return reflect.Value{}, fmt.Errorf("unhandled kind %v", t.Kind())
 		}
 	}
 	return v, nil
+}
+
+func unsetField(s interface{}, prop string, all bool) (err error) {
+	props := strings.Split(prop, ".")
+	n := len(props) - 1
+	name := props[n]
+	props = props[:n]
+	parent, err := getFieldValue(s, strings.Join(props, "."), false)
+	if err != nil {
+		return
+	}
+	if parent.Type().Kind() == reflect.Ptr {
+		parent = parent.Elem()
+	}
+	switch parent.Type().Kind() {
+	case reflect.Struct:
+		name = strings.ToUpper(string(name[0])) + name[1:]
+		field := parent.FieldByName(name)
+		if !all && field.Kind() == reflect.Slice && len(field.Interface().([]string)) > 1 {
+			return fmt.Errorf("key contains multiple values")
+		}
+		field.Set(reflect.New(field.Type()).Elem())
+	case reflect.Map:
+		ft := parent.Type().Elem()
+		key := reflect.ValueOf(name)
+		if !all && ft.Kind() == reflect.Slice {
+			field := parent.MapIndex(key)
+			if len(field.Interface().([]string)) > 1 {
+				return fmt.Errorf("key contains multiple values")
+			}
+		}
+		parent.SetMapIndex(key, reflect.Value{})
+	default:
+		return fmt.Errorf("unhandled kind %v", parent.Type().Kind())
+	}
+	return nil
 }
 
 func GetWithDotNotation(s interface{}, prop string) (interface{}, error) {

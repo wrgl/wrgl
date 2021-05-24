@@ -49,3 +49,28 @@ func TestConfigSetCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "get", "user.name"})
 	assertCmdOutput(t, cmd, "John Doe\n")
 }
+
+func TestConfigSetCmdBool(t *testing.T) {
+	cleanup := versioning.MockGlobalConf(t, true)
+	defer cleanup()
+	wrglDir, err := ioutil.TempDir("", ".wrgl*")
+	require.NoError(t, err)
+	defer os.RemoveAll(wrglDir)
+	viper.Set("wrgl_dir", wrglDir)
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"config", "set", "receive.denyDeletes", "true"})
+	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"config", "set", "receive.denyNonFastForwards", "false"})
+	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"config", "get", "receive.denyDeletes"})
+	assertCmdOutput(t, cmd, "true\n")
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"config", "get", "receive.denyNonFastForwards"})
+	assertCmdOutput(t, cmd, "false\n")
+}

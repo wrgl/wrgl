@@ -1,35 +1,30 @@
 package config
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
-func getCmd() *cobra.Command {
+func getAllCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get NAME [VALUE_PATTERN]",
-		Short: "Get the value for a given key. Returns error code 1 if the key was not found and the last value if multiple key values were found.",
+		Use:   "get-all NAME [VALUE_PATTERN]",
+		Short: "Like get, but returns all values for a multi-valued key.",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			c := openConfigToRead(cmd, dir)
 			v, err := getFieldValue(c, args[0], false)
 			if err != nil {
-				if strings.HasSuffix(err.Error(), " is zero") {
-					return fmt.Errorf("key %q is not set", args[0])
-				}
+				return err
 			}
 			if len(args) == 2 {
 				_, vals, err := filterWithValuePattern(cmd, v, args[1])
 				if err != nil {
 					return err
 				}
-				return outputValues(cmd, vals, true)
+				return outputValues(cmd, vals, false)
 			}
-			return outputValues(cmd, v.Interface(), true)
+			return outputValues(cmd, v.Interface(), false)
 		},
 	}
 	return cmd

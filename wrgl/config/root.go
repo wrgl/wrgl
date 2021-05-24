@@ -29,9 +29,13 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringP("file", "f", "", "Use the given config file instead of .wrgl/config.yaml")
 	cmd.PersistentFlags().Bool("fixed-value", false, "When used with the VALUE_PATTERN argument, treat VALUE_PATTERN as an exact string instead of a regular expression.")
 	cmd.PersistentFlags().BoolP("null", "z", false, "For all options that output values and/or keys, always end values with the null character (instead of a newline). Use newline instead as a delimiter between key and value. This allows for secure parsing of the output without getting confused e.g. by values that contain line breaks.")
-	// cmd.Flags().StringSlice("add", nil, "Adds a new value to the option without altering any existing values.")
 	cmd.AddCommand(getCmd())
+	cmd.AddCommand(getAllCmd())
 	cmd.AddCommand(setCmd())
+	cmd.AddCommand(replaceAllCmd())
+	cmd.AddCommand(addCmd())
+	cmd.AddCommand(unsetCmd())
+	cmd.AddCommand(unsetAllCmd())
 	return cmd
 }
 
@@ -92,20 +96,29 @@ func openConfigToWrite(cmd *cobra.Command, rootDir string) (c *versioning.Config
 	return
 }
 
-func filterWithValuePattern(cmd *cobra.Command, v reflect.Value, valuePattern string) (idxs []int, vals []string, err error) {
+func filterWithValuePattern(cmd *cobra.Command, v reflect.Value, valuePattern string) (idxMap map[int]struct{}, vals []string, err error) {
 	fixedValue, err := cmd.Flags().GetBool("fixed-value")
 	if err != nil {
 		return
 	}
-	if v.Kind() != reflect.Slice || v.Elem().Kind() != reflect.String {
+	if v.Kind() != reflect.Slice {
 		err = fmt.Errorf("VALUE_PATTERN should only be specified for options that accept multiple strings")
 		return
 	}
-	sl := v.Interface().([]string)
+	sl, ok := ToTextSlice(v.Interface())
+	if !ok {
+		panic(fmt.Sprintf("type %v does not implement fmt.Stringer", v.Type()))
+	}
+	idxMap = map[int]struct{}{}
+	n := sl.Len()
 	if fixedValue {
-		for i, s := range sl {
+		for i := 0; i < n; i++ {
+			s, err := sl.Get(i)
+			if err != nil {
+				return nil, nil, err
+			}
 			if s == valuePattern {
-				idxs = append(idxs, i)
+				idxMap[i] = struct{}{}
 				vals = append(vals, s)
 			}
 		}
@@ -114,9 +127,13 @@ func filterWithValuePattern(cmd *cobra.Command, v reflect.Value, valuePattern st
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid VALUE_PATTERN: %v", err)
 		}
-		for i, s := range sl {
+		for i := 0; i < n; i++ {
+			s, err := sl.Get(i)
+			if err != nil {
+				return nil, nil, err
+			}
 			if pat.MatchString(s) {
-				idxs = append(idxs, i)
+				idxMap[i] = struct{}{}
 				vals = append(vals, s)
 			}
 		}
@@ -124,16 +141,38 @@ func filterWithValuePattern(cmd *cobra.Command, v reflect.Value, valuePattern st
 	return
 }
 
-func outputValues(cmd *cobra.Command, vals interface{}) (err error) {
+func outputValues(cmd *cobra.Command, vals interface{}, lastOneOnly bool) (err error) {
 	null, err := cmd.Flags().GetBool("null")
 	if err != nil {
 		return
 	}
-	if sl, ok := vals.([]string); ok {
-		if null {
-			cmd.Print(strings.Join(sl, "\x00"), "\x00")
+	if sl, ok := ToTextSlice(vals); ok && sl.Len() > 0 {
+		if lastOneOnly {
+			s, err := sl.Get(sl.Len() - 1)
+			if err != nil {
+				return err
+			}
+			if null {
+				cmd.Printf("%s\x00", s)
+			} else {
+				cmd.Printf("%s\n", s)
+			}
 		} else {
-			cmd.Println(strings.Join(sl, "\n"))
+			strs, err := sl.ToStringSlice()
+			if err != nil {
+				return err
+			}
+			if null {
+				cmd.Print(strings.Join(strs, "\x00"), "\x00")
+			} else {
+				cmd.Println(strings.Join(strs, "\n"))
+			}
+		}
+	} else if v, ok := vals.(*bool); ok {
+		if null {
+			cmd.Printf("%+v\x00", *v)
+		} else {
+			cmd.Printf("%+v\n", *v)
 		}
 	} else {
 		if null {
