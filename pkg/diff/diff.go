@@ -5,51 +5,14 @@ package diff
 
 import (
 	"bytes"
-	"encoding/hex"
 	"io"
 	"time"
 
+	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/progress"
+	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
 )
-
-type DiffType int
-
-const (
-	Unspecified DiffType = iota
-
-	// Diff.Type and InflatedDiff.Type can be set to the following values
-	Init
-	Progress
-	PrimaryKey
-	RowChange
-	RowAdd
-	RowRemove
-
-	// InflatedDiff.Type can be set to this value in addition
-	RowChangeInit
-	ColumnsRename
-)
-
-type Diff struct {
-	Type DiffType `json:"t"`
-
-	// Init fields
-	OldColumns []string `json:"oldCols,omitempty"`
-	Columns    []string `json:"cols,omitempty"`
-	PK         []string `json:"pk,omitempty"`
-
-	// Progress fields
-	Progress int64 `json:"progress,omitempty"`
-	Total    int64 `json:"total,omitempty"`
-
-	// PrimaryKey fields
-	OldPK []string `json:"oldPK,omitempty"`
-
-	// RowChange fields
-	OldRow string `json:"oldRow,omitempty"`
-	// RowAdd, RowRemove fields
-	Row string `json:"row,omitempty"`
-}
 
 func strSliceEqual(s1, s2 []string) bool {
 	if len(s1) != len(s2) {
@@ -63,43 +26,53 @@ func strSliceEqual(s1, s2 []string) bool {
 	return true
 }
 
-func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<- error) <-chan Diff {
-	diffChan := make(chan Diff)
+func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<- error) (<-chan objects.Diff, <-chan progress.Event) {
+	diffChan := make(chan objects.Diff)
+	progChan := make(chan progress.Event)
 	go func() {
 		defer close(diffChan)
-		diffChan <- Diff{
-			Type:       Init,
-			Columns:    t1.Columns(),
-			OldColumns: t2.Columns(),
-			PK:         t1.PrimaryKey(),
+		defer close(progChan)
+
+		_, added, removed := slice.CompareStringSlices(t1.Columns(), t2.Columns())
+		if len(added) > 0 {
+			diffChan <- objects.Diff{
+				Type:    objects.DTColumnAdd,
+				Columns: added,
+			}
+		}
+		if len(removed) > 0 {
+			diffChan <- objects.Diff{
+				Type:    objects.DTColumnRem,
+				Columns: removed,
+			}
 		}
 
 		sl1 := t1.PrimaryKey()
 		sl2 := t2.PrimaryKey()
-		if len(sl1) == 0 && len(sl2) == 0 && !strSliceEqual(t1.Columns(), t2.Columns()) {
+		if len(sl1) == 0 && len(sl2) == 0 && (len(added) > 0 || len(removed) > 0) {
 			return
 		}
 		if !strSliceEqual(sl1, sl2) {
-			diffChan <- Diff{
-				Type:  PrimaryKey,
-				OldPK: sl2,
+			diffChan <- objects.Diff{
+				Type:    objects.DTPKChange,
+				Columns: sl2,
 			}
 		} else {
-			err := diffRows(t1, t2, diffChan, progressPeriod)
+			err := diffRows(t1, t2, diffChan, progChan, progressPeriod)
 			if err != nil {
 				errChan <- err
 				return
 			}
 		}
 	}()
-	return diffChan
+	return diffChan, progChan
 }
 
-func diffRows(t1, t2 table.Store, diffChan chan<- Diff, progressPeriod time.Duration) error {
+func diffRows(t1, t2 table.Store, diffChan chan<- objects.Diff, progChan chan<- progress.Event, progressPeriod time.Duration) error {
 	l1 := t1.NumRows()
 	l2 := t2.NumRows()
-	total := int64(l1 + l2)
-	var currentProgress int64
+	total := uint64(l1 + l2)
+	var currentProgress uint64
 	ticker := time.NewTicker(progressPeriod)
 	defer ticker.Stop()
 	r1 := t1.NewRowHashReader(0, 0)
@@ -107,8 +80,7 @@ loop1:
 	for {
 		select {
 		case <-ticker.C:
-			diffChan <- Diff{
-				Type:     Progress,
+			progChan <- progress.Event{
 				Progress: currentProgress,
 				Total:    total,
 			}
@@ -123,16 +95,18 @@ loop1:
 			currentProgress++
 			if w, ok := t2.GetRowHash(k); ok {
 				if !bytes.Equal(v, w) {
-					diffChan <- Diff{
-						Type:   RowChange,
-						OldRow: hex.EncodeToString(w),
-						Row:    hex.EncodeToString(v),
+					diffChan <- objects.Diff{
+						Type:   objects.DTRow,
+						PK:     k,
+						OldSum: w,
+						Sum:    v,
 					}
 				}
 			} else {
-				diffChan <- Diff{
-					Type: RowAdd,
-					Row:  hex.EncodeToString(v),
+				diffChan <- objects.Diff{
+					Type: objects.DTRow,
+					PK:   k,
+					Sum:  v,
 				}
 			}
 		}
@@ -142,8 +116,7 @@ loop2:
 	for {
 		select {
 		case <-ticker.C:
-			diffChan <- Diff{
-				Type:     Progress,
+			progChan <- progress.Event{
 				Progress: currentProgress,
 				Total:    total,
 			}
@@ -157,9 +130,10 @@ loop2:
 			}
 			currentProgress++
 			if _, ok := t1.GetRowHash(k); !ok {
-				diffChan <- Diff{
-					Type: RowRemove,
-					Row:  hex.EncodeToString(v),
+				diffChan <- objects.Diff{
+					Type:   objects.DTRow,
+					PK:     k,
+					OldSum: v,
 				}
 			}
 		}

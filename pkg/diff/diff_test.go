@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/testutils"
 )
@@ -20,44 +21,39 @@ func TestDiffTables(t *testing.T) {
 	cases := []struct {
 		T1     table.Store
 		T2     table.Store
-		Events []Diff
+		Events []objects.Diff
 	}{
 		{
 			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
 			table.NewMockStore([]string{"one", "three"}, []uint32{1}, nil),
-			[]Diff{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "three"}, PK: []string{"one"}},
-				{Type: PrimaryKey, OldPK: []string{"three"}},
+			[]objects.Diff{
+				{Type: objects.DTColumnAdd, Columns: []string{"two"}},
+				{Type: objects.DTColumnRem, Columns: []string{"three"}},
+				{Type: objects.DTPKChange, Columns: []string{"three"}},
 			},
 		},
 		{
 			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
 			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
-			[]Diff{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
-			},
+			[]objects.Diff{},
 		},
 		{
 			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
 			table.NewMockStore([]string{"one", "two"}, []uint32{}, nil),
-			[]Diff{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
-				{Type: PrimaryKey, OldPK: []string{}},
+			[]objects.Diff{
+				{Type: objects.DTPKChange, Columns: []string{}},
 			},
 		},
 		{
 			table.NewMockStore([]string{"a", "b", "c", "d"}, []uint32{0, 2}, nil),
 			table.NewMockStore([]string{"a", "c", "d", "b"}, []uint32{0, 1}, nil),
-			[]Diff{
-				{Type: Init, Columns: []string{"a", "b", "c", "d"}, OldColumns: []string{"a", "c", "d", "b"}, PK: []string{"a", "c"}},
-			},
+			[]objects.Diff{},
 		},
 		{
 			table.NewMockStore([]string{"a", "b", "c", "d"}, []uint32{0, 1}, nil),
 			table.NewMockStore([]string{"b", "a", "c", "d"}, []uint32{0, 1}, nil),
-			[]Diff{
-				{Type: Init, Columns: []string{"a", "b", "c", "d"}, OldColumns: []string{"b", "a", "c", "d"}, PK: []string{"a", "b"}},
-				{Type: PrimaryKey, OldPK: []string{"b", "a"}},
+			[]objects.Diff{
+				{Type: objects.DTPKChange, Columns: []string{"b", "a"}},
 			},
 		},
 		{
@@ -71,8 +67,8 @@ func TestDiffTables(t *testing.T) {
 				{"def", "059"},
 				{"asd", "789"},
 			}),
-			[]Diff{
-				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b", "c"}, PK: []string{}},
+			[]objects.Diff{
+				{Type: objects.DTColumnRem, Columns: []string{"c"}},
 			},
 		},
 		{
@@ -86,11 +82,10 @@ func TestDiffTables(t *testing.T) {
 				{"def", "059"},
 				{"asd", "789"},
 			}),
-			[]Diff{
-				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b"}, PK: []string{}},
-				{Type: RowChange, Row: "343536", OldRow: "303539"},
-				{Type: RowAdd, Row: "323334"},
-				{Type: RowRemove, Row: "373839"},
+			[]objects.Diff{
+				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("059")},
+				{Type: objects.DTRow, PK: []byte("qwe"), Sum: []byte("234")},
+				{Type: objects.DTRow, PK: []byte("asd"), OldSum: []byte("789")},
 			},
 		},
 		{
@@ -104,9 +99,7 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			[]Diff{
-				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "b"}, PK: []string{}},
-			},
+			[]objects.Diff{},
 		},
 		{
 			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
@@ -119,8 +112,9 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			[]Diff{
-				{Type: Init, Columns: []string{"a", "b"}, OldColumns: []string{"a", "c"}, PK: []string{}},
+			[]objects.Diff{
+				{Type: objects.DTColumnAdd, Columns: []string{"b"}},
+				{Type: objects.DTColumnRem, Columns: []string{"c"}},
 			},
 		},
 
@@ -135,11 +129,10 @@ func TestDiffTables(t *testing.T) {
 				{"def", "059"},
 				{"asd", "789"},
 			}),
-			[]Diff{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
-				{Type: RowChange, Row: "343536", OldRow: "303539"},
-				{Type: RowAdd, Row: "323334"},
-				{Type: RowRemove, Row: "373839"},
+			[]objects.Diff{
+				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("059")},
+				{Type: objects.DTRow, PK: []byte("qwe"), Sum: []byte("234")},
+				{Type: objects.DTRow, PK: []byte("asd"), OldSum: []byte("789")},
 			},
 		},
 		{
@@ -151,10 +144,10 @@ func TestDiffTables(t *testing.T) {
 				{"abc", "345"},
 				{"def", "678"},
 			}),
-			[]Diff{
-				{Type: Init, Columns: []string{"one", "two", "three"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
-				{Type: RowChange, Row: "313233", OldRow: "333435"},
-				{Type: RowChange, Row: "343536", OldRow: "363738"},
+			[]objects.Diff{
+				{Type: objects.DTColumnAdd, Columns: []string{"three"}},
+				{Type: objects.DTRow, PK: []byte("abc"), Sum: []byte("123"), OldSum: []byte("345")},
+				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("678")},
 			},
 		},
 		{
@@ -168,15 +161,13 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			[]Diff{
-				{Type: Init, Columns: []string{"one", "two"}, OldColumns: []string{"one", "two"}, PK: []string{"one"}},
-			},
+			[]objects.Diff{},
 		},
 	}
 	for i, c := range cases {
 		errChan := make(chan error, 1000)
-		diffChan := DiffTables(c.T1, c.T2, 100*time.Minute, errChan)
-		events := []Diff{}
+		diffChan, _ := DiffTables(c.T1, c.T2, 100*time.Minute, errChan)
+		events := []objects.Diff{}
 		for e := range diffChan {
 			events = append(events, e)
 		}
@@ -208,7 +199,7 @@ func BenchmarkDiffRows(b *testing.B) {
 	store2 := ingestRawCSV(b, db, fs, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
-	diffChan := DiffTables(store1, store2, 100*time.Minute, errChan)
+	diffChan, _ := DiffTables(store1, store2, 100*time.Minute, errChan)
 	for d := range diffChan {
 		assert.NotNil(b, d)
 	}

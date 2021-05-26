@@ -4,12 +4,14 @@
 package diff
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
+	"github.com/wrgl/core/pkg/table"
 )
 
 type RowChangeReader struct {
@@ -77,6 +79,18 @@ func (r *RowChangeReader) Seek(offset int, whence int) (int, error) {
 	}
 	r.off = offset
 	return offset, nil
+}
+
+func fetchRow(db kv.DB, row string, dec *objects.StrListDecoder) ([]string, error) {
+	k, err := hex.DecodeString(row)
+	if err != nil {
+		return nil, err
+	}
+	b, err := table.GetRow(db, k)
+	if err != nil {
+		return nil, err
+	}
+	return dec.Decode(b), nil
 }
 
 func (r *RowChangeReader) ReadAt(offset int) (mergedRow [][]string, err error) {
