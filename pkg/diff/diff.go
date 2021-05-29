@@ -71,8 +71,12 @@ func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<-
 func diffRows(t1, t2 table.Store, diffChan chan<- objects.Diff, progChan chan<- progress.Event, progressPeriod time.Duration) error {
 	l1 := t1.NumRows()
 	l2 := t2.NumRows()
-	total := uint64(l1 + l2)
-	var currentProgress uint64
+	total := int64(l1 + l2)
+	var currentProgress int64
+	if progressPeriod == 0 {
+		// never produce any tick event
+		progressPeriod = (1 << 20) * time.Hour
+	}
 	ticker := time.NewTicker(progressPeriod)
 	defer ticker.Stop()
 	r1 := t1.NewRowHashReader(0, 0)

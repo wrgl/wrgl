@@ -6,7 +6,6 @@ package diff
 import (
 	"io"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -166,7 +165,7 @@ func TestDiffTables(t *testing.T) {
 	}
 	for i, c := range cases {
 		errChan := make(chan error, 1000)
-		diffChan, _ := DiffTables(c.T1, c.T2, 100*time.Minute, errChan)
+		diffChan, _ := DiffTables(c.T1, c.T2, 0, errChan)
 		events := []objects.Diff{}
 		for e := range diffChan {
 			events = append(events, e)
@@ -199,7 +198,7 @@ func BenchmarkDiffRows(b *testing.B) {
 	store2 := ingestRawCSV(b, db, fs, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
-	diffChan, _ := DiffTables(store1, store2, 100*time.Minute, errChan)
+	diffChan, _ := DiffTables(store1, store2, 0, errChan)
 	for d := range diffChan {
 		assert.NotNil(b, d)
 	}

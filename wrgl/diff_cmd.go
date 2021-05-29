@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -20,67 +19,115 @@ import (
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/progress"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/pkg/widgets"
 )
 
-const (
-	diffFormatJSON     = "json"
-	diffFormatTerminal = "terminal"
-)
-
 func newDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "diff COMMIT1 COMMIT2",
+		Use:   "diff COMMIT_OR_FILE [COMMIT_OR_FILE]",
 		Short: "Shows diff between 2 commits",
 		Example: strings.Join([]string{
-			`  # show diff between branches`,
+			`  # show changes compared to previous commit`,
+			`  wrgl diff 1a2ed62`,
+			``,
+			`  # show changes between branches`,
 			`  wrgl diff branch-1 branch-2`,
 			``,
-			`  # show diff between commits`,
+			`  # show changes between commits`,
 			`  wrgl diff 1a2ed6248c7243cdaaecb98ac12213a7 f1cf51efa2c1e22843b0e083efd89792`,
 			``,
-			`  # show diff between files`,
-			`  wrgl diff file-1.csv file-2.csv`,
+			`  # show changes between files`,
+			`  wrgl diff file-1.csv file-2.csv --primary-key id,name`,
+			``,
+			`  # show changes between a file and a branch`,
+			`  wrgl diff my-file.csv my-branch`,
 		}, "\n"),
-		Args: cobra.ExactArgs(2),
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cStr1 := args[0]
-			cStr2 := args[1]
-			format, err := cmd.Flags().GetString("format")
+			rd := getRepoDir(cmd)
+			var kvStore kv.Store
+			var fs kv.FileStore
+			if rd.Exist() {
+				var err error
+				kvStore, err = rd.OpenKVStore()
+				if err != nil {
+					return err
+				}
+				defer kvStore.Close()
+				fs = rd.OpenFileStore()
+			}
+			raw, err := cmd.Flags().GetBool("raw")
 			if err != nil {
 				return err
 			}
-			if format != diffFormatJSON && format != diffFormatTerminal {
-				return fmt.Errorf("--format flag is not valid. Valid options are \"json\", \"terminal\"")
+			pk, err := cmd.Flags().GetStringSlice("primary-key")
+			if err != nil {
+				return err
 			}
-			return diffCommits(cmd, cStr1, cStr2, format)
+			memStore := kv.NewMockStore(false)
+
+			db1, commitHash1, commit1, err := getCommit(cmd, kvStore, memStore, raw, pk, args[0])
+			if err != nil {
+				return err
+			}
+
+			db2, commitHash2, commit2, err := getSecondCommit(cmd, kvStore, memStore, raw, pk, args, commit1)
+			if err != nil {
+				return err
+			}
+
+			ts1, err := table.ReadTable(db1, fs, commit1.Table)
+			if err != nil {
+				return err
+			}
+			ts2, err := table.ReadTable(db2, fs, commit2.Table)
+			if err != nil {
+				return err
+			}
+			errChan := make(chan error, 10)
+			defer close(errChan)
+			go func() {
+				for err := range errChan {
+					cmd.PrintErrln(err.Error())
+					os.Exit(1)
+				}
+			}()
+			diffChan, progChan := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan)
+			if raw {
+				return outputRawDiff(cmd, diffChan)
+			}
+			return outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, ts1.Columns(), ts2.Columns(), ts1.PrimaryKey(), diffChan, progChan)
 		},
 	}
-	cmd.Flags().StringP("format", "f", diffFormatTerminal, "output format, valid options are \"json\", \"terminal\" (default)")
+	cmd.Flags().Bool("raw", false, "show diff in raw binary format.")
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key (only applicable if diff target is a file)")
 	return cmd
 }
 
-func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (string, *objects.Commit, error) {
+func getSecondCommit(cmd *cobra.Command, db kv.DB, memDB *kv.MockStore, raw bool, pk []string, args []string, commit1 *objects.Commit) (inUsedDB kv.DB, hash string, commit *objects.Commit, err error) {
+	if len(args) > 1 {
+		return getCommit(cmd, db, memDB, raw, pk, args[1])
+	}
+	if len(commit.Parents) > 0 {
+		return getCommit(cmd, db, memDB, raw, pk, hex.EncodeToString(commit.Parents[0]))
+	}
+	err = fmt.Errorf("specify the second object to diff against")
+	return
+}
+
+func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, raw bool, pk []string, file *os.File) (string, *objects.Commit, error) {
 	defer file.Close()
-	pk, err := cmd.Flags().GetStringSlice("primary-key")
-	if err != nil {
-		return "", nil, err
-	}
-	format, err := cmd.Flags().GetString("format")
-	if err != nil {
-		return "", nil, err
-	}
 	csvReader, columns, primaryKeyIndices, err := ingest.ReadColumns(file, pk)
 	if err != nil {
 		return "", nil, err
 	}
 	tb := table.NewBuilder(db, db, columns, primaryKeyIndices, seed, 0)
 	out := cmd.OutOrStdout()
-	if format == diffFormatJSON {
+	if raw {
 		out = io.Discard
 	}
 	sum, err := ingest.Ingest(seed, 1, csvReader, primaryKeyIndices, tb, out)
@@ -100,7 +147,7 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, file *os.File) (str
 
 var filePattern = regexp.MustCompile(`^.*\..+$`)
 
-func getCommit(cmd *cobra.Command, db kv.Store, memStore *kv.MockStore, cStr string) (inUsedDB kv.Store, hash string, commit *objects.Commit, err error) {
+func getCommit(cmd *cobra.Command, db kv.DB, memStore *kv.MockStore, raw bool, pk []string, cStr string) (inUsedDB kv.DB, hash string, commit *objects.Commit, err error) {
 	inUsedDB = db
 	var file *os.File
 	_, hashb, commit, err := versioning.InterpretCommitName(db, cStr, false)
@@ -117,35 +164,40 @@ func getCommit(cmd *cobra.Command, db kv.Store, memStore *kv.MockStore, cStr str
 	if memStore != nil && file != nil {
 		inUsedDB = memStore
 		defer file.Close()
-		hash, commit, err = createInMemCommit(cmd, memStore, file)
+		hash, commit, err = createInMemCommit(cmd, memStore, raw, pk, file)
 		return inUsedDB, hash, commit, err
 	}
 	hash = hex.EncodeToString(hashb)
 	return
 }
 
-func outputDiffToJSON(cmd *cobra.Command, inflatedChan <-chan diff.InflatedDiff) error {
-	out := cmd.OutOrStdout()
-	for event := range inflatedChan {
-		b, err := json.Marshal(event)
+func outputRawDiff(cmd *cobra.Command, diffChan <-chan objects.Diff) error {
+	writer := objects.NewDiffWriter(cmd.OutOrStdout())
+	for event := range diffChan {
+		err := writer.Write(&event)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(out, string(b))
 	}
 	return nil
 }
 
-func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commitHash2 string, diffChan <-chan diff.Diff) error {
+func outputDiffToTerminal(
+	cmd *cobra.Command,
+	db1, db2 kv.DB,
+	commitHash1, commitHash2 string,
+	cols, oldCols, pk []string,
+	diffChan <-chan objects.Diff,
+	progChan <-chan progress.Event,
+) error {
 	var (
-		cols, oldCols, pk []string
-		addedRowReader    *table.KeyListRowReader
-		removedRowReader  *table.KeyListRowReader
-		addedTable        *widgets.PreviewTable
-		removedTable      *widgets.PreviewTable
-		rowChangeReader   *diff.RowChangeReader
-		rowChangeTable    *widgets.DiffTable
-		pkChanged         bool
+		addedRowReader   *table.KeyListRowReader
+		removedRowReader *table.KeyListRowReader
+		addedTable       *widgets.PreviewTable
+		removedTable     *widgets.PreviewTable
+		rowChangeReader  *diff.RowChangeReader
+		rowChangeTable   *widgets.DiffTable
+		pkChanged        bool
 	)
 
 	app := tview.NewApplication()
@@ -190,77 +242,84 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 			app.SetFocus(tabPages.LastTab())
 			app.Draw()
 		}()
-		for event := range diffChan {
-			switch event.Type {
-			case diff.Init:
-				cols, oldCols, pk = event.Columns, event.OldColumns, event.PK
-			case diff.Progress:
-				pBar.SetTotal(event.Total)
-				pBar.SetCurrent(event.Progress)
-			case diff.PrimaryKey:
-				pkChanged = true
-				_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
-				if len(addedCols) > 0 {
-					tabPages.AddTab(
-						fmt.Sprintf("+%d columns", len(addedCols)),
-						widgets.CreateColumnsList(nil, addedCols, nil),
-					)
+	mainLoop:
+		for {
+			select {
+			case e := <-progChan:
+				pBar.SetTotal(e.Total)
+				pBar.SetCurrent(e.Progress)
+			case d, ok := <-diffChan:
+				if !ok {
+					break mainLoop
 				}
-				if len(removedCols) > 0 {
-					tabPages.AddTab(
-						fmt.Sprintf("-%d columns", len(removedCols)),
-						widgets.CreateColumnsList(nil, nil, removedCols),
-					)
-				}
-				unchanged, added, removed := slice.CompareStringSlices(pk, event.OldPK)
-				if len(added) > 0 || len(removed) > 0 {
-					tabPages.AddTab(
-						"Primary key",
-						widgets.CreateColumnsList(unchanged, added, removed),
-					)
-				}
-			case diff.RowAdd:
-				if addedRowReader == nil {
-					addedRowReader = table.NewKeyListRowReader(db1, []string{event.Row})
-					pkIndices, err := slice.KeyIndices(cols, pk)
-					if err != nil {
-						panic(err)
+				switch d.Type {
+				case objects.DTPKChange:
+					pkChanged = true
+					_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
+					if len(addedCols) > 0 {
+						tabPages.AddTab(
+							fmt.Sprintf("+%d columns", len(addedCols)),
+							widgets.CreateColumnsList(nil, addedCols, nil),
+						)
 					}
-					addedTable = widgets.NewPreviewTable(addedRowReader, 1, cols, pkIndices)
-					tabPages.AddTab("+1 rows", addedTable)
-				} else {
-					addedRowReader.Add(event.Row)
-					addedTable.SetRowCount(addedRowReader.NumRows())
-					tabPages.SetLabel(addedTable, fmt.Sprintf("+%d rows", addedRowReader.NumRows()))
-				}
-			case diff.RowRemove:
-				if removedRowReader == nil {
-					removedRowReader = table.NewKeyListRowReader(db2, []string{event.Row})
-					pkIndices, err := slice.KeyIndices(oldCols, pk)
-					if err != nil {
-						panic(err)
+					if len(removedCols) > 0 {
+						tabPages.AddTab(
+							fmt.Sprintf("-%d columns", len(removedCols)),
+							widgets.CreateColumnsList(nil, nil, removedCols),
+						)
 					}
-					removedTable = widgets.NewPreviewTable(removedRowReader, 1, oldCols, pkIndices)
-					tabPages.AddTab("-1 rows", removedTable)
-				} else {
-					removedRowReader.Add(event.Row)
-					removedTable.SetRowCount(removedRowReader.NumRows())
-					tabPages.SetLabel(removedTable, fmt.Sprintf("-%d rows", removedRowReader.NumRows()))
-				}
-			case diff.RowChange:
-				if rowChangeReader == nil {
-					var err error
-					rowChangeReader, err = diff.NewRowChangeReader(db1, db2, cols, oldCols, pk)
-					if err != nil {
-						panic(err)
+					unchanged, added, removed := slice.CompareStringSlices(pk, d.Columns)
+					if len(added) > 0 || len(removed) > 0 {
+						tabPages.AddTab(
+							"Primary key",
+							widgets.CreateColumnsList(unchanged, added, removed),
+						)
 					}
-					rowChangeReader.AddRowPair(event.Row, event.OldRow)
-					rowChangeTable = widgets.NewDiffTable(rowChangeReader)
-					tabPages.AddTab("1 modified", rowChangeTable)
-				} else {
-					rowChangeReader.AddRowPair(event.Row, event.OldRow)
-					rowChangeTable.UpdateRowCount()
-					tabPages.SetLabel(rowChangeTable, fmt.Sprintf("%d modified", rowChangeReader.NumRows()))
+				case objects.DTRow:
+					if d.OldSum == nil {
+						if addedRowReader == nil {
+							addedRowReader = table.NewKeyListRowReader(db1, [][]byte{d.Sum})
+							pkIndices, err := slice.KeyIndices(cols, pk)
+							if err != nil {
+								panic(err)
+							}
+							addedTable = widgets.NewPreviewTable(addedRowReader, 1, cols, pkIndices)
+							tabPages.AddTab("+1 rows", addedTable)
+						} else {
+							addedRowReader.Add(d.Sum)
+							addedTable.SetRowCount(addedRowReader.NumRows())
+							tabPages.SetLabel(addedTable, fmt.Sprintf("+%d rows", addedRowReader.NumRows()))
+						}
+					} else if d.Sum == nil {
+						if removedRowReader == nil {
+							removedRowReader = table.NewKeyListRowReader(db2, [][]byte{d.OldSum})
+							pkIndices, err := slice.KeyIndices(oldCols, pk)
+							if err != nil {
+								panic(err)
+							}
+							removedTable = widgets.NewPreviewTable(removedRowReader, 1, oldCols, pkIndices)
+							tabPages.AddTab("-1 rows", removedTable)
+						} else {
+							removedRowReader.Add(d.OldSum)
+							removedTable.SetRowCount(removedRowReader.NumRows())
+							tabPages.SetLabel(removedTable, fmt.Sprintf("-%d rows", removedRowReader.NumRows()))
+						}
+					} else {
+						if rowChangeReader == nil {
+							var err error
+							rowChangeReader, err = diff.NewRowChangeReader(db1, db2, cols, oldCols, pk)
+							if err != nil {
+								panic(err)
+							}
+							rowChangeReader.AddRowPair(d.Sum, d.OldSum)
+							rowChangeTable = widgets.NewDiffTable(rowChangeReader)
+							tabPages.AddTab("1 modified", rowChangeTable)
+						} else {
+							rowChangeReader.AddRowPair(d.Sum, d.OldSum)
+							rowChangeTable.UpdateRowCount()
+							tabPages.SetLabel(rowChangeTable, fmt.Sprintf("%d modified", rowChangeReader.NumRows()))
+						}
+					}
 				}
 			}
 		}
@@ -305,54 +364,4 @@ func outputDiffToTerminal(cmd *cobra.Command, db1, db2 kv.DB, commitHash1, commi
 		}
 	}()
 	return app.Run()
-}
-
-func diffCommits(cmd *cobra.Command, cStr1, cStr2, format string) error {
-	rd := getRepoDir(cmd)
-	var kvStore kv.Store
-	var fs kv.FileStore
-	if rd.Exist() {
-		var err error
-		kvStore, err = rd.OpenKVStore()
-		if err != nil {
-			return err
-		}
-		defer kvStore.Close()
-		fs = rd.OpenFileStore()
-	}
-	memStore := kv.NewMockStore(false)
-	db1, commitHash1, commit1, err := getCommit(cmd, kvStore, memStore, cStr1)
-	if err != nil {
-		return err
-	}
-	db2, commitHash2, commit2, err := getCommit(cmd, kvStore, memStore, cStr2)
-	if err != nil {
-		return err
-	}
-	if string(commit1.Table) == string(commit2.Table) {
-		cmd.Println("There are no changes!")
-		return nil
-	}
-	ts1, err := table.ReadTable(db1, fs, commit1.Table)
-	if err != nil {
-		return err
-	}
-	ts2, err := table.ReadTable(db2, fs, commit2.Table)
-	if err != nil {
-		return err
-	}
-	errChan := make(chan error, 10)
-	defer close(errChan)
-	go func() {
-		for err := range errChan {
-			cmd.PrintErrln(err.Error())
-			os.Exit(1)
-		}
-	}()
-	diffChan := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan)
-	if format == diffFormatJSON {
-		inflatedChan := diff.Inflate(db1, db2, diffChan, errChan)
-		return outputDiffToJSON(cmd, inflatedChan)
-	}
-	return outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, diffChan)
 }

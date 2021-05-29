@@ -8,40 +8,41 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/wrgl/core/pkg/versioning"
-	"github.com/wrgl/core/wrgl/utils"
 )
 
 func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Initialize repository with specified name",
+		Short: "Initialize repository in current directory",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			wrglDir, err := utils.GetWRGLDir()
+			wd, err := os.Getwd()
 			if err != nil {
 				return err
 			}
-			return initRepo(cmd, wrglDir)
+			dir := viper.GetString("wrgl_dir")
+			create := false
+			if dir == "" {
+				dir = filepath.Join(wd, ".wrgl")
+				create = true
+			}
+			_, err = os.Stat(dir)
+			if err == nil {
+				cmd.Printf("Repository already initialized at %s\n", dir)
+				return nil
+			}
+			rd := versioning.NewRepoDir(dir, false, false)
+			err = rd.Init()
+			if err != nil {
+				return err
+			}
+			if create {
+				cmd.Println("Repository initialized at .wrgl")
+			}
+			return nil
 		},
 	}
 	return cmd
-}
-
-func initRepo(cmd *cobra.Command, wrglDir string) error {
-	rd := versioning.NewRepoDir(wrglDir, false, false)
-	err := rd.Init()
-	if err != nil {
-		return err
-	}
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	p, err := filepath.Rel(wd, rd.FullPath)
-	if err != nil {
-		return err
-	}
-	cmd.Printf("Created directory %s\n", p)
-	return nil
 }

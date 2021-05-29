@@ -4,7 +4,6 @@
 package diff
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -18,7 +17,7 @@ type RowChangeReader struct {
 	Columns                   []*RowChangeColumn
 	PKIndices                 []uint32
 	rowIndices, oldRowIndices map[string]int
-	rowPairs                  [][2]string
+	rowPairs                  [][2][]byte
 	off                       int
 	db1, db2                  kv.DB
 	dec                       *objects.StrListDecoder
@@ -46,8 +45,8 @@ func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeR
 	}, nil
 }
 
-func (r *RowChangeReader) AddRowPair(row, oldRow string) {
-	r.rowPairs = append(r.rowPairs, [2]string{row, oldRow})
+func (r *RowChangeReader) AddRowPair(row, oldRow []byte) {
+	r.rowPairs = append(r.rowPairs, [2][]byte{row, oldRow})
 }
 
 func (r *RowChangeReader) Read() ([][]string, error) {
@@ -81,12 +80,8 @@ func (r *RowChangeReader) Seek(offset int, whence int) (int, error) {
 	return offset, nil
 }
 
-func fetchRow(db kv.DB, row string, dec *objects.StrListDecoder) ([]string, error) {
-	k, err := hex.DecodeString(row)
-	if err != nil {
-		return nil, err
-	}
-	b, err := table.GetRow(db, k)
+func fetchRow(db kv.DB, row []byte, dec *objects.StrListDecoder) ([]string, error) {
+	b, err := table.GetRow(db, row)
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,6 @@
 package table
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -13,18 +12,18 @@ import (
 
 type KeyListRowReader struct {
 	db   kv.DB
-	keys []string
+	keys [][]byte
 	off  int
 }
 
-func NewKeyListRowReader(db kv.DB, keys []string) *KeyListRowReader {
+func NewKeyListRowReader(db kv.DB, keys [][]byte) *KeyListRowReader {
 	return &KeyListRowReader{
 		keys: keys,
 		db:   db,
 	}
 }
 
-func (r *KeyListRowReader) Add(key string) {
+func (r *KeyListRowReader) Add(key []byte) {
 	r.keys = append(r.keys, key)
 }
 
@@ -32,10 +31,7 @@ func (r *KeyListRowReader) Read() (rowHash, rowContent []byte, err error) {
 	if r.off >= len(r.keys) {
 		return nil, nil, io.EOF
 	}
-	b, err := hex.DecodeString(r.keys[r.off])
-	if err != nil {
-		return nil, nil, err
-	}
+	b := r.keys[r.off]
 	rc, err := GetRow(r.db, b)
 	if err != nil {
 		return nil, nil, err
@@ -63,10 +59,7 @@ func (r *KeyListRowReader) Seek(offset int, whence int) (int, error) {
 }
 
 func (r *KeyListRowReader) ReadAt(offset int) (rowHash, rowContent []byte, err error) {
-	b, err := hex.DecodeString(r.keys[offset])
-	if err != nil {
-		return nil, nil, err
-	}
+	b := r.keys[offset]
 	rc, err := GetRow(r.db, b)
 	if err != nil {
 		return nil, nil, err

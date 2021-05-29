@@ -4,14 +4,18 @@
 package main
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/objects"
 )
 
 func createCSVFile(t *testing.T, content []string) (filePath string) {
@@ -32,6 +36,31 @@ func commitFile(t *testing.T, branchName, filePath, primaryKey string, args ...s
 	cmd.SetOut(io.Discard)
 	cmd.SetArgs(append([]string{"commit", branchName, filePath, "commit message", "--primary-key", primaryKey, "-n", "1"}, args...))
 	require.NoError(t, cmd.Execute())
+}
+
+func assertDiffOutput(t *testing.T, cmd *cobra.Command, diffs []*objects.Diff) {
+	t.Helper()
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	reader := objects.NewDiffReader(bytes.NewReader(buf.Bytes()))
+	objs := []*objects.Diff{}
+	for {
+		obj, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		objs = append(objs, obj)
+	}
+	assert.Equal(t, diffs, objs)
+}
+
+func mustDecodeHex(t *testing.T, s string) []byte {
+	t.Helper()
+	b, err := hex.DecodeString(s)
+	require.NoError(t, err)
+	return b
 }
 
 func TestDiffCmd(t *testing.T) {
@@ -57,15 +86,25 @@ func TestDiffCmd(t *testing.T) {
 	commitFile(t, "my-branch", fp2, "a")
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"diff", "my-branch", "my-branch^", "--format", "json"})
-	assertCmdOutput(t, cmd, strings.Join([]string{
-		`{"t":1,"oldCols":["a","b","c"],"cols":["a","b","c"],"pk":["a"]}`,
-		`{"t":7,"rowChangeColumns":[{"name":"a"},{"name":"b"},{"name":"c"}]}`,
-		`{"t":4,"rowChangeRow":[["1"],["q"],["e","w"]]}`,
-		`{"t":5,"row":["4","s","d"]}`,
-		`{"t":6,"row":["3","z","x"]}`,
-		``,
-	}, "\n"))
+	cmd.SetArgs([]string{"diff", "my-branch", "my-branch^", "--raw"})
+	assertDiffOutput(t, cmd, []*objects.Diff{
+		{
+			Type:   objects.DTRow,
+			PK:     mustDecodeHex(t, "fd1c9513cc47feaf59fa9b76008f2521"),
+			Sum:    mustDecodeHex(t, "472dc02a63f3a555b9b39cf6c953a3ea"),
+			OldSum: mustDecodeHex(t, "60f1c744d65482e468bfac458a7131fe"),
+		},
+		{
+			Type: objects.DTRow,
+			PK:   mustDecodeHex(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Sum:  mustDecodeHex(t, "2e57aba9da65dfa5a185c4cb72ead76f"),
+		},
+		{
+			Type:   objects.DTRow,
+			PK:     mustDecodeHex(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			OldSum: mustDecodeHex(t, "1c51f6044190122c554cc6794585e654"),
+		},
+	})
 }
 
 func TestDiffCmdNoRepoDir(t *testing.T) {
@@ -86,14 +125,29 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 	defer os.Remove(fp2)
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"diff", fp2, fp1, "--format", "json", "--primary-key", "a"})
-	assertCmdOutput(t, cmd, strings.Join([]string{
-		`{"t":1,"oldCols":["a","b","c"],"cols":["a","c","b"],"pk":["a"]}`,
-		`{"t":7,"rowChangeColumns":[{"name":"a"},{"name":"c"},{"name":"b","movedFrom":1}]}`,
-		`{"t":4,"rowChangeRow":[["1"],["e","w"],["q"]]}`,
-		`{"t":4,"rowChangeRow":[["2"],["s"],["a"]]}`,
-		`{"t":5,"row":["4","d","s"]}`,
-		`{"t":6,"row":["3","z","x"]}`,
-		``,
-	}, "\n"))
+	cmd.SetArgs([]string{"diff", fp2, fp1, "--raw", "--primary-key", "a"})
+	assertDiffOutput(t, cmd, []*objects.Diff{
+		{
+			Type:   objects.DTRow,
+			PK:     mustDecodeHex(t, "fd1c9513cc47feaf59fa9b76008f2521"),
+			Sum:    mustDecodeHex(t, "de435956a13f72b660e50db3320a2ede"),
+			OldSum: mustDecodeHex(t, "60f1c744d65482e468bfac458a7131fe"),
+		},
+		{
+			Type:   objects.DTRow,
+			PK:     mustDecodeHex(t, "00259da5fe4e202b974d64009944ccfe"),
+			Sum:    mustDecodeHex(t, "13e5d3f474b88126a348e29ba12b4032"),
+			OldSum: mustDecodeHex(t, "e4f37424a61671456b0be328e4f3719c"),
+		},
+		{
+			Type: objects.DTRow,
+			PK:   mustDecodeHex(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Sum:  mustDecodeHex(t, "9937fd84049c00606a1b36ccf152168f"),
+		},
+		{
+			Type:   objects.DTRow,
+			PK:     mustDecodeHex(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			OldSum: mustDecodeHex(t, "1c51f6044190122c554cc6794585e654"),
+		},
+	})
 }

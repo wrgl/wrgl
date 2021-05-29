@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/versioning"
 )
 
 func newExportCmd() *cobra.Command {
@@ -43,7 +44,7 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	defer kvStore.Close()
 	fs := rd.OpenFileStore()
 
-	_, _, commit, err := getCommit(cmd, kvStore, nil, cStr)
+	_, _, commit, err := versioning.InterpretCommitName(kvStore, cStr, false)
 	if err != nil {
 		return err
 	}

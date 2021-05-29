@@ -6,11 +6,13 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
@@ -88,6 +90,12 @@ func TestFetchCmd(t *testing.T) {
 	})
 }
 
+func assertCommandNoErr(t *testing.T, cmd *cobra.Command) {
+	t.Helper()
+	cmd.SetOut(io.Discard)
+	require.NoError(t, cmd.Execute())
+}
+
 func TestFetchCmdAllRepos(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
@@ -122,17 +130,17 @@ func TestFetchCmdAllRepos(t *testing.T) {
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url1})
-	require.NoError(t, cmd.Execute())
+	assertCommandNoErr(t, cmd)
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "acme", url2})
-	require.NoError(t, cmd.Execute())
+	assertCommandNoErr(t, cmd)
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "home", url3})
-	require.NoError(t, cmd.Execute())
+	assertCommandNoErr(t, cmd)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "acme"})
-	require.NoError(t, cmd.Execute())
+	assertCommandNoErr(t, cmd)
 	db, err := rd.OpenKVStore()
 	require.NoError(t, err)
 	sum, err := versioning.GetRemoteRef(db, "acme", "main")
@@ -147,7 +155,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "--all"})
-	require.NoError(t, cmd.Execute())
+	assertCommandNoErr(t, cmd)
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
 	sum, err = versioning.GetRemoteRef(db, "origin", "main")
@@ -177,7 +185,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", packtest.TestOrigin})
-	require.NoError(t, cmd.Execute())
+	assertCommandNoErr(t, cmd)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/custom/abc:refs/custom/abc"})
@@ -228,7 +236,7 @@ func TestFetchCmdTag(t *testing.T) {
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", packtest.TestOrigin})
-	require.NoError(t, cmd.Execute())
+	assertCommandNoErr(t, cmd)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/202*:refs/tags/202*"})
