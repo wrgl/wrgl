@@ -4,7 +4,6 @@
 package diff
 
 import (
-	"encoding/hex"
 	"io"
 	"testing"
 
@@ -16,14 +15,14 @@ import (
 	"github.com/wrgl/core/pkg/table"
 )
 
-func insertRecord(t *testing.T, db kv.DB, row []string) string {
+func insertRecord(t *testing.T, db kv.DB, row []string) []byte {
 	t.Helper()
 	enc := objects.NewStrListEncoder()
 	b := enc.Encode(row)
 	sumArr := meow.Checksum(0, b)
 	err := table.SaveRow(db, sumArr[:], b)
 	require.NoError(t, err)
-	return hex.EncodeToString(sumArr[:])
+	return sumArr[:]
 }
 
 func TestRowChangeReader(t *testing.T) {
@@ -32,7 +31,7 @@ func TestRowChangeReader(t *testing.T) {
 	oldCols := []string{"a", "b", "c", "e"}
 	pk := []string{"a"}
 
-	sumPairs := [][2]string{}
+	sumPairs := [][2][]byte{}
 	for _, recs := range [][2][]string{
 		{
 			[]string{"1", "2", "3", "4"},
@@ -47,7 +46,7 @@ func TestRowChangeReader(t *testing.T) {
 			[]string{"3", "2", "3", "5"},
 		},
 	} {
-		sumPairs = append(sumPairs, [2]string{
+		sumPairs = append(sumPairs, [2][]byte{
 			insertRecord(t, db, recs[0]),
 			insertRecord(t, db, recs[1]),
 		})

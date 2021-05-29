@@ -96,11 +96,11 @@ func newDiffCmd() *cobra.Command {
 					os.Exit(1)
 				}
 			}()
-			diffChan, progChan := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan)
+			diffChan, pt := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan)
 			if raw {
 				return outputRawDiff(cmd, diffChan)
 			}
-			return outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, ts1.Columns(), ts2.Columns(), ts1.PrimaryKey(), diffChan, progChan)
+			return outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, ts1.Columns(), ts2.Columns(), ts1.PrimaryKey(), diffChan, pt)
 		},
 	}
 	cmd.Flags().Bool("raw", false, "show diff in raw binary format.")
@@ -188,7 +188,7 @@ func outputDiffToTerminal(
 	commitHash1, commitHash2 string,
 	cols, oldCols, pk []string,
 	diffChan <-chan objects.Diff,
-	progChan <-chan progress.Event,
+	pt progress.Tracker,
 ) error {
 	var (
 		addedRowReader   *table.KeyListRowReader
@@ -220,6 +220,9 @@ func outputDiffToTerminal(
 		EnableMouse(true).
 		SetInputCapture(tabPages.ProcessInput)
 
+	progChan := pt.Chan()
+	go pt.Run()
+
 	// redraw every 65 ms
 	drawCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -237,6 +240,7 @@ func outputDiffToTerminal(
 
 	go func() {
 		defer func() {
+			pt.Stop()
 			cancel()
 			flex.RemoveItem(pBar)
 			app.SetFocus(tabPages.LastTab())

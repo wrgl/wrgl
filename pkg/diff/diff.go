@@ -26,12 +26,11 @@ func strSliceEqual(s1, s2 []string) bool {
 	return true
 }
 
-func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<- error) (<-chan objects.Diff, <-chan progress.Event) {
+func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<- error) (<-chan objects.Diff, progress.Tracker) {
 	diffChan := make(chan objects.Diff)
-	progChan := make(chan progress.Event)
+	pt := progress.NewTracker(progressPeriod, 0)
 	go func() {
 		defer close(diffChan)
-		defer close(progChan)
 
 		_, added, removed := slice.CompareStringSlices(t1.Columns(), t2.Columns())
 		if len(added) > 0 {
@@ -58,87 +57,67 @@ func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<-
 				Columns: sl2,
 			}
 		} else {
-			err := diffRows(t1, t2, diffChan, progChan, progressPeriod)
+			err := diffRows(t1, t2, diffChan, pt)
 			if err != nil {
 				errChan <- err
 				return
 			}
 		}
 	}()
-	return diffChan, progChan
+	return diffChan, pt
 }
 
-func diffRows(t1, t2 table.Store, diffChan chan<- objects.Diff, progChan chan<- progress.Event, progressPeriod time.Duration) error {
+func diffRows(t1, t2 table.Store, diffChan chan<- objects.Diff, pt progress.Tracker) error {
 	l1 := t1.NumRows()
 	l2 := t2.NumRows()
-	total := int64(l1 + l2)
-	var currentProgress int64
-	if progressPeriod == 0 {
-		// never produce any tick event
-		progressPeriod = (1 << 20) * time.Hour
-	}
-	ticker := time.NewTicker(progressPeriod)
-	defer ticker.Stop()
 	r1 := t1.NewRowHashReader(0, 0)
+	pt.SetTotal(int64(l1 + l2))
+	var current int64
 loop1:
 	for {
-		select {
-		case <-ticker.C:
-			progChan <- progress.Event{
-				Progress: currentProgress,
-				Total:    total,
-			}
-		default:
-			k, v, err := r1.Read()
-			if err == io.EOF {
-				break loop1
-			}
-			if err != nil {
-				return err
-			}
-			currentProgress++
-			if w, ok := t2.GetRowHash(k); ok {
-				if !bytes.Equal(v, w) {
-					diffChan <- objects.Diff{
-						Type:   objects.DTRow,
-						PK:     k,
-						OldSum: w,
-						Sum:    v,
-					}
-				}
-			} else {
+		k, v, err := r1.Read()
+		if err == io.EOF {
+			break loop1
+		}
+		if err != nil {
+			return err
+		}
+		current++
+		pt.SetCurrent(current)
+		if w, ok := t2.GetRowHash(k); ok {
+			if !bytes.Equal(v, w) {
 				diffChan <- objects.Diff{
-					Type: objects.DTRow,
-					PK:   k,
-					Sum:  v,
+					Type:   objects.DTRow,
+					PK:     k,
+					OldSum: w,
+					Sum:    v,
 				}
+			}
+		} else {
+			diffChan <- objects.Diff{
+				Type: objects.DTRow,
+				PK:   k,
+				Sum:  v,
 			}
 		}
 	}
 	r2 := t2.NewRowHashReader(0, 0)
 loop2:
 	for {
-		select {
-		case <-ticker.C:
-			progChan <- progress.Event{
-				Progress: currentProgress,
-				Total:    total,
-			}
-		default:
-			k, v, err := r2.Read()
-			if err == io.EOF {
-				break loop2
-			}
-			if err != nil {
-				return err
-			}
-			currentProgress++
-			if _, ok := t1.GetRowHash(k); !ok {
-				diffChan <- objects.Diff{
-					Type:   objects.DTRow,
-					PK:     k,
-					OldSum: v,
-				}
+		k, v, err := r2.Read()
+		if err == io.EOF {
+			break loop2
+		}
+		if err != nil {
+			return err
+		}
+		current++
+		pt.SetCurrent(current)
+		if _, ok := t1.GetRowHash(k); !ok {
+			diffChan <- objects.Diff{
+				Type:   objects.DTRow,
+				PK:     k,
+				OldSum: v,
 			}
 		}
 	}

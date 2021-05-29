@@ -4,7 +4,6 @@
 package table
 
 import (
-	"encoding/hex"
 	"io"
 	"testing"
 
@@ -24,11 +23,7 @@ func TestKeyListRowReader(t *testing.T) {
 	require.NoError(t, SaveRow(db, k1, r1))
 	require.NoError(t, SaveRow(db, k2, r2))
 	require.NoError(t, SaveRow(db, k3, r3))
-	keys := []string{
-		hex.EncodeToString(k1),
-		hex.EncodeToString(k2),
-		hex.EncodeToString(k3),
-	}
+	keys := [][]byte{k1, k2, k3}
 
 	// test read
 	reader := NewKeyListRowReader(db, keys)
@@ -38,7 +33,7 @@ func TestKeyListRowReader(t *testing.T) {
 	assertRowRead(t, reader, k3, r3)
 	_, _, err := reader.Read()
 	assert.Equal(t, io.EOF, err)
-	reader.Add(hex.EncodeToString(k1))
+	reader.Add(k1)
 	assert.Equal(t, 4, reader.NumRows())
 	assertRowRead(t, reader, k1, r1)
 
