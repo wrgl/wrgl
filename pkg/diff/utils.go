@@ -3,27 +3,6 @@
 
 package diff
 
-func hoistPKTobeginning(cols []*RowChangeColumn, pk []string) []*RowChangeColumn {
-	pkm := map[string]struct{}{}
-	for _, s := range pk {
-		pkm[s] = struct{}{}
-	}
-	pkIndices := []int{}
-	ordinaryCols := []int{}
-	for i, c := range cols {
-		if _, ok := pkm[c.Name]; !ok {
-			ordinaryCols = append(ordinaryCols, i)
-		} else {
-			pkIndices = append(pkIndices, i)
-		}
-	}
-	result := []*RowChangeColumn{}
-	for _, i := range append(pkIndices, ordinaryCols...) {
-		result = append(result, cols[i])
-	}
-	return result
-}
-
 func stringSliceToMap(sl []string) map[string]int {
 	m := map[string]int{}
 	for i, s := range sl {
@@ -32,17 +11,19 @@ func stringSliceToMap(sl []string) map[string]int {
 	return m
 }
 
-func combineRows(cols []*RowChangeColumn, rowIndices, oldRowIndices map[string]int, row, oldRow []string) (mergedRows [][]string) {
-	for _, col := range cols {
-		if col.Added {
-			mergedRows = append(mergedRows, []string{row[rowIndices[col.Name]]})
-		} else if col.Removed {
-			mergedRows = append(mergedRows, []string{oldRow[oldRowIndices[col.Name]]})
-		} else if row[rowIndices[col.Name]] == oldRow[oldRowIndices[col.Name]] {
-			mergedRows = append(mergedRows, []string{oldRow[oldRowIndices[col.Name]]})
+func combineRows(cols *Columns, layer int, rowIndices, oldRowIndices map[string]int, row, oldRow []string) (mergedRows [][]string) {
+	n := cols.Len()
+	for i := 0; i < n; i++ {
+		name := cols.Name(i)
+		if cols.Added(layer, i) {
+			mergedRows = append(mergedRows, []string{row[rowIndices[name]]})
+		} else if cols.Removed(layer, i) {
+			mergedRows = append(mergedRows, []string{oldRow[oldRowIndices[name]]})
+		} else if row[rowIndices[name]] == oldRow[oldRowIndices[name]] {
+			mergedRows = append(mergedRows, []string{oldRow[oldRowIndices[name]]})
 		} else {
 			mergedRows = append(mergedRows, []string{
-				row[rowIndices[col.Name]], oldRow[oldRowIndices[col.Name]],
+				row[rowIndices[name]], oldRow[oldRowIndices[name]],
 			})
 		}
 	}

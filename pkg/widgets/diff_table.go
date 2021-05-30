@@ -33,25 +33,28 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 	}
 	headerRow := []*TableCell{}
 	colStatuses := []*TableCell{}
-	for i, col := range reader.Columns {
-		headerRow = append(headerRow, NewTableCell(col.Name).SetStyle(columnStyle))
+	for i, name := range reader.Columns.Names() {
+		headerRow = append(headerRow, NewTableCell(name).SetStyle(columnStyle))
 		colStatuses = append(colStatuses, nil)
-		if col.Added {
+		if reader.Columns.Added(0, i) {
 			colStatuses[i] = NewTableCell("Added").SetStyle(addedStyle)
 			t.statusExist = true
-		} else if col.Removed {
+		} else if reader.Columns.Removed(0, i) {
 			colStatuses[i] = NewTableCell("Removed").SetStyle(removedStyle)
 			t.statusExist = true
-		} else if col.MovedFrom != nil {
-			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved from position %d", *col.MovedFrom)).SetStyle(movedStyle)
+		} else if b, a := reader.Columns.Moved(0, i); b != -1 {
+			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be before %q", reader.Columns.Name(b))).SetStyle(movedStyle)
+			t.statusExist = true
+		} else if a != -1 {
+			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be after %q", reader.Columns.Name(a))).SetStyle(movedStyle)
 			t.statusExist = true
 		}
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells)
 	if !t.statusExist {
-		t.DataTable.SetShape(t.reader.NumRows()+1, len(t.reader.Columns))
+		t.DataTable.SetShape(t.reader.NumRows()+1, t.reader.Columns.Len())
 	} else {
-		t.DataTable.SetShape(t.reader.NumRows()+2, len(t.reader.Columns)).
+		t.DataTable.SetShape(t.reader.NumRows()+2, t.reader.Columns.Len()).
 			SetColumnStatuses(colStatuses)
 	}
 	t.DataTable.SetPrimaryKeyIndices(t.reader.PKIndices)
@@ -61,9 +64,9 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 
 func (t *DiffTable) UpdateRowCount() {
 	if !t.statusExist {
-		t.DataTable.SetShape(t.reader.NumRows()+1, len(t.reader.Columns))
+		t.DataTable.SetShape(t.reader.NumRows()+1, t.reader.Columns.Len())
 	} else {
-		t.DataTable.SetShape(t.reader.NumRows()+2, len(t.reader.Columns))
+		t.DataTable.SetShape(t.reader.NumRows()+2, t.reader.Columns.Len())
 	}
 }
 
@@ -141,11 +144,11 @@ func (t *DiffTable) styledCells(row, column int) []*TableCell {
 	} else if len(cells) == 2 {
 		cells[0].SetStyle(addedStyle).SetExpansion(1)
 		cells[1].SetStyle(removedStyle).SetExpansion(1)
-	} else if t.reader.Columns[column].Added {
+	} else if t.reader.Columns.Added(0, column) {
 		cells[0].SetStyle(addedStyle)
-	} else if t.reader.Columns[column].Removed {
+	} else if t.reader.Columns.Removed(0, column) {
 		cells[0].SetStyle(removedStyle)
-	} else if t.reader.Columns[column].MovedFrom != nil {
+	} else if b, a := t.reader.Columns.Moved(0, column); b != -1 || a != -1 {
 		cells[0].SetStyle(movedStyle)
 	} else {
 		cells[0].SetStyle(cellStyle)

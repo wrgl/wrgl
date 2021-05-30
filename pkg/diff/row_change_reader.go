@@ -9,12 +9,11 @@ import (
 
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
 )
 
 type RowChangeReader struct {
-	Columns                   []*RowChangeColumn
+	Columns                   *Columns
 	PKIndices                 []uint32
 	rowIndices, oldRowIndices map[string]int
 	rowPairs                  [][2][]byte
@@ -24,20 +23,20 @@ type RowChangeReader struct {
 }
 
 func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeReader, error) {
-	rowChangeCols := compareColumns(oldCols, cols)
-	rowChangeCols = hoistPKTobeginning(rowChangeCols, pk)
-	colNames := []string{}
-	for _, col := range rowChangeCols {
-		colNames = append(colNames, col.Name)
-	}
-	pkIndices, err := slice.KeyIndices(colNames, pk)
-	if err != nil {
-		return nil, err
+	colChanges := CompareColumns(oldCols, cols)
+	// names := colChanges.Names()
+	// if colChanges.Len() > 0 {
+	// 	panic(fmt.Sprintf("%v\n%v\n%v", cols, oldCols, names))
+	// }
+	colChanges.HoistPKToStart(pk)
+	pkIndices := make([]uint32, len(pk))
+	for i := 0; i < len(pk); i++ {
+		pkIndices[i] = uint32(i)
 	}
 	return &RowChangeReader{
 		db1:           db1,
 		db2:           db2,
-		Columns:       rowChangeCols,
+		Columns:       colChanges,
 		PKIndices:     pkIndices,
 		rowIndices:    stringSliceToMap(cols),
 		oldRowIndices: stringSliceToMap(oldCols),
@@ -101,5 +100,5 @@ func (r *RowChangeReader) ReadAt(offset int) (mergedRow [][]string, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return combineRows(r.Columns, r.rowIndices, r.oldRowIndices, row, oldRow), nil
+	return combineRows(r.Columns, 0, r.rowIndices, r.oldRowIndices, row, oldRow), nil
 }

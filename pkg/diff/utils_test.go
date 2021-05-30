@@ -9,21 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHoistPKToBeginning(t *testing.T) {
-	assert.Equal(t, []*RowChangeColumn{
-		{Name: "a"},
-		{Name: "b"},
-		{Name: "c"},
-	}, hoistPKTobeginning(
-		[]*RowChangeColumn{
-			{Name: "b"},
-			{Name: "a"},
-			{Name: "c"},
-		},
-		[]string{"a"},
-	))
-}
-
 func TestStringSliceToMap(t *testing.T) {
 	assert.Equal(t, map[string]int{
 		"a": 0,
@@ -33,19 +18,17 @@ func TestStringSliceToMap(t *testing.T) {
 }
 
 func TestCombineRows(t *testing.T) {
-	zero := 0
 	cols, oldCols := []string{"a", "b", "c", "d", "e"}, []string{"e", "b", "c", "d", "f"}
-	rowChangeCols := compareColumns(oldCols, cols)
+	colChanges := CompareColumns(oldCols, cols)
 	rowIndices := stringSliceToMap(cols)
 	oldRowIndices := stringSliceToMap(oldCols)
-	assert.Equal(t, []*RowChangeColumn{
-		{Name: "a", Added: true},
-		{Name: "b"},
-		{Name: "c"},
-		{Name: "d"},
-		{Name: "f", Removed: true},
-		{Name: "e", MovedFrom: &zero},
-	}, rowChangeCols)
+	assert.Equal(t, []string{
+		"a", "b", "c", "d", "f", "e",
+	}, colChanges.Names())
+	assert.True(t, colChanges.Added(0, 0))
+	assert.True(t, colChanges.Removed(0, 4))
+	b, a := colChanges.Moved(0, 5)
+	assert.Equal(t, [2]int{1, -1}, [2]int{b, a})
 	for i, c := range []struct {
 		row, oldRow []string
 		mergedRows  [][]string
@@ -59,7 +42,7 @@ func TestCombineRows(t *testing.T) {
 		},
 	} {
 		assert.Equal(t, c.mergedRows,
-			combineRows(rowChangeCols, rowIndices, oldRowIndices, c.row, c.oldRow),
+			combineRows(colChanges, 0, rowIndices, oldRowIndices, c.row, c.oldRow),
 			"case %d", i,
 		)
 	}
