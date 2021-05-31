@@ -13,34 +13,26 @@ import (
 )
 
 type RowChangeReader struct {
-	Columns                   *Columns
-	PKIndices                 []uint32
-	rowIndices, oldRowIndices map[string]int
-	rowPairs                  [][2][]byte
-	off                       int
-	db1, db2                  kv.DB
-	dec                       *objects.StrListDecoder
+	Columns   *objects.ColDiff
+	PKIndices []uint32
+	rowPairs  [][2][]byte
+	off       int
+	db1, db2  kv.DB
+	dec       *objects.StrListDecoder
 }
 
 func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeReader, error) {
-	colChanges := CompareColumns(oldCols, cols)
-	// names := colChanges.Names()
-	// if colChanges.Len() > 0 {
-	// 	panic(fmt.Sprintf("%v\n%v\n%v", cols, oldCols, names))
-	// }
-	colChanges.HoistPKToStart(pk)
+	colDiff := objects.CompareColumns(oldCols, pk, cols)
 	pkIndices := make([]uint32, len(pk))
 	for i := 0; i < len(pk); i++ {
 		pkIndices[i] = uint32(i)
 	}
 	return &RowChangeReader{
-		db1:           db1,
-		db2:           db2,
-		Columns:       colChanges,
-		PKIndices:     pkIndices,
-		rowIndices:    stringSliceToMap(cols),
-		oldRowIndices: stringSliceToMap(oldCols),
-		dec:           objects.NewStrListDecoder(false),
+		db1:       db1,
+		db2:       db2,
+		Columns:   colDiff,
+		PKIndices: pkIndices,
+		dec:       objects.NewStrListDecoder(false),
 	}, nil
 }
 
@@ -100,5 +92,5 @@ func (r *RowChangeReader) ReadAt(offset int) (mergedRow [][]string, err error) {
 	if err != nil {
 		return nil, err
 	}
-	return combineRows(r.Columns, 0, r.rowIndices, r.oldRowIndices, row, oldRow), nil
+	return r.Columns.CombineRows(0, row, oldRow), nil
 }

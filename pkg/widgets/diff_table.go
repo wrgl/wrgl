@@ -33,20 +33,20 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 	}
 	headerRow := []*TableCell{}
 	colStatuses := []*TableCell{}
-	for i, name := range reader.Columns.Names() {
+	for i, name := range reader.Columns.Names {
 		headerRow = append(headerRow, NewTableCell(name).SetStyle(columnStyle))
 		colStatuses = append(colStatuses, nil)
-		if reader.Columns.Added(0, i) {
+		if _, ok := reader.Columns.Added[0][i]; ok {
 			colStatuses[i] = NewTableCell("Added").SetStyle(addedStyle)
 			t.statusExist = true
-		} else if reader.Columns.Removed(0, i) {
+		} else if _, ok := reader.Columns.Removed[0][i]; ok {
 			colStatuses[i] = NewTableCell("Removed").SetStyle(removedStyle)
 			t.statusExist = true
-		} else if b, a := reader.Columns.Moved(0, i); b != -1 {
-			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be before %q", reader.Columns.Name(b))).SetStyle(movedStyle)
+		} else if m, ok := reader.Columns.Moved[0][i]; ok && m[0] != -1 {
+			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be before %q", reader.Columns.Names[m[0]])).SetStyle(movedStyle)
 			t.statusExist = true
-		} else if a != -1 {
-			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be after %q", reader.Columns.Name(a))).SetStyle(movedStyle)
+		} else if ok && m[1] != -1 {
+			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be after %q", reader.Columns.Names[m[1]])).SetStyle(movedStyle)
 			t.statusExist = true
 		}
 	}
@@ -144,11 +144,11 @@ func (t *DiffTable) styledCells(row, column int) []*TableCell {
 	} else if len(cells) == 2 {
 		cells[0].SetStyle(addedStyle).SetExpansion(1)
 		cells[1].SetStyle(removedStyle).SetExpansion(1)
-	} else if t.reader.Columns.Added(0, column) {
+	} else if _, ok := t.reader.Columns.Added[0][column]; ok {
 		cells[0].SetStyle(addedStyle)
-	} else if t.reader.Columns.Removed(0, column) {
+	} else if _, ok := t.reader.Columns.Removed[0][column]; ok {
 		cells[0].SetStyle(removedStyle)
-	} else if b, a := t.reader.Columns.Moved(0, column); b != -1 || a != -1 {
+	} else if _, ok := t.reader.Columns.Moved[0][column]; ok {
 		cells[0].SetStyle(movedStyle)
 	} else {
 		cells[0].SetStyle(cellStyle)
