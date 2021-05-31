@@ -63,16 +63,32 @@ func moveOps(sl []int) []*moveOp {
 	return ops
 }
 
+func stringSliceToMap(sl []string) map[string]int {
+	m := map[string]int{}
+	for i, s := range sl {
+		m[s] = i
+	}
+	return m
+}
+
+func uintMapToSlice(m map[uint32]struct{}) []uint32 {
+	sl := make([]uint32, 0, len(m))
+	for u := range m {
+		sl = append(sl, u)
+	}
+	return sl
+}
+
 // ColDiff keep track of how column composition and order change between a base version and
 // one or more versions
 type ColDiff struct {
 	Names    []string
 	PK       map[string]int
-	Added    []map[int]struct{}
-	Removed  []map[int]struct{}
-	Moved    []map[int][]int
-	BaseIdx  map[int]int
-	OtherIdx []map[int]int
+	Added    []map[uint32]struct{}
+	Removed  []map[uint32]struct{}
+	Moved    []map[uint32][]int
+	BaseIdx  map[uint32]uint32
+	OtherIdx []map[uint32]uint32
 }
 
 func CompareColumns(base, pk []string, others ...[]string) *ColDiff {
@@ -89,32 +105,34 @@ func (c *ColDiff) Layers() int {
 	return len(c.Added)
 }
 
-func stringSliceToMap(sl []string) map[string]int {
-	m := map[string]int{}
-	for i, s := range sl {
-		m[s] = i
+func (c *ColDiff) PKIndices() []uint32 {
+	n := len(c.PK)
+	sl := make([]uint32, n)
+	for i := 0; i < n; i++ {
+		sl[i] = uint32(i)
 	}
-	return m
+	return sl
 }
 
 func (c *ColDiff) computeIndexMap(base []string, others ...[]string) {
-	c.BaseIdx = map[int]int{}
+	c.BaseIdx = map[uint32]uint32{}
 	namesM := stringSliceToMap(c.Names)
 	for i, s := range base {
-		c.BaseIdx[namesM[s]] = i
+		c.BaseIdx[uint32(namesM[s])] = uint32(i)
 	}
-	c.OtherIdx = make([]map[int]int, len(others))
+	c.OtherIdx = make([]map[uint32]uint32, len(others))
 	for j, cols := range others {
-		c.OtherIdx[j] = map[int]int{}
+		c.OtherIdx[j] = map[uint32]uint32{}
 		for i, s := range cols {
-			c.OtherIdx[j][namesM[s]] = i
+			c.OtherIdx[j][uint32(namesM[s])] = uint32(i)
 		}
 	}
 }
 
 func (c *ColDiff) CombineRows(layer int, row, oldRow []string) (mergedRows [][]string) {
-	n := c.Len()
-	for i := 0; i < n; i++ {
+	n := uint32(c.Len())
+	var i uint32
+	for i = 0; i < n; i++ {
 		if _, ok := c.Added[layer][i]; ok {
 			mergedRows = append(mergedRows, []string{row[c.OtherIdx[layer][i]]})
 		} else if _, ok := c.Removed[layer][i]; ok {
@@ -131,30 +149,32 @@ func (c *ColDiff) CombineRows(layer int, row, oldRow []string) (mergedRows [][]s
 }
 
 func (c *ColDiff) Swap(i, j int) {
+	u := uint32(i)
+	v := uint32(j)
 	c.Names[i], c.Names[j] = c.Names[j], c.Names[i]
 	for layer := 0; layer < c.Layers(); layer++ {
-		for _, sl := range [][]map[int]struct{}{c.Added, c.Removed} {
-			_, oki := sl[layer][i]
-			_, okj := sl[layer][j]
+		for _, sl := range [][]map[uint32]struct{}{c.Added, c.Removed} {
+			_, oki := sl[layer][u]
+			_, okj := sl[layer][v]
 			if oki && !okj {
-				sl[layer][j] = struct{}{}
-				delete(sl[layer], i)
+				sl[layer][v] = struct{}{}
+				delete(sl[layer], u)
 			} else if okj && !oki {
-				sl[layer][i] = struct{}{}
-				delete(sl[layer], j)
+				sl[layer][u] = struct{}{}
+				delete(sl[layer], v)
 			}
 		}
 		m := c.Moved[layer]
-		vi, oki := m[i]
-		vj, okj := m[j]
+		vi, oki := m[u]
+		vj, okj := m[v]
 		if oki && okj {
-			m[i], m[j] = vj, vi
+			m[u], m[v] = vj, vi
 		} else if oki {
-			m[j] = vi
-			delete(m, i)
+			m[v] = vi
+			delete(m, u)
 		} else if okj {
-			m[i] = vj
-			delete(m, j)
+			m[u] = vj
+			delete(m, v)
 		}
 	}
 }
@@ -219,9 +239,9 @@ func (c *ColDiff) insertToNames(cols []string) {
 
 func (c *ColDiff) addLayer(base, cols []string) {
 	layer := c.Layers()
-	c.Added = append(c.Added, map[int]struct{}{})
-	c.Removed = append(c.Removed, map[int]struct{}{})
-	c.Moved = append(c.Moved, map[int][]int{})
+	c.Added = append(c.Added, map[uint32]struct{}{})
+	c.Removed = append(c.Removed, map[uint32]struct{}{})
+	c.Moved = append(c.Moved, map[uint32][]int{})
 
 	c.insertToNames(cols)
 	c.insertToNames(base)
@@ -231,7 +251,7 @@ func (c *ColDiff) addLayer(base, cols []string) {
 	namesM := stringSliceToMap(c.Names)
 	for _, s := range cols {
 		if _, ok := baseM[s]; !ok {
-			c.Added[layer][namesM[s]] = struct{}{}
+			c.Added[layer][uint32(namesM[s])] = struct{}{}
 		}
 	}
 
@@ -239,7 +259,7 @@ func (c *ColDiff) addLayer(base, cols []string) {
 	colsM := stringSliceToMap(cols)
 	for _, s := range base {
 		if _, ok := colsM[s]; !ok {
-			c.Removed[layer][namesM[s]] = struct{}{}
+			c.Removed[layer][uint32(namesM[s])] = struct{}{}
 		}
 	}
 
@@ -265,11 +285,11 @@ func (c *ColDiff) populateMovedMap(base []string, layer int, colsM map[string]in
 	ops := moveOps(oldIndices)
 	nonAnchor := map[int]struct{}{}
 	for _, v := range ops {
-		nonAnchor[v.old] = struct{}{}
+		nonAnchor[(v.old)] = struct{}{}
 	}
 	namesM := stringSliceToMap(c.Names)
 	for _, op := range ops {
-		newIndex := newIndices[op.new]
+		newIndex := uint32(newIndices[op.new])
 		var after string
 		for i := op.old - 1; i >= 0; i-- {
 			if _, ok := nonAnchor[i]; ok {

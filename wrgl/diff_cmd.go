@@ -198,6 +198,7 @@ func outputDiffToTerminal(
 		rowChangeReader  *diff.RowChangeReader
 		rowChangeTable   *widgets.DiffTable
 		pkChanged        bool
+		colDiff          *objects.ColDiff
 	)
 
 	app := tview.NewApplication()
@@ -257,6 +258,8 @@ func outputDiffToTerminal(
 					break mainLoop
 				}
 				switch d.Type {
+				case objects.DTColumnChange:
+					colDiff = d.ColDiff
 				case objects.DTPKChange:
 					pkChanged = true
 					_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
@@ -311,7 +314,7 @@ func outputDiffToTerminal(
 					} else {
 						if rowChangeReader == nil {
 							var err error
-							rowChangeReader, err = diff.NewRowChangeReader(db1, db2, cols, oldCols, pk)
+							rowChangeReader, err = diff.NewRowChangeReader(db1, db2, colDiff)
 							if err != nil {
 								panic(err)
 							}

@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func intSliceToMap(sl []int) map[int]struct{} {
-	m := map[int]struct{}{}
+func intSliceToMap(sl []uint32) map[uint32]struct{} {
+	m := map[uint32]struct{}{}
 	for _, i := range sl {
 		m[i] = struct{}{}
 	}
@@ -70,86 +70,86 @@ func TestColumns(t *testing.T) {
 		base     []string
 		cols     []string
 		names    []string
-		moved    map[int][]int
-		added    []int
-		removed  []int
-		baseIdx  map[int]int
-		otherIdx map[int]int
+		moved    map[uint32][]int
+		added    []uint32
+		removed  []uint32
+		baseIdx  map[uint32]uint32
+		otherIdx map[uint32]uint32
 	}{
 		{
 			base:     []string{"a"},
 			cols:     []string{"a"},
 			names:    []string{"a"},
-			baseIdx:  map[int]int{0: 0},
-			otherIdx: map[int]int{0: 0},
+			baseIdx:  map[uint32]uint32{0: 0},
+			otherIdx: map[uint32]uint32{0: 0},
 		},
 		{
 			base:     []string{"a"},
 			cols:     []string{"b"},
 			names:    []string{"a", "b"},
-			added:    []int{1},
-			removed:  []int{0},
-			baseIdx:  map[int]int{0: 0},
-			otherIdx: map[int]int{1: 0},
+			added:    []uint32{1},
+			removed:  []uint32{0},
+			baseIdx:  map[uint32]uint32{0: 0},
+			otherIdx: map[uint32]uint32{1: 0},
 		},
 		{
 			base:     []string{"a", "b"},
 			cols:     []string{"a", "b"},
 			names:    []string{"a", "b"},
-			baseIdx:  map[int]int{0: 0, 1: 1},
-			otherIdx: map[int]int{0: 0, 1: 1},
+			baseIdx:  map[uint32]uint32{0: 0, 1: 1},
+			otherIdx: map[uint32]uint32{0: 0, 1: 1},
 		},
 		{
 			base:     []string{"a", "b"},
 			cols:     []string{"b", "a"},
 			names:    []string{"b", "a"},
-			moved:    map[int][]int{1: {0, -1}},
-			baseIdx:  map[int]int{0: 1, 1: 0},
-			otherIdx: map[int]int{0: 0, 1: 1},
+			moved:    map[uint32][]int{1: {0, -1}},
+			baseIdx:  map[uint32]uint32{0: 1, 1: 0},
+			otherIdx: map[uint32]uint32{0: 0, 1: 1},
 		},
 		{
 			base:     []string{"a", "b", "c"},
 			cols:     []string{"c", "a"},
 			names:    []string{"c", "a", "b"},
-			moved:    map[int][]int{1: {0, -1}},
-			removed:  []int{2},
-			baseIdx:  map[int]int{0: 2, 1: 0, 2: 1},
-			otherIdx: map[int]int{0: 0, 1: 1},
+			moved:    map[uint32][]int{1: {0, -1}},
+			removed:  []uint32{2},
+			baseIdx:  map[uint32]uint32{0: 2, 1: 0, 2: 1},
+			otherIdx: map[uint32]uint32{0: 0, 1: 1},
 		},
 		{
 			base:     []string{"c", "b", "a"},
 			cols:     []string{"a", "b", "c"},
 			names:    []string{"a", "b", "c"},
-			moved:    map[int][]int{0: {-1, 1}, 2: {1, -1}},
-			baseIdx:  map[int]int{0: 2, 1: 1, 2: 0},
-			otherIdx: map[int]int{0: 0, 1: 1, 2: 2},
+			moved:    map[uint32][]int{0: {-1, 1}, 2: {1, -1}},
+			baseIdx:  map[uint32]uint32{0: 2, 1: 1, 2: 0},
+			otherIdx: map[uint32]uint32{0: 0, 1: 1, 2: 2},
 		},
 		{
 			base:     []string{"a", "b"},
 			cols:     []string{"b", "c", "a"},
 			names:    []string{"b", "c", "a"},
-			moved:    map[int][]int{2: {0, -1}},
-			added:    []int{1},
-			baseIdx:  map[int]int{0: 1, 2: 0},
-			otherIdx: map[int]int{0: 0, 1: 1, 2: 2},
+			moved:    map[uint32][]int{2: {0, -1}},
+			added:    []uint32{1},
+			baseIdx:  map[uint32]uint32{0: 1, 2: 0},
+			otherIdx: map[uint32]uint32{0: 0, 1: 1, 2: 2},
 		},
 		{
 			base:     []string{"a", "d", "e", "b", "c"},
 			cols:     []string{"a", "b", "c", "d", "e"},
 			names:    []string{"a", "b", "c", "d", "e"},
-			moved:    map[int][]int{3: {-1, 0}, 4: {-1, 0}},
-			baseIdx:  map[int]int{0: 0, 1: 3, 2: 4, 3: 1, 4: 2},
-			otherIdx: map[int]int{0: 0, 1: 1, 2: 2, 3: 3, 4: 4},
+			moved:    map[uint32][]int{3: {-1, 0}, 4: {-1, 0}},
+			baseIdx:  map[uint32]uint32{0: 0, 1: 3, 2: 4, 3: 1, 4: 2},
+			otherIdx: map[uint32]uint32{0: 0, 1: 1, 2: 2, 3: 3, 4: 4},
 		},
 		{
 			base:     []string{"e", "b", "c", "d", "f"},
 			cols:     []string{"a", "b", "c", "d", "e"},
 			names:    []string{"a", "b", "c", "d", "f", "e"},
-			moved:    map[int][]int{5: {1, -1}},
-			added:    []int{0},
-			removed:  []int{4},
-			baseIdx:  map[int]int{1: 1, 2: 2, 3: 3, 4: 4, 5: 0},
-			otherIdx: map[int]int{0: 0, 1: 1, 2: 2, 3: 3, 5: 4},
+			moved:    map[uint32][]int{5: {1, -1}},
+			added:    []uint32{0},
+			removed:  []uint32{4},
+			baseIdx:  map[uint32]uint32{1: 1, 2: 2, 3: 3, 4: 4, 5: 0},
+			otherIdx: map[uint32]uint32{0: 0, 1: 1, 2: 2, 3: 3, 5: 4},
 		},
 	} {
 		obj := CompareColumns(c.base, nil, c.cols)
@@ -172,17 +172,19 @@ func TestColumns(t *testing.T) {
 func TestHoistPKToStart(t *testing.T) {
 	c := CompareColumns([]string{"a", "b", "c"}, []string{"d", "a"}, []string{"b", "a", "d"})
 	assert.Equal(t, []string{"d", "a", "b", "c"}, c.Names)
+	assert.Equal(t, []uint32{0, 1}, c.PKIndices())
 
 	c = CompareColumns([]string{"a", "b", "c"}, []string{"a"}, []string{"a", "b", "c"})
 	assert.Equal(t, []string{"a", "b", "c"}, c.Names)
+	assert.Equal(t, []uint32{0}, c.PKIndices())
 }
 
 func TestColumnsSwap(t *testing.T) {
 	c := &ColDiff{
 		Names:   []string{"b", "c", "a", "d"},
-		Removed: []map[int]struct{}{{1: struct{}{}}},
-		Added:   []map[int]struct{}{{3: struct{}{}}},
-		Moved:   []map[int][]int{{2: []int{0, -1}}},
+		Removed: []map[uint32]struct{}{{1: struct{}{}}},
+		Added:   []map[uint32]struct{}{{3: struct{}{}}},
+		Moved:   []map[uint32][]int{{2: []int{0, -1}}},
 	}
 
 	c.Swap(0, 3)

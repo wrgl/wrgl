@@ -13,8 +13,7 @@ import (
 func TestDiffWriter(t *testing.T) {
 	objs := []*Diff{
 		{Type: DTPKChange, Columns: []string{"a", "b"}},
-		{Type: DTColumnAdd, Columns: []string{"c", "d"}},
-		{Type: DTColumnRem, Columns: []string{"e"}},
+		{Type: DTColumnChange, ColDiff: CompareColumns([]string{"a", "b", "c"}, []string{"a"}, []string{"a", "d", "b"})},
 		{Type: DTRow, PK: testutils.SecureRandomBytes(16), Sum: testutils.SecureRandomBytes(16)},
 		{Type: DTRow, PK: testutils.SecureRandomBytes(16), OldSum: testutils.SecureRandomBytes(16)},
 		{Type: DTRow, PK: testutils.SecureRandomBytes(16), OldSum: testutils.SecureRandomBytes(16), Sum: testutils.SecureRandomBytes(16)},

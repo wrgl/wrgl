@@ -36,13 +36,13 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 	for i, name := range reader.Columns.Names {
 		headerRow = append(headerRow, NewTableCell(name).SetStyle(columnStyle))
 		colStatuses = append(colStatuses, nil)
-		if _, ok := reader.Columns.Added[0][i]; ok {
+		if _, ok := reader.Columns.Added[0][uint32(i)]; ok {
 			colStatuses[i] = NewTableCell("Added").SetStyle(addedStyle)
 			t.statusExist = true
-		} else if _, ok := reader.Columns.Removed[0][i]; ok {
+		} else if _, ok := reader.Columns.Removed[0][uint32(i)]; ok {
 			colStatuses[i] = NewTableCell("Removed").SetStyle(removedStyle)
 			t.statusExist = true
-		} else if m, ok := reader.Columns.Moved[0][i]; ok && m[0] != -1 {
+		} else if m, ok := reader.Columns.Moved[0][uint32(i)]; ok && m[0] != -1 {
 			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be before %q", reader.Columns.Names[m[0]])).SetStyle(movedStyle)
 			t.statusExist = true
 		} else if ok && m[1] != -1 {
@@ -57,7 +57,7 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 		t.DataTable.SetShape(t.reader.NumRows()+2, t.reader.Columns.Len()).
 			SetColumnStatuses(colStatuses)
 	}
-	t.DataTable.SetPrimaryKeyIndices(t.reader.PKIndices)
+	t.DataTable.SetPrimaryKeyIndices(t.reader.Columns.PKIndices())
 	t.headerRow = headerRow
 	return t
 }
@@ -144,11 +144,11 @@ func (t *DiffTable) styledCells(row, column int) []*TableCell {
 	} else if len(cells) == 2 {
 		cells[0].SetStyle(addedStyle).SetExpansion(1)
 		cells[1].SetStyle(removedStyle).SetExpansion(1)
-	} else if _, ok := t.reader.Columns.Added[0][column]; ok {
+	} else if _, ok := t.reader.Columns.Added[0][uint32(column)]; ok {
 		cells[0].SetStyle(addedStyle)
-	} else if _, ok := t.reader.Columns.Removed[0][column]; ok {
+	} else if _, ok := t.reader.Columns.Removed[0][uint32(column)]; ok {
 		cells[0].SetStyle(removedStyle)
-	} else if _, ok := t.reader.Columns.Moved[0][column]; ok {
+	} else if _, ok := t.reader.Columns.Moved[0][uint32(column)]; ok {
 		cells[0].SetStyle(movedStyle)
 	} else {
 		cells[0].SetStyle(cellStyle)

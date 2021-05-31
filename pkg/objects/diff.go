@@ -11,16 +11,18 @@ type DiffType byte
 
 const (
 	DTUnspecified DiffType = iota
+	DTColumnChange
 	DTPKChange
-	DTColumnAdd
-	DTColumnRem
 	DTRow
 )
 
 type Diff struct {
 	Type DiffType
 
-	// DTPKChange, DTColumnAdd and DTColumnRem fields
+	// DTColumnChange fields
+	ColDiff *ColDiff
+
+	// DTPKChange fields
 	Columns []string
 
 	// DTRow* fields
@@ -49,9 +51,14 @@ func (w *DiffWriter) Write(d *Diff) (err error) {
 	if err != nil {
 		return
 	}
-	strEnc := NewStrListEncoder()
 	switch d.Type {
-	case DTPKChange, DTColumnAdd, DTColumnRem:
+	case DTColumnChange:
+		b, err = EncodeColDiff(d.ColDiff)
+		if err != nil {
+			return
+		}
+	case DTPKChange:
+		strEnc := NewStrListEncoder()
 		b = strEnc.Encode(d.Columns)
 	case DTRow:
 		b = w.buf.Buffer(48)
@@ -120,7 +127,15 @@ func (r *DiffReader) Read() (d *Diff, err error) {
 	}
 	strDec := NewStrListDecoder(false)
 	switch d.Type {
-	case DTPKChange, DTColumnAdd, DTColumnRem:
+	case DTColumnChange:
+		colDiffR := NewColDiffReader(r.r)
+		n, colDiff, err := colDiffR.Read()
+		if err != nil {
+			return nil, err
+		}
+		r.off += int64(n)
+		d.ColDiff = colDiff
+	case DTPKChange:
 		n, cols, err := strDec.Read(r.r)
 		if err != nil {
 			return nil, err

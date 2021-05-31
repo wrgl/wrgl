@@ -13,26 +13,19 @@ import (
 )
 
 type RowChangeReader struct {
-	Columns   *objects.ColDiff
-	PKIndices []uint32
-	rowPairs  [][2][]byte
-	off       int
-	db1, db2  kv.DB
-	dec       *objects.StrListDecoder
+	Columns  *objects.ColDiff
+	rowPairs [][2][]byte
+	off      int
+	db1, db2 kv.DB
+	dec      *objects.StrListDecoder
 }
 
-func NewRowChangeReader(db1, db2 kv.DB, cols, oldCols, pk []string) (*RowChangeReader, error) {
-	colDiff := objects.CompareColumns(oldCols, pk, cols)
-	pkIndices := make([]uint32, len(pk))
-	for i := 0; i < len(pk); i++ {
-		pkIndices[i] = uint32(i)
-	}
+func NewRowChangeReader(db1, db2 kv.DB, colDiff *objects.ColDiff) (*RowChangeReader, error) {
 	return &RowChangeReader{
-		db1:       db1,
-		db2:       db2,
-		Columns:   colDiff,
-		PKIndices: pkIndices,
-		dec:       objects.NewStrListDecoder(false),
+		db1:     db1,
+		db2:     db2,
+		Columns: colDiff,
+		dec:     objects.NewStrListDecoder(false),
 	}, nil
 }
 

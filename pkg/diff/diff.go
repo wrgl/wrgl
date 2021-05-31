@@ -10,7 +10,6 @@ import (
 
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/progress"
-	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/table"
 )
 
@@ -32,31 +31,30 @@ func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<-
 	go func() {
 		defer close(diffChan)
 
-		_, added, removed := slice.CompareStringSlices(t1.Columns(), t2.Columns())
-		if len(added) > 0 {
-			diffChan <- objects.Diff{
-				Type:    objects.DTColumnAdd,
-				Columns: added,
-			}
+		pk1 := t1.PrimaryKey()
+		cols1 := t1.Columns()
+		pk2 := t2.PrimaryKey()
+		cols2 := t2.Columns()
+		pkEqual := strSliceEqual(pk1, pk2)
+		colsEqual := strSliceEqual(cols1, cols2)
+
+		var cd *objects.ColDiff
+		if pkEqual {
+			cd = objects.CompareColumns(cols2, pk1, cols1)
+		} else {
+			cd = objects.CompareColumns(cols2, nil, cols1)
 		}
-		if len(removed) > 0 {
-			diffChan <- objects.Diff{
-				Type:    objects.DTColumnRem,
-				Columns: removed,
-			}
+		diffChan <- objects.Diff{
+			Type:    objects.DTColumnChange,
+			ColDiff: cd,
 		}
 
-		sl1 := t1.PrimaryKey()
-		sl2 := t2.PrimaryKey()
-		if len(sl1) == 0 && len(sl2) == 0 && (len(added) > 0 || len(removed) > 0) {
-			return
-		}
-		if !strSliceEqual(sl1, sl2) {
+		if !pkEqual {
 			diffChan <- objects.Diff{
 				Type:    objects.DTPKChange,
-				Columns: sl2,
+				Columns: pk2,
 			}
-		} else {
+		} else if len(pk1) > 0 || colsEqual {
 			err := diffRows(t1, t2, diffChan, pt)
 			if err != nil {
 				errChan <- err
