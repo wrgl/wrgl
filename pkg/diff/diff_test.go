@@ -270,7 +270,7 @@ func TestDiffTables(t *testing.T) {
 	}
 	for i, c := range cases {
 		errChan := make(chan error, 1000)
-		diffChan, _ := DiffTables(c.T1, c.T2, 0, errChan)
+		diffChan, _ := DiffTables(c.T1, c.T2, 0, errChan, false, false)
 		events := []objects.Diff{}
 		for e := range diffChan {
 			events = append(events, e)
@@ -280,6 +280,42 @@ func TestDiffTables(t *testing.T) {
 		_, ok := <-errChan
 		assert.False(t, ok)
 	}
+}
+
+func TestDiffTablesSkipColumnChange(t *testing.T) {
+	ts1 := table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil)
+	ts2 := table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil)
+	errChan := make(chan error, 1000)
+	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, true, false)
+	events := []objects.Diff{}
+	for e := range diffChan {
+		events = append(events, e)
+	}
+	assert.Equal(t, []objects.Diff{}, events)
+}
+
+func TestDiffTablesEmitRowChangeWhenPKDiffer(t *testing.T) {
+	ts1 := table.NewMockStore([]string{"a", "b"}, []uint32{0}, [][2]string{
+		{"abc", "123"},
+		{"def", "456"},
+	})
+	ts2 := table.NewMockStore([]string{"a", "c"}, []uint32{1}, [][2]string{
+		{"wer", "321"},
+		{"sdf", "432"},
+	})
+	errChan := make(chan error, 1000)
+	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, true, true)
+	events := []objects.Diff{}
+	for e := range diffChan {
+		events = append(events, e)
+	}
+	assert.Equal(t, []objects.Diff{
+		{Type: objects.DTPKChange, Columns: []string{"c"}},
+		{Type: objects.DTRow, PK: []byte("abc"), Sum: []byte("123")},
+		{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456")},
+		{Type: objects.DTRow, PK: []byte("wer"), OldSum: []byte("321")},
+		{Type: objects.DTRow, PK: []byte("sdf"), OldSum: []byte("432")},
+	}, events)
 }
 
 func ingestRawCSV(b *testing.B, db kv.DB, fs kv.FileStore, rows [][]string) table.Store {
@@ -303,7 +339,7 @@ func BenchmarkDiffRows(b *testing.B) {
 	store2 := ingestRawCSV(b, db, fs, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
-	diffChan, _ := DiffTables(store1, store2, 0, errChan)
+	diffChan, _ := DiffTables(store1, store2, 0, errChan, false, false)
 	for d := range diffChan {
 		assert.NotNil(b, d)
 	}

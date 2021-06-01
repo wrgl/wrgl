@@ -25,7 +25,7 @@ func strSliceEqual(s1, s2 []string) bool {
 	return true
 }
 
-func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<- error) (<-chan objects.Diff, progress.Tracker) {
+func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<- error, skipColumnChange, emitRowChangeWhenPKDiffer bool) (<-chan objects.Diff, progress.Tracker) {
 	diffChan := make(chan objects.Diff)
 	pt := progress.NewTracker(progressPeriod, 0)
 	go func() {
@@ -38,21 +38,30 @@ func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<-
 		pkEqual := strSliceEqual(pk1, pk2)
 		colsEqual := strSliceEqual(cols1, cols2)
 
-		var cd *objects.ColDiff
-		if pkEqual {
-			cd = objects.CompareColumns(cols2, pk1, cols1)
-		} else {
-			cd = objects.CompareColumns(cols2, nil, cols1)
-		}
-		diffChan <- objects.Diff{
-			Type:    objects.DTColumnChange,
-			ColDiff: cd,
+		if !skipColumnChange {
+			var cd *objects.ColDiff
+			if pkEqual {
+				cd = objects.CompareColumns(cols2, pk1, cols1)
+			} else {
+				cd = objects.CompareColumns(cols2, nil, cols1)
+			}
+			diffChan <- objects.Diff{
+				Type:    objects.DTColumnChange,
+				ColDiff: cd,
+			}
 		}
 
 		if !pkEqual {
 			diffChan <- objects.Diff{
 				Type:    objects.DTPKChange,
 				Columns: pk2,
+			}
+			if emitRowChangeWhenPKDiffer {
+				err := diffRows(t1, t2, diffChan, pt)
+				if err != nil {
+					errChan <- err
+					return
+				}
 			}
 		} else if len(pk1) > 0 || colsEqual {
 			err := diffRows(t1, t2, diffChan, pt)

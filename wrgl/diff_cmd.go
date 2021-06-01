@@ -96,7 +96,7 @@ func newDiffCmd() *cobra.Command {
 					os.Exit(1)
 				}
 			}()
-			diffChan, pt := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan)
+			diffChan, pt := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan, false, false)
 			if raw {
 				return outputRawDiff(cmd, diffChan)
 			}
