@@ -148,6 +148,28 @@ func (c *ColDiff) CombineRows(layer int, row, oldRow []string) (mergedRows [][]s
 	return
 }
 
+func (c *ColDiff) RearrangeRow(layer int, row []string) []string {
+	n := c.Len()
+	res := make([]string, n)
+	for i := 0; i < n; i++ {
+		if j, ok := c.OtherIdx[layer][uint32(i)]; ok {
+			res[i] = row[j]
+		}
+	}
+	return res
+}
+
+func (c *ColDiff) RearrangeBaseRow(row []string) []string {
+	n := c.Len()
+	res := make([]string, n)
+	for i := 0; i < n; i++ {
+		if j, ok := c.BaseIdx[uint32(i)]; ok {
+			res[i] = row[j]
+		}
+	}
+	return res
+}
+
 func (c *ColDiff) Swap(i, j int) {
 	u := uint32(i)
 	v := uint32(j)
