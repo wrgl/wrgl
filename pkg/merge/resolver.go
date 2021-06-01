@@ -34,6 +34,9 @@ func NewResolver(db kv.DB, cd *objects.ColDiff) *Resolver {
 }
 
 func (r *Resolver) decodeRow(layer int, sum []byte) ([]string, error) {
+	if sum == nil {
+		return nil, nil
+	}
 	b, err := table.GetRow(r.db, []byte(sum))
 	if err != nil {
 		return nil, err
@@ -47,7 +50,7 @@ func (r *Resolver) decodeRow(layer int, sum []byte) ([]string, error) {
 	return row, nil
 }
 
-func (r *Resolver) mergeRows(m *Merge, uniqSums map[string]int) error {
+func (r *Resolver) mergeRows(m *Merge, uniqSums map[string]int) (err error) {
 	r.rows.Reset()
 	for sum, layer := range uniqSums {
 		row, err := r.decodeRow(layer, []byte(sum))

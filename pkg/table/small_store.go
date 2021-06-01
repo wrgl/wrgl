@@ -6,6 +6,7 @@ package table
 import (
 	"encoding/hex"
 	"io"
+	"sync"
 
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
@@ -27,6 +28,7 @@ type SmallStore struct {
 	db      kv.DB
 	reader  *objects.TableReader
 	rowsMap map[string][]byte
+	mutex   sync.Mutex
 }
 
 func (s *SmallStore) Columns() []string {
@@ -43,6 +45,8 @@ func (s *SmallStore) PrimaryKeyIndices() []uint32 {
 
 func (s *SmallStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 	if s.rowsMap == nil {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
 		s.rowsMap = make(map[string][]byte, s.NumRows())
 		s.reader.SeekRow(0, io.SeekStart)
 		for {
