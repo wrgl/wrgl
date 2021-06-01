@@ -152,31 +152,41 @@ func TestColumns(t *testing.T) {
 			otherIdx: map[uint32]uint32{0: 0, 1: 1, 2: 2, 3: 3, 5: 4},
 		},
 	} {
-		obj := CompareColumns(c.base, nil, c.cols)
+		obj := CompareColumns([2][]string{c.base, nil}, [2][]string{c.cols, nil})
 		n := obj.Len()
 		assert.Equal(t, len(c.names), n, "case %d", i)
 		assert.Equal(t, c.names, obj.Names, "case %d", i)
 		assert.Equal(t, c.baseIdx, obj.BaseIdx, "case %d", i)
 		assert.Equal(t, c.otherIdx, obj.OtherIdx[0], "case %d", i)
 
-		assert.Equal(t, intSliceToMap(c.added), obj.Added[0])
-		assert.Equal(t, intSliceToMap(c.removed), obj.Removed[0])
+		assert.Equal(t, intSliceToMap(c.added), obj.Added[0], "case %d", i)
+		assert.Equal(t, intSliceToMap(c.removed), obj.Removed[0], "case %d", i)
 		if c.moved == nil {
-			assert.Len(t, obj.Moved[0], 0)
+			assert.Len(t, obj.Moved[0], 0, "case %d", i)
 		} else {
-			assert.Equal(t, c.moved, obj.Moved[0])
+			assert.Equal(t, c.moved, obj.Moved[0], "case %d", i)
 		}
+		assert.Nil(t, obj.BasePK, "case %d", i)
+		assert.Equal(t, make([][]uint32, obj.Layers()), obj.OtherPK, "case %d", i)
 	}
 }
 
 func TestHoistPKToStart(t *testing.T) {
-	c := CompareColumns([]string{"a", "b", "c"}, []string{"d", "a"}, []string{"b", "a", "d"})
+	c := CompareColumns([2][]string{{"a", "b", "c"}, {"a"}}, [2][]string{{"b", "a", "d"}, {"d", "a"}})
 	assert.Equal(t, []string{"d", "a", "b", "c"}, c.Names)
 	assert.Equal(t, []uint32{0, 1}, c.PKIndices())
+	assert.Equal(t, []uint32{1}, c.BasePK)
+	assert.Equal(t, [][]uint32{{0, 1}}, c.OtherPK)
+	assert.Equal(t, []string{"", "1", "2", "3"}, c.RearrangeBaseRow([]string{"1", "2", "3"}))
+	assert.Equal(t, []string{"3", "2", "1", ""}, c.RearrangeRow(0, []string{"1", "2", "3"}))
 
-	c = CompareColumns([]string{"a", "b", "c"}, []string{"a"}, []string{"a", "b", "c"})
+	c = CompareColumns([2][]string{{"a", "b", "c"}, {"a"}}, [2][]string{{"a", "b", "c"}, {"a"}})
 	assert.Equal(t, []string{"a", "b", "c"}, c.Names)
 	assert.Equal(t, []uint32{0}, c.PKIndices())
+	assert.Equal(t, []uint32{0}, c.BasePK)
+	assert.Equal(t, [][]uint32{{0}}, c.OtherPK)
+	assert.Equal(t, []string{"1", "2", "3"}, c.RearrangeBaseRow([]string{"1", "2", "3"}))
+	assert.Equal(t, []string{"1", "2", "3"}, c.RearrangeRow(0, []string{"1", "2", "3"}))
 }
 
 func TestColumnsSwap(t *testing.T) {
@@ -209,7 +219,7 @@ func TestColumnsSwap(t *testing.T) {
 
 func TestCombineRows(t *testing.T) {
 	cols, oldCols := []string{"a", "b", "c", "d", "e"}, []string{"e", "b", "c", "d", "f"}
-	colDiff := CompareColumns(oldCols, nil, cols)
+	colDiff := CompareColumns([2][]string{oldCols, nil}, [2][]string{cols, nil})
 	assert.Equal(t, []string{
 		"a", "b", "c", "d", "f", "e",
 	}, colDiff.Names)

@@ -129,5 +129,4 @@ func (r *Resolver) Resolve(m *Merge) (err error) {
 	}
 	// some modified, some removed, not resolvable
 	return
-
 }

@@ -182,6 +182,18 @@ func outputRawDiff(cmd *cobra.Command, diffChan <-chan objects.Diff) error {
 	return nil
 }
 
+func uintSliceEqual(a, b []uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, u := range a {
+		if u != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func outputDiffToTerminal(
 	cmd *cobra.Command,
 	db1, db2 kv.DB,
@@ -260,27 +272,28 @@ func outputDiffToTerminal(
 				switch d.Type {
 				case objects.DTColumnChange:
 					colDiff = d.ColDiff
-				case objects.DTPKChange:
-					pkChanged = true
-					_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
-					if len(addedCols) > 0 {
-						tabPages.AddTab(
-							fmt.Sprintf("+%d columns", len(addedCols)),
-							widgets.CreateColumnsList(nil, addedCols, nil),
-						)
-					}
-					if len(removedCols) > 0 {
-						tabPages.AddTab(
-							fmt.Sprintf("-%d columns", len(removedCols)),
-							widgets.CreateColumnsList(nil, nil, removedCols),
-						)
-					}
-					unchanged, added, removed := slice.CompareStringSlices(pk, d.Columns)
-					if len(added) > 0 || len(removed) > 0 {
-						tabPages.AddTab(
-							"Primary key",
-							widgets.CreateColumnsList(unchanged, added, removed),
-						)
+					if !uintSliceEqual(colDiff.BasePK, colDiff.OtherPK[0]) {
+						pkChanged = true
+						_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
+						if len(addedCols) > 0 {
+							tabPages.AddTab(
+								fmt.Sprintf("+%d columns", len(addedCols)),
+								widgets.CreateColumnsList(nil, addedCols, nil),
+							)
+						}
+						if len(removedCols) > 0 {
+							tabPages.AddTab(
+								fmt.Sprintf("-%d columns", len(removedCols)),
+								widgets.CreateColumnsList(nil, nil, removedCols),
+							)
+						}
+						unchanged, added, removed := slice.CompareStringSlices(pk, slice.IndicesToValues(colDiff.Names, colDiff.BasePK))
+						if len(added) > 0 || len(removed) > 0 {
+							tabPages.AddTab(
+								"Primary key",
+								widgets.CreateColumnsList(unchanged, added, removed),
+							)
+						}
 					}
 				case objects.DTRow:
 					if d.OldSum == nil {

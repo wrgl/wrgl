@@ -99,23 +99,12 @@ func (r *ColDiffReader) readNames(c *ColDiff) error {
 	return nil
 }
 
-func (r *ColDiffReader) readPK(c *ColDiff) error {
-	err := r.expect("\npk ")
+func (r *ColDiffReader) readPK(label string) ([]uint32, error) {
+	err := r.expect(fmt.Sprintf("\n%s ", label))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	pk, err := r.readStrList()
-	if err != nil {
-		return err
-	}
-	c.PK = map[string]int{}
-	if len(pk) == 0 {
-		c.PK = nil
-	}
-	for i, s := range pk {
-		c.PK[s] = i
-	}
-	return nil
+	return r.readUintList()
 }
 
 func (r *ColDiffReader) readLayers() (int, error) {
@@ -232,13 +221,21 @@ func (r *ColDiffReader) Read() (n int, c *ColDiff, err error) {
 	if err != nil {
 		return
 	}
-	err = r.readPK(c)
-	if err != nil {
-		return
-	}
 	layers, err := r.readLayers()
 	if err != nil {
 		return
+	}
+	sl, err := r.readPK("basePK")
+	if err != nil {
+		return
+	}
+	c.BasePK = sl
+	for i := 0; i < layers; i++ {
+		sl, err = r.readPK("otherPK")
+		if err != nil {
+			return
+		}
+		c.OtherPK = append(c.OtherPK, sl)
 	}
 	c.Added, err = r.readIndexSet("added", layers)
 	if err != nil {

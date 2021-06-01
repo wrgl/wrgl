@@ -46,16 +46,12 @@ func (e *ColDiffWriter) writeNames(c *ColDiff) error {
 	return e.write(e.strEnc.Encode(c.Names))
 }
 
-func (e *ColDiffWriter) writePK(c *ColDiff) error {
-	err := e.write([]byte("\npk "))
+func (e *ColDiffWriter) writePK(label string, sl []uint32) error {
+	err := e.write([]byte(fmt.Sprintf("\n%s ", label)))
 	if err != nil {
 		return err
 	}
-	pk := make([]string, len(c.PK))
-	for s, i := range c.PK {
-		pk[i] = s
-	}
-	return e.write(e.strEnc.Encode(pk))
+	return e.write(e.uintEnc.Encode(sl))
 }
 
 func (e *ColDiffWriter) writeLayers(c *ColDiff) error {
@@ -135,7 +131,7 @@ func (e *ColDiffWriter) writeMovedMap(c *ColDiff) error {
 	return nil
 }
 
-func (e *ColDiffWriter) writeIndexMap(c *ColDiff, label string, m map[uint32]uint32) error {
+func (e *ColDiffWriter) writeIndexMap(label string, m map[uint32]uint32) error {
 	err := e.write([]byte(fmt.Sprintf("\n%s ", label)))
 	if err != nil {
 		return err
@@ -167,13 +163,19 @@ func (e *ColDiffWriter) Write(c *ColDiff) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	err = e.writePK(c)
-	if err != nil {
-		return 0, err
-	}
 	err = e.writeLayers(c)
 	if err != nil {
 		return 0, err
+	}
+	err = e.writePK("basePK", c.BasePK)
+	if err != nil {
+		return 0, err
+	}
+	for i := 0; i < c.Layers(); i++ {
+		err = e.writePK("otherPK", c.OtherPK[i])
+		if err != nil {
+			return 0, err
+		}
 	}
 	err = e.writeIndexSet(c, "added", c.Added)
 	if err != nil {
@@ -187,12 +189,12 @@ func (e *ColDiffWriter) Write(c *ColDiff) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	err = e.writeIndexMap(c, "baseIdx", c.BaseIdx)
+	err = e.writeIndexMap("baseIdx", c.BaseIdx)
 	if err != nil {
 		return 0, err
 	}
 	for i := 0; i < c.Layers(); i++ {
-		err = e.writeIndexMap(c, "otherIdx", c.OtherIdx[i])
+		err = e.writeIndexMap("otherIdx", c.OtherIdx[i])
 		if err != nil {
 			return 0, err
 		}

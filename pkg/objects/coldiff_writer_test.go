@@ -18,7 +18,8 @@ func TestColDiffWriter(t *testing.T) {
 		{&ColDiff{}},
 		{&ColDiff{
 			Names:    []string{"a", "b", "c", "d", "f", "e"},
-			PK:       map[string]int{"a": 0, "b": 1},
+			BasePK:   []uint32{1},
+			OtherPK:  [][]uint32{{0, 1}},
 			Moved:    []map[uint32][]int{{5: {1, -1}}},
 			Added:    []map[uint32]struct{}{{0: struct{}{}}},
 			Removed:  []map[uint32]struct{}{{4: struct{}{}}},
@@ -27,7 +28,8 @@ func TestColDiffWriter(t *testing.T) {
 		}},
 		{&ColDiff{
 			Names:   []string{"a", "b", "c", "d", "f", "e"},
-			PK:      map[string]int{"a": 0},
+			BasePK:  []uint32{4},
+			OtherPK: [][]uint32{{0}, nil},
 			Moved:   []map[uint32][]int{{5: {1, -1}}, {3: {-1, 0}}},
 			Added:   []map[uint32]struct{}{{0: struct{}{}}, {1: struct{}{}, 3: struct{}{}}},
 			Removed: []map[uint32]struct{}{{4: struct{}{}}, {}},

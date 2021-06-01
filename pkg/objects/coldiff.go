@@ -83,7 +83,9 @@ func uintMapToSlice(m map[uint32]struct{}) []uint32 {
 // one or more versions
 type ColDiff struct {
 	Names    []string
-	PK       map[string]int
+	BasePK   []uint32
+	OtherPK  [][]uint32
+	pk       map[string]int
 	Added    []map[uint32]struct{}
 	Removed  []map[uint32]struct{}
 	Moved    []map[uint32][]int
@@ -91,12 +93,12 @@ type ColDiff struct {
 	OtherIdx []map[uint32]uint32
 }
 
-func CompareColumns(base, pk []string, others ...[]string) *ColDiff {
+func CompareColumns(base [2][]string, others ...[2][]string) *ColDiff {
 	c := &ColDiff{}
 	for _, sl := range others {
-		c.addLayer(base, sl)
+		c.addLayer(base[0], sl[0])
 	}
-	c.hoistPKToStart(pk)
+	c.hoistPKToStart(others[0][1])
 	c.computeIndexMap(base, others...)
 	return c
 }
@@ -106,7 +108,7 @@ func (c *ColDiff) Layers() int {
 }
 
 func (c *ColDiff) PKIndices() []uint32 {
-	n := len(c.PK)
+	n := len(c.OtherPK[0])
 	sl := make([]uint32, n)
 	for i := 0; i < n; i++ {
 		sl[i] = uint32(i)
@@ -114,17 +116,25 @@ func (c *ColDiff) PKIndices() []uint32 {
 	return sl
 }
 
-func (c *ColDiff) computeIndexMap(base []string, others ...[]string) {
+func (c *ColDiff) computeIndexMap(base [2][]string, others ...[2][]string) {
 	c.BaseIdx = map[uint32]uint32{}
 	namesM := stringSliceToMap(c.Names)
-	for i, s := range base {
+	for i, s := range base[0] {
 		c.BaseIdx[uint32(namesM[s])] = uint32(i)
 	}
-	c.OtherIdx = make([]map[uint32]uint32, len(others))
-	for j, cols := range others {
+	for _, s := range base[1] {
+		c.BasePK = append(c.BasePK, uint32(namesM[s]))
+	}
+	n := len(others)
+	c.OtherIdx = make([]map[uint32]uint32, n)
+	c.OtherPK = make([][]uint32, n)
+	for j, layer := range others {
 		c.OtherIdx[j] = map[uint32]uint32{}
-		for i, s := range cols {
+		for i, s := range layer[0] {
 			c.OtherIdx[j][uint32(namesM[s])] = uint32(i)
+		}
+		for _, s := range layer[1] {
+			c.OtherPK[j] = append(c.OtherPK[j], uint32(namesM[s]))
 		}
 	}
 }
@@ -206,11 +216,11 @@ func (c *ColDiff) Len() int {
 }
 
 func (c *ColDiff) Less(i, j int) bool {
-	if c.PK == nil {
+	if c.pk == nil {
 		return false
 	}
-	vi, oki := c.PK[c.Names[i]]
-	vj, okj := c.PK[c.Names[j]]
+	vi, oki := c.pk[c.Names[i]]
+	vj, okj := c.pk[c.Names[j]]
 	if oki && okj {
 		return vi < vj
 	} else if oki {
@@ -344,6 +354,7 @@ func (c *ColDiff) populateMovedMap(base []string, layer int, colsM map[string]in
 }
 
 func (c *ColDiff) hoistPKToStart(pk []string) {
-	c.PK = stringSliceToMap(pk)
+	c.pk = stringSliceToMap(pk)
 	sort.Stable(c)
+	c.pk = nil
 }

@@ -12,7 +12,6 @@ type DiffType byte
 const (
 	DTUnspecified DiffType = iota
 	DTColumnChange
-	DTPKChange
 	DTRow
 )
 
@@ -21,9 +20,6 @@ type Diff struct {
 
 	// DTColumnChange fields
 	ColDiff *ColDiff
-
-	// DTPKChange fields
-	Columns []string
 
 	// DTRow* fields
 	PK     []byte
@@ -57,9 +53,6 @@ func (w *DiffWriter) Write(d *Diff) (err error) {
 		if err != nil {
 			return
 		}
-	case DTPKChange:
-		strEnc := NewStrListEncoder()
-		b = strEnc.Encode(d.Columns)
 	case DTRow:
 		b = w.buf.Buffer(48)
 		copy(b, d.PK)
@@ -125,7 +118,6 @@ func (r *DiffReader) Read() (d *Diff, err error) {
 		err = fmt.Errorf("parse error at pos=%d: expected space, found %q", r.off, b[1])
 		return
 	}
-	strDec := NewStrListDecoder(false)
 	switch d.Type {
 	case DTColumnChange:
 		colDiffR := NewColDiffReader(r.r)
@@ -135,13 +127,6 @@ func (r *DiffReader) Read() (d *Diff, err error) {
 		}
 		r.off += int64(n)
 		d.ColDiff = colDiff
-	case DTPKChange:
-		n, cols, err := strDec.Read(r.r)
-		if err != nil {
-			return nil, err
-		}
-		r.off += int64(n)
-		d.Columns = cols
 	case DTRow:
 		b = make([]byte, 48)
 		n, err = r.r.Read(b)

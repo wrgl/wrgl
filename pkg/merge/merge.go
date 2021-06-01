@@ -67,16 +67,16 @@ func MergeCommits(db kv.DB, fs kv.FileStore, progressPeriod time.Duration, errCh
 	mergeChan := make(chan Merge)
 	diffs := make([]<-chan objects.Diff, n)
 	progs := make([]progress.Tracker, n)
-	cols := make([][]string, n)
+	cols := make([][2][]string, n)
 	for i, t := range otherTs {
 		// TODO: add an option that makes DiffTable emit row changes even if PK has changed
 		// TODO: add an option that disallow DiffTable to emit DTColumnChange event
 		diffChan, progTracker := diff.DiffTables(t, baseT, progressPeriod*2, errChan, true, false)
 		diffs[i] = diffChan
 		progs[i] = progTracker
-		cols[i] = t.Columns()
+		cols[i] = [2][]string{t.Columns(), t.PrimaryKey()}
 	}
-	colDiff := objects.CompareColumns(baseT.Columns(), pk, cols...)
+	colDiff := objects.CompareColumns([2][]string{baseT.Columns(), baseT.PrimaryKey()}, cols...)
 	joinedProg := progress.JoinTrackers(progs...)
 	go mergeTables(db, colDiff, mergeChan, errChan, diffs...)
 	return mergeChan, joinedProg, nil

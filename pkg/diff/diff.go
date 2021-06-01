@@ -39,31 +39,14 @@ func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<-
 		colsEqual := strSliceEqual(cols1, cols2)
 
 		if !skipColumnChange {
-			var cd *objects.ColDiff
-			if pkEqual {
-				cd = objects.CompareColumns(cols2, pk1, cols1)
-			} else {
-				cd = objects.CompareColumns(cols2, nil, cols1)
-			}
+			cd := objects.CompareColumns([2][]string{cols2, pk2}, [2][]string{cols1, pk1})
 			diffChan <- objects.Diff{
 				Type:    objects.DTColumnChange,
 				ColDiff: cd,
 			}
 		}
 
-		if !pkEqual {
-			diffChan <- objects.Diff{
-				Type:    objects.DTPKChange,
-				Columns: pk2,
-			}
-			if emitRowChangeWhenPKDiffer {
-				err := diffRows(t1, t2, diffChan, pt)
-				if err != nil {
-					errChan <- err
-					return
-				}
-			}
-		} else if len(pk1) > 0 || colsEqual {
+		if (!pkEqual && emitRowChangeWhenPKDiffer) || (pkEqual && (len(pk1) > 0 || colsEqual)) {
 			err := diffRows(t1, t2, diffChan, pt)
 			if err != nil {
 				errChan <- err

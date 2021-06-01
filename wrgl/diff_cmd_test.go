@@ -92,7 +92,8 @@ func TestDiffCmd(t *testing.T) {
 			Type: objects.DTColumnChange,
 			ColDiff: &objects.ColDiff{
 				Names:    []string{"a", "b", "c"},
-				PK:       map[string]int{"a": 0},
+				BasePK:   []uint32{0},
+				OtherPK:  [][]uint32{{0}},
 				Added:    []map[uint32]struct{}{{}},
 				Removed:  []map[uint32]struct{}{{}},
 				Moved:    []map[uint32][]int{{}},
@@ -143,7 +144,8 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 			Type: objects.DTColumnChange,
 			ColDiff: &objects.ColDiff{
 				Names:    []string{"a", "c", "b"},
-				PK:       map[string]int{"a": 0},
+				BasePK:   []uint32{0},
+				OtherPK:  [][]uint32{{0}},
 				Added:    []map[uint32]struct{}{{}},
 				Removed:  []map[uint32]struct{}{{}},
 				Moved:    []map[uint32][]int{{2: []int{-1, 0}}},
