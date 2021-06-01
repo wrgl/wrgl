@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2021 Wrangle Ltd
+
 package merge
 
 import (
+	"sort"
+
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
@@ -9,8 +14,7 @@ import (
 type Resolver struct {
 	db      kv.DB
 	cd      *objects.ColDiff
-	rows    [][]string
-	layers  []int
+	rows    *Rows
 	nCols   int
 	nLayers int
 	rowDec  *objects.StrListDecoder
@@ -24,8 +28,7 @@ func NewResolver(db kv.DB, cd *objects.ColDiff) *Resolver {
 		cd:      cd,
 		nCols:   nCols,
 		nLayers: nLayers,
-		rows:    make([][]string, nLayers),
-		layers:  make([]int, nLayers),
+		rows:    NewRows(nLayers),
 		rowDec:  objects.NewStrListDecoder(false),
 	}
 }
@@ -45,21 +48,20 @@ func (r *Resolver) decodeRow(layer int, sum []byte) ([]string, error) {
 }
 
 func (r *Resolver) mergeRows(m *Merge, uniqSums map[string]int) error {
-	rows := r.rows[:0]
-	layers := r.layers[:0]
+	r.rows.Reset()
 	for sum, layer := range uniqSums {
 		row, err := r.decodeRow(layer, []byte(sum))
 		if err != nil {
 			return err
 		}
-		rows = append(rows, row)
-		layers = append(layers, layer)
+		r.rows.Append(layer, row)
 	}
-	if len(rows) == 1 {
-		m.ResolvedRow = rows[0]
+	if r.rows.Len() == 1 {
+		m.ResolvedRow = r.rows.Values[0]
 		m.Resolved = true
 		return nil
 	}
+	sort.Sort(r.rows)
 	baseRow, err := r.decodeRow(-1, m.Base)
 	if err != nil {
 		return err
@@ -70,8 +72,8 @@ func (r *Resolver) mergeRows(m *Merge, uniqSums map[string]int) error {
 		var add *string
 		var mod *string
 		var rem bool
-		for j, row := range rows {
-			layer := layers[j]
+		for j, row := range r.rows.Values {
+			layer := r.rows.Layers[j]
 			if _, ok := r.cd.Added[layer][i]; ok {
 				// column added in this layer
 				if add == nil {
@@ -80,11 +82,12 @@ func (r *Resolver) mergeRows(m *Merge, uniqSums map[string]int) error {
 					// other layer add a different value
 					return nil
 				}
+			} else if add != nil {
+				continue
 			} else if _, ok := r.cd.Removed[layer][i]; ok {
 				// column removed in this layer
 				if mod == nil {
 					rem = true
-					continue
 				} else {
 					// other layer modify this column
 					return nil
@@ -100,6 +103,8 @@ func (r *Resolver) mergeRows(m *Merge, uniqSums map[string]int) error {
 					// other layer modified this column differently
 					return nil
 				}
+			} else if rem || mod != nil {
+				continue
 			}
 			resolvedRow[i] = row[i]
 		}
