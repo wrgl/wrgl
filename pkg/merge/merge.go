@@ -18,6 +18,7 @@ import (
 
 type Merge struct {
 	ColDiff     *objects.ColDiff
+	PK          []byte
 	Base        []byte
 	Others      [][]byte
 	ResolvedRow []string
@@ -126,6 +127,7 @@ func mergeTables(db kv.DB, colDiff *objects.ColDiff, mergeChan chan<- Merge, err
 			pkSum := string(d.PK)
 			if m, ok := merges[pkSum]; !ok {
 				merges[pkSum] = &Merge{
+					PK:     d.PK,
 					Base:   d.OldSum,
 					Others: make([][]byte, n),
 				}

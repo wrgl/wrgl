@@ -27,8 +27,7 @@ type KeyHash struct {
 type SmallStore struct {
 	db      kv.DB
 	reader  *objects.TableReader
-	rowsMap map[string][]byte
-	mutex   sync.Mutex
+	rowsMap *sync.Map
 }
 
 func (s *SmallStore) Columns() []string {
@@ -45,9 +44,7 @@ func (s *SmallStore) PrimaryKeyIndices() []uint32 {
 
 func (s *SmallStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 	if s.rowsMap == nil {
-		s.mutex.Lock()
-		defer s.mutex.Unlock()
-		s.rowsMap = make(map[string][]byte, s.NumRows())
+		s.rowsMap = &sync.Map{}
 		s.reader.SeekRow(0, io.SeekStart)
 		for {
 			b, err := s.reader.ReadRow()
@@ -57,10 +54,14 @@ func (s *SmallStore) GetRowHash(pkHash []byte) (rowHash []byte, ok bool) {
 			if err != nil {
 				panic(err)
 			}
-			s.rowsMap[string(b[:16])] = append(([]byte)(nil), b[16:]...)
+			s.rowsMap.Store(string(b[:16]), append(([]byte)(nil), b[16:]...))
 		}
 	}
-	rowHash, ok = s.rowsMap[string(pkHash)]
+	val, ok := s.rowsMap.Load(string(pkHash))
+	if !ok {
+		return nil, ok
+	}
+	rowHash = val.([]byte)
 	return
 }
 

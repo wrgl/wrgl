@@ -80,6 +80,7 @@ func TestMergeCommit(t *testing.T) {
 			},
 		},
 		{
+			PK: hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
 			Others: [][]byte{
 				nil,
 				hexToBytes(t, "a07911e53273daff2622013f7d1d0ec9"),
@@ -88,6 +89,7 @@ func TestMergeCommit(t *testing.T) {
 			Resolved:    true,
 		},
 		{
+			PK:   hexToBytes(t, "fd1c9513cc47feaf59fa9b76008f2521"),
 			Base: hexToBytes(t, "60f1c744d65482e468bfac458a7131fe"),
 			Others: [][]byte{
 				hexToBytes(t, "ad8fb5da435d04ee83f91bc21ba54059"),
@@ -97,6 +99,7 @@ func TestMergeCommit(t *testing.T) {
 			ResolvedRow: []string{"1", "e", "r"},
 		},
 		{
+			PK:       hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"),
 			Base:     hexToBytes(t, "e4f37424a61671456b0be328e4f3719c"),
 			Others:   [][]byte{nil, nil},
 			Resolved: true,
