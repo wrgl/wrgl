@@ -63,6 +63,21 @@ func (b *Buffer) Write(p []byte) (n int, err error) {
 	return
 }
 
+func (b *Buffer) Read(p []byte) (n int, err error) {
+	n = len(p)
+	m := len(b.b) - int(b.off)
+	if m < n {
+		n = m
+		err = io.EOF
+	}
+	if n == 0 {
+		return
+	}
+	copy(p, b.b[b.off:])
+	b.off += int64(n)
+	return
+}
+
 func (b *Buffer) WriteAt(p []byte, off int64) (n int, err error) {
 	n = len(p)
 	b.maybeGrow(n + int(off))

@@ -4,6 +4,7 @@
 package table
 
 import (
+	"github.com/wrgl/core/pkg/index"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
@@ -11,15 +12,15 @@ import (
 
 type BigStore struct {
 	reader *objects.TableReader
-	index  *HashIndex
+	index  *index.OrderedHashSet
 	db     kv.DB
 }
 
-func NewBigStore(db kv.DB, reader *objects.TableReader, index *HashIndex) *BigStore {
+func NewBigStore(db kv.DB, reader *objects.TableReader, ind *index.OrderedHashSet) *BigStore {
 	return &BigStore{
 		db:     db,
 		reader: reader,
-		index:  index,
+		index:  ind,
 	}
 }
 
@@ -64,4 +65,12 @@ func (s *BigStore) NewRowReader() RowReader {
 		db:     s.db,
 		limit:  s.NumRows(),
 	}
+}
+
+func (s *BigStore) Close() (err error) {
+	err = s.reader.Close()
+	if err != nil {
+		return
+	}
+	return s.index.Close()
 }

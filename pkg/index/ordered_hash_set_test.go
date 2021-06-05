@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package table
+package index
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -22,7 +23,7 @@ func makeBytesMatrix(n, m int) [][]byte {
 	return rows
 }
 
-func TestHashIndex(t *testing.T) {
+func TestOrderedHashSet(t *testing.T) {
 	otherHashes := makeBytesMatrix(10, 16)
 	for c, rows := range [][][]byte{
 		{},
@@ -44,10 +45,10 @@ func TestHashIndex(t *testing.T) {
 		makeBytesMatrix(1024, 32),
 	} {
 		buf := bytes.NewBuffer(nil)
-		w := NewHashIndexWriter(buf, rows)
+		w := NewOrderedHashSetWriter(buf, rows)
 		require.NoError(t, w.Flush())
 
-		i, err := NewHashIndex(bytes.NewReader(buf.Bytes()))
+		i, err := NewOrderedHashSet(objects.NopCloser(bytes.NewReader(buf.Bytes())))
 		require.NoError(t, err)
 		for j, row := range rows {
 			k, err := i.IndexOf(row[:16])
@@ -62,20 +63,20 @@ func TestHashIndex(t *testing.T) {
 	}
 }
 
-func BenchmarkHashIndex1M(b *testing.B) {
+func BenchmarkOrderedHashSet1M(b *testing.B) {
 	n := 1024 * 1024
 	rows := makeBytesMatrix(n, 32)
 	f, err := ioutil.TempFile("", "test_hash_index")
 	require.NoError(b, err)
 	defer os.Remove(f.Name())
-	w := NewHashIndexWriter(f, rows)
+	w := NewOrderedHashSetWriter(f, rows)
 	require.NoError(b, w.Flush())
 	require.NoError(b, f.Close())
 
 	f, err = os.Open(f.Name())
 	require.NoError(b, err)
 	defer f.Close()
-	i, err := NewHashIndex(f)
+	i, err := NewOrderedHashSet(f)
 	require.NoError(b, err)
 	b.ResetTimer()
 	for j := 0; j < b.N; j++ {

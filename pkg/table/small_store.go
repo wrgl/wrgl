@@ -93,3 +93,7 @@ func (s *SmallStore) NewRowReader() RowReader {
 		limit:  s.NumRows(),
 	}
 }
+
+func (s *SmallStore) Close() error {
+	return nil
+}

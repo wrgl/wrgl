@@ -101,7 +101,7 @@ func (h *ReceivePackHandler) saveObjects(pr *encoding.PackfileReader) error {
 				return err
 			}
 		case encoding.ObjectTable:
-			tr, err := objects.NewTableReader(bytes.NewReader(oc))
+			tr, err := objects.NewTableReader(objects.NopCloser(bytes.NewReader(oc)))
 			if err != nil {
 				return err
 			}

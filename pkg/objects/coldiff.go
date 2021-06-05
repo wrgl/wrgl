@@ -116,6 +116,14 @@ func (c *ColDiff) PKIndices() []uint32 {
 	return sl
 }
 
+func (c *ColDiff) PK() []string {
+	vals := make([]string, len(c.OtherPK[0]))
+	for i, j := range c.OtherPK[0] {
+		vals[i] = c.Names[j]
+	}
+	return vals
+}
+
 func (c *ColDiff) computeIndexMap(base [2][]string, others ...[2][]string) {
 	c.BaseIdx = map[uint32]uint32{}
 	namesM := stringSliceToMap(c.Names)

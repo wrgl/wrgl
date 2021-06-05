@@ -110,13 +110,8 @@ func (w *TableWriter) WriteTable(t *Table) (err error) {
 	return w.Flush()
 }
 
-type ReadSeekerAt interface {
-	io.ReadSeeker
-	io.ReaderAt
-}
-
 type TableReader struct {
-	r            ReadSeekerAt
+	r            io.ReadSeekCloser
 	off          int64
 	rowsStartOff int64
 	rowsCount    uint32
@@ -124,7 +119,7 @@ type TableReader struct {
 	PK           []uint32
 }
 
-func NewTableReader(r ReadSeekerAt) (*TableReader, error) {
+func NewTableReader(r io.ReadSeekCloser) (*TableReader, error) {
 	reader := &TableReader{
 		r: r,
 	}
@@ -236,8 +231,16 @@ func (r *TableReader) SeekRow(offset int, whence int) (int, error) {
 }
 
 func (r *TableReader) ReadRowAt(offset int) (b []byte, err error) {
-	b = make([]byte, 32)
-	_, err = r.r.ReadAt(b, r.rowPos(offset))
+	off := r.off
+	_, err = r.SeekRow(offset, io.SeekStart)
+	if err != nil {
+		return
+	}
+	b, err = r.ReadRow()
+	if err != nil {
+		return
+	}
+	r.off, err = r.r.Seek(off, io.SeekStart)
 	return
 }
 
@@ -253,4 +256,8 @@ func (r *TableReader) ReadTable() (t *Table, err error) {
 		Rows:    rows,
 	}
 	return
+}
+
+func (r *TableReader) Close() error {
+	return r.r.Close()
 }

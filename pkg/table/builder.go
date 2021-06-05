@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/mmcloughlin/meow"
+	"github.com/wrgl/core/pkg/index"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
@@ -109,7 +110,7 @@ func (b *Builder) saveBigTable(sum, content []byte) error {
 		return err
 	}
 	defer w.Close()
-	iw := NewHashIndexWriter(w, b.table.Rows)
+	iw := index.NewOrderedHashSetWriter(w, b.table.Rows)
 	return iw.Flush()
 }
 
@@ -145,7 +146,7 @@ func ReadTable(db kv.DB, fs kv.FileStore, hash []byte) (Store, error) {
 		if err != nil {
 			return nil, err
 		}
-		reader, err := objects.NewTableReader(bytes.NewReader(v))
+		reader, err := objects.NewTableReader(objects.NopCloser(bytes.NewReader(v)))
 		if err != nil {
 			return nil, err
 		}
@@ -166,7 +167,7 @@ func ReadTable(db kv.DB, fs kv.FileStore, hash []byte) (Store, error) {
 		if err != nil {
 			return nil, err
 		}
-		index, err := NewHashIndex(indexContent)
+		index, err := index.NewOrderedHashSet(indexContent)
 		if err != nil {
 			return nil, err
 		}

@@ -32,7 +32,7 @@ func TestTableWriter(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.NoError(t, w.Flush())
-	r, err := NewTableReader(bytes.NewReader(buf.Bytes()))
+	r, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	require.NoError(t, err)
 	table, err := r.ReadTable()
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestTableReader(t *testing.T) {
 	t.Logf("bytes %v", buf.Bytes())
 
 	// test ReadTable
-	r, err := NewTableReader(bytes.NewReader(buf.Bytes()))
+	r, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	require.NoError(t, err)
 	table2, err := r.ReadTable()
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestTableReader(t *testing.T) {
 	assert.Equal(t, []uint32{0, 1}, r.PK)
 
 	// test ReadRow
-	r, err = NewTableReader(bytes.NewReader(buf.Bytes()))
+	r, err = NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
 		row, err := r.ReadRow()
@@ -103,7 +103,7 @@ func TestTableReader(t *testing.T) {
 	assert.Equal(t, table.Rows[1], row)
 
 	// test ReadAt
-	r, err = NewTableReader(bytes.NewReader(buf.Bytes()))
+	r, err = NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
 		row, err := r.ReadRowAt(i)
@@ -119,6 +119,6 @@ func TestTableReaderParseError(t *testing.T) {
 	buf := misc.NewBuffer([]byte("columns "))
 	buf.Write(NewStrListEncoder().Encode([]string{"a", "b", "c"}))
 	buf.Write([]byte("\nbad input"))
-	_, err := NewTableReader(bytes.NewReader(buf.Bytes()))
+	_, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	assert.Equal(t, `parse error at pos=25: expected string "\npk ", received "\nbad"`, err.Error())
 }

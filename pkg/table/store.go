@@ -11,4 +11,5 @@ type Store interface {
 	NumRows() int
 	NewRowHashReader(offset, size int) RowHashReader
 	NewRowReader() RowReader
+	Close() error
 }
