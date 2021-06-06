@@ -70,3 +70,19 @@ func TestStrListDecoderReuseRecords(t *testing.T) {
 	assert.Equal(t, []string{"c", "d"}, sl1)
 	assert.Equal(t, []string{"c", "d", "e"}, sl2)
 }
+
+func TestStrListDecoderReadColumn(t *testing.T) {
+	enc := NewStrListEncoder()
+	dec := NewStrListDecoder(false)
+	sl := []string{"a", "bc", "def"}
+	b := enc.Encode(sl)
+
+	for i, s1 := range sl {
+		s2, err := dec.ReadColumn(bytes.NewReader(b), uint32(i))
+		require.NoError(t, err)
+		assert.Equal(t, s1, s2)
+	}
+
+	_, err := dec.ReadColumn(bytes.NewReader(b), 3)
+	assert.Error(t, err)
+}

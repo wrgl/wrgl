@@ -5,6 +5,7 @@ package objects
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
@@ -66,6 +67,36 @@ func (d *StrListDecoder) strSlice(n uint32) []string {
 		return d.strs[:0]
 	}
 	return make([]string, 0, n)
+}
+
+func (d *StrListDecoder) ReadColumn(r io.ReadSeeker, col uint32) (value string, err error) {
+	count, err := d.readUint32(r)
+	if err != nil {
+		return
+	}
+	if col >= count {
+		return "", fmt.Errorf("column %d out of bound, max column count is %d", col, count)
+	}
+	for {
+		l, err := d.readUint16(r)
+		if err != nil {
+			return "", err
+		}
+		if col == 0 {
+			b := make([]byte, l)
+			_, err := r.Read(b)
+			if err != nil {
+				return "", err
+			}
+			return string(b), nil
+		} else {
+			_, err = r.Seek(int64(l), io.SeekCurrent)
+			if err != nil {
+				return "", err
+			}
+			col--
+		}
+	}
 }
 
 func (d *StrListDecoder) Decode(b []byte) []string {

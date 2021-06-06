@@ -1,44 +1,22 @@
 package index
 
 import (
-	"io"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-type nopCloser struct {
-	r io.ReadWriteSeeker
-}
-
-func (n *nopCloser) Read(b []byte) (int, error) {
-	return n.r.Read(b)
-}
-
-func (n *nopCloser) Write(b []byte) (int, error) {
-	return n.r.Write(b)
-}
-
-func (n *nopCloser) Seek(off int64, whence int) (int64, error) {
-	return n.r.Seek(off, whence)
-}
-
-func (n *nopCloser) Close() error {
-	return nil
-}
-
-func NopCloser(r io.ReadWriteSeeker) ReadWriteSeekCloser {
-	return &nopCloser{r: r}
-}
-
 func TestHashSet(t *testing.T) {
-	buf := misc.NewBuffer(nil)
-	s, err := NewHashSet(NopCloser(buf), 0)
+	f, err := ioutil.TempFile("", "test_hash_set")
 	require.NoError(t, err)
+	defer os.Remove(f.Name())
 
+	s, err := NewHashSet(f, 0)
+	require.NoError(t, err)
 	sl := [][]byte{}
 	for i := 0; i < 3; i++ {
 		sl = append(sl, testutils.SecureRandomBytes(16))
@@ -50,9 +28,12 @@ func TestHashSet(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, ok)
 	}
+	require.NoError(t, f.Close())
 
 	// add more values
-	s, err = NewHashSet(NopCloser(buf), 1)
+	f, err = os.OpenFile(f.Name(), os.O_RDWR, 0666)
+	require.NoError(t, err)
+	s, err = NewHashSet(f, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 3, s.Len())
 	for i := 0; i < 3; i++ {
@@ -77,9 +58,12 @@ func TestHashSet(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, ok, "hash not found %x", h)
 	}
+	require.NoError(t, f.Close())
 
 	// add a lot more values
-	s, err = NewHashSet(NopCloser(buf), 0)
+	f, err = os.OpenFile(f.Name(), os.O_RDWR, 0666)
+	require.NoError(t, err)
+	s, err = NewHashSet(f, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 6, s.Len())
 	for i := 0; i < 2048; i++ {
@@ -96,4 +80,5 @@ func TestHashSet(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, ok, "hash not found %x", h)
 	}
+	require.NoError(t, f.Close())
 }
