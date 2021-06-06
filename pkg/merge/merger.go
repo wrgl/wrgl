@@ -5,7 +5,6 @@ package merge
 
 import (
 	"fmt"
-	"io"
 	"reflect"
 	"time"
 
@@ -44,10 +43,15 @@ func NewMerger(db kv.DB, fs kv.FileStore, collector *RowCollector, progressPerio
 	if err != nil {
 		return nil, err
 	}
-	err = m.seekCommonAncestor()
+	sum, err := versioning.SeekCommonAncestor(db, m.commitSums...)
 	if err != nil {
 		return nil, err
 	}
+	com, err := versioning.GetCommit(m.db, sum)
+	if err != nil {
+		return nil, err
+	}
+	m.baseTable = com.Table
 	return
 }
 
@@ -82,59 +86,6 @@ func strSliceEqual(left, right []string) bool {
 		}
 	}
 	return true
-}
-
-func (m *Merger) seekCommonAncestor() (err error) {
-	n := len(m.commitSums)
-	qs := make([]*versioning.CommitsQueue, n)
-	bases := make([][]byte, n)
-	for i, sum := range m.commitSums {
-		qs[i], err = versioning.NewCommitsQueue(m.db, [][]byte{sum})
-		if err != nil {
-			return
-		}
-		bases[i] = sum
-	}
-	for {
-		for i := len(bases) - 1; i >= 0; i-- {
-			for j := len(bases) - 1; j >= 0; j-- {
-				if i == j {
-					continue
-				}
-				if qs[j].Seen(bases[i]) {
-					// remove j element
-					copy(bases[j:], bases[j+1:])
-					bases = bases[:len(bases)-1]
-					copy(qs[j:], qs[j+1:])
-					qs = qs[:len(qs)-1]
-					if i > j {
-						i--
-					}
-				}
-			}
-		}
-		if len(bases) == 1 {
-			break
-		}
-		eofs := 0
-		for i, q := range qs {
-			bases[i], _, err = q.PopInsertParents()
-			if err == io.EOF {
-				eofs++
-			} else if err != nil {
-				return err
-			}
-		}
-		if eofs == len(qs) {
-			return fmt.Errorf("common ancestor commit not found")
-		}
-	}
-	com, err := versioning.GetCommit(m.db, bases[0])
-	if err != nil {
-		return
-	}
-	m.baseTable = com.Table
-	return nil
 }
 
 func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- Merge, errChan chan<- error, diffChans ...<-chan objects.Diff) {
@@ -238,7 +189,7 @@ func (m *Merger) Start() (ch <-chan Merge, err error) {
 	progs := make([]progress.Tracker, n)
 	cols := make([][2][]string, n)
 	for i, t := range otherTs {
-		diffChan, progTracker := diff.DiffTables(t, baseT, m.progressPeriod*2, m.errChan, true, false)
+		diffChan, progTracker := diff.DiffTables(t, baseT, m.progressPeriod*time.Duration(n), m.errChan, true, false)
 		diffs[i] = diffChan
 		progs[i] = progTracker
 		cols[i] = [2][]string{t.Columns(), t.PrimaryKey()}
@@ -264,4 +215,8 @@ func (m *Merger) Columns() []string {
 
 func (m *Merger) PK() []string {
 	return m.collector.PK()
+}
+
+func (m *Merger) Close() error {
+	return m.collector.Close()
 }

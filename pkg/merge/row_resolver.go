@@ -95,7 +95,7 @@ func (r *RowResolver) mergeRows(m *Merge, uniqSums map[string]int) (err error) {
 					// other layer modify this column
 					return nil
 				}
-			} else if baseRow[i] != row[i] {
+			} else if baseRow != nil && baseRow[i] != row[i] {
 				// column modified in this layer
 				if rem {
 					// both modified and removed
