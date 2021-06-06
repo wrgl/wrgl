@@ -92,13 +92,11 @@ func TestSortableRows(t *testing.T) {
 	sortBy := []int{-3, -4}
 	sr, err = NewSortableRows(rows, offsets, sortBy)
 	require.NoError(t, err)
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1024; i++ {
 		sl = append(sl, randomStrSlice(5))
 		require.NoError(t, sr.Add(sl[i+3]))
 	}
-	assert.Equal(t, 6, sr.Len())
-	dumpFileContent(t, offsets)
-	dumpFileContent(t, rows)
+	assert.Equal(t, 1027, sr.Len())
 	sort.Sort(sr)
 	sl2 = collectRows(t, sr)
 	sortByColumns(sl, sortBy)

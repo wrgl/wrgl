@@ -113,3 +113,7 @@ func (b *Buffer) Buffer(n int) []byte {
 	b.maybeGrow(n)
 	return b.b[:n]
 }
+
+func (b *Buffer) Close() error {
+	return nil
+}

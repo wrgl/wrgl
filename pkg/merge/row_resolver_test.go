@@ -35,13 +35,13 @@ func addRandomRow(t *testing.T, db kv.DB, n int) ([]byte, []string) {
 	return sum, row
 }
 
-func TestResolver(t *testing.T) {
+func TestRowResolver(t *testing.T) {
 	db := kv.NewMockStore(false)
 	cd := objects.CompareColumns([2][]string{{"a", "b", "c"}, {"a"}}, [][2][]string{
 		{{"a", "b", "c"}, {"a"}},
 		{{"a", "b", "c"}, {"a"}},
 	}...)
-	r := NewResolver(db, cd)
+	r := NewRowResolver(db, cd)
 
 	// resolve removed row
 	m := &Merge{
@@ -213,7 +213,7 @@ func TestResolveRow(t *testing.T) {
 		},
 	} {
 		db := kv.NewMockStore(false)
-		r := NewResolver(db, c.cd)
+		r := NewRowResolver(db, c.cd)
 		m := &Merge{
 			Base: addRow(t, db, c.base),
 			Others: [][]byte{

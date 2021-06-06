@@ -3,13 +3,20 @@ package index
 import (
 	"io"
 	"sort"
+	"sync"
 )
 
 type ReadWriteSeekCloser interface {
-	io.ReadSeekCloser
+	io.Reader
+	io.Seeker
+	io.Closer
 	io.Writer
 }
 
+// HashSet is an high performance lookup table which can act
+// like a set of 16 bytes slices. It borrows ideas from Git's
+// packfile index such as having a fanout table to reduce
+// lookup time.
 type HashSet struct {
 	fanout    [256]uint32
 	r         ReadWriteSeekCloser
@@ -17,10 +24,14 @@ type HashSet struct {
 	batchSize uint32
 	batch     [][]byte
 	buf       []byte
+	mutex     sync.Mutex
 }
 
 const defaultBatchSize = 1024
 
+// NewHashSet creates a new HashSet struct. r is the file it will read/write to.
+// batchSize is the size of insertion batch. batchSize = 1 means all insertions
+// are instantly written to disk. If batchSize = 0 then it will be set to 1024.
 func NewHashSet(r ReadWriteSeekCloser, batchSize uint32) (s *HashSet, err error) {
 	if batchSize == 0 {
 		batchSize = defaultBatchSize
@@ -54,6 +65,9 @@ func (s *HashSet) Len() int {
 	return int(s.size)
 }
 
+// Add adds new slice of 16 bytes to this set. It will do nothing
+// if it already has this slice. After all values are added, make
+// sure to call Flush to persist all additions.
 func (s *HashSet) Add(hash []byte) error {
 	off, err := indexOf(s.r, s.buf, hash)
 	if err != nil {
@@ -141,7 +155,10 @@ func (s *HashSet) addToHashTable() error {
 	return nil
 }
 
+// Flush flushes all pending insertions to disk.
 func (s *HashSet) Flush() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	err := s.addToHashTable()
 	if err != nil {
 		return err

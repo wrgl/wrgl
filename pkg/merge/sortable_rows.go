@@ -4,18 +4,20 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sync"
 
+	"github.com/wrgl/core/pkg/index"
 	"github.com/wrgl/core/pkg/objects"
 )
 
-type ReadWriteSeekCloser interface {
-	io.ReadWriteSeeker
-	io.Closer
-}
-
+// SortableRows is a high performance data structure that store a table
+// (rows x columns) of values. As the name suggest, this structure also
+// support sorting of rows based on a customizable number of columns in
+// either ascending or descending order. SortableRows implements
+// sort.Interface so you can call sort.Sort on it.
 type SortableRows struct {
-	rows    ReadWriteSeekCloser
-	offsets ReadWriteSeekCloser
+	rows    index.ReadWriteSeekCloser
+	offsets index.ReadWriteSeekCloser
 	enc     *objects.StrListEncoder
 	dec     *objects.StrListDecoder
 	ncols   int
@@ -23,9 +25,20 @@ type SortableRows struct {
 	off     int
 	buf     []byte
 	size    uint32
+	mutex   sync.Mutex
 }
 
-func NewSortableRows(rows, offsets ReadWriteSeekCloser, sortBy []int) (r *SortableRows, err error) {
+// NewSortableRows creates a new SortableRows struct. It stores data in
+// 2 separate files: rows and offsets. sortBy is the column indices to
+// sort by. Note that indices in sortBy are 1-based instead of 0-based.
+// Pass in 0 will return an error. if index is positive then sort
+// ascending, otherwise sort descending.
+func NewSortableRows(rows, offsets index.ReadWriteSeekCloser, sortBy []int) (r *SortableRows, err error) {
+	for _, i := range sortBy {
+		if i == 0 {
+			return nil, fmt.Errorf("bad sortBy index 0, if you want to sort by first collumn ascending then pass in 1 instead")
+		}
+	}
 	r = &SortableRows{
 		rows:    rows,
 		offsets: offsets,
@@ -36,46 +49,56 @@ func NewSortableRows(rows, offsets ReadWriteSeekCloser, sortBy []int) (r *Sortab
 	}
 	r.readSize()
 	if r.size > 0 {
-		for i := 0; i < int(r.size); i++ {
-			o, err := r.rowOffset(i)
-			if err != nil {
-				return nil, err
-			}
-			if o > int64(r.off) {
-				r.off = int(o)
-			}
-		}
-		_, err := r.rows.Seek(int64(r.off), io.SeekStart)
+		o, err := r.rowOffset(int(r.size))
 		if err != nil {
 			return nil, err
 		}
-		n, _, err := r.dec.Read(r.rows)
+		r.off = int(o)
+		_, err = r.rows.Seek(int64(r.off), io.SeekStart)
 		if err != nil {
 			return nil, err
 		}
-		r.off += n
 	}
 	return r, nil
 }
 
-func (r *SortableRows) Add(row []string) (err error) {
-	if r.ncols == 0 {
-		r.ncols = len(row)
-	} else if r.ncols != len(row) {
-		return fmt.Errorf("number of columns not matching: %d != %d", len(row), r.ncols)
+func (r *SortableRows) SetSortBy(sortBy []int) error {
+	for _, i := range sortBy {
+		if i == 0 {
+			return fmt.Errorf("bad sortBy index 0, if you want to sort by first collumn ascending then pass in 1 instead")
+		}
 	}
-	r.putRowOffset(int(r.size), int64(r.off))
-	if err != nil {
-		return err
-	}
-	b := r.enc.Encode(row)
+	r.sortBy = sortBy
+	return nil
+}
+
+// AddBytes add already encoded string slice bytes produced
+// by objects.StrListEncoder.
+func (r *SortableRows) AddBytes(b []byte) (err error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	n, err := r.rows.Write(b)
 	if err != nil {
 		return err
 	}
 	r.off += n
 	r.size++
+	r.putRowOffset(int(r.size), int64(r.off))
+	if err != nil {
+		return err
+	}
 	return r.putSize()
+}
+
+// Add adds string slice to this table, ensuring number of columns
+// equal number of columns in rows it has seen so far.
+func (r *SortableRows) Add(row []string) (err error) {
+	if r.ncols == 0 {
+		r.ncols = len(row)
+	} else if r.ncols != len(row) {
+		return fmt.Errorf("number of columns not matching: %d != %d", len(row), r.ncols)
+	}
+	return r.AddBytes(r.enc.Encode(row))
 }
 
 func (r *SortableRows) Len() int {
@@ -146,17 +169,17 @@ func (r *SortableRows) Less(i, j int) bool {
 		panic(err)
 	}
 	for _, c := range r.sortBy {
-		k := uint32(c - 1)
+		k := uint32(c) - 1
 		if c < 0 {
-			k = uint32(-c - 1)
+			k = uint32(-c) - 1
 		}
 		vi, err := r.readCell(offi, k)
 		if err != nil {
-			panic(fmt.Errorf("error reading cell (%d, %d): %v", offi, k, err))
+			panic(fmt.Errorf("error reading cell (%x, %d): %v", offi, k, err))
 		}
 		vj, err := r.readCell(offj, k)
 		if err != nil {
-			panic(fmt.Errorf("error reading cell (%d, %d): %v", offj, k, err))
+			panic(fmt.Errorf("error reading cell (%x, %d): %v", offj, k, err))
 		}
 		if vi < vj {
 			return c > 0
@@ -194,6 +217,8 @@ func (r *SortableRows) Close() error {
 	return r.offsets.Close()
 }
 
+// RowsChan creates a new channel to consume string slices
+// from this table
 func (r *SortableRows) RowsChan(errChan chan<- error) <-chan []string {
 	ch := make(chan []string)
 	go func() {
@@ -203,11 +228,8 @@ func (r *SortableRows) RowsChan(errChan chan<- error) <-chan []string {
 			errChan <- err
 			return
 		}
-		for {
+		for i := 0; i < int(r.size); i++ {
 			_, err := r.offsets.Read(r.buf[:8])
-			if err == io.EOF {
-				break
-			}
 			if err != nil {
 				errChan <- err
 				return

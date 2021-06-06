@@ -11,7 +11,7 @@ import (
 	"github.com/wrgl/core/pkg/table"
 )
 
-type Resolver struct {
+type RowResolver struct {
 	db      kv.DB
 	cd      *objects.ColDiff
 	rows    *Rows
@@ -20,10 +20,10 @@ type Resolver struct {
 	rowDec  *objects.StrListDecoder
 }
 
-func NewResolver(db kv.DB, cd *objects.ColDiff) *Resolver {
+func NewRowResolver(db kv.DB, cd *objects.ColDiff) *RowResolver {
 	nCols := cd.Len()
 	nLayers := cd.Layers()
-	return &Resolver{
+	return &RowResolver{
 		db:      db,
 		cd:      cd,
 		nCols:   nCols,
@@ -33,7 +33,7 @@ func NewResolver(db kv.DB, cd *objects.ColDiff) *Resolver {
 	}
 }
 
-func (r *Resolver) decodeRow(layer int, sum []byte) ([]string, error) {
+func (r *RowResolver) decodeRow(layer int, sum []byte) ([]string, error) {
 	if sum == nil {
 		return nil, nil
 	}
@@ -50,7 +50,7 @@ func (r *Resolver) decodeRow(layer int, sum []byte) ([]string, error) {
 	return row, nil
 }
 
-func (r *Resolver) mergeRows(m *Merge, uniqSums map[string]int) (err error) {
+func (r *RowResolver) mergeRows(m *Merge, uniqSums map[string]int) (err error) {
 	r.rows.Reset()
 	for sum, layer := range uniqSums {
 		row, err := r.decodeRow(layer, []byte(sum))
@@ -117,7 +117,7 @@ func (r *Resolver) mergeRows(m *Merge, uniqSums map[string]int) (err error) {
 	return nil
 }
 
-func (r *Resolver) Resolve(m *Merge) (err error) {
+func (r *RowResolver) Resolve(m *Merge) (err error) {
 	uniqSums := map[string]int{}
 	nonNils := 0
 	for i, sum := range m.Others {
