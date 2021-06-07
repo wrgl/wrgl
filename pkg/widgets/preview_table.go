@@ -39,13 +39,13 @@ func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, 
 		dec:          objects.NewStrListDecoder(false),
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells).
-		SetShape(rowCount+1, len(columns)).
+		SetShape(rowCount, len(columns)).
 		SetPrimaryKeyIndices(primaryKeyIndices)
 	return t
 }
 
 func (t *PreviewTable) SetRowCount(num int) *PreviewTable {
-	t.DataTable.SetShape(num+1, t.columnsCount)
+	t.DataTable.SetShape(num, t.columnsCount)
 	return t
 }
 

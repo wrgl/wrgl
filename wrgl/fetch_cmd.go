@@ -98,7 +98,7 @@ func saveObjects(db kv.Store, fs kv.FileStore, wg *sync.WaitGroup, seed uint64, 
 				}
 				commitsChan <- sum
 			case encoding.ObjectTable:
-				tr, err := objects.NewTableReader(bytes.NewReader(o.Content))
+				tr, err := objects.NewTableReader(objects.NopCloser(bytes.NewReader(o.Content)))
 				if err != nil {
 					ec <- err
 					return

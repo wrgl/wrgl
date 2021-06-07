@@ -1,14 +1,12 @@
 package merge
 
 import (
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"sort"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/testutils"
@@ -53,14 +51,6 @@ func sortByColumns(sl [][]string, sortBy []int) {
 		}
 		return false
 	})
-}
-
-func dumpFileContent(t *testing.T, r io.ReadSeeker) {
-	t.Helper()
-	r.Seek(0, io.SeekStart)
-	b, err := ioutil.ReadAll(r)
-	require.NoError(t, err)
-	spew.Dump(b)
 }
 
 func TestSortableRows(t *testing.T) {

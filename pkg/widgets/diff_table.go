@@ -51,23 +51,18 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 		}
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells)
-	if !t.statusExist {
-		t.DataTable.SetShape(t.reader.NumRows()+1, t.reader.Columns.Len())
-	} else {
-		t.DataTable.SetShape(t.reader.NumRows()+2, t.reader.Columns.Len()).
-			SetColumnStatuses(colStatuses)
+	if t.statusExist {
+		t.DataTable.SetColumnStatuses(colStatuses)
 	}
-	t.DataTable.SetPrimaryKeyIndices(t.reader.Columns.PKIndices())
+	t.DataTable.SetShape(t.reader.NumRows(), t.reader.Columns.Len()).
+		SetPrimaryKeyIndices(t.reader.Columns.PKIndices())
+
 	t.headerRow = headerRow
 	return t
 }
 
 func (t *DiffTable) UpdateRowCount() {
-	if !t.statusExist {
-		t.DataTable.SetShape(t.reader.NumRows()+1, t.reader.Columns.Len())
-	} else {
-		t.DataTable.SetShape(t.reader.NumRows()+2, t.reader.Columns.Len())
-	}
+	t.DataTable.SetShape(t.reader.NumRows(), t.reader.Columns.Len())
 }
 
 func (t *DiffTable) rowToCells(row [][]string) [][]*TableCell {
