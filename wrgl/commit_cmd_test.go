@@ -63,3 +63,25 @@ func TestCommitCmd(t *testing.T) {
 		Message:     "initial commit",
 	})
 }
+
+func TestCommitFromStdin(t *testing.T) {
+	_, cleanup := createRepoDir(t)
+	defer cleanup()
+
+	fp := createRandomCSVFile(t)
+	defer os.Remove(fp)
+
+	f, err := os.Open(fp)
+	require.NoError(t, err)
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"commit", "my-branch", "-", "initial commit", "-n", "1"})
+	cmd.SetIn(f)
+	cmd.SetOut(ioutil.Discard)
+	require.NoError(t, cmd.Execute())
+	require.NoError(t, f.Close())
+
+	cmd.SetArgs([]string{"export", "my-branch"})
+	b, err := ioutil.ReadFile(fp)
+	require.NoError(t, err)
+	assertCmdOutput(t, cmd, string(b))
+}

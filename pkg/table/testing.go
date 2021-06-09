@@ -24,6 +24,10 @@ func NewMockStore(columns []string, primaryKey []uint32, rows [][2]string) *Mock
 	}
 }
 
+func (s *MockStore) Close() error {
+	return nil
+}
+
 func (s *MockStore) InsertRow(n int, pkHash, rowHash, rowContent []byte) error {
 	return nil
 }

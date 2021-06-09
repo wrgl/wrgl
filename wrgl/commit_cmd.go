@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"time"
@@ -98,11 +99,18 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 
 	parent, _ := versioning.GetHead(kvStore, branchName)
 
-	f, err := os.Open(csvFilePath)
-	if err != nil {
-		return err
+	var f io.Reader
+	if csvFilePath == "-" {
+		f = cmd.InOrStdin()
+	} else {
+		file, err := os.Open(csvFilePath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		f = file
 	}
-	defer f.Close()
+
 	csvReader, columns, primaryKeyIndices, err := ingest.ReadColumns(f, primaryKey)
 	if err != nil {
 		return err
