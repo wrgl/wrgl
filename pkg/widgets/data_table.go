@@ -77,8 +77,8 @@ func (t *DataTable) GetShape() (rowCount, columnCount int) {
 
 func (t *DataTable) SetColumnStatuses(cells []*TableCell) *DataTable {
 	t.columnStatuses = cells
-	t.SelectableTable.SetMinSelection(0, 2).
-		Select(1, 2, 0)
+	t.SelectableTable.SetMinSelection(2, 0).
+		Select(2, 1, 0)
 	t.VirtualTable.SetFixed(2, t.pkCount+1)
 	return t
 }

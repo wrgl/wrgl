@@ -241,7 +241,12 @@ func (c *ColDiff) insertToNames(cols []string) {
 	namesM := stringSliceToMap(c.Names)
 	n := len(c.Names)
 	var anchor = -1
-	listM := map[int]*list.List{}
+	type offList struct {
+		Off int
+		L   *list.List
+	}
+	listM := map[int]*offList{}
+	lists := []*offList{}
 	total := 0
 	for _, s := range cols {
 		if i, ok := namesM[s]; ok {
@@ -250,10 +255,11 @@ func (c *ColDiff) insertToNames(cols []string) {
 		}
 		l, ok := listM[anchor]
 		if !ok {
-			listM[anchor] = list.New()
+			listM[anchor] = &offList{anchor, list.New()}
 			l = listM[anchor]
+			lists = append(lists, l)
 		}
-		l.PushBack(s)
+		l.L.PushBack(s)
 		total++
 	}
 	if total == 0 {
@@ -262,14 +268,17 @@ func (c *ColDiff) insertToNames(cols []string) {
 	names := make([]string, n+total)
 	prevAnchor := 0
 	off := 0
-	for anchor, l := range listM {
-		copy(names[off:], c.Names[prevAnchor:anchor+1])
-		off += anchor + 1 - prevAnchor
-		for e := l.Front(); e != nil; e = e.Next() {
+	sort.Slice(lists, func(i, j int) bool {
+		return lists[i].Off < lists[j].Off
+	})
+	for _, obj := range lists {
+		copy(names[off:], c.Names[prevAnchor:obj.Off+1])
+		off += obj.Off + 1 - prevAnchor
+		for e := obj.L.Front(); e != nil; e = e.Next() {
 			names[off] = e.Value.(string)
 			off++
 		}
-		prevAnchor = anchor + 1
+		prevAnchor = obj.Off + 1
 	}
 	if prevAnchor < n {
 		copy(names[off:], c.Names[prevAnchor:])

@@ -248,3 +248,13 @@ func TestCombineRows(t *testing.T) {
 		)
 	}
 }
+
+func TestInsertNames(t *testing.T) {
+	cd := &ColDiff{
+		Names: []string{"a", "b", "c", "d", "e", "f"},
+	}
+	cd.insertToNames([]string{"a", "ab", "ac", "ad", "b", "c", "ca", "cb", "cd", "e", "ea", "eb", "ec"})
+	assert.Equal(t, []string{
+		"a", "ab", "ac", "ad", "b", "c", "ca", "cb", "cd", "d", "e", "ea", "eb", "ec", "f",
+	}, cd.Names)
+}

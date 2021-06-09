@@ -346,7 +346,7 @@ func outputDiffToTerminal(
 
 		if !pkChanged && addedRowReader == nil && removedRowReader == nil && rowChangeReader == nil {
 			if len(cols) > 0 && !slice.StringSliceEqual(cols, oldCols) {
-				if len(cols) == len(oldCols) {
+				if len(cols) == len(oldCols) && len(pk) > 0 {
 					renamedCols := [][2]string{}
 					for i, col := range cols {
 						if col != oldCols[i] {
