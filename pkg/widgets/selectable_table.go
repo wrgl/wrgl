@@ -23,7 +23,7 @@ type SelectableTable struct {
 	// An optional function which gets called when the user presses Enter on a
 	// selected cell. If entire rows selected, the column value is undefined.
 	// Likewise for entire columns.
-	selected func(row, column int)
+	selected func(row, column, subColumn int)
 }
 
 func NewSelectableTable() *SelectableTable {
@@ -44,7 +44,7 @@ func (t *SelectableTable) SetGetCellsFunc(getCells func(row, column int) []*Tabl
 // Enter key on a selected cell/row/column. The handler receives the position of
 // the selection and its cell contents. If entire rows are selected, the column
 // index is undefined. Likewise for entire columns.
-func (t *SelectableTable) SetSelectedFunc(handler func(row, column int)) *SelectableTable {
+func (t *SelectableTable) SetSelectedFunc(handler func(row, column, subColumn int)) *SelectableTable {
 	t.selected = handler
 	return t
 }
@@ -90,6 +90,9 @@ func (t *SelectableTable) Draw(screen tcell.Screen) {
 }
 
 func (t *SelectableTable) getStyledCells(row, column int) []*TableCell {
+	if row < 0 || column < 0 || row >= t.rowCount || column >= t.columnCount {
+		return nil
+	}
 	cells := t.getCells(row, column)
 	if cells == nil {
 		return nil
@@ -97,9 +100,9 @@ func (t *SelectableTable) getStyledCells(row, column int) []*TableCell {
 	for i, cell := range cells {
 		if row == t.selectedRow && (t.selectedColumn == 0 ||
 			(t.selectedColumn == column && (t.selectedSubColumn == i || len(cells) == 1))) {
-			cell.FlipStyle().SetTransparency(false)
+			cell.SetFlipped(true).SetTransparency(false)
 		} else {
-			cell.SetTransparency(true)
+			cell.SetFlipped(false).SetTransparency(true)
 		}
 	}
 	return cells
@@ -233,7 +236,7 @@ func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus fu
 			pageUp()
 		case tcell.KeyEnter:
 			if t.selected != nil {
-				t.selected(t.selectedRow, t.selectedColumn)
+				t.selected(t.selectedRow, t.selectedColumn, t.selectedSubColumn)
 			}
 		}
 	})
@@ -266,7 +269,7 @@ func (t *SelectableTable) MouseHandler() func(action tview.MouseAction, event *t
 					}
 				}
 			}
-			if selectEvent {
+			if selectEvent && row >= t.minSelectedRow && column >= t.minSelectedCol {
 				t.Select(row, column, subCol)
 			}
 			setFocus(t)

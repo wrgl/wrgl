@@ -5,13 +5,13 @@ go 1.16
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
-	github.com/gdamore/tcell/v2 v2.2.0
+	github.com/gdamore/tcell/v2 v2.3.9
 	github.com/gobwas/glob v0.2.3
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.5
 	github.com/google/uuid v1.0.0
 	github.com/imdario/mergo v0.3.12
-	github.com/jarcoal/httpmock v1.0.8 // indirect
+	github.com/jarcoal/httpmock v1.0.8
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-runewidth v0.0.10
 	github.com/mmcloughlin/meow v0.0.0-20200201185800-3501c7c05d21

@@ -27,10 +27,12 @@ type TableCell struct {
 	Expansion int
 
 	// The color of the cell text.
-	Color tcell.Color
+	color tcell.Color
 
 	// The background color of the cell.
-	BackgroundColor tcell.Color
+	backgroundColor tcell.Color
+
+	flipped bool
 
 	// If set to true, the BackgroundColor is not used and the cell will have
 	// the background color of the table.
@@ -50,8 +52,8 @@ func NewTableCell(text string) *TableCell {
 	return &TableCell{
 		Text:            text,
 		Align:           tview.AlignLeft,
-		Color:           tview.Styles.PrimaryTextColor,
-		BackgroundColor: tview.Styles.PrimitiveBackgroundColor,
+		color:           tview.Styles.PrimaryTextColor,
+		backgroundColor: tview.Styles.PrimitiveBackgroundColor,
 		Transparent:     true,
 	}
 }
@@ -100,14 +102,14 @@ func (c *TableCell) SetExpansion(expansion int) *TableCell {
 
 // SetTextColor sets the cell's text color.
 func (c *TableCell) SetTextColor(color tcell.Color) *TableCell {
-	c.Color = color
+	c.color = color
 	return c
 }
 
 // SetBackgroundColor sets the cell's background color. This will also cause the
 // cell's Transparent flag to be set to "false".
 func (c *TableCell) SetBackgroundColor(color tcell.Color) *TableCell {
-	c.BackgroundColor = color
+	c.backgroundColor = color
 	c.Transparent = false
 	return c
 }
@@ -132,13 +134,34 @@ func (c *TableCell) SetAttributes(attr tcell.AttrMask) *TableCell {
 // SetStyle sets the cell's style (foreground color, background color, and
 // attributes) all at once.
 func (c *TableCell) SetStyle(style tcell.Style) *TableCell {
-	c.Color, c.BackgroundColor, c.Attributes = style.Decompose()
+	c.color, c.backgroundColor, c.Attributes = style.Decompose()
 	return c
 }
 
 func (c *TableCell) FlipStyle() *TableCell {
-	c.Color, c.BackgroundColor = c.BackgroundColor, c.Color
+	c.color, c.backgroundColor = c.backgroundColor, c.color
 	return c
+}
+
+// SetFlipped sets the flipped state of cell. When a cell is in flipped
+// state, it returns cell.color as background color and vice versa.
+func (c *TableCell) SetFlipped(s bool) *TableCell {
+	c.flipped = s
+	return c
+}
+
+func (c *TableCell) Color() tcell.Color {
+	if c.flipped {
+		return c.backgroundColor
+	}
+	return c.color
+}
+
+func (c *TableCell) BackgroundColor() tcell.Color {
+	if c.flipped {
+		return c.color
+	}
+	return c.backgroundColor
 }
 
 // GetPosition returns the position of the table cell on screen.

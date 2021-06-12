@@ -28,6 +28,8 @@ func newPreviewCmd() *cobra.Command {
 		}, "\n"),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			closeDebugFile := setupDebug(cmd)
+			defer closeDebugFile()
 			cStr := args[0]
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
@@ -54,24 +56,6 @@ func newPreviewCmd() *cobra.Command {
 	return cmd
 }
 
-func tableUsageBar() *tview.TextView {
-	usageBar := tview.NewTextView().
-		SetDynamicColors(true).
-		SetWrap(true).
-		SetWordWrap(true)
-	for _, sl := range [][2]string{
-		{"g", "Scroll to begin"},
-		{"G", "Scroll to end"},
-		{"h", "Left"},
-		{"j", "Down"},
-		{"k", "Up"},
-		{"l", "Right"},
-	} {
-		fmt.Fprintf(usageBar, "[black:white] %s [white:black] %s\t", sl[0], sl[1])
-	}
-	return usageBar
-}
-
 func previewTable(cmd *cobra.Command, hash string, commit *objects.Commit, ts table.Store) error {
 	app := tview.NewApplication().EnableMouse(true)
 
@@ -84,16 +68,17 @@ func previewTable(cmd *cobra.Command, hash string, commit *objects.Commit, ts ta
 	rowReader := ts.NewRowReader()
 	tv := widgets.NewPreviewTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())
 
-	usageBar := tableUsageBar()
+	usageBar := widgets.DataTableUsage()
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleBar, 1, 1, false).
 		AddItem(tv, 0, 1, true).
-		AddItem(usageBar, 1, 1, false)
-	return app.SetRoot(flex, true).SetFocus(flex).SetBeforeDrawFunc(func(screen tcell.Screen) bool {
-		_, _, width, _ := usageBar.GetInnerRect()
-		lines := tview.WordWrap(usageBar.GetText(false), width)
-		flex.ResizeItem(usageBar, len(lines), 1)
+		AddItem(usageBar, 0, 1, false)
+
+	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		usageBar.BeforeDraw(screen, flex)
 		return false
-	}).Run()
+	})
+
+	return app.SetRoot(flex, true).SetFocus(flex).Run()
 }

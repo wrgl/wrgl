@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/diff"
@@ -221,7 +221,7 @@ func outputDiffToTerminal(
 
 	tabPages := widgets.NewTabPages(app)
 
-	usageBar := tableUsageBar()
+	usageBar := widgets.DataTableUsage()
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleBar, 1, 1, false).
@@ -231,25 +231,17 @@ func outputDiffToTerminal(
 	app.SetRoot(flex, true).
 		SetFocus(flex).
 		EnableMouse(true).
-		SetInputCapture(tabPages.ProcessInput)
+		SetInputCapture(tabPages.ProcessInput).
+		SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+			usageBar.BeforeDraw(screen, flex)
+			return false
+		})
 
 	progChan := pt.Chan()
 	go pt.Run()
 
-	// redraw every 65 ms
-	drawCtx, cancel := context.WithCancel(context.Background())
+	cancel := redrawEvery(app, 65*time.Millisecond)
 	defer cancel()
-	ticker := time.NewTicker(65 * time.Millisecond)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				app.Draw()
-			case <-drawCtx.Done():
-				return
-			}
-		}
-	}()
 
 	go func() {
 		defer func() {

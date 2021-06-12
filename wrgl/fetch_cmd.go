@@ -166,16 +166,21 @@ func identifyRefsToFetch(client *packclient.Client, specs []*versioning.Refspec)
 	return
 }
 
+func trimRefPrefix(ref string) string {
+	for _, prefix := range []string{
+		"refs/heads/", "refs/tags/", "refs/remotes/",
+	} {
+		ref = strings.TrimPrefix(ref, prefix)
+	}
+	return ref
+}
+
 func displayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, from, to string) {
 	if errStr != "" {
 		errStr = fmt.Sprintf(" (%s)", errStr)
 	}
-	for _, prefix := range []string{
-		"refs/heads/", "refs/tags/", "refs/remotes/",
-	} {
-		from = strings.TrimPrefix(from, prefix)
-		to = strings.TrimPrefix(to, prefix)
-	}
+	from = trimRefPrefix(from)
+	to = trimRefPrefix(to)
 	cmd.Printf(" %c %-17s %-11s -> %s%s\n", code, summary, from, to, errStr)
 }
 

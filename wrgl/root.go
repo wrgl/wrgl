@@ -4,6 +4,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -32,6 +33,7 @@ func newRootCmd() *cobra.Command {
 	viper.BindPFlag("wrgl_dir", rootCmd.PersistentFlags().Lookup("wrgl-dir"))
 	rootCmd.PersistentFlags().Bool("badger-log-info", false, "set Badger log level to INFO")
 	rootCmd.PersistentFlags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
+	rootCmd.PersistentFlags().String("debug-file", "", "name of file to print debug logs to")
 	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newCommitCmd())
 	rootCmd.AddCommand(newVersionCmd())
@@ -45,10 +47,29 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newCatFileCmd())
 	rootCmd.AddCommand(newFetchCmd())
 	rootCmd.AddCommand(newPushCmd())
+	rootCmd.AddCommand(mergeCmd())
 	rootCmd.AddCommand(config.RootCmd())
 	rootCmd.AddCommand(remote.RootCmd())
 	rootCmd.AddCommand(reflog.RootCmd())
 	return rootCmd
+}
+
+func setupDebug(cmd *cobra.Command) func() error {
+	name, err := cmd.Flags().GetString("debug-file")
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+	if name == "" {
+		return nil
+	}
+	f, err := os.Create(name)
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+	log.SetOutput(f)
+	return f.Close
 }
 
 func execute() error {

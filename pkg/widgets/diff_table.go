@@ -143,8 +143,6 @@ func (t *DiffTable) styledCells(row, column int) []*TableCell {
 		cells[0].SetStyle(addedStyle)
 	} else if _, ok := t.reader.Columns.Removed[0][uint32(column)]; ok {
 		cells[0].SetStyle(removedStyle)
-	} else if _, ok := t.reader.Columns.Moved[0][uint32(column)]; ok {
-		cells[0].SetStyle(movedStyle)
 	} else {
 		cells[0].SetStyle(cellStyle)
 	}

@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	columnStyle     = tcell.StyleDefault.Foreground(tcell.ColorAzure).Bold(true)
-	rowCountStyle   = tcell.StyleDefault.Foreground(tcell.ColorSlateGray)
+	columnStyle     = tcell.StyleDefault.Background(tcell.ColorBlack).Bold(true)
+	rowCountStyle   = tcell.StyleDefault.Foreground(tcell.ColorSlateGray).Background(tcell.ColorBlack)
 	primaryKeyStyle = tcell.StyleDefault.Foreground(tcell.ColorAquaMarine).Background(tcell.ColorBlack)
 	cellStyle       = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 )
@@ -112,9 +112,6 @@ func (t *DataTable) SetGetCellsFunc(getCells func(row, column int) []*TableCell)
 }
 
 func (t *DataTable) getCellsAt(row, column int) []*TableCell {
-	if row < 0 || column < 0 || row >= t.rowCount || column >= t.columnCount {
-		return nil
-	}
 	if t.columnStatuses != nil {
 		if row == 0 {
 			if column == 0 {
@@ -147,4 +144,15 @@ func (t *DataTable) getStyledCells(row, column int) []*TableCell {
 		return cells
 	}
 	return cells
+}
+
+func DataTableUsage() *UsageBar {
+	return NewUsageBar([][2]string{
+		{"g", "Scroll to begin"},
+		{"G", "Scroll to end"},
+		{"h", "Left"},
+		{"j", "Down"},
+		{"k", "Up"},
+		{"l", "Right"},
+	}, 2)
 }

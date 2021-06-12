@@ -30,7 +30,6 @@ func existCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("no such ref: %q", ref)
 			}
-			fmt.Printf("name: %s\n", name)
 			if ok := fs.Exist([]byte("logs/" + name)); !ok {
 				return fmt.Errorf("reflog for %q does not exist", ref)
 			}
