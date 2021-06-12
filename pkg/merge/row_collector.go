@@ -4,7 +4,10 @@
 package merge
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"sort"
 
 	"github.com/wrgl/core/pkg/index"
@@ -22,14 +25,14 @@ type RowCollector struct {
 	baseT         table.Store
 }
 
-func NewCollector(db kv.DB, baseT table.Store, resolvedRows *SortableRows, discardedRow *index.HashSet) (*RowCollector, error) {
+func NewCollector(db kv.DB, baseT table.Store, resolvedRows *SortableRows, discardedRow *index.HashSet) *RowCollector {
 	c := &RowCollector{
 		db:            db,
 		discardedRows: discardedRow,
 		resolvedRows:  resolvedRows,
 		baseT:         baseT,
 	}
-	return c, nil
+	return c
 }
 
 func (c *RowCollector) collectColumnIndices() {
@@ -72,7 +75,7 @@ func (c *RowCollector) CollectResolvedRow(errChan chan<- error, origChan <-chan 
 			} else if m.Resolved {
 				err := c.SaveResolvedRow(m.PK, m.ResolvedRow)
 				if err != nil {
-					errChan <- err
+					errChan <- fmt.Errorf("save resolved row error: %v", err)
 					return
 				}
 				// don't emit resolved row
@@ -152,4 +155,35 @@ func (c *RowCollector) Close() error {
 		return err
 	}
 	return c.resolvedRows.Close()
+}
+
+func CreateRowCollector(db kv.DB, baseT table.Store) (collector *RowCollector, cleanup func(), err error) {
+	rowsFile, err := ioutil.TempFile("", "rows_")
+	if err != nil {
+		return
+	}
+	offFile, err := ioutil.TempFile("", "off_")
+	if err != nil {
+		return
+	}
+	resolvedRows, err := NewSortableRows(rowsFile, offFile, nil)
+	if err != nil {
+		return
+	}
+	hashSetFile, err := ioutil.TempFile("", "hashset_")
+	if err != nil {
+		return
+	}
+	discardedRows, err := index.NewHashSet(hashSetFile, 0)
+	if err != nil {
+		return
+	}
+	collector = NewCollector(db, baseT, resolvedRows, discardedRows)
+	cleanup = func() {
+		collector.Close()
+		os.Remove(rowsFile.Name())
+		os.Remove(offFile.Name())
+		os.Remove(hashSetFile.Name())
+	}
+	return
 }

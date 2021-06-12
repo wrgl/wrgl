@@ -16,6 +16,7 @@ import (
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/versioning"
 )
 
 func hexToBytes(t *testing.T, s string) []byte {
@@ -32,8 +33,7 @@ func createCollector(t *testing.T, db kv.DB, fs kv.FileStore, baseCom *objects.C
 	require.NoError(t, err)
 	baseT, err := table.ReadTable(db, fs, baseCom.Table)
 	require.NoError(t, err)
-	collector, err := NewCollector(db, baseT, resolvedRows, discardedRows)
-	require.NoError(t, err)
+	collector := NewCollector(db, baseT, resolvedRows, discardedRows)
 	return collector
 }
 
@@ -75,6 +75,24 @@ func collectSortedRows(t *testing.T, merger *Merger) [][]string {
 	return rows
 }
 
+func getTables(t *testing.T, db kv.DB, fs kv.FileStore, commits ...[]byte) (baseT table.Store, otherTs []table.Store) {
+	base, err := versioning.SeekCommonAncestor(db, commits...)
+	require.NoError(t, err)
+	baseCom, err := versioning.GetCommit(db, base)
+	require.NoError(t, err)
+	baseT, err = table.ReadTable(db, fs, baseCom.Table)
+	require.NoError(t, err)
+	otherTs = make([]table.Store, len(commits))
+	for i, sum := range commits {
+		com, err := versioning.GetCommit(db, sum)
+		require.NoError(t, err)
+		otherT, err := table.ReadTable(db, fs, com.Table)
+		require.NoError(t, err)
+		otherTs[i] = otherT
+	}
+	return
+}
+
 func TestMergerAutoResolve(t *testing.T) {
 	db := kv.NewMockStore(false)
 	fs := kv.NewMockStore(false)
@@ -97,7 +115,8 @@ func TestMergerAutoResolve(t *testing.T) {
 		"4,r,t",
 	}, []uint32{0}, [][]byte{base})
 	collector := createCollector(t, db, fs, baseCom)
-	merger, err := NewMerger(db, fs, collector, 0, com1, com2)
+	baseT, otherTs := getTables(t, db, fs, com1, com2)
+	merger, err := NewMerger(db, fs, collector, 0, baseT, otherTs...)
 	require.NoError(t, err)
 
 	merges := collectUnresolvedMerges(t, merger)
@@ -152,7 +171,8 @@ func TestMergerManualResolve(t *testing.T) {
 		"2,a,w",
 	}, []uint32{0}, [][]byte{base})
 	collector := createCollector(t, db, fs, baseCom)
-	merger, err := NewMerger(db, fs, collector, 0, com1, com2)
+	baseT, otherTs := getTables(t, db, fs, com1, com2)
+	merger, err := NewMerger(db, fs, collector, 0, baseT, otherTs...)
 	require.NoError(t, err)
 
 	merges := collectUnresolvedMerges(t, merger)

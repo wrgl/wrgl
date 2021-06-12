@@ -24,6 +24,8 @@ type SelectableTable struct {
 	// selected cell. If entire rows selected, the column value is undefined.
 	// Likewise for entire columns.
 	selected func(row, column, subColumn int)
+
+	inputHandler func(event *tcell.EventKey, setFocus func(p tview.Primitive)) bool
 }
 
 func NewSelectableTable() *SelectableTable {
@@ -32,6 +34,10 @@ func NewSelectableTable() *SelectableTable {
 	}
 	t.VirtualTable.SetGetCellsFunc(t.getStyledCells)
 	return t
+}
+
+func (t *SelectableTable) GetSelection() (int, int, int) {
+	return t.selectedRow, t.selectedColumn, t.selectedSubColumn
 }
 
 // SetGetCellsFunc set function to get table cell at a position
@@ -108,8 +114,19 @@ func (t *SelectableTable) getStyledCells(row, column int) []*TableCell {
 	return cells
 }
 
+func (t *SelectableTable) WrapInputHandler(f func(event *tcell.EventKey, setFocus func(p tview.Primitive)) bool) func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	t.inputHandler = f
+	return t.InputHandler()
+}
+
 func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
-	return t.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	return t.Box.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+		if t.inputHandler != nil {
+			if t.inputHandler(event, setFocus) {
+				return
+			}
+		}
+
 		key := event.Key()
 		rowCount, columnCount := t.VirtualTable.GetShape()
 

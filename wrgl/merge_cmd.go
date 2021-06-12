@@ -157,13 +157,15 @@ func displayMergeTable(app *tview.Application, flex *tview.Flex, mt *widgets.Mer
 		fmt.Fprintf(countBar, "Resolve %d / %d (%.1f%%) conflicts", resolved, n, pct)
 	}
 	updateCountBar()
+	usageBar := widgets.MergeTableUsageBar()
 	flex.AddItem(countBar, 1, 1, false).
-		AddItem(mt, 0, 1, true)
+		AddItem(mt, 0, 1, true).
+		AddItem(usageBar, 1, 1, false)
 	mt.ShowMerge(merges[resolved])
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		return event
-	})
-	app.SetFocus(mt)
+	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		usageBar.BeforeDraw(screen, flex)
+		return false
+	}).SetFocus(mt)
 	app.Draw()
 }
 
@@ -184,7 +186,9 @@ func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merg
 		if err != nil {
 			panic(err)
 		}
-		mt, err := widgets.NewMergeTable(db, fs, commitNames, commitSums, baseSum, merges[0].ColDiff)
+		mt, err := widgets.NewMergeTable(db, fs, commitNames, commitSums, baseSum, merges[0].ColDiff, func(resolvedRow []string) {
+
+		})
 		if err != nil {
 			panic(err)
 		}

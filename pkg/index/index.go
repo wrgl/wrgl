@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"io"
 	"sort"
 )
@@ -18,6 +19,9 @@ func insertIndex(r io.ReadSeeker, buf, b []byte) (off int, err error) {
 		}
 	}
 	endInd, err = readUint32(r, buf, 0, int(b[0]))
+	if err == io.EOF {
+		return 0, nil
+	}
 	if err != nil {
 		return
 	}
@@ -63,12 +67,12 @@ func hashAtIndexEqual(r io.ReadSeeker, buf []byte, off int, b []byte) (bool, err
 func indexOf(r io.ReadSeeker, buf, b []byte) (off int, err error) {
 	pos, err := insertIndex(r, buf, b)
 	if err != nil {
-		return
+		return 0, fmt.Errorf("insertIndex error: %v", err)
 	}
 
 	ok, err := hashAtIndexEqual(r, buf, pos, b)
 	if err != nil {
-		return
+		return 0, fmt.Errorf("hashAtIndexEqual error: %v", err)
 	}
 	if !ok {
 		return -1, nil

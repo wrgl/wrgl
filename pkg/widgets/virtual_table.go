@@ -181,7 +181,7 @@ func (t *VirtualTable) cellAt(x, y int) (row, column, subColumn int) {
 		}
 	}
 
-	// Saerch for the clicked column.
+	// Search for the clicked column.
 	column = -1
 	if x >= rectX {
 		columnX := rectX
@@ -376,17 +376,42 @@ func (t *VirtualTable) drawCells(screen tcell.Screen, rows []int, x, y, width, h
 					continue rowLoop
 				}
 
+				textY := y + rowY
+				if t.borders {
+					textY = y + rowY*2 + 1
+				}
+
 				// Draw text for the first sub-cell
 				finalWidth := colWidth
 				if columnX+subColumnX+1+colWidth >= width {
 					finalWidth = width - columnX - subColumnX - 1
 				}
 				cell := cells[i]
-				cell.SetPosition(x+columnX+subColumnX+1, y+rowY, finalWidth)
-				_, printed, _, _ := printWithStyle(screen, cell.Text, x+columnX+subColumnX+1, y+rowY, 0, finalWidth, cell.Align, tcell.StyleDefault.Foreground(cell.Color).Attributes(cell.Attributes), true)
+				// cell.SetPosition(x+columnX+subColumnX+1, textY, finalWidth)
+				_, printed, _, _ := printWithStyle(
+					screen,
+					cell.Text,
+					x+columnX+subColumnX+1,
+					textY,
+					0,
+					finalWidth,
+					cell.Align,
+					tcell.StyleDefault.Foreground(cell.Color()).Attributes(cell.Attributes),
+					true,
+				)
 				if tview.TaggedStringWidth(cell.Text)-printed > 0 && printed > 0 {
-					_, _, style, _ := screen.GetContent(x+columnX+subColumnX+finalWidth, y+rowY)
-					printWithStyle(screen, string(tview.SemigraphicsHorizontalEllipsis), x+columnX+subColumnX+finalWidth, 0, y+rowY, 1, tview.AlignLeft, style, false)
+					_, _, style, _ := screen.GetContent(x+columnX+subColumnX+finalWidth, textY)
+					printWithStyle(
+						screen,
+						string(tview.SemigraphicsHorizontalEllipsis),
+						x+columnX+subColumnX+finalWidth,
+						0,
+						textY,
+						1,
+						tview.AlignLeft,
+						style,
+						false,
+					)
 				}
 				subColumnX += colWidth + 1
 			}
@@ -482,8 +507,8 @@ func (t *VirtualTable) colorCellBackgrounds(screen tcell.Screen, x, y, width, he
 					bw++
 					bh = 3
 				}
-				entries, ok := cellsByBackgroundColor[cell.BackgroundColor]
-				cellsByBackgroundColor[cell.BackgroundColor] = append(entries, &cellInfo{
+				entries, ok := cellsByBackgroundColor[cell.BackgroundColor()]
+				cellsByBackgroundColor[cell.BackgroundColor()] = append(entries, &cellInfo{
 					x:    bx,
 					y:    by,
 					w:    bw,
@@ -491,7 +516,7 @@ func (t *VirtualTable) colorCellBackgrounds(screen tcell.Screen, x, y, width, he
 					cell: cell,
 				})
 				if !ok {
-					backgroundColors = append(backgroundColors, cell.BackgroundColor)
+					backgroundColors = append(backgroundColors, cell.BackgroundColor())
 				}
 				subColumnX += widths[i] + 1
 			}
@@ -511,7 +536,7 @@ func (t *VirtualTable) colorCellBackgrounds(screen tcell.Screen, x, y, width, he
 	for _, bgColor := range backgroundColors {
 		entries := cellsByBackgroundColor[bgColor]
 		for _, info := range entries {
-			t.colorBackground(screen, x, y, width, height, info.x, info.y, info.w, info.h, bgColor, info.cell.Color, info.cell.Transparent, true, 0, false)
+			t.colorBackground(screen, x, y, width, height, info.x, info.y, info.w, info.h, bgColor, info.cell.Color(), info.cell.Transparent, true, 0, false)
 		}
 	}
 }

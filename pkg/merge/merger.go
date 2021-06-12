@@ -13,7 +13,6 @@ import (
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/progress"
 	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 type Merger struct {
@@ -22,36 +21,21 @@ type Merger struct {
 	errChan        chan error
 	progressPeriod time.Duration
 	Progress       progress.Tracker
-	commitSums     [][]byte
-	tableSums      [][]byte
-	baseTable      []byte
+	baseT          table.Store
+	otherTs        []table.Store
 	collector      *RowCollector
 }
 
-func NewMerger(db kv.DB, fs kv.FileStore, collector *RowCollector, progressPeriod time.Duration, commits ...[]byte) (m *Merger, err error) {
-	n := len(commits)
+func NewMerger(db kv.DB, fs kv.FileStore, collector *RowCollector, progressPeriod time.Duration, baseT table.Store, otherTs ...table.Store) (m *Merger, err error) {
 	m = &Merger{
 		db:             db,
 		fs:             fs,
-		errChan:        make(chan error, n),
+		errChan:        make(chan error, len(otherTs)),
 		progressPeriod: progressPeriod,
-		commitSums:     make([][]byte, n),
-		tableSums:      make([][]byte, n),
+		baseT:          baseT,
+		otherTs:        otherTs,
 		collector:      collector,
 	}
-	err = m.saveCommitSums(commits...)
-	if err != nil {
-		return nil, err
-	}
-	sum, err := versioning.SeekCommonAncestor(db, m.commitSums...)
-	if err != nil {
-		return nil, err
-	}
-	com, err := versioning.GetCommit(m.db, sum)
-	if err != nil {
-		return nil, err
-	}
-	m.baseTable = com.Table
 	return
 }
 
@@ -62,18 +46,6 @@ func (m *Merger) Error() error {
 		return nil
 	}
 	return err
-}
-
-func (m *Merger) saveCommitSums(commits ...[]byte) error {
-	for i, sum := range commits {
-		m.commitSums[i] = sum
-		com, err := versioning.GetCommit(m.db, sum)
-		if err != nil {
-			return err
-		}
-		m.tableSums[i] = com.Table
-	}
-	return nil
 }
 
 func strSliceEqual(left, right []string) bool {
@@ -144,7 +116,7 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- Merge, e
 				if counter[pkSum] == n {
 					err := resolver.Resolve(merges[pkSum])
 					if err != nil {
-						errChan <- err
+						errChan <- fmt.Errorf("resolve error: %v", err)
 						return
 					}
 					mergeChan <- *merges[pkSum]
@@ -157,7 +129,7 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- Merge, e
 	for _, m := range merges {
 		err := resolver.Resolve(m)
 		if err != nil {
-			errChan <- err
+			errChan <- fmt.Errorf("resolve error: %v", err)
 			return
 		}
 		mergeChan <- *m
@@ -165,36 +137,26 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- Merge, e
 }
 
 func (m *Merger) Start() (ch <-chan Merge, err error) {
-	baseT, err := table.ReadTable(m.db, m.fs, m.baseTable)
-	if err != nil {
-		return
-	}
-	n := len(m.tableSums)
-	otherTs := make([]table.Store, n)
+	n := len(m.otherTs)
 	var pk []string
-	for i, sum := range m.tableSums {
-		t, err := table.ReadTable(m.db, m.fs, sum)
-		if err != nil {
-			return nil, err
-		}
+	for _, t := range m.otherTs {
 		if pk == nil {
 			pk = t.PrimaryKey()
 		} else if !strSliceEqual(pk, t.PrimaryKey()) {
 			return nil, fmt.Errorf("can't merge: primary key differs between versions")
 		}
-		otherTs[i] = t
 	}
 	mergeChan := make(chan Merge)
 	diffs := make([]<-chan objects.Diff, n)
 	progs := make([]progress.Tracker, n)
 	cols := make([][2][]string, n)
-	for i, t := range otherTs {
-		diffChan, progTracker := diff.DiffTables(t, baseT, m.progressPeriod*time.Duration(n), m.errChan, true, false)
+	for i, t := range m.otherTs {
+		diffChan, progTracker := diff.DiffTables(t, m.baseT, m.progressPeriod*time.Duration(n), m.errChan, true, false)
 		diffs[i] = diffChan
 		progs[i] = progTracker
 		cols[i] = [2][]string{t.Columns(), t.PrimaryKey()}
 	}
-	colDiff := objects.CompareColumns([2][]string{baseT.Columns(), baseT.PrimaryKey()}, cols...)
+	colDiff := objects.CompareColumns([2][]string{m.baseT.Columns(), m.baseT.PrimaryKey()}, cols...)
 	m.Progress = progress.JoinTrackers(progs...)
 	go m.mergeTables(colDiff, mergeChan, m.errChan, diffs...)
 	return m.collector.CollectResolvedRow(m.errChan, mergeChan), nil

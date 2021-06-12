@@ -79,14 +79,11 @@ func (r *SortableRows) AddBytes(b []byte) (err error) {
 	defer r.mutex.Unlock()
 	n, err := r.rows.Write(b)
 	if err != nil {
-		return err
+		return fmt.Errorf("rows writer error: %v", err)
 	}
 	r.off += n
 	r.size++
 	r.putRowOffset(int(r.size), int64(r.off))
-	if err != nil {
-		return err
-	}
 	return r.putSize()
 }
 
@@ -121,11 +118,14 @@ func (r *SortableRows) readSize() (err error) {
 func (r *SortableRows) putSize() (err error) {
 	_, err = r.offsets.Seek(0, io.SeekStart)
 	if err != nil {
-		return
+		return fmt.Errorf("seek error: %v", err)
 	}
 	binary.BigEndian.PutUint32(r.buf, r.size)
 	_, err = r.offsets.Write(r.buf[:4])
-	return err
+	if err != nil {
+		return fmt.Errorf("offsets writer error: %v", err)
+	}
+	return nil
 }
 
 func (r *SortableRows) putRowOffset(i int, off int64) (err error) {

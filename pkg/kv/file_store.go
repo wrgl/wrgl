@@ -12,6 +12,7 @@ import (
 type File interface {
 	io.ReadSeekCloser
 	io.ReaderAt
+	io.Writer
 }
 
 type FileStore interface {
@@ -40,22 +41,26 @@ func (s *fileStore) path(k []byte) string {
 	return filepath.Join(s.dataDir, string(k))
 }
 
+func (s *fileStore) ensureDir(p string) error {
+	return os.MkdirAll(filepath.Dir(p), 0755)
+}
+
 func (s *fileStore) Writer(k []byte) (io.WriteCloser, error) {
 	p := s.path(k)
-	err := os.MkdirAll(filepath.Dir(p), 0755)
+	err := s.ensureDir(p)
 	if err != nil {
 		return nil, err
 	}
-	return os.Create(s.path(k))
+	return os.Create(p)
 }
 
 func (s *fileStore) AppendWriter(k []byte) (io.WriteCloser, error) {
 	p := s.path(k)
-	err := os.MkdirAll(filepath.Dir(p), 0755)
+	err := s.ensureDir(p)
 	if err != nil {
 		return nil, err
 	}
-	return os.OpenFile(s.path(k), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	return os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 }
 
 func (s *fileStore) Reader(k []byte) (File, error) {

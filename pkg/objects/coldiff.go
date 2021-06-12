@@ -96,6 +96,10 @@ type ColDiff struct {
 func CompareColumns(base [2][]string, others ...[2][]string) *ColDiff {
 	c := &ColDiff{}
 	for _, sl := range others {
+		c.insertToNames(sl[0])
+	}
+	c.insertToNames(base[0])
+	for _, sl := range others {
 		c.addLayer(base[0], sl[0])
 	}
 	c.hoistPKToStart(others[0][1])
@@ -291,9 +295,6 @@ func (c *ColDiff) addLayer(base, cols []string) {
 	c.Added = append(c.Added, map[uint32]struct{}{})
 	c.Removed = append(c.Removed, map[uint32]struct{}{})
 	c.Moved = append(c.Moved, map[uint32][]int{})
-
-	c.insertToNames(cols)
-	c.insertToNames(base)
 
 	// populate added map
 	baseM := stringSliceToMap(base)

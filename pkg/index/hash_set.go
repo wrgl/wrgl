@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"io"
 	"sort"
 	"sync"
@@ -71,7 +72,7 @@ func (s *HashSet) Len() int {
 func (s *HashSet) Add(hash []byte) error {
 	off, err := indexOf(s.r, s.buf, hash)
 	if err != nil {
-		return err
+		return fmt.Errorf("indexOf error: %v", err)
 	}
 	if off != -1 {
 		return nil
