@@ -161,7 +161,6 @@ func displayMergeTable(app *tview.Application, flex *tview.Flex, mt *widgets.Mer
 	flex.AddItem(countBar, 1, 1, false).
 		AddItem(mt, 0, 1, true).
 		AddItem(usageBar, 1, 1, false)
-	mt.ShowMerge(merges[resolved])
 	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
 		usageBar.BeforeDraw(screen, flex)
 		return false
@@ -186,12 +185,7 @@ func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merg
 		if err != nil {
 			panic(err)
 		}
-		mt, err := widgets.NewMergeTable(db, fs, commitNames, commitSums, baseSum, merges[0].ColDiff, func(resolvedRow []string) {
-
-		})
-		if err != nil {
-			panic(err)
-		}
+		mt := widgets.NewMergeTable(db, fs, commitNames, commitSums, merges[0].ColDiff, merges[1:])
 		displayMergeTable(app, flex, mt, merger, merges[1:])
 	}()
 
