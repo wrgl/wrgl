@@ -25,6 +25,7 @@ var (
 const (
 	editSet int = iota
 	editRemoveCol
+	editRemoveRow
 )
 
 type editOp struct {
@@ -34,6 +35,7 @@ type editOp struct {
 	Column        int
 	OldVal        string
 	ColWasRemoved bool
+	RowWasRemoved bool
 }
 
 type MergeTable struct {
@@ -45,6 +47,7 @@ type MergeTable struct {
 	columnCells []*TableCell
 	PK          []byte
 	RemovedCols map[int]struct{}
+	RemovedRows map[int]struct{}
 	undoStack   *list.List
 	redoStack   *list.List
 	rowPool     *MergeRowPool
@@ -57,6 +60,7 @@ func NewMergeTable(db kv.DB, fs kv.FileStore, commitNames []string, commitSums [
 		dec:             objects.NewStrListDecoder(false),
 		cd:              cd,
 		RemovedCols:     map[int]struct{}{},
+		RemovedRows:     map[int]struct{}{},
 		undoStack:       list.New(),
 		redoStack:       list.New(),
 	}
@@ -71,8 +75,7 @@ func NewMergeTable(db kv.DB, fs kv.FileStore, commitNames []string, commitSums [
 		SetMinSelection(1, 1).
 		Select(1, 1, 0).
 		SetShape(1+(t.cd.Layers()+1)*len(merges), cd.Len()+1).
-		SetFixed(1, 1).
-		SetBorders(true)
+		SetFixed(1, 1)
 	numPK := len(cd.OtherPK[0])
 	if numPK > 0 {
 		t.SelectableTable.SetMinSelection(1, numPK+1).
@@ -122,10 +125,12 @@ func (t *MergeTable) getMergeCells(row, column int) []*TableCell {
 		}
 		return []*TableCell{t.columnCells[column-1]}
 	}
-	mergeRow, _, row := t.mergeRowAtRow(row)
+	mergeRow, mergeInd, row := t.mergeRowAtRow(row)
 	cell := mergeRow.Cells[row][column]
-	if row == t.cd.Layers() && column > len(t.cd.OtherPK[0]) {
+	if row == t.cd.Layers() && column > 0 {
 		if _, ok := t.RemovedCols[column-1]; ok {
+			cell = NewTableCell("REMOVED").SetStyle(redStyle)
+		} else if _, ok := t.RemovedRows[mergeInd]; ok {
 			cell = NewTableCell("REMOVED").SetStyle(redStyle)
 		}
 	}
@@ -136,8 +141,11 @@ func (t *MergeTable) execOp(op *editOp) {
 	switch op.Type {
 	case editRemoveCol:
 		t.RemovedCols[op.Column] = struct{}{}
+	case editRemoveRow:
+		t.RemovedRows[op.Row] = struct{}{}
 	case editSet:
 		delete(t.RemovedCols, op.Column)
+		delete(t.RemovedRows, op.Row)
 		mergeRow, err := t.rowPool.GetRow(op.Row)
 		if err != nil {
 			panic(err)
@@ -157,6 +165,8 @@ func (t *MergeTable) undo() {
 	switch op.Type {
 	case editRemoveCol:
 		delete(t.RemovedCols, op.Column)
+	case editRemoveRow:
+		delete(t.RemovedRows, op.Row)
 	case editSet:
 		mergeRow, err := t.rowPool.GetRow(op.Row)
 		if err != nil {
@@ -165,6 +175,9 @@ func (t *MergeTable) undo() {
 		mergeRow.SetCell(op.Column, op.OldVal)
 		if op.ColWasRemoved {
 			t.RemovedCols[op.Column] = struct{}{}
+		}
+		if op.RowWasRemoved {
+			t.RemovedRows[op.Row] = struct{}{}
 		}
 	}
 	t.SelectableTable.Select((op.Row+1)*(t.cd.Layers()+1), op.Column+1, 0)
@@ -199,14 +212,16 @@ func (t *MergeTable) selectCell(row, column, subCol int) {
 	} else {
 		oldVal := mergeRow.Cells[nLayers][column].Text
 		if mergeRow.Cells[row][column].Text != oldVal {
-			_, ok := t.RemovedCols[column-1]
+			_, ok1 := t.RemovedCols[column-1]
+			_, ok2 := t.RemovedRows[mergeInd]
 			t.edit(&editOp{
 				Type:          editSet,
 				Row:           mergeInd,
 				Layer:         row,
 				Column:        column - 1,
 				OldVal:        oldVal,
-				ColWasRemoved: ok,
+				ColWasRemoved: ok1,
+				RowWasRemoved: ok2,
 			})
 		}
 	}
@@ -223,6 +238,21 @@ func (t *MergeTable) deleteColumn() {
 	})
 }
 
+func (t *MergeTable) deleteRow() {
+	selectedRow, _, _ := t.SelectableTable.GetSelection()
+	rowCount, _ := t.GetShape()
+	if selectedRow <= 0 || selectedRow >= rowCount {
+		return
+	}
+	_, mergeInd, row := t.mergeRowAtRow(selectedRow)
+	if row == t.cd.Layers() {
+		t.edit(&editOp{
+			Type: editRemoveRow,
+			Row:  mergeInd,
+		})
+	}
+}
+
 func (t *MergeTable) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
 	return t.SelectableTable.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) bool {
 		key := event.Key()
@@ -233,6 +263,8 @@ func (t *MergeTable) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				t.undo()
 			case 'U':
 				t.redo()
+			case 'd':
+				t.deleteRow()
 			case 'D':
 				t.deleteColumn()
 			default:
@@ -255,6 +287,7 @@ func MergeTableUsageBar() *UsageBar {
 		{"l", "Right"},
 		{"u", "Undo"},
 		{"U", "Redo"},
+		{"d", "Delete row"},
 		{"D", "Delete column"},
 	}, 2)
 }

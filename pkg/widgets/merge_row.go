@@ -58,13 +58,17 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 	} else {
 		c.Cells[baseInd][0].SetStyle(boldRedStyle)
 	}
-
+	numPK := len(c.cd.OtherPK[0])
 	for i, sum := range m.Others {
 		cell := c.Cells[i][0]
 		if sum == nil {
 			cell.SetStyle(boldRedStyle)
 			for j := 0; j < c.cd.Len(); j++ {
-				c.Cells[i][j+1].SetText("").SetStyle(cellStyle)
+				cell := c.Cells[i][j+1]
+				cell.SetText("")
+				if j >= numPK {
+					cell.SetStyle(cellStyle)
+				}
 			}
 			continue
 		} else if m.Base == nil {
