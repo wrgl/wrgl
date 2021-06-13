@@ -166,13 +166,13 @@ func (m *Merger) SaveResolvedRow(pk []byte, row []string) error {
 	return m.collector.SaveResolvedRow(pk, row)
 }
 
-func (m *Merger) SortedRows() (<-chan []string, error) {
+func (m *Merger) SortedRows(removedCols map[int]struct{}) (<-chan []string, error) {
 	m.errChan = make(chan error, 1)
-	return m.collector.SortedRows(m.errChan)
+	return m.collector.SortedRows(removedCols, m.errChan)
 }
 
-func (m *Merger) Columns() []string {
-	return m.collector.Columns()
+func (m *Merger) Columns(removedCols map[int]struct{}) []string {
+	return m.collector.Columns(removedCols)
 }
 
 func (m *Merger) PK() []string {

@@ -68,17 +68,19 @@ func SdumpTable(t *testing.T, db kv.DB, fs kv.FileStore, sum []byte, indent int)
 	require.NoError(t, err)
 	lines := []string{
 		fmt.Sprintf("table %x", sum),
-		fmt.Sprintf("%s %s", strings.Repeat(" ", 32), strings.Join(ts.Columns(), ", ")),
+		fmt.Sprintf("%s %s", strings.Repeat(" ", 65), strings.Join(ts.Columns(), ", ")),
 	}
-	rr := ts.NewRowReader()
+	rhr := ts.NewRowHashReader(0, 0)
 	dec := objects.NewStrListDecoder(true)
 	for {
-		rh, b, err := rr.Read()
+		pk, rh, err := rhr.Read()
 		if err == io.EOF {
 			break
 		}
 		require.NoError(t, err)
-		lines = append(lines, fmt.Sprintf("%x %s", rh, strings.Join(dec.Decode(b), ", ")))
+		b, err := table.GetRow(db, rh)
+		require.NoError(t, err)
+		lines = append(lines, fmt.Sprintf("%x %x %s", pk, rh, strings.Join(dec.Decode(b), ", ")))
 	}
 	if indent > 0 {
 		for i, line := range lines {

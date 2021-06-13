@@ -20,7 +20,6 @@ type RowCollector struct {
 	discardedRows *index.HashSet
 	resolvedRows  *SortableRows
 	cd            *objects.ColDiff
-	cols          []int
 	db            kv.DB
 	baseT         table.Store
 }
@@ -35,28 +34,9 @@ func NewCollector(db kv.DB, baseT table.Store, resolvedRows *SortableRows, disca
 	return c
 }
 
-func (c *RowCollector) collectColumnIndices() {
-	cols := []int{}
-	layers := c.cd.Layers()
-mainLoop:
-	for i := range c.cd.Names {
-		for layer := 0; layer < layers; layer++ {
-			if _, ok := c.cd.Removed[layer][uint32(i)]; ok {
-				continue mainLoop
-			}
-		}
-		cols = append(cols, i)
-	}
-	c.cols = cols
-}
-
 func (c *RowCollector) SaveResolvedRow(pk []byte, row []string) error {
 	if row != nil {
-		vals := make([]string, len(c.cols))
-		for i, j := range c.cols {
-			vals[i] = row[j]
-		}
-		err := c.resolvedRows.Add(vals)
+		err := c.resolvedRows.Add(row)
 		if err != nil {
 			return err
 		}
@@ -71,7 +51,6 @@ func (c *RowCollector) CollectResolvedRow(errChan chan<- error, origChan <-chan 
 		for m := range origChan {
 			if m.ColDiff != nil {
 				c.cd = m.ColDiff
-				c.collectColumnIndices()
 			} else if m.Resolved {
 				err := c.SaveResolvedRow(m.PK, m.ResolvedRow)
 				if err != nil {
@@ -87,10 +66,13 @@ func (c *RowCollector) CollectResolvedRow(errChan chan<- error, origChan <-chan 
 	return mergeChan
 }
 
-func (c *RowCollector) Columns() []string {
-	vals := make([]string, len(c.cols))
-	for i, j := range c.cols {
-		vals[i] = c.cd.Names[j]
+func (c *RowCollector) Columns(removedCols map[int]struct{}) []string {
+	vals := make([]string, 0, c.cd.Len()-len(removedCols))
+	for i, s := range c.cd.Names {
+		if _, ok := removedCols[i]; ok {
+			continue
+		}
+		vals = append(vals, s)
 	}
 	return vals
 }
@@ -132,7 +114,7 @@ func (c *RowCollector) collectRowsThatStayedTheSame() error {
 	return nil
 }
 
-func (c *RowCollector) SortedRows(errChan chan<- error) (<-chan []string, error) {
+func (c *RowCollector) SortedRows(removedCols map[int]struct{}, errChan chan<- error) (<-chan []string, error) {
 	err := c.collectRowsThatStayedTheSame()
 	if err != nil {
 		return nil, err
@@ -146,7 +128,7 @@ func (c *RowCollector) SortedRows(errChan chan<- error) (<-chan []string, error)
 		return nil, err
 	}
 	sort.Sort(c.resolvedRows)
-	return c.resolvedRows.RowsChan(errChan), nil
+	return c.resolvedRows.RowsChan(removedCols, errChan), nil
 }
 
 func (c *RowCollector) Close() error {

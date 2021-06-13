@@ -63,10 +63,10 @@ func collectUnresolvedMerges(t *testing.T, merger *Merger) []Merge {
 	return merges
 }
 
-func collectSortedRows(t *testing.T, merger *Merger) [][]string {
+func collectSortedRows(t *testing.T, merger *Merger, removedCols map[int]struct{}) [][]string {
 	t.Helper()
 	rows := [][]string{}
-	ch, err := merger.SortedRows()
+	ch, err := merger.SortedRows(removedCols)
 	require.NoError(t, err)
 	for sl := range ch {
 		rows = append(rows, sl)
@@ -139,13 +139,13 @@ func TestMergerAutoResolve(t *testing.T) {
 	}, merges)
 	require.NoError(t, merger.Error())
 
-	rows := collectSortedRows(t, merger)
+	rows := collectSortedRows(t, merger, nil)
 	assert.Equal(t, [][]string{
 		{"1", "e", "r"},
 		{"3", "s", "d"},
 		{"4", "r", "t"},
 	}, rows)
-	assert.Equal(t, []string{"a", "b", "c"}, merger.Columns())
+	assert.Equal(t, []string{"a", "b", "c"}, merger.Columns(nil))
 	assert.Equal(t, []string{"a"}, merger.PK())
 	require.NoError(t, merger.Close())
 }
@@ -218,12 +218,68 @@ func TestMergerManualResolve(t *testing.T) {
 		hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"), []string{"2", "c", "v"},
 	))
 
-	rows := collectSortedRows(t, merger)
+	rows := collectSortedRows(t, merger, nil)
 	assert.Equal(t, [][]string{
 		{"1", "q", "w"},
 		{"2", "c", "v"},
 	}, rows)
-	assert.Equal(t, []string{"a", "b", "c"}, merger.Columns())
+	assert.Equal(t, []string{"a", "b", "c"}, merger.Columns(nil))
+	assert.Equal(t, []string{"a"}, merger.PK())
+	require.NoError(t, merger.Close())
+}
+
+func TestMergerRemoveCols(t *testing.T) {
+	db := kv.NewMockStore(false)
+	fs := kv.NewMockStore(false)
+	base, baseCom := factory.Commit(t, db, fs, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"4,r,t",
+	}, []uint32{0}, nil)
+	com1, _ := factory.Commit(t, db, fs, []string{
+		"a,b",
+		"1,q",
+		"2,a",
+		"4,r",
+	}, []uint32{0}, [][]byte{base})
+	com2, _ := factory.Commit(t, db, fs, []string{
+		"a,b,c",
+		"1,e,w",
+		"2,x,s",
+		"4,f,t",
+	}, []uint32{0}, [][]byte{base})
+	collector := createCollector(t, db, fs, baseCom)
+	baseT, otherTs := getTables(t, db, fs, com1, com2)
+	merger, err := NewMerger(db, fs, collector, 0, baseT, otherTs...)
+	require.NoError(t, err)
+
+	merges := collectUnresolvedMerges(t, merger)
+	assert.Equal(t, []Merge{
+		{
+			ColDiff: &objects.ColDiff{
+				Names:   []string{"a", "b", "c"},
+				BasePK:  []uint32{0},
+				OtherPK: [][]uint32{{0}, {0}},
+				Added:   []map[uint32]struct{}{{}, {}},
+				Removed: []map[uint32]struct{}{{2: {}}, {}},
+				Moved:   []map[uint32][]int{{}, {}},
+				BaseIdx: map[uint32]uint32{0: 0, 1: 1, 2: 2},
+				OtherIdx: []map[uint32]uint32{
+					{0: 0, 1: 1},
+					{0: 0, 1: 1, 2: 2},
+				},
+			},
+		},
+	}, merges)
+
+	rows := collectSortedRows(t, merger, map[int]struct{}{2: {}})
+	assert.Equal(t, [][]string{
+		{"1", "e"},
+		{"2", "x"},
+		{"4", "f"},
+	}, rows)
+	assert.Equal(t, []string{"a", "b"}, merger.Columns(map[int]struct{}{2: {}}))
 	assert.Equal(t, []string{"a"}, merger.PK())
 	require.NoError(t, merger.Close())
 }

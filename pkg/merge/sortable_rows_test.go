@@ -21,10 +21,10 @@ func randomStrSlice(n int) []string {
 	return sl
 }
 
-func collectRows(t *testing.T, sr *SortableRows) [][]string {
+func collectRows(t *testing.T, sr *SortableRows, remCols map[int]struct{}) [][]string {
 	t.Helper()
 	errCh := make(chan error, 10)
-	ch := sr.RowsChan(errCh)
+	ch := sr.RowsChan(remCols, errCh)
 	sl := [][]string{}
 	for row := range ch {
 		sl = append(sl, row)
@@ -70,7 +70,7 @@ func TestSortableRows(t *testing.T) {
 	}
 	assert.Equal(t, 3, sr.Len())
 	sort.Sort(sr)
-	sl2 := collectRows(t, sr)
+	sl2 := collectRows(t, sr, nil)
 	sortByColumns(sl, []int{1, 2})
 	assert.Equal(t, sl, sl2)
 	require.NoError(t, sr.Close())
@@ -88,8 +88,13 @@ func TestSortableRows(t *testing.T) {
 	}
 	assert.Equal(t, 1027, sr.Len())
 	sort.Sort(sr)
-	sl2 = collectRows(t, sr)
+	sl2 = collectRows(t, sr, nil)
 	sortByColumns(sl, sortBy)
 	assert.Equal(t, sl, sl2)
+
+	sl2 = collectRows(t, sr, map[int]struct{}{4: {}})
+	for i, strs := range sl2 {
+		assert.Equal(t, sl[i][:4], strs)
+	}
 	require.NoError(t, sr.Close())
 }

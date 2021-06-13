@@ -219,8 +219,9 @@ func (r *SortableRows) Close() error {
 
 // RowsChan creates a new channel to consume string slices
 // from this table
-func (r *SortableRows) RowsChan(errChan chan<- error) <-chan []string {
+func (r *SortableRows) RowsChan(removedCols map[int]struct{}, errChan chan<- error) <-chan []string {
 	ch := make(chan []string)
+	lenRem := len(removedCols)
 	go func() {
 		defer close(ch)
 		_, err := r.offsets.Seek(4, io.SeekStart)
@@ -245,7 +246,17 @@ func (r *SortableRows) RowsChan(errChan chan<- error) <-chan []string {
 				errChan <- err
 				return
 			}
-			ch <- sl
+			strs := sl
+			if lenRem > 0 {
+				strs = make([]string, 0, r.ncols-lenRem)
+				for i, s := range sl {
+					if _, ok := removedCols[i]; ok {
+						continue
+					}
+					strs = append(strs, s)
+				}
+			}
+			ch <- strs
 		}
 	}()
 	return ch
