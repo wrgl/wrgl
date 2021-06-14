@@ -207,6 +207,8 @@ func TestMergerManualResolve(t *testing.T) {
 				hexToBytes(t, "fb93f68df361ea942678be1731936e32"),
 				hexToBytes(t, "b573142d4d736d82e123239dc399cff1"),
 			},
+			ResolvedRow:    []string{"2", "a", "s"},
+			UnresolvedCols: map[uint32]struct{}{2: {}},
 		},
 	}, merges)
 	require.NoError(t, merger.Error())

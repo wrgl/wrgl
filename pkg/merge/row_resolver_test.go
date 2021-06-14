@@ -105,11 +105,12 @@ func TestResolveRow(t *testing.T) {
 	}...)
 
 	for i, c := range []struct {
-		cd          *objects.ColDiff
-		base        []string
-		others      [][]string
-		resolved    bool
-		resolvedRow []string
+		cd             *objects.ColDiff
+		base           []string
+		others         [][]string
+		resolved       bool
+		resolvedRow    []string
+		unresolvedCols map[uint32]struct{}
 	}{
 		{
 			cd:   cd1,
@@ -158,6 +159,8 @@ func TestResolveRow(t *testing.T) {
 				{"q", "w", "y", "r"},
 				{"q", "w"},
 			},
+			resolvedRow:    []string{"q", "w", "e", "r"},
+			unresolvedCols: map[uint32]struct{}{2: {}},
 		},
 		{
 			cd:   cd2,
@@ -166,6 +169,8 @@ func TestResolveRow(t *testing.T) {
 				{"q", "w"},
 				{"q", "w", "y", "r"},
 			},
+			resolvedRow:    []string{"q", "w", "e", "r"},
+			unresolvedCols: map[uint32]struct{}{2: {}},
 		},
 		{
 			cd:   cd1,
@@ -174,6 +179,8 @@ func TestResolveRow(t *testing.T) {
 				{"q", "u", "e", "r"},
 				{"q", "s"},
 			},
+			resolvedRow:    []string{"q", "w", "", "r"},
+			unresolvedCols: map[uint32]struct{}{1: {}},
 		},
 		{
 			cd:   cd2,
@@ -182,6 +189,8 @@ func TestResolveRow(t *testing.T) {
 				{"q", "s"},
 				{"q", "u", "e", "r"},
 			},
+			resolvedRow:    []string{"q", "w", "", "r"},
+			unresolvedCols: map[uint32]struct{}{1: {}},
 		},
 		{
 			cd:   cd1,
@@ -210,6 +219,8 @@ func TestResolveRow(t *testing.T) {
 				{"q", "u", "e", "g"},
 				{"q", "u", "e", "r"},
 			},
+			resolvedRow:    []string{"q", "u", "e", ""},
+			unresolvedCols: map[uint32]struct{}{3: {}},
 		},
 	} {
 		db := kv.NewMockStore(false)
@@ -224,5 +235,6 @@ func TestResolveRow(t *testing.T) {
 		require.NoError(t, r.Resolve(m))
 		assert.Equal(t, c.resolved, m.Resolved, "case %d", i)
 		assert.Equal(t, c.resolvedRow, m.ResolvedRow, "case %d", i)
+		assert.Equal(t, c.unresolvedCols, m.UnresolvedCols, "case %d", i)
 	}
 }

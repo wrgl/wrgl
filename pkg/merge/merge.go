@@ -8,10 +8,11 @@ import (
 )
 
 type Merge struct {
-	ColDiff     *objects.ColDiff
-	PK          []byte
-	Base        []byte
-	Others      [][]byte
-	ResolvedRow []string
-	Resolved    bool
+	ColDiff        *objects.ColDiff
+	PK             []byte
+	Base           []byte
+	Others         [][]byte
+	ResolvedRow    []string
+	Resolved       bool
+	UnresolvedCols map[uint32]struct{}
 }

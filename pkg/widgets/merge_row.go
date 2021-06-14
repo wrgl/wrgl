@@ -13,6 +13,7 @@ type MergeRow struct {
 	Cells   [][]*TableCell
 	baseRow []string
 	dec     *objects.StrListDecoder
+	m       *merge.Merge
 }
 
 func NewMergeRow(db kv.DB, dec *objects.StrListDecoder, cd *objects.ColDiff, names []string) *MergeRow {
@@ -51,7 +52,6 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 		}
 		row := c.cd.RearrangeBaseRow(c.dec.Decode(rowB))
 		for i, s := range row {
-			c.Cells[baseInd][i+1].SetText(s)
 			c.baseRow[i] = s
 		}
 		c.Cells[baseInd][0].SetStyle(boldStyle)
@@ -100,6 +100,9 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 				}
 			}
 		}
+	}
+	for i, s := range m.ResolvedRow {
+		c.SetCell(i, s)
 	}
 	return nil
 }
