@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"github.com/gdamore/tcell/v2"
 	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
@@ -13,7 +14,6 @@ type MergeRow struct {
 	Cells   [][]*TableCell
 	baseRow []string
 	dec     *objects.StrListDecoder
-	m       *merge.Merge
 }
 
 func NewMergeRow(db kv.DB, dec *objects.StrListDecoder, cd *objects.ColDiff, names []string) *MergeRow {
@@ -102,12 +102,13 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 		}
 	}
 	for i, s := range m.ResolvedRow {
-		c.SetCell(i, s)
+		_, ok := m.UnresolvedCols[uint32(i)]
+		c.SetCell(i, s, ok)
 	}
 	return nil
 }
 
-func (c *MergeRow) SetCell(col int, s string) {
+func (c *MergeRow) SetCell(col int, s string, unresolved bool) {
 	cell := c.Cells[c.cd.Layers()][col+1]
 	cell.SetText(s)
 	for i, m := range c.cd.Added {
@@ -121,10 +122,15 @@ func (c *MergeRow) SetCell(col int, s string) {
 	} else {
 		cell.SetStyle(cellStyle)
 	}
+	if unresolved {
+		cell.SetBackgroundColor(tcell.ColorDarkRed).SetDisableTransparency(true)
+	} else {
+		cell.SetBackgroundColor(tcell.ColorBlack).SetDisableTransparency(false)
+	}
 }
 
 func (c *MergeRow) SetCellFromLayer(col, layer int) {
-	c.SetCell(col, c.Cells[layer][col+1].Text)
+	c.SetCell(col, c.Cells[layer][col+1].Text, false)
 }
 
 type MergeRowPool struct {
@@ -173,7 +179,7 @@ func (p *MergeRowPool) rowFromBuf(ind int) (*MergeRow, error) {
 	return p.buf[n], nil
 }
 
-func (p *MergeRowPool) GetRow(ind int) (*MergeRow, error) {
+func (p *MergeRowPool) getRow(ind int) (*MergeRow, error) {
 	if ind < 0 || ind > len(p.merges) {
 		return nil, nil
 	}
@@ -187,4 +193,38 @@ func (p *MergeRowPool) GetRow(ind int) (*MergeRow, error) {
 		p.maxInd = ind
 	}
 	return p.rowFromBuf(ind)
+}
+
+func (p *MergeRowPool) SetCell(row, col int, s string) {
+	r, err := p.getRow(row)
+	if err != nil {
+		panic(err)
+	}
+	r.SetCell(col, s, false)
+}
+
+func (p *MergeRowPool) SetCellFromLayer(row, col, layer int) {
+	r, err := p.getRow(row)
+	if err != nil {
+		panic(err)
+	}
+	r.SetCellFromLayer(col, layer)
+}
+
+func (p *MergeRowPool) IsTextAtCellDifferentFromBase(row, col, layer int) (baseVal string, different bool) {
+	r, err := p.getRow(row)
+	if err != nil {
+		panic(err)
+	}
+	baseVal = r.Cells[p.cd.Layers()][col].Text
+	different = r.Cells[layer][col].Text != baseVal
+	return
+}
+
+func (p *MergeRowPool) GetCell(row, col, subrow int) *TableCell {
+	r, err := p.getRow(row)
+	if err != nil {
+		panic(err)
+	}
+	return r.Cells[subrow][col]
 }

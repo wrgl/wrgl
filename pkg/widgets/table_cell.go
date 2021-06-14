@@ -34,6 +34,8 @@ type TableCell struct {
 
 	flipped bool
 
+	disableTransparency bool
+
 	// If set to true, the BackgroundColor is not used and the cell will have
 	// the background color of the table.
 	Transparent bool
@@ -118,7 +120,16 @@ func (c *TableCell) SetBackgroundColor(color tcell.Color) *TableCell {
 // "true" will cause the cell to use the table's background color. A value of
 // "false" will cause it to use its own background color.
 func (c *TableCell) SetTransparency(transparent bool) *TableCell {
-	c.Transparent = transparent
+	if c.disableTransparency {
+		c.Transparent = false
+	} else {
+		c.Transparent = transparent
+	}
+	return c
+}
+
+func (c *TableCell) SetDisableTransparency(disable bool) *TableCell {
+	c.disableTransparency = disable
 	return c
 }
 

@@ -107,15 +107,11 @@ colsLoop:
 	}
 }
 
-func (t *MergeTable) mergeRowAtRow(row int) (*MergeRow, int, int) {
+func (t *MergeTable) mergeRowAtRow(row int) (int, int) {
 	nLayers := t.cd.Layers()
 	mergeInd := (row - 1) / (nLayers + 1)
-	mergeRow, err := t.rowPool.GetRow(mergeInd)
-	if err != nil {
-		panic(err)
-	}
 	row = row - (nLayers+1)*mergeInd - 1
-	return mergeRow, mergeInd, row
+	return mergeInd, row
 }
 
 func (t *MergeTable) getMergeCells(row, column int) []*TableCell {
@@ -125,8 +121,8 @@ func (t *MergeTable) getMergeCells(row, column int) []*TableCell {
 		}
 		return []*TableCell{t.columnCells[column-1]}
 	}
-	mergeRow, mergeInd, row := t.mergeRowAtRow(row)
-	cell := mergeRow.Cells[row][column]
+	mergeInd, row := t.mergeRowAtRow(row)
+	cell := t.rowPool.GetCell(mergeInd, column, row)
 	if row == t.cd.Layers() && column > 0 {
 		if _, ok := t.RemovedCols[column-1]; ok {
 			cell = NewTableCell("REMOVED").SetStyle(redStyle)
@@ -146,11 +142,7 @@ func (t *MergeTable) execOp(op *editOp) {
 	case editSet:
 		delete(t.RemovedCols, op.Column)
 		delete(t.RemovedRows, op.Row)
-		mergeRow, err := t.rowPool.GetRow(op.Row)
-		if err != nil {
-			panic(err)
-		}
-		mergeRow.SetCellFromLayer(op.Column, op.Layer)
+		t.rowPool.SetCellFromLayer(op.Row, op.Column, op.Layer)
 	}
 	t.undoStack.PushFront(op)
 }
@@ -168,11 +160,7 @@ func (t *MergeTable) undo() {
 	case editRemoveRow:
 		delete(t.RemovedRows, op.Row)
 	case editSet:
-		mergeRow, err := t.rowPool.GetRow(op.Row)
-		if err != nil {
-			panic(err)
-		}
-		mergeRow.SetCell(op.Column, op.OldVal)
+		t.rowPool.SetCell(op.Row, op.Column, op.OldVal)
 		if op.ColWasRemoved {
 			t.RemovedCols[op.Column] = struct{}{}
 		}
@@ -196,6 +184,15 @@ func (t *MergeTable) redo() {
 }
 
 func (t *MergeTable) edit(op *editOp) {
+	// modify edit op before it is carried out
+	if op.Type == editSet {
+		if _, ok := t.RemovedCols[op.Column]; ok {
+			op.ColWasRemoved = true
+		}
+		if _, ok := t.RemovedRows[op.Row]; ok {
+			op.RowWasRemoved = true
+		}
+	}
 	t.execOp(op)
 	t.redoStack = t.redoStack.Init()
 }
@@ -206,22 +203,18 @@ func (t *MergeTable) selectCell(row, column, subCol int) {
 	if row <= 0 || row >= rowCount || column <= len(t.cd.OtherPK[0]) || column >= colCount {
 		return
 	}
-	mergeRow, mergeInd, row := t.mergeRowAtRow(row)
+	mergeInd, row := t.mergeRowAtRow(row)
 	if row == nLayers {
 
 	} else {
-		oldVal := mergeRow.Cells[nLayers][column].Text
-		if mergeRow.Cells[row][column].Text != oldVal {
-			_, ok1 := t.RemovedCols[column-1]
-			_, ok2 := t.RemovedRows[mergeInd]
+		oldVal, different := t.rowPool.IsTextAtCellDifferentFromBase(mergeInd, column, row)
+		if different {
 			t.edit(&editOp{
-				Type:          editSet,
-				Row:           mergeInd,
-				Layer:         row,
-				Column:        column - 1,
-				OldVal:        oldVal,
-				ColWasRemoved: ok1,
-				RowWasRemoved: ok2,
+				Type:   editSet,
+				Row:    mergeInd,
+				Layer:  row,
+				Column: column - 1,
+				OldVal: oldVal,
 			})
 		}
 	}
@@ -244,7 +237,7 @@ func (t *MergeTable) deleteRow() {
 	if selectedRow <= 0 || selectedRow >= rowCount {
 		return
 	}
-	_, mergeInd, row := t.mergeRowAtRow(selectedRow)
+	mergeInd, row := t.mergeRowAtRow(selectedRow)
 	if row == t.cd.Layers() {
 		t.edit(&editOp{
 			Type: editRemoveRow,
