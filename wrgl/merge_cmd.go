@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -89,49 +88,6 @@ func mergeCmd() *cobra.Command {
 	return cmd
 }
 
-func createMergeTitleBar(commitNames []string, baseSum []byte) *tview.TextView {
-	titleBar := tview.NewTextView().SetDynamicColors(true)
-	sl := make([]string, len(commitNames))
-	for i, s := range commitNames {
-		sl[i] = fmt.Sprintf("[yellow]%s[white]", s)
-	}
-	fmt.Fprintf(
-		titleBar, "Merging %s (base [yellow]%s[white])", strings.Join(sl, ", "), hex.EncodeToString(baseSum)[:7],
-	)
-	return titleBar
-}
-
-func collectMergeConflicts(flex *tview.Flex, merger *merge.Merger) ([]*merge.Merge, error) {
-	pBar := widgets.NewProgressBar("Counting merge conflicts...")
-	flex.AddItem(pBar, 1, 1, false)
-	mch, err := merger.Start()
-	if err != nil {
-		return nil, err
-	}
-	pch := merger.Progress.Chan()
-	go merger.Progress.Run()
-	merges := []*merge.Merge{}
-mainLoop:
-	for {
-		select {
-		case p := <-pch:
-			pBar.SetTotal(p.Total)
-			pBar.SetCurrent(p.Progress)
-		case m, ok := <-mch:
-			if !ok {
-				break mainLoop
-			}
-			merges = append(merges, &m)
-		}
-	}
-	merger.Progress.Stop()
-	flex.RemoveItem(pBar)
-	if err = merger.Error(); err != nil {
-		return nil, err
-	}
-	return merges, nil
-}
-
 func redrawEvery(app *tview.Application, d time.Duration) (cancel func()) {
 	drawCtx, cancel := context.WithCancel(context.Background())
 	ticker := time.NewTicker(d)
@@ -148,45 +104,28 @@ func redrawEvery(app *tview.Application, d time.Duration) (cancel func()) {
 	return cancel
 }
 
-func displayMergeTable(app *tview.Application, flex *tview.Flex, mt *widgets.MergeTable, merger *merge.Merger, merges []*merge.Merge) {
-	countBar := tview.NewTextView().SetDynamicColors(true)
-	n := len(merges) - 1
-	resolved := 0
-	updateCountBar := func() {
-		pct := float32(resolved) / float32(n) * 100
-		fmt.Fprintf(countBar, "Resolve %d / %d (%.1f%%) conflicts", resolved, n, pct)
-	}
-	updateCountBar()
-	usageBar := widgets.MergeTableUsageBar()
-	flex.AddItem(countBar, 1, 1, false).
-		AddItem(mt, 0, 1, true).
-		AddItem(usageBar, 1, 1, false)
-	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
-		usageBar.BeforeDraw(screen, flex)
-		return false
-	}).SetFocus(mt)
-	app.Draw()
-}
-
 func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte) error {
 	app := tview.NewApplication()
-	titleBar := createMergeTitleBar(commitNames, baseSum)
-	flex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(titleBar, 1, 1, false)
-	app.SetRoot(flex, true).
-		SetFocus(flex).
+	mergeApp := widgets.NewMergeApp(db, fs, merger, commitNames, commitSums, baseSum)
+	app.SetRoot(mergeApp.Flex, true).
+		SetFocus(mergeApp.Flex).
+		SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+			mergeApp.BeforeDraw(screen)
+			return false
+		}).
 		EnableMouse(true)
 
 	cancel := redrawEvery(app, 65*time.Millisecond)
 	defer cancel()
 
 	go func() {
-		merges, err := collectMergeConflicts(flex, merger)
+		err := mergeApp.CollectMergeConflicts()
 		if err != nil {
 			panic(err)
 		}
-		mt := widgets.NewMergeTable(db, fs, commitNames, commitSums, merges[0].ColDiff, merges[1:])
-		displayMergeTable(app, flex, mt, merger, merges[1:])
+		mergeApp.InitializeTable()
+		app.SetFocus(mergeApp.Table)
+		app.Draw()
 	}()
 
 	return app.Run()
