@@ -44,8 +44,8 @@ func NewMergeRow(db kv.DB, dec *objects.StrListDecoder, cd *objects.ColDiff, nam
 
 func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 	baseInd := len(c.Cells) - 1
-	c.baseRow = make([]string, c.cd.Len())
 	if m.Base != nil {
+		c.baseRow = make([]string, c.cd.Len())
 		rowB, err := table.GetRow(c.db, m.Base)
 		if err != nil {
 			return err
@@ -56,6 +56,7 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 		}
 		c.Cells[baseInd][0].SetStyle(boldStyle)
 	} else {
+		c.baseRow = nil
 		c.Cells[baseInd][0].SetStyle(boldRedStyle)
 	}
 	numPK := len(c.cd.OtherPK[0])
@@ -88,22 +89,32 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 			cell := c.Cells[i][j+1]
 			cell.SetText(s)
 			if j >= len(c.cd.OtherPK[0]) {
-				baseTxt := c.baseRow[j]
-				if _, ok := c.cd.Removed[i][uint32(j)]; ok {
-					cell.SetStyle(redStyle)
-				} else if _, ok := c.cd.Added[i][uint32(j)]; ok {
+				if c.baseRow == nil {
 					cell.SetStyle(greenStyle)
-				} else if baseTxt != cell.Text {
-					cell.SetStyle(yellowStyle)
 				} else {
-					cell.SetStyle(cellStyle)
+					baseTxt := c.baseRow[j]
+					if _, ok := c.cd.Removed[i][uint32(j)]; ok {
+						cell.SetStyle(redStyle)
+					} else if _, ok := c.cd.Added[i][uint32(j)]; ok {
+						cell.SetStyle(greenStyle)
+					} else if baseTxt != cell.Text {
+						cell.SetStyle(yellowStyle)
+					} else {
+						cell.SetStyle(cellStyle)
+					}
 				}
 			}
 		}
 	}
-	for i, s := range m.ResolvedRow {
-		_, ok := m.UnresolvedCols[uint32(i)]
-		c.SetCell(i, s, ok)
+	if m.ResolvedRow != nil {
+		for i, s := range m.ResolvedRow {
+			_, ok := m.UnresolvedCols[uint32(i)]
+			c.SetCell(i, s, ok)
+		}
+	} else if c.baseRow != nil {
+		for i, s := range c.baseRow {
+			c.SetCell(i, s, true)
+		}
 	}
 	return nil
 }
@@ -117,20 +128,21 @@ func (c *MergeRow) SetCell(col int, s string, unresolved bool) {
 			return
 		}
 	}
-	if s != c.baseRow[col] {
+	if col < len(c.cd.OtherPK[0]) {
+		cell.SetStyle(primaryKeyStyle)
+		return
+	} else if c.baseRow == nil {
+		cell.SetStyle(greenStyle)
+	} else if s != c.baseRow[col] {
 		cell.SetStyle(yellowStyle)
 	} else {
 		cell.SetStyle(cellStyle)
 	}
 	if unresolved {
-		cell.SetBackgroundColor(tcell.ColorDarkRed).SetDisableTransparency(true)
+		cell.SetBackgroundColor(tcell.ColorDarkRed).DisableTransparency(true)
 	} else {
-		cell.SetBackgroundColor(tcell.ColorBlack).SetDisableTransparency(false)
+		cell.SetBackgroundColor(tcell.ColorBlack).DisableTransparency(false).SetTransparency(true)
 	}
-}
-
-func (c *MergeRow) SetCellFromLayer(col, layer int) {
-	c.SetCell(col, c.Cells[layer][col+1].Text, false)
 }
 
 type MergeRowPool struct {
@@ -195,30 +207,20 @@ func (p *MergeRowPool) getRow(ind int) (*MergeRow, error) {
 	return p.rowFromBuf(ind)
 }
 
-func (p *MergeRowPool) SetCell(row, col int, s string) {
+func (p *MergeRowPool) SetCell(row, col int, s string, unresolved bool) {
 	r, err := p.getRow(row)
 	if err != nil {
 		panic(err)
 	}
-	r.SetCell(col, s, false)
+	r.SetCell(col, s, unresolved)
 }
 
-func (p *MergeRowPool) SetCellFromLayer(row, col, layer int) {
+func (p *MergeRowPool) IsTextAtCellDifferentFromBase(row, col, layer int) bool {
 	r, err := p.getRow(row)
 	if err != nil {
 		panic(err)
 	}
-	r.SetCellFromLayer(col, layer)
-}
-
-func (p *MergeRowPool) IsTextAtCellDifferentFromBase(row, col, layer int) (baseVal string, different bool) {
-	r, err := p.getRow(row)
-	if err != nil {
-		panic(err)
-	}
-	baseVal = r.Cells[p.cd.Layers()][col].Text
-	different = r.Cells[layer][col].Text != baseVal
-	return
+	return r.Cells[layer][col].Text != r.Cells[p.cd.Layers()][col].Text
 }
 
 func (p *MergeRowPool) GetCell(row, col, subrow int) *TableCell {
