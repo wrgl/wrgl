@@ -128,7 +128,7 @@ func (c *TableCell) SetTransparency(transparent bool) *TableCell {
 	return c
 }
 
-func (c *TableCell) SetDisableTransparency(disable bool) *TableCell {
+func (c *TableCell) DisableTransparency(disable bool) *TableCell {
 	c.disableTransparency = disable
 	return c
 }

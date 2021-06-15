@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package merge
+package merge_test
 
 import (
 	"encoding/hex"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/index"
 	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/misc"
+	"github.com/wrgl/core/pkg/merge"
+	merge_testutils "github.com/wrgl/core/pkg/merge/testutils"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
@@ -23,56 +22,6 @@ func hexToBytes(t *testing.T, s string) []byte {
 	b, err := hex.DecodeString(s)
 	require.NoError(t, err)
 	return b
-}
-
-func createCollector(t *testing.T, db kv.DB, fs kv.FileStore, baseCom *objects.Commit) *RowCollector {
-	t.Helper()
-	resolvedRows, err := NewSortableRows(misc.NewBuffer(nil), misc.NewBuffer(nil), []int{1})
-	require.NoError(t, err)
-	discardedRows, err := index.NewHashSet(misc.NewBuffer(nil), 0)
-	require.NoError(t, err)
-	baseT, err := table.ReadTable(db, fs, baseCom.Table)
-	require.NoError(t, err)
-	collector := NewCollector(db, baseT, resolvedRows, discardedRows)
-	return collector
-}
-
-func collectUnresolvedMerges(t *testing.T, merger *Merger) []Merge {
-	t.Helper()
-	mergeCh, err := merger.Start()
-	require.NoError(t, err)
-	merges := []Merge{}
-	for m := range mergeCh {
-		merges = append(merges, m)
-	}
-	sort.SliceStable(merges, func(i, j int) bool {
-		if merges[i].ColDiff != nil && merges[j].ColDiff == nil {
-			return true
-		}
-		if merges[j].ColDiff != nil && merges[i].ColDiff == nil {
-			return false
-		}
-		if merges[i].Base == nil && merges[j].Base != nil {
-			return true
-		}
-		if merges[j].Base == nil && merges[i].Base != nil {
-			return false
-		}
-		return string(merges[i].Base) < string(merges[j].Base)
-	})
-	return merges
-}
-
-func collectSortedRows(t *testing.T, merger *Merger, removedCols map[int]struct{}) [][]string {
-	t.Helper()
-	rows := [][]string{}
-	ch, err := merger.SortedRows(removedCols)
-	require.NoError(t, err)
-	for sl := range ch {
-		rows = append(rows, sl)
-	}
-	require.NoError(t, merger.Error())
-	return rows
 }
 
 func getTables(t *testing.T, db kv.DB, fs kv.FileStore, commits ...[]byte) (baseT table.Store, otherTs []table.Store) {
@@ -114,13 +63,13 @@ func TestMergerAutoResolve(t *testing.T) {
 		"3,s,d",
 		"4,r,t",
 	}, []uint32{0}, [][]byte{base})
-	collector := createCollector(t, db, fs, baseCom)
+	collector := merge_testutils.CreateCollector(t, db, fs, baseCom)
 	baseT, otherTs := getTables(t, db, fs, com1, com2)
-	merger, err := NewMerger(db, fs, collector, 0, baseT, otherTs...)
+	merger, err := merge.NewMerger(db, fs, collector, 0, baseT, otherTs...)
 	require.NoError(t, err)
 
-	merges := collectUnresolvedMerges(t, merger)
-	assert.Equal(t, []Merge{
+	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
+	assert.Equal(t, []*merge.Merge{
 		{
 			ColDiff: &objects.ColDiff{
 				Names:   []string{"a", "b", "c"},
@@ -139,7 +88,7 @@ func TestMergerAutoResolve(t *testing.T) {
 	}, merges)
 	require.NoError(t, merger.Error())
 
-	rows := collectSortedRows(t, merger, nil)
+	rows := merge_testutils.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, [][]string{
 		{"1", "e", "r"},
 		{"3", "s", "d"},
@@ -170,13 +119,13 @@ func TestMergerManualResolve(t *testing.T) {
 		"1,q,w",
 		"2,a,w",
 	}, []uint32{0}, [][]byte{base})
-	collector := createCollector(t, db, fs, baseCom)
+	collector := merge_testutils.CreateCollector(t, db, fs, baseCom)
 	baseT, otherTs := getTables(t, db, fs, com1, com2)
-	merger, err := NewMerger(db, fs, collector, 0, baseT, otherTs...)
+	merger, err := merge.NewMerger(db, fs, collector, 0, baseT, otherTs...)
 	require.NoError(t, err)
 
-	merges := collectUnresolvedMerges(t, merger)
-	assert.Equal(t, []Merge{
+	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
+	assert.Equal(t, []*merge.Merge{
 		{
 			ColDiff: &objects.ColDiff{
 				Names:   []string{"a", "b", "c"},
@@ -220,7 +169,7 @@ func TestMergerManualResolve(t *testing.T) {
 		hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"), []string{"2", "c", "v"},
 	))
 
-	rows := collectSortedRows(t, merger, nil)
+	rows := merge_testutils.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, [][]string{
 		{"1", "q", "w"},
 		{"2", "c", "v"},
@@ -251,13 +200,13 @@ func TestMergerRemoveCols(t *testing.T) {
 		"2,x,s",
 		"4,f,t",
 	}, []uint32{0}, [][]byte{base})
-	collector := createCollector(t, db, fs, baseCom)
+	collector := merge_testutils.CreateCollector(t, db, fs, baseCom)
 	baseT, otherTs := getTables(t, db, fs, com1, com2)
-	merger, err := NewMerger(db, fs, collector, 0, baseT, otherTs...)
+	merger, err := merge.NewMerger(db, fs, collector, 0, baseT, otherTs...)
 	require.NoError(t, err)
 
-	merges := collectUnresolvedMerges(t, merger)
-	assert.Equal(t, []Merge{
+	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
+	assert.Equal(t, []*merge.Merge{
 		{
 			ColDiff: &objects.ColDiff{
 				Names:   []string{"a", "b", "c"},
@@ -275,7 +224,7 @@ func TestMergerRemoveCols(t *testing.T) {
 		},
 	}, merges)
 
-	rows := collectSortedRows(t, merger, map[int]struct{}{2: {}})
+	rows := merge_testutils.CollectSortedRows(t, merger, map[int]struct{}{2: {}})
 	assert.Equal(t, [][]string{
 		{"1", "e"},
 		{"2", "x"},

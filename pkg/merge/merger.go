@@ -60,7 +60,7 @@ func strSliceEqual(left, right []string) bool {
 	return true
 }
 
-func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- Merge, errChan chan<- error, diffChans ...<-chan objects.Diff) {
+func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, errChan chan<- error, diffChans ...<-chan objects.Diff) {
 	var (
 		n        = len(diffChans)
 		cases    = make([]reflect.SelectCase, n)
@@ -70,7 +70,7 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- Merge, e
 		resolver = NewRowResolver(m.db, colDiff)
 	)
 
-	mergeChan <- Merge{
+	mergeChan <- &Merge{
 		ColDiff: colDiff,
 	}
 	defer close(mergeChan)
@@ -119,7 +119,7 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- Merge, e
 						errChan <- fmt.Errorf("resolve error: %v", err)
 						return
 					}
-					mergeChan <- *merges[pkSum]
+					mergeChan <- merges[pkSum]
 					delete(merges, pkSum)
 					delete(counter, pkSum)
 				}
@@ -132,11 +132,11 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- Merge, e
 			errChan <- fmt.Errorf("resolve error: %v", err)
 			return
 		}
-		mergeChan <- *m
+		mergeChan <- m
 	}
 }
 
-func (m *Merger) Start() (ch <-chan Merge, err error) {
+func (m *Merger) Start() (ch <-chan *Merge, err error) {
 	n := len(m.otherTs)
 	var pk []string
 	for _, t := range m.otherTs {
@@ -146,7 +146,7 @@ func (m *Merger) Start() (ch <-chan Merge, err error) {
 			return nil, fmt.Errorf("can't merge: primary key differs between versions")
 		}
 	}
-	mergeChan := make(chan Merge)
+	mergeChan := make(chan *Merge)
 	diffs := make([]<-chan objects.Diff, n)
 	progs := make([]progress.Tracker, n)
 	cols := make([][2][]string, n)

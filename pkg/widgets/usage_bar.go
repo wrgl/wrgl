@@ -78,11 +78,14 @@ func (b *UsageBar) computeColumnWidths(totalWidth, maxColumn int) error {
 }
 
 func (b *UsageBar) printRows(totalWidth int) {
-	maxColumns := len(b.widths) - 1
+	maxColumn := len(b.widths) - 1
 	for {
-		err := b.computeColumnWidths(totalWidth, maxColumns)
+		err := b.computeColumnWidths(totalWidth, maxColumn)
 		if err == errCombinedColumnWidths {
-			maxColumns = len(b.colWidths) - 2
+			if len(b.colWidths) == 1 {
+				break
+			}
+			maxColumn = len(b.colWidths) - 2
 			continue
 		}
 		if err != nil {
@@ -124,8 +127,3 @@ func (b *UsageBar) BeforeDraw(screen tcell.Screen, flex *tview.Flex) {
 	}
 	flex.ResizeItem(b, b.height, 1)
 }
-
-// func (b *UsageBar) Draw(screen tcell.Screen) {
-// 	b.Box.DrawForSubclass(screen, b)
-// 	b.TextView.Draw(screen)
-// }

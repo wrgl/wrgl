@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	boldStyle       = tcell.StyleDefault.Background(tcell.ColorBlack).Bold(true)
+	boldStyle       = tcell.StyleDefault.Background(tcell.ColorBlack).Bold(true).Foreground(tcell.ColorWhite)
 	boldRedStyle    = boldStyle.Foreground(tcell.ColorRed)
 	boldGreenStyle  = boldStyle.Foreground(tcell.ColorGreen)
 	boldYellowStyle = boldStyle.Foreground(tcell.ColorYellow)
@@ -20,22 +20,6 @@ var (
 	greenStyle      = cellStyle.Foreground(tcell.ColorGreen)
 	redStyle        = cellStyle.Foreground(tcell.ColorRed)
 )
-
-const (
-	editSet int = iota
-	editRemoveCol
-	editRemoveRow
-)
-
-type editOp struct {
-	Type          int
-	Row           int
-	Layer         int
-	Column        int
-	OldVal        string
-	ColWasRemoved bool
-	RowWasRemoved bool
-}
 
 type MergeTable struct {
 	*SelectableTable
@@ -47,11 +31,12 @@ type MergeTable struct {
 	removedRows map[int]struct{}
 	rowPool     *MergeRowPool
 
-	undoHandler         func()
-	redoHandler         func()
-	setCellHandler      func(row, column, layer int)
-	deleteColumnHandler func(column int)
-	deleteRowHandler    func(row int)
+	undoHandler               func()
+	redoHandler               func()
+	selectNextConflictHandler func()
+	setCellHandler            func(row, column, layer int)
+	deleteColumnHandler       func(column int)
+	deleteRowHandler          func(row int)
 }
 
 func NewMergeTable(db kv.DB, fs kv.FileStore, commitNames []string, commitSums [][]byte, cd *objects.ColDiff, merges []*merge.Merge, removedCols map[int]struct{}, removedRows map[int]struct{}) *MergeTable {
@@ -91,6 +76,11 @@ func (t *MergeTable) SetUndoHandler(f func()) *MergeTable {
 
 func (t *MergeTable) SetRedoHandler(f func()) *MergeTable {
 	t.redoHandler = f
+	return t
+}
+
+func (t *MergeTable) SetSelectNextConflict(f func()) *MergeTable {
+	t.selectNextConflictHandler = f
 	return t
 }
 
@@ -156,12 +146,8 @@ func (t *MergeTable) getMergeCells(row, column int) []*TableCell {
 	return []*TableCell{cell}
 }
 
-func (t *MergeTable) SetCellFromLayer(row, column, layer int) {
-	t.rowPool.SetCellFromLayer(row, column, layer)
-}
-
-func (t *MergeTable) SetCell(row, column int, val string) {
-	t.rowPool.SetCell(row, column, val)
+func (t *MergeTable) SetCell(row, column int, val string, unresolved bool) {
+	t.rowPool.SetCell(row, column, val, unresolved)
 }
 
 func (t *MergeTable) GetCellText(row, column, subrow int) string {
@@ -182,8 +168,7 @@ func (t *MergeTable) selectCell(row, column, subCol int) {
 	if row == nLayers {
 
 	} else {
-		_, different := t.rowPool.IsTextAtCellDifferentFromBase(mergeInd, column, row)
-		if different {
+		if t.rowPool.IsTextAtCellDifferentFromBase(mergeInd, column, row) {
 			t.setCellHandler(mergeInd, column-1, row)
 		}
 	}
@@ -203,10 +188,8 @@ func (t *MergeTable) deleteRow() {
 	if selectedRow <= 0 || selectedRow >= rowCount {
 		return
 	}
-	mergeInd, row := t.mergeRowAtRow(selectedRow)
-	if row == t.cd.Layers() {
-		t.deleteRowHandler(mergeInd)
-	}
+	mergeInd, _ := t.mergeRowAtRow(selectedRow)
+	t.deleteRowHandler(mergeInd)
 }
 
 func (t *MergeTable) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
@@ -223,6 +206,8 @@ func (t *MergeTable) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				t.deleteRow()
 			case 'D':
 				t.deleteColumn()
+			case 'n':
+				t.selectNextConflictHandler()
 			default:
 				return false
 			}

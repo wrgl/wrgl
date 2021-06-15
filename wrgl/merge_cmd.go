@@ -125,7 +125,6 @@ func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merg
 		}
 		mergeApp.InitializeTable()
 		app.SetFocus(mergeApp.Table)
-		app.Draw()
 	}()
 
 	return app.Run()

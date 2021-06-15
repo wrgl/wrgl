@@ -44,8 +44,8 @@ func (c *RowCollector) SaveResolvedRow(pk []byte, row []string) error {
 	return c.discardedRows.Add(pk)
 }
 
-func (c *RowCollector) CollectResolvedRow(errChan chan<- error, origChan <-chan Merge) <-chan Merge {
-	mergeChan := make(chan Merge)
+func (c *RowCollector) CollectResolvedRow(errChan chan<- error, origChan <-chan *Merge) <-chan *Merge {
+	mergeChan := make(chan *Merge)
 	go func() {
 		defer close(mergeChan)
 		for m := range origChan {
