@@ -14,8 +14,6 @@ import (
 	"github.com/wrgl/core/pkg/merge"
 	merge_testutils "github.com/wrgl/core/pkg/merge/testutils"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 func hexToBytes(t *testing.T, s string) []byte {
@@ -24,28 +22,10 @@ func hexToBytes(t *testing.T, s string) []byte {
 	return b
 }
 
-func getTables(t *testing.T, db kv.DB, fs kv.FileStore, commits ...[]byte) (baseT table.Store, otherTs []table.Store) {
-	base, err := versioning.SeekCommonAncestor(db, commits...)
-	require.NoError(t, err)
-	baseCom, err := versioning.GetCommit(db, base)
-	require.NoError(t, err)
-	baseT, err = table.ReadTable(db, fs, baseCom.Table)
-	require.NoError(t, err)
-	otherTs = make([]table.Store, len(commits))
-	for i, sum := range commits {
-		com, err := versioning.GetCommit(db, sum)
-		require.NoError(t, err)
-		otherT, err := table.ReadTable(db, fs, com.Table)
-		require.NoError(t, err)
-		otherTs[i] = otherT
-	}
-	return
-}
-
 func TestMergerAutoResolve(t *testing.T) {
 	db := kv.NewMockStore(false)
 	fs := kv.NewMockStore(false)
-	base, baseCom := factory.Commit(t, db, fs, []string{
+	base, _ := factory.Commit(t, db, fs, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -63,10 +43,7 @@ func TestMergerAutoResolve(t *testing.T) {
 		"3,s,d",
 		"4,r,t",
 	}, []uint32{0}, [][]byte{base})
-	collector := merge_testutils.CreateCollector(t, db, fs, baseCom)
-	baseT, otherTs := getTables(t, db, fs, com1, com2)
-	merger, err := merge.NewMerger(db, fs, collector, 0, baseT, otherTs...)
-	require.NoError(t, err)
+	merger := merge_testutils.CreateMerger(t, db, fs, com1, com2)
 
 	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{
@@ -102,7 +79,7 @@ func TestMergerAutoResolve(t *testing.T) {
 func TestMergerManualResolve(t *testing.T) {
 	db := kv.NewMockStore(false)
 	fs := kv.NewMockStore(false)
-	base, baseCom := factory.Commit(t, db, fs, []string{
+	base, _ := factory.Commit(t, db, fs, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -113,16 +90,15 @@ func TestMergerManualResolve(t *testing.T) {
 		"1,q,w",
 		"2,a,r",
 		"3,x,d",
+		"4,v,b",
 	}, []uint32{0}, [][]byte{base})
 	com2, _ := factory.Commit(t, db, fs, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,w",
+		"4,n,m",
 	}, []uint32{0}, [][]byte{base})
-	collector := merge_testutils.CreateCollector(t, db, fs, baseCom)
-	baseT, otherTs := getTables(t, db, fs, com1, com2)
-	merger, err := merge.NewMerger(db, fs, collector, 0, baseT, otherTs...)
-	require.NoError(t, err)
+	merger := merge_testutils.CreateMerger(t, db, fs, com1, com2)
 
 	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{
@@ -140,6 +116,15 @@ func TestMergerManualResolve(t *testing.T) {
 					{0: 0, 1: 1, 2: 2},
 				},
 			},
+		},
+		{
+			PK: hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Others: [][]byte{
+				hexToBytes(t, "924ab57f34c108531fa13fd94516b938"),
+				hexToBytes(t, "d791f3fd29cfa068e41bc9c35e99cde9"),
+			},
+			ResolvedRow:    []string{"4", "", ""},
+			UnresolvedCols: map[uint32]struct{}{1: {}, 2: {}},
 		},
 		{
 			PK:   hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
@@ -168,11 +153,15 @@ func TestMergerManualResolve(t *testing.T) {
 	require.NoError(t, merger.SaveResolvedRow(
 		hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"), []string{"2", "c", "v"},
 	))
+	require.NoError(t, merger.SaveResolvedRow(
+		hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"), []string{"4", "n", "m"},
+	))
 
 	rows := merge_testutils.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, [][]string{
 		{"1", "q", "w"},
 		{"2", "c", "v"},
+		{"4", "n", "m"},
 	}, rows)
 	assert.Equal(t, []string{"a", "b", "c"}, merger.Columns(nil))
 	assert.Equal(t, []string{"a"}, merger.PK())
@@ -182,7 +171,7 @@ func TestMergerManualResolve(t *testing.T) {
 func TestMergerRemoveCols(t *testing.T) {
 	db := kv.NewMockStore(false)
 	fs := kv.NewMockStore(false)
-	base, baseCom := factory.Commit(t, db, fs, []string{
+	base, _ := factory.Commit(t, db, fs, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -200,10 +189,7 @@ func TestMergerRemoveCols(t *testing.T) {
 		"2,x,s",
 		"4,f,t",
 	}, []uint32{0}, [][]byte{base})
-	collector := merge_testutils.CreateCollector(t, db, fs, baseCom)
-	baseT, otherTs := getTables(t, db, fs, com1, com2)
-	merger, err := merge.NewMerger(db, fs, collector, 0, baseT, otherTs...)
-	require.NoError(t, err)
+	merger := merge_testutils.CreateMerger(t, db, fs, com1, com2)
 
 	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{

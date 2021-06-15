@@ -11,6 +11,7 @@ import (
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/versioning"
 )
 
 func CreateCollector(t *testing.T, db kv.DB, fs kv.FileStore, baseCom *objects.Commit) *merge.RowCollector {
@@ -61,4 +62,25 @@ func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]s
 	}
 	require.NoError(t, merger.Error())
 	return rows
+}
+
+func CreateMerger(t *testing.T, db kv.DB, fs kv.FileStore, commits ...[]byte) *merge.Merger {
+	base, err := versioning.SeekCommonAncestor(db, commits...)
+	require.NoError(t, err)
+	baseCom, err := versioning.GetCommit(db, base)
+	require.NoError(t, err)
+	baseT, err := table.ReadTable(db, fs, baseCom.Table)
+	require.NoError(t, err)
+	otherTs := make([]table.Store, len(commits))
+	for i, sum := range commits {
+		com, err := versioning.GetCommit(db, sum)
+		require.NoError(t, err)
+		otherT, err := table.ReadTable(db, fs, com.Table)
+		require.NoError(t, err)
+		otherTs[i] = otherT
+	}
+	collector := CreateCollector(t, db, fs, baseCom)
+	merger, err := merge.NewMerger(db, fs, collector, 0, baseT, otherTs...)
+	require.NoError(t, err)
+	return merger
 }

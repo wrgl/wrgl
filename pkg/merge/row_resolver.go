@@ -79,6 +79,14 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 	copy(resolvedRow, baseRow)
 	var i uint32
 	m.UnresolvedCols = map[uint32]struct{}{}
+	unresolveCol := func(i uint32) {
+		if baseRow != nil {
+			resolvedRow[i] = baseRow[i]
+		} else {
+			resolvedRow[i] = ""
+		}
+		m.UnresolvedCols[i] = struct{}{}
+	}
 	for i = 0; i < uint32(r.nCols); i++ {
 		var add *string
 		var mod *string
@@ -91,8 +99,7 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 					add = &row[i]
 				} else if *add != row[i] {
 					// other layer add a different value
-					resolvedRow[i] = baseRow[i]
-					m.UnresolvedCols[i] = struct{}{}
+					unresolveCol(i)
 					continue
 				}
 			} else if add != nil {
@@ -103,23 +110,20 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 					rem = true
 				} else {
 					// other layer modify this column
-					resolvedRow[i] = baseRow[i]
-					m.UnresolvedCols[i] = struct{}{}
+					unresolveCol(i)
 					continue
 				}
-			} else if baseRow != nil && baseRow[i] != row[i] {
+			} else if baseRow == nil || baseRow[i] != row[i] {
 				// column modified in this layer
 				if rem {
 					// modified and removed
-					resolvedRow[i] = baseRow[i]
-					m.UnresolvedCols[i] = struct{}{}
+					unresolveCol(i)
 					continue
 				} else if mod == nil {
 					mod = &row[i]
 				} else if *mod != row[i] {
 					// other layer modified this column differently
-					resolvedRow[i] = baseRow[i]
-					m.UnresolvedCols[i] = struct{}{}
+					unresolveCol(i)
 					continue
 				}
 			} else if rem || mod != nil {

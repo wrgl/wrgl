@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -148,7 +147,6 @@ func (a *MergeApp) InitializeTable() {
 	a.Flex.AddItem(a.statusBar, 1, 1, false).
 		AddItem(a.Table, 0, 1, true).
 		AddItem(a.usageBar, 1, 1, false)
-	log.Println("added table to flex")
 }
 
 func (a *MergeApp) BeforeDraw(screen tcell.Screen) {
@@ -175,6 +173,13 @@ func (a *MergeApp) execOp(op *editOp) {
 		delete(a.removedCols, op.Column)
 		delete(a.removedRows, op.Row)
 		m := a.merges[op.Row]
+		// TODO: ensure RowResolver never produce Merge object with empty ResolvedRow
+		if len(m.ResolvedRow) == 0 {
+			m.ResolvedRow = make([]string, a.cd.Len())
+			for _, i := range a.cd.OtherPK[0] {
+				m.ResolvedRow[i] = a.Table.GetCellText(op.Row, int(i), op.Layer)
+			}
+		}
 		m.ResolvedRow[op.Column] = a.Table.GetCellText(op.Row, op.Column, op.Layer)
 		unresolvedCols := m.UnresolvedCols
 		if unresolvedCols != nil {

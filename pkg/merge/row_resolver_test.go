@@ -17,6 +17,9 @@ import (
 
 func addRow(t *testing.T, db kv.DB, row []string) []byte {
 	t.Helper()
+	if row == nil {
+		return nil
+	}
 	enc := objects.NewStrListEncoder()
 	b := enc.Encode(row)
 	sum := meow.Checksum(0, b)
@@ -215,6 +218,15 @@ func TestResolveRow(t *testing.T) {
 		{
 			cd:   cd3,
 			base: []string{"q", "w", "e"},
+			others: [][]string{
+				{"q", "u", "e", "g"},
+				{"q", "u", "e", "r"},
+			},
+			resolvedRow:    []string{"q", "u", "e", ""},
+			unresolvedCols: map[uint32]struct{}{3: {}},
+		},
+		{
+			cd: cd3,
 			others: [][]string{
 				{"q", "u", "e", "g"},
 				{"q", "u", "e", "r"},

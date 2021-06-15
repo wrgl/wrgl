@@ -114,7 +114,7 @@ func TestMergeRowBothAdded(t *testing.T) {
 			tableCell("resolution", boldRedStyle, 0, false),
 			tableCell("1", primaryKeyStyle, 0, false),
 			tableCell("q", greenStyle, 0, false),
-			tableCell("s", greenStyle, 0, false),
+			tableCell("", greenStyle, tcell.ColorDarkRed, true),
 		},
 	}, mr.Cells)
 }
