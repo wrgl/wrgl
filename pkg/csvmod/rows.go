@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package main
+package csvmod
 
 import (
 	"math/rand"
@@ -10,7 +10,7 @@ import (
 )
 
 func randomValue() string {
-	return brokenRandomAlphaNumericString(4 + rand.Intn(8))
+	return BrokenRandomAlphaNumericString(4 + rand.Intn(8))
 }
 
 func selectIndex(modifiedIndices map[int]struct{}, n int) int {
@@ -45,38 +45,41 @@ func cloneIntMap(m map[int]struct{}) map[int]struct{} {
 	return res
 }
 
-func addRows(modifiedRows map[int]struct{}, numModRows int, rows [][]string) [][]string {
-	offs := selectIndices(modifiedRows, numModRows, len(rows)-1+numModRows)
-	n := len(rows[0])
+func (m *Modifier) AddRows(pct float64) *Modifier {
+	numModRows := int(float64(m.nRows) * pct)
+	offs := selectIndices(m.modifiedRows, numModRows, len(m.Rows)-1+numModRows)
+	n := len(m.Rows[0])
 	for _, off := range offs {
 		k := 1 + off
-		rows = append(rows[:k+1], rows[k:]...)
-		rows[k] = make([]string, n)
+		m.Rows = append(m.Rows[:k+1], m.Rows[k:]...)
+		m.Rows[k] = make([]string, n)
 		for j := 0; j < n; j++ {
-			rows[k][j] = randomValue()
+			m.Rows[k][j] = randomValue()
 		}
 	}
-	return rows
+	return m
 }
 
-func removeRows(modifiedRows map[int]struct{}, numModRows int, rows [][]string) [][]string {
-	offs := selectIndices(cloneIntMap(modifiedRows), numModRows, len(rows)-1)
+func (m *Modifier) RemoveRows(pct float64) *Modifier {
+	numModRows := int(float64(m.nRows) * pct)
+	offs := selectIndices(cloneIntMap(m.modifiedRows), numModRows, len(m.Rows)-1)
 	for i := len(offs) - 1; i >= 0; i-- {
 		off := offs[i] + 1
-		rows = append(rows[:off], rows[off+1:]...)
+		m.Rows = append(m.Rows[:off], m.Rows[off+1:]...)
 	}
-	return rows
+	return m
 }
 
-func modifyRows(modifiedRows map[int]struct{}, numModRows int, rows [][]string) [][]string {
-	offs := selectIndices(modifiedRows, numModRows, len(rows)-1)
+func (m *Modifier) ModifyRows(pct float64) *Modifier {
+	numModRows := int(float64(m.nRows) * pct)
+	numModCols := int(float64(m.nCols-1) * pct)
+	offs := selectIndices(m.modifiedRows, numModRows, len(m.Rows)-1)
 	for _, off := range offs {
 		off++
-		l := oneFifth(len(rows[0]) - 1)
-		inds := selectIndices(nil, l, len(rows[0])-1)
+		inds := selectIndices(nil, numModCols, len(m.Rows[0])-1)
 		for _, i := range inds {
-			rows[off][i+1] = randomValue()
+			m.Rows[off][i+1] = randomValue()
 		}
 	}
-	return rows
+	return m
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/csvmod"
 )
 
 func createRandomCSV(t *testing.T, n, m int) (string, [][]string, func()) {
@@ -24,7 +25,7 @@ func createRandomCSV(t *testing.T, n, m int) (string, [][]string, func()) {
 	for i := 0; i < n; i++ {
 		row := make([]string, m)
 		for j := 0; j < m; j++ {
-			row[j] = brokenRandomAlphaNumericString(5)
+			row[j] = csvmod.BrokenRandomAlphaNumericString(5)
 		}
 		require.NoError(t, w.Write(row))
 		rows[i] = row
@@ -105,4 +106,15 @@ func TestRootCmd(t *testing.T) {
 		"col_a", "col_b", "col_c", "col_d", "col_e", "col_f", "col_g", "col_h", "col_i", "col_j",
 	}, res[0])
 	assert.NotEqual(t, rows[1:], res[1:])
+}
+
+func TestGenColumns(t *testing.T) {
+	assert.Equal(t, []string{}, genColumns(0))
+	assert.Equal(t, []string{"col_a", "col_b", "col_c"}, genColumns(3))
+	assert.Equal(t, []string{
+		"col_a", "col_b", "col_c", "col_d", "col_e", "col_f", "col_g", "col_h",
+		"col_i", "col_j", "col_k", "col_l", "col_m", "col_n", "col_o", "col_p",
+		"col_q", "col_r", "col_s", "col_t", "col_u", "col_v", "col_w", "col_x",
+		"col_y", "col_ba", "col_bb", "col_bc", "col_bd", "col_be",
+	}, genColumns(30))
 }

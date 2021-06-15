@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/csvmod"
 )
 
 func newRootCmd() *cobra.Command {
@@ -37,27 +38,22 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			modifiedCols := map[string]struct{}{}
-			numColMods := oneFifth(len(rows[0]))
+			m := csvmod.NewModifier(rows)
+			pct := 0.2
 			if addRemCols {
-				rows = addColumns(modifiedCols, numColMods, rows)
-				rows = remColumns(modifiedCols, numColMods, rows)
+				m.AddColumns(pct).RemColumns(pct)
 			}
 			if renameCols {
-				rows = renameColumns(modifiedCols, numColMods, rows)
+				m.RenameColumns(pct)
 			}
 			if moveCols {
-				rows = moveColumns(modifiedCols, numColMods, rows)
+				m.MoveColumns(pct)
 			}
 			if modRows {
-				modifiedRows := map[int]struct{}{}
-				numRowMods := oneFifth(len(rows) - 1)
-				rows = addRows(modifiedRows, numRowMods, rows)
-				rows = removeRows(modifiedRows, numRowMods, rows)
-				rows = modifyRows(modifiedRows, numRowMods, rows)
+				m.AddRows(pct).RemoveRows(pct).ModifyRows(pct)
 			}
 			w := csv.NewWriter(cmd.OutOrStdout())
-			return w.WriteAll(rows)
+			return w.WriteAll(m.Rows)
 		},
 	}
 	cmd.Flags().Bool("addrem-cols", false, "Randomly add and remove columns")
@@ -83,4 +79,25 @@ func readCSV(name string) (rows [][]string, err error) {
 	}
 	rows[0] = genColumns(len(rows[0]))
 	return
+}
+
+func genColumns(n int) []string {
+	cols := make([]string, n)
+	for i := 0; i < n; i++ {
+		col := []byte("col_")
+		if i < 25 {
+			col = append(col, byte(i+97))
+			cols[i] = string(col)
+			continue
+		}
+		chars := []byte{}
+		for k := i; k > 0; k = k / 25 {
+			chars = append(chars, byte(k-(k/25)*25))
+		}
+		for j := len(chars) - 1; j >= 0; j-- {
+			col = append(col, chars[j]+97)
+		}
+		cols[i] = string(col)
+	}
+	return cols
 }

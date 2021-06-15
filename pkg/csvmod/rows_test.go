@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package main
+package csvmod
 
 import (
 	"testing"
@@ -10,39 +10,38 @@ import (
 )
 
 func TestAddRows(t *testing.T) {
-	rows := [][]string{
+	m := NewModifier([][]string{
 		{"a", "b", "c"},
 		{"1", "q", "w"},
 		{"2", "a", "s"},
 		{"3", "z", "x"},
-	}
-	modRows := map[int]struct{}{}
-	rows = addRows(modRows, 2, rows)
-	assert.Len(t, rows, 6)
-	for _, sl := range rows {
+	})
+	m.AddRows(2.0 / 3.0)
+	assert.Len(t, m.Rows, 6)
+	for _, sl := range m.Rows {
 		assert.Len(t, sl, 3)
 		for _, s := range sl {
 			assert.NotEmpty(t, s)
 		}
 	}
-	assert.Len(t, modRows, 2)
-	for off := range modRows {
-		assert.True(t, len(rows[off+1][0]) > 1)
+	assert.Len(t, m.modifiedRows, 2)
+	for off := range m.modifiedRows {
+		assert.True(t, len(m.Rows[off+1][0]) > 1)
 	}
 }
 
 func TestRemoveRows(t *testing.T) {
-	rows := [][]string{
+	m := NewModifier([][]string{
 		{"a", "b", "c"},
 		{"1", "q", "w"},
 		{"2", "a", "s"},
 		{"3", "z", "x"},
 		{"4", "r", "t"},
-	}
-	modRows := map[int]struct{}{1: {}}
-	rows = removeRows(modRows, 2, rows)
+	})
+	m.modifiedRows[1] = struct{}{}
+	m.RemoveRows(2.0 / 4.0)
 	found := false
-	for _, sl := range rows {
+	for _, sl := range m.Rows {
 		assert.Len(t, sl, 3)
 		for _, s := range sl {
 			assert.NotEmpty(t, s)
@@ -52,8 +51,8 @@ func TestRemoveRows(t *testing.T) {
 		}
 	}
 	assert.True(t, found)
-	assert.Len(t, rows, 3)
-	assert.Len(t, modRows, 1)
+	assert.Len(t, m.Rows, 3)
+	assert.Len(t, m.modifiedRows, 1)
 }
 
 func cloneStringMatrix(sl [][]string) [][]string {
@@ -75,13 +74,14 @@ func TestModifyRows(t *testing.T) {
 		{"3", "z", "x"},
 		{"4", "r", "t"},
 	}
-	modRows := map[int]struct{}{0: {}}
-	rows2 := modifyRows(modRows, 2, cloneStringMatrix(rows))
-	assert.Len(t, rows2, 5)
-	assert.Len(t, modRows, 3)
-	for i, sl := range rows2 {
+	m := NewModifier(cloneStringMatrix(rows))
+	m.modifiedRows[0] = struct{}{}
+	m.ModifyRows(2.0 / 4.0)
+	assert.Len(t, m.Rows, 5)
+	assert.Len(t, m.modifiedRows, 3)
+	for i, sl := range m.Rows {
 		assert.Len(t, sl, 3)
-		_, ok := modRows[i-1]
+		_, ok := m.modifiedRows[i-1]
 		if i <= 1 || !ok {
 			assert.Equal(t, rows[i], sl)
 		} else {

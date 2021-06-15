@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package main
+package csvmod
 
 import "crypto/rand"
 
@@ -36,10 +36,10 @@ func brokenRandomString(length int, charSet string) string {
 	return string(result)
 }
 
-func brokenRandomAlphaNumericString(length int) string {
+func BrokenRandomAlphaNumericString(length int) string {
 	return brokenRandomString(length, letterBytes)
 }
 
-func brokenRandomLowerAlphaString(length int) string {
+func BrokenRandomLowerAlphaString(length int) string {
 	return brokenRandomString(length, lowerAlphaBytes)
 }
