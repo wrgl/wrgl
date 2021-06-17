@@ -46,7 +46,7 @@ func TestMergeApp(t *testing.T) {
 		return string(ma.merges[i].PK) < string(ma.merges[j].PK)
 	})
 	assert.Len(t, ma.merges, 3)
-	assert.Nil(t, ma.merges[0].ResolvedRow)
+	assert.Equal(t, []string{"2", "f", "s"}, ma.merges[0].ResolvedRow)
 	assert.Nil(t, ma.merges[0].UnresolvedCols)
 	assert.Equal(t, []string{"3", "", ""}, ma.merges[1].ResolvedRow)
 	assert.Equal(t, map[uint32]struct{}{1: {}, 2: {}}, ma.merges[1].UnresolvedCols)
@@ -73,6 +73,15 @@ func TestMergeApp(t *testing.T) {
 	assert.Contains(t, ma.resolvedRows, 0)
 	assert.Contains(t, ma.removedRows, 0)
 
+	ma.setCell(0, 1, 0)
+	assert.Equal(t, []string{"2", "f", "s"}, ma.merges[0].ResolvedRow)
+	assert.Contains(t, ma.resolvedRows, 0)
+	assert.NotContains(t, ma.removedRows, 0)
+
+	ma.undo()
+	assert.Contains(t, ma.resolvedRows, 0)
+	assert.Contains(t, ma.removedRows, 0)
+
 	ma.undo()
 	assert.NotContains(t, ma.resolvedRows, 0)
 	assert.NotContains(t, ma.removedRows, 0)
@@ -88,6 +97,12 @@ func TestMergeApp(t *testing.T) {
 	assert.Contains(t, ma.resolvedRows, 1)
 	assert.Contains(t, ma.removedCols, 2)
 
+	ma.undo()
+	assert.Contains(t, ma.merges[1].UnresolvedCols, uint32(2))
+	assert.NotContains(t, ma.resolvedRows, 1)
+	assert.NotContains(t, ma.removedCols, 2)
+
+	ma.redo()
 	ma.setCell(1, 2, 0)
 	assert.Equal(t, []string{"3", "s", "c"}, ma.merges[1].ResolvedRow)
 	assert.Len(t, ma.merges[1].UnresolvedCols, 0)
@@ -99,10 +114,4 @@ func TestMergeApp(t *testing.T) {
 	assert.Len(t, ma.merges[1].UnresolvedCols, 0)
 	assert.Contains(t, ma.resolvedRows, 1)
 	assert.Contains(t, ma.removedCols, 2)
-
-	ma.setCell(0, 1, 0)
-	assert.Equal(t, []string{"2", "f", ""}, ma.merges[0].ResolvedRow)
-	assert.Len(t, ma.merges[0].UnresolvedCols, 0)
-	assert.NotContains(t, ma.resolvedRows, 0)
-	assert.NotContains(t, ma.removedRows, 0)
 }

@@ -3,7 +3,6 @@ package widgets
 import (
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gdamore/tcell/v2"
 	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
@@ -141,7 +140,6 @@ func TestMergeRowModifiedRemovedUnchanged(t *testing.T) {
 		},
 	}
 	require.NoError(t, rr.Resolve(m))
-	t.Log(spew.Sdump(m))
 	require.NoError(t, mr.DisplayMerge(m))
 	assert.Equal(t, [][]*TableCell{
 		{
@@ -165,8 +163,8 @@ func TestMergeRowModifiedRemovedUnchanged(t *testing.T) {
 		{
 			tableCell("resolution", boldStyle, 0, false),
 			tableCell("1", primaryKeyStyle, 0, false),
-			tableCell("q", cellStyle, tcell.ColorDarkRed, true),
-			tableCell("w", cellStyle, tcell.ColorDarkRed, true),
+			tableCell("q", cellStyle, 0, false),
+			tableCell("s", yellowStyle, 0, false),
 		},
 	}, mr.Cells)
 }

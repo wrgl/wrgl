@@ -55,15 +55,6 @@ func TestRowResolver(t *testing.T) {
 	assert.True(t, m.Resolved)
 	assert.Nil(t, m.ResolvedRow)
 
-	// won't resolve modified & removed row
-	m = &Merge{
-		Base:   testutils.SecureRandomBytes(16),
-		Others: [][]byte{nil, testutils.SecureRandomBytes(16)},
-	}
-	require.NoError(t, r.Resolve(m))
-	assert.False(t, m.Resolved)
-	assert.Nil(t, m.ResolvedRow)
-
 	// resolve singly added row
 	sum, row := addRandomRow(t, db, 3)
 	m = &Merge{
@@ -233,6 +224,15 @@ func TestResolveRow(t *testing.T) {
 			},
 			resolvedRow:    []string{"q", "u", "e", ""},
 			unresolvedCols: map[uint32]struct{}{3: {}},
+		},
+		{
+			cd:   cd3,
+			base: []string{"q", "w", "e", "r"},
+			others: [][]string{
+				nil,
+				{"q", "u", "e", "r"},
+			},
+			resolvedRow: []string{"q", "u", "e", "r"},
 		},
 	} {
 		db := kv.NewMockStore(false)

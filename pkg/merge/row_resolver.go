@@ -139,16 +139,6 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 	return
 }
 
-func (r *RowResolver) mergeRows(m *Merge) (err error) {
-	resolvedRow, resolved, err := r.TryResolve(m)
-	if err != nil {
-		return err
-	}
-	m.Resolved = resolved
-	m.ResolvedRow = resolvedRow
-	return nil
-}
-
 func (r *RowResolver) Resolve(m *Merge) (err error) {
 	nonNils := 0
 	for _, sum := range m.Others {
@@ -160,11 +150,17 @@ func (r *RowResolver) Resolve(m *Merge) (err error) {
 		// removed in all layers or never changed in the first place
 		m.Resolved = true
 		return
-	} else if m.Base == nil || nonNils == r.nLayers {
-		// row was added in one or more layers
-		// or all layers modified this row
-		return r.mergeRows(m)
 	}
-	// some modified, some removed, not resolvable
+	resolvedRow, resolved, err := r.TryResolve(m)
+	if err != nil {
+		return err
+	}
+	m.ResolvedRow = resolvedRow
+	if m.Base != nil && nonNils != r.nLayers {
+		// some modified, some removed, not resolvable
+		m.Resolved = false
+	} else {
+		m.Resolved = resolved
+	}
 	return
 }

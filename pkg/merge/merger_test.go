@@ -133,6 +133,7 @@ func TestMergerManualResolve(t *testing.T) {
 				hexToBytes(t, "5df6d1d1e8caf8fd5d67b5d264caace1"),
 				nil,
 			},
+			ResolvedRow: []string{"3", "x", "d"},
 		},
 		{
 			PK:   hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"),
