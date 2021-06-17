@@ -106,7 +106,7 @@ func redrawEvery(app *tview.Application, d time.Duration) (cancel func()) {
 
 func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte) error {
 	app := tview.NewApplication()
-	mergeApp := widgets.NewMergeApp(db, fs, merger, commitNames, commitSums, baseSum)
+	mergeApp := widgets.NewMergeApp(db, fs, merger, app, commitNames, commitSums, baseSum)
 	app.SetRoot(mergeApp.Flex, true).
 		SetFocus(mergeApp.Flex).
 		SetBeforeDrawFunc(func(screen tcell.Screen) bool {

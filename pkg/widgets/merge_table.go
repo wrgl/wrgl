@@ -37,6 +37,7 @@ type MergeTable struct {
 	setCellHandler            func(row, column, layer int)
 	deleteColumnHandler       func(column int)
 	deleteRowHandler          func(row int)
+	showInputHandler          func(row, column int)
 }
 
 func NewMergeTable(db kv.DB, fs kv.FileStore, commitNames []string, commitSums [][]byte, cd *objects.ColDiff, merges []*merge.Merge, removedCols map[int]struct{}, removedRows map[int]struct{}) *MergeTable {
@@ -96,6 +97,11 @@ func (t *MergeTable) SetDeleteColumnHandler(f func(column int)) *MergeTable {
 
 func (t *MergeTable) SetDeleteRowHandler(f func(row int)) *MergeTable {
 	t.deleteRowHandler = f
+	return t
+}
+
+func (t *MergeTable) SetShowInputHandler(f func(row, column int)) *MergeTable {
+	t.showInputHandler = f
 	return t
 }
 
@@ -166,7 +172,7 @@ func (t *MergeTable) selectCell(row, column, subCol int) {
 	}
 	mergeInd, row := t.mergeRowAtRow(row)
 	if row == nLayers {
-
+		t.showInputHandler(mergeInd, column-1)
 	} else {
 		if t.rowPool.IsTextAtCellDifferentFromBase(mergeInd, column, row) {
 			t.setCellHandler(mergeInd, column-1, row)

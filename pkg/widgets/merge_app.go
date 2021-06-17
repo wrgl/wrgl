@@ -22,8 +22,8 @@ const (
 type editOp struct {
 	Type            int
 	Row             int
-	Layer           int
 	Column          int
+	Value           string
 	OldVal          string
 	ColWasRemoved   bool
 	RowWasRemoved   bool
@@ -44,11 +44,15 @@ type MergeApp struct {
 	redoStack    *list.List
 	commitNames  []string
 	commitSums   [][]byte
+	app          *tview.Application
 	Table        *MergeTable
 	Flex         *tview.Flex
 	statusBar    *tview.TextView
 	resolvedRows map[int]struct{}
 	usageBar     *UsageBar
+	inputField   *tview.InputField
+	inputRow     int
+	inputColumn  int
 }
 
 func createMergeTitleBar(commitNames []string, baseSum []byte) *tview.TextView {
@@ -63,11 +67,12 @@ func createMergeTitleBar(commitNames []string, baseSum []byte) *tview.TextView {
 	return titleBar
 }
 
-func NewMergeApp(db kv.DB, fs kv.FileStore, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte) *MergeApp {
+func NewMergeApp(db kv.DB, fs kv.FileStore, merger *merge.Merger, app *tview.Application, commitNames []string, commitSums [][]byte, baseSum []byte) *MergeApp {
 	return &MergeApp{
 		db:           db,
 		fs:           fs,
 		merger:       merger,
+		app:          app,
 		removedCols:  map[int]struct{}{},
 		removedRows:  map[int]struct{}{},
 		resolvedRows: map[int]struct{}{},
@@ -125,12 +130,17 @@ func (a *MergeApp) InitializeTable() {
 	a.Table = NewMergeTable(a.db, a.fs, a.commitNames, a.commitSums, a.cd, a.merges, a.removedCols, a.removedRows).
 		SetUndoHandler(a.undo).
 		SetRedoHandler(a.redo).
-		SetSetCellHandler(a.setCell).
+		SetSetCellHandler(a.setCellFromLayer).
 		SetDeleteColumnHandler(a.deleteColumn).
 		SetDeleteRowHandler(a.deleteRow).
-		SetSelectNextConflict(a.selectNextConflict)
+		SetSelectNextConflict(a.selectNextConflict).
+		SetShowInputHandler(a.showInput)
 	a.statusBar = tview.NewTextView().SetDynamicColors(true)
 	a.updateStatus("")
+	a.inputField = tview.NewInputField().
+		SetLabel("Enter cell's value: ").
+		SetDoneFunc(a.handleInput)
+	a.inputField.SetBorderPadding(1, 1, 0, 0)
 	a.usageBar = NewUsageBar([][2]string{
 		{"n", "Next conflict"},
 		{"u", "Undo"},
@@ -146,6 +156,7 @@ func (a *MergeApp) InitializeTable() {
 	}, 2)
 	a.Flex.AddItem(a.statusBar, 1, 1, false).
 		AddItem(a.Table, 0, 1, true).
+		AddItem(a.inputField, 0, 0, false).
 		AddItem(a.usageBar, 1, 1, false)
 }
 
@@ -173,7 +184,7 @@ func (a *MergeApp) execOp(op *editOp) {
 		delete(a.removedCols, op.Column)
 		delete(a.removedRows, op.Row)
 		m := a.merges[op.Row]
-		m.ResolvedRow[op.Column] = a.Table.GetCellText(op.Row, op.Column, op.Layer)
+		m.ResolvedRow[op.Column] = op.Value
 		unresolvedCols := m.UnresolvedCols
 		if unresolvedCols != nil {
 			delete(unresolvedCols, uint32(op.Column))
@@ -247,13 +258,20 @@ func (a *MergeApp) edit(op *editOp) {
 	a.redoStack = a.redoStack.Init()
 }
 
-func (a *MergeApp) setCell(row, column, layer int) {
-	op := &editOp{
+func (a *MergeApp) setCellFromLayer(row, column, layer int) {
+	a.setCellWithValue(row, column, a.Table.GetCellText(row, column, layer))
+}
+
+func (a *MergeApp) setCellWithValue(row, column int, value string) {
+	a.setCell(&editOp{
 		Type:   editSet,
 		Row:    row,
-		Layer:  layer,
+		Value:  value,
 		Column: column,
-	}
+	})
+}
+
+func (a *MergeApp) setCell(op *editOp) {
 	if _, ok := a.removedCols[op.Column]; ok {
 		op.ColWasRemoved = true
 	}
@@ -307,4 +325,24 @@ func (a *MergeApp) selectNextConflict() {
 			return
 		}
 	}
+}
+
+func (a *MergeApp) handleInput(key tcell.Key) {
+	switch key {
+	case tcell.KeyEnter:
+		a.setCellWithValue(a.inputRow, a.inputColumn, a.inputField.GetText())
+		a.Flex.ResizeItem(a.inputField, 0, 0)
+		a.app.SetFocus(a.Table)
+	case tcell.KeyEscape:
+		a.Flex.ResizeItem(a.inputField, 0, 0)
+		a.app.SetFocus(a.Table)
+	}
+}
+
+func (a *MergeApp) showInput(row, column int) {
+	a.inputRow = row
+	a.inputColumn = column
+	a.inputField.SetText(a.merges[row].ResolvedRow[column])
+	a.Flex.ResizeItem(a.inputField, 3, 1)
+	a.app.SetFocus(a.inputField)
 }

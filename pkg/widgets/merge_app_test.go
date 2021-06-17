@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/rivo/tview"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
@@ -39,7 +40,8 @@ func TestMergeApp(t *testing.T) {
 		"3,s,d",
 	}, []uint32{0}, [][]byte{base})
 	merger := merge_testutils.CreateMerger(t, db, fs, com1, com2)
-	ma := NewMergeApp(db, fs, merger, []string{"branch-1", "branch-2"}, [][]byte{com1, com2}, base)
+	app := tview.NewApplication()
+	ma := NewMergeApp(db, fs, merger, app, []string{"branch-1", "branch-2"}, [][]byte{com1, com2}, base)
 	require.NoError(t, ma.CollectMergeConflicts())
 	ma.InitializeTable()
 	sort.Slice(ma.merges, func(i, j int) bool {
@@ -54,7 +56,7 @@ func TestMergeApp(t *testing.T) {
 	assert.Equal(t, map[uint32]struct{}{2: {}}, ma.merges[2].UnresolvedCols)
 	assert.Len(t, ma.resolvedRows, 0)
 
-	ma.setCell(2, 2, 1)
+	ma.setCellFromLayer(2, 2, 1)
 	assert.Equal(t, []string{"1", "q", "t"}, ma.merges[2].ResolvedRow)
 	assert.Equal(t, map[uint32]struct{}{}, ma.merges[2].UnresolvedCols)
 	assert.Contains(t, ma.resolvedRows, 2)
@@ -73,7 +75,7 @@ func TestMergeApp(t *testing.T) {
 	assert.Contains(t, ma.resolvedRows, 0)
 	assert.Contains(t, ma.removedRows, 0)
 
-	ma.setCell(0, 1, 0)
+	ma.setCellFromLayer(0, 1, 0)
 	assert.Equal(t, []string{"2", "f", "s"}, ma.merges[0].ResolvedRow)
 	assert.Contains(t, ma.resolvedRows, 0)
 	assert.NotContains(t, ma.removedRows, 0)
@@ -86,7 +88,7 @@ func TestMergeApp(t *testing.T) {
 	assert.NotContains(t, ma.resolvedRows, 0)
 	assert.NotContains(t, ma.removedRows, 0)
 
-	ma.setCell(1, 1, 1)
+	ma.setCellFromLayer(1, 1, 1)
 	assert.Equal(t, []string{"3", "s", ""}, ma.merges[1].ResolvedRow)
 	assert.Equal(t, map[uint32]struct{}{2: {}}, ma.merges[1].UnresolvedCols)
 	assert.NotContains(t, ma.resolvedRows, 1)
@@ -103,7 +105,7 @@ func TestMergeApp(t *testing.T) {
 	assert.NotContains(t, ma.removedCols, 2)
 
 	ma.redo()
-	ma.setCell(1, 2, 0)
+	ma.setCellFromLayer(1, 2, 0)
 	assert.Equal(t, []string{"3", "s", "c"}, ma.merges[1].ResolvedRow)
 	assert.Len(t, ma.merges[1].UnresolvedCols, 0)
 	assert.Contains(t, ma.resolvedRows, 1)
