@@ -140,7 +140,7 @@ func mergeCmd() *cobra.Command {
 			defer merger.Close()
 
 			if noGUI {
-				return outputConflicts(kvStore, merger, commitNames, baseCommit, commits)
+				return outputConflicts(cmd, kvStore, merger, commitNames, baseCommit, commits)
 			} else {
 				removedCols, err := displayMergeApp(cmd, kvStore, fs, merger, commitNames, commits, baseCommit)
 				if err != nil {
@@ -163,18 +163,18 @@ func mergeCmd() *cobra.Command {
 	return cmd
 }
 
-func outputConflicts(db kv.DB, merger *merge.Merger, commitNames []string, baseSum []byte, commits [][]byte) error {
+func outputConflicts(cmd *cobra.Command, db kv.DB, merger *merge.Merger, commitNames []string, baseSum []byte, commits [][]byte) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(path.Join(wd, mergeCSVName("CONFLICTS", commits)))
+	filename := mergeCSVName("CONFLICTS", commits)
+	f, err := os.Create(path.Join(wd, filename))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	defer w.Flush()
 
 	baseName := fmt.Sprintf("BASE %s", hex.EncodeToString(baseSum)[:7])
 	names := make([]string, len(commitNames))
@@ -221,18 +221,28 @@ func outputConflicts(db kv.DB, merger *merge.Merger, commitNames []string, baseS
 			}
 		}
 		for i, sum := range m.Others {
-			if sum == nil {
-				continue
-			}
-			rowB, err := table.GetRow(db, sum)
-			if err != nil {
-				return err
-			}
-			row := cd.RearrangeBaseRow(dec.Decode(rowB))
-			row = append([]string{names[i]}, row...)
-			err = w.Write(row)
-			if err != nil {
-				return err
+			if sum == nil && m.Base != nil {
+				row := make([]string, cd.Len()+1)
+				row[0] = names[i]
+				txt := fmt.Sprintf("REMOVED IN %s", hex.EncodeToString(commits[i])[:7])
+				for j := 1; j < len(row); j++ {
+					row[j] = txt
+				}
+				err = w.Write(row)
+				if err != nil {
+					return err
+				}
+			} else if sum != nil {
+				rowB, err := table.GetRow(db, sum)
+				if err != nil {
+					return err
+				}
+				row := cd.RearrangeBaseRow(dec.Decode(rowB))
+				row = append([]string{names[i]}, row...)
+				err = w.Write(row)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		if len(m.ResolvedRow) > 0 {
@@ -261,7 +271,18 @@ func outputConflicts(db kv.DB, merger *merge.Merger, commitNames []string, baseS
 			return err
 		}
 	}
-	return merger.Error()
+	err = merger.Error()
+	if err != nil {
+		return err
+	}
+
+	w.Flush()
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	cmd.Printf("saved conflicts to file %s\n", filename)
+	return nil
 }
 
 func mergeCSVName(prefix string, commits [][]byte) string {

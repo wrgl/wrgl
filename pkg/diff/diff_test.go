@@ -23,85 +23,6 @@ func TestDiffTables(t *testing.T) {
 		Events []objects.Diff
 	}{
 		{
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
-			table.NewMockStore([]string{"one", "three"}, []uint32{1}, nil),
-			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"one", "three", "two"},
-					Added:    []map[uint32]struct{}{{2: struct{}{}}},
-					Removed:  []map[uint32]struct{}{{1: struct{}{}}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 2: 1}},
-					BasePK:   []uint32{1},
-					OtherPK:  [][]uint32{{0}},
-				}},
-			},
-		},
-		{
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
-			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"one", "two"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1}},
-					BasePK:   []uint32{0},
-					OtherPK:  [][]uint32{{0}},
-				}},
-			},
-		},
-		{
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil),
-			table.NewMockStore([]string{"one", "two"}, []uint32{}, nil),
-			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"one", "two"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1}},
-					OtherPK:  [][]uint32{{0}},
-				}},
-			},
-		},
-		{
-			table.NewMockStore([]string{"a", "b", "c", "d"}, []uint32{0, 2}, nil),
-			table.NewMockStore([]string{"a", "c", "d", "b"}, []uint32{0, 1}, nil),
-			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"a", "c", "b", "d"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{2: []int{-1, 3}}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1, 2: 3, 3: 2},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 2, 2: 1, 3: 3}},
-					BasePK:   []uint32{0, 1},
-					OtherPK:  [][]uint32{{0, 1}},
-				}},
-			},
-		},
-		{
-			table.NewMockStore([]string{"a", "b", "c", "d"}, []uint32{0, 1}, nil),
-			table.NewMockStore([]string{"b", "a", "c", "d"}, []uint32{0, 1}, nil),
-			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"a", "b", "c", "d"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{1: []int{0, -1}}},
-					BaseIdx:  map[uint32]uint32{0: 1, 1: 0, 2: 2, 3: 3},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1, 2: 2, 3: 3}},
-					BasePK:   []uint32{1, 0},
-					OtherPK:  [][]uint32{{0, 1}},
-				}},
-			},
-		},
-		{
 			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
 				{"abc", "123"},
 				{"def", "456"},
@@ -112,17 +33,7 @@ func TestDiffTables(t *testing.T) {
 				{"def", "059"},
 				{"asd", "789"},
 			}),
-			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"a", "b", "c"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{2: struct{}{}}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1, 2: 2},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1}},
-					OtherPK:  [][]uint32{nil},
-				}},
-			},
+			[]objects.Diff{},
 		},
 		{
 			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
@@ -136,15 +47,6 @@ func TestDiffTables(t *testing.T) {
 				{"asd", "789"},
 			}),
 			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"a", "b"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1}},
-					OtherPK:  [][]uint32{nil},
-				}},
 				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("059")},
 				{Type: objects.DTRow, PK: []byte("qwe"), Sum: []byte("234")},
 				{Type: objects.DTRow, PK: []byte("asd"), OldSum: []byte("789")},
@@ -161,17 +63,7 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"a", "b"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1}},
-					OtherPK:  [][]uint32{nil},
-				}},
-			},
+			[]objects.Diff{},
 		},
 		{
 			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
@@ -184,17 +76,7 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
-			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"a", "c", "b"},
-					Added:    []map[uint32]struct{}{{2: struct{}{}}},
-					Removed:  []map[uint32]struct{}{{1: struct{}{}}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 2: 1}},
-					OtherPK:  [][]uint32{nil},
-				}},
-			},
+			[]objects.Diff{},
 		},
 		{
 			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
@@ -208,16 +90,6 @@ func TestDiffTables(t *testing.T) {
 				{"asd", "789"},
 			}),
 			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"one", "two"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1}},
-					BasePK:   []uint32{0},
-					OtherPK:  [][]uint32{{0}},
-				}},
 				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("059")},
 				{Type: objects.DTRow, PK: []byte("qwe"), Sum: []byte("234")},
 				{Type: objects.DTRow, PK: []byte("asd"), OldSum: []byte("789")},
@@ -233,16 +105,6 @@ func TestDiffTables(t *testing.T) {
 				{"def", "678"},
 			}),
 			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"one", "two", "three"},
-					Added:    []map[uint32]struct{}{{2: struct{}{}}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1, 2: 2}},
-					BasePK:   []uint32{0},
-					OtherPK:  [][]uint32{{0}},
-				}},
 				{Type: objects.DTRow, PK: []byte("abc"), Sum: []byte("123"), OldSum: []byte("345")},
 				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("678")},
 			},
@@ -258,23 +120,29 @@ func TestDiffTables(t *testing.T) {
 				{"def", "456"},
 				{"qwe", "234"},
 			}),
+			[]objects.Diff{},
+		},
+		{
+			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
+				{"abc", "123"},
+				{"def", "456"},
+				{"qwe", "234"},
+			}),
+			table.NewMockStore([]string{"one", "three"}, []uint32{0}, [][2]string{
+				{"abc", "123"},
+				{"def", "456"},
+				{"qwe", "234"},
+			}),
 			[]objects.Diff{
-				{Type: objects.DTColumnChange, ColDiff: &objects.ColDiff{
-					Names:    []string{"one", "two"},
-					Added:    []map[uint32]struct{}{{}},
-					Removed:  []map[uint32]struct{}{{}},
-					Moved:    []map[uint32][]int{{}},
-					BaseIdx:  map[uint32]uint32{0: 0, 1: 1},
-					OtherIdx: []map[uint32]uint32{{0: 0, 1: 1}},
-					BasePK:   []uint32{0},
-					OtherPK:  [][]uint32{{0}},
-				}},
+				{Type: objects.DTRow, PK: []byte("abc"), Sum: []byte("123"), OldSum: []byte("123")},
+				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("456")},
+				{Type: objects.DTRow, PK: []byte("qwe"), Sum: []byte("234"), OldSum: []byte("234")},
 			},
 		},
 	}
 	for i, c := range cases {
 		errChan := make(chan error, 1000)
-		diffChan, _ := DiffTables(c.T1, c.T2, 0, errChan, false, false)
+		diffChan, _ := DiffTables(c.T1, c.T2, 0, errChan, false)
 		events := []objects.Diff{}
 		for e := range diffChan {
 			events = append(events, e)
@@ -290,7 +158,7 @@ func TestDiffTablesSkipColumnChange(t *testing.T) {
 	ts1 := table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil)
 	ts2 := table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil)
 	errChan := make(chan error, 1000)
-	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, true, false)
+	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, false)
 	events := []objects.Diff{}
 	for e := range diffChan {
 		events = append(events, e)
@@ -308,7 +176,7 @@ func TestDiffTablesEmitRowChangeWhenPKDiffer(t *testing.T) {
 		{"sdf", "432"},
 	})
 	errChan := make(chan error, 1000)
-	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, true, true)
+	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, true)
 	events := []objects.Diff{}
 	for e := range diffChan {
 		events = append(events, e)
@@ -326,7 +194,9 @@ func ingestRawCSV(b *testing.B, db kv.DB, fs kv.FileStore, rows [][]string) tabl
 	cols := rows[0]
 	reader := testutils.RawCSVReader(rows[1:])
 	tb := table.NewBuilder(db, fs, cols, nil, 0, 0)
-	sum, err := ingest.Ingest(0, 1, reader, []uint32{}, tb, io.Discard)
+	sum, err := ingest.NewIngestor(tb, 0, []uint32{}, 1, io.Discard).
+		ReadRowsFromCSVReader(reader).
+		Ingest()
 	require.NoError(b, err)
 	ts, err := table.ReadTable(db, fs, sum)
 	require.NoError(b, err)
@@ -342,7 +212,7 @@ func BenchmarkDiffRows(b *testing.B) {
 	store2 := ingestRawCSV(b, db, fs, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
-	diffChan, _ := DiffTables(store1, store2, 0, errChan, false, false)
+	diffChan, _ := DiffTables(store1, store2, 0, errChan, false)
 	for d := range diffChan {
 		assert.NotNil(b, d)
 	}

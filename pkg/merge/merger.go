@@ -151,7 +151,7 @@ func (m *Merger) Start() (ch <-chan *Merge, err error) {
 	progs := make([]progress.Tracker, n)
 	cols := make([][2][]string, n)
 	for i, t := range m.otherTs {
-		diffChan, progTracker := diff.DiffTables(t, m.baseT, m.progressPeriod*time.Duration(n), m.errChan, true, false)
+		diffChan, progTracker := diff.DiffTables(t, m.baseT, m.progressPeriod*time.Duration(n), m.errChan, false)
 		diffs[i] = diffChan
 		progs[i] = progTracker
 		cols[i] = [2][]string{t.Columns(), t.PrimaryKey()}

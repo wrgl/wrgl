@@ -178,10 +178,9 @@ func TestMergeCmdNoGUI(t *testing.T) {
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--no-gui"})
-	cmd.SetOut(io.Discard)
-	require.NoError(t, cmd.Execute())
-
 	name := fmt.Sprintf("CONFLICTS_%s_%s.csv", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7])
+	assertCmdOutput(t, cmd, fmt.Sprintf("saved conflicts to file %s\n", name))
+
 	defer os.Remove(name)
 	f, err := os.Open(name)
 	require.NoError(t, err)
@@ -196,16 +195,19 @@ func TestMergeCmdNoGUI(t *testing.T) {
 		require.NoError(t, err)
 		rows = append(rows, strings.Join(row, ","))
 	}
+	remInCom2 := strings.Repeat(fmt.Sprintf(",REMOVED IN %s", hex.EncodeToString(sum2)[:7]), 5)
 	assert.Equal(t, []string{
 		",a,c,e,b,d",
 		fmt.Sprintf("COLUMNS: branch-1 (%s),,REMOVED,,,NEW", hex.EncodeToString(sum1)[:7]),
 		fmt.Sprintf("COLUMNS: branch-2 (%s),,,NEW,REMOVED,", hex.EncodeToString(sum2)[:7]),
-		fmt.Sprintf("BASE %s,2,s,,a,", hex.EncodeToString(base)[:7]),
-		fmt.Sprintf("branch-1 (%s),2,d,,h,", hex.EncodeToString(sum1)[:7]),
-		"RESOLUTION,2,,,h,d",
 		fmt.Sprintf("BASE %s,1,w,,q,", hex.EncodeToString(base)[:7]),
 		fmt.Sprintf("branch-1 (%s),1,e,,g,", hex.EncodeToString(sum1)[:7]),
-		"RESOLUTION,1,,,g,e",
+		fmt.Sprintf("branch-2 (%s),1,w,,q,", hex.EncodeToString(sum2)[:7]),
+		"RESOLUTION,1,w,w,q,e",
+		fmt.Sprintf("BASE %s,2,s,,a,", hex.EncodeToString(base)[:7]),
+		fmt.Sprintf("branch-1 (%s),2,d,,h,", hex.EncodeToString(sum1)[:7]),
+		fmt.Sprintf("branch-2 (%s)%s", hex.EncodeToString(sum2)[:7], remInCom2),
+		"RESOLUTION,2,,,h,d",
 		",3,z,x,,",
 	}, rows)
 }

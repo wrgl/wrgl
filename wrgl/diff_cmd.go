@@ -96,11 +96,15 @@ func newDiffCmd() *cobra.Command {
 					os.Exit(1)
 				}
 			}()
-			diffChan, pt := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan, false, false)
+			cd := objects.CompareColumns(
+				[2][]string{ts2.Columns(), ts2.PrimaryKey()},
+				[2][]string{ts1.Columns(), ts1.PrimaryKey()},
+			)
+			diffChan, pt := diff.DiffTables(ts1, ts2, 65*time.Millisecond, errChan, false)
 			if raw {
 				return outputRawDiff(cmd, diffChan)
 			}
-			return outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, ts1.Columns(), ts2.Columns(), ts1.PrimaryKey(), diffChan, pt)
+			return outputDiffToTerminal(cmd, db1, db2, commitHash1, commitHash2, ts1.Columns(), ts2.Columns(), ts1.PrimaryKey(), diffChan, pt, cd)
 		},
 	}
 	cmd.Flags().Bool("raw", false, "show diff in raw binary format.")
@@ -203,6 +207,7 @@ func outputDiffToTerminal(
 	cols, oldCols, pk []string,
 	diffChan <-chan objects.Diff,
 	pt progress.Tracker,
+	colDiff *objects.ColDiff,
 ) error {
 	var (
 		addedRowReader   *table.KeyListRowReader
@@ -212,7 +217,6 @@ func outputDiffToTerminal(
 		rowChangeReader  *diff.RowChangeReader
 		rowChangeTable   *widgets.DiffTable
 		pkChanged        bool
-		colDiff          *objects.ColDiff
 	)
 
 	app := tview.NewApplication()
@@ -253,6 +257,32 @@ func outputDiffToTerminal(
 			app.SetFocus(tabPages.LastTab())
 			app.Draw()
 		}()
+
+		if !uintSliceEqual(colDiff.BasePK, colDiff.OtherPK[0]) {
+			pkChanged = true
+			_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
+			if len(addedCols) > 0 {
+				tabPages.AddTab(
+					fmt.Sprintf("+%d columns", len(addedCols)),
+					widgets.CreateColumnsList(nil, addedCols, nil),
+				)
+			}
+			if len(removedCols) > 0 {
+				tabPages.AddTab(
+					fmt.Sprintf("-%d columns", len(removedCols)),
+					widgets.CreateColumnsList(nil, nil, removedCols),
+				)
+			}
+			unchanged, added, removed := slice.CompareStringSlices(pk, slice.IndicesToValues(colDiff.Names, colDiff.BasePK))
+			if len(added) > 0 || len(removed) > 0 {
+				tabPages.AddTab(
+					"Primary key",
+					widgets.CreateColumnsList(unchanged, added, removed),
+				)
+			}
+			return
+		}
+
 	mainLoop:
 		for {
 			select {
@@ -264,31 +294,6 @@ func outputDiffToTerminal(
 					break mainLoop
 				}
 				switch d.Type {
-				case objects.DTColumnChange:
-					colDiff = d.ColDiff
-					if !uintSliceEqual(colDiff.BasePK, colDiff.OtherPK[0]) {
-						pkChanged = true
-						_, addedCols, removedCols := slice.CompareStringSlices(cols, oldCols)
-						if len(addedCols) > 0 {
-							tabPages.AddTab(
-								fmt.Sprintf("+%d columns", len(addedCols)),
-								widgets.CreateColumnsList(nil, addedCols, nil),
-							)
-						}
-						if len(removedCols) > 0 {
-							tabPages.AddTab(
-								fmt.Sprintf("-%d columns", len(removedCols)),
-								widgets.CreateColumnsList(nil, nil, removedCols),
-							)
-						}
-						unchanged, added, removed := slice.CompareStringSlices(pk, slice.IndicesToValues(colDiff.Names, colDiff.BasePK))
-						if len(added) > 0 || len(removed) > 0 {
-							tabPages.AddTab(
-								"Primary key",
-								widgets.CreateColumnsList(unchanged, added, removed),
-							)
-						}
-					}
 				case objects.DTRow:
 					if d.OldSum == nil {
 						if addedRowReader == nil {
