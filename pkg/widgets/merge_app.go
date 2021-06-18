@@ -128,6 +128,11 @@ func (a *MergeApp) updateStatus() {
 }
 
 func (a *MergeApp) InitializeTable() {
+	if len(a.merges) == 0 {
+		a.Aborted = false
+		a.app.Stop()
+		return
+	}
 	a.Table = NewMergeTable(a.db, a.fs, a.commitNames, a.commitSums, a.cd, a.merges, a.RemovedCols, a.removedRows).
 		SetUndoHandler(a.undo).
 		SetRedoHandler(a.redo).

@@ -91,7 +91,7 @@ func mergeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			noMergetool, err := cmd.Flags().GetBool("no-mergetool")
+			noGUI, err := cmd.Flags().GetBool("no-gui")
 			if err != nil {
 				return err
 			}
@@ -139,8 +139,8 @@ func mergeCmd() *cobra.Command {
 			}
 			defer merger.Close()
 
-			if noMergetool {
-
+			if noGUI {
+				return outputConflicts(kvStore, merger, commitNames, baseCommit, commits)
 			} else {
 				removedCols, err := displayMergeApp(cmd, kvStore, fs, merger, commitNames, commits, baseCommit)
 				if err != nil {
@@ -152,11 +152,10 @@ func mergeCmd() *cobra.Command {
 					return commitMergeResult(cmd, kvStore, fs, merger, removedCols, numWorkers, commitNames, commits, message, c)
 				}
 			}
-			return nil
 		},
 	}
 	cmd.Flags().Bool("no-commit", false, "perform the merge but don't create a merge commit, instead output merge result to file MERGE_SUM1_SUM2_..._SUMn.csv")
-	cmd.Flags().Bool("no-mergetool", false, "don't show mergetool, instead output conflicts (and resolved rows) to file CONFLICTS_SUM1_SUM2_..._SUMn.csv")
+	cmd.Flags().Bool("no-gui", false, "don't show mergetool, instead output conflicts (and resolved rows) to file CONFLICTS_SUM1_SUM2_..._SUMn.csv")
 	cmd.Flags().String("commit-csv", "", "don't perform merge, just create a merge commit with the specified CSV file")
 	cmd.Flags().StringP("message", "m", "", "merge commit message")
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "merge commit primary key. This is only used when --commit-csv is in use. If this isn't specified then primary key is the same as BRANCH HEAD's")
@@ -164,12 +163,102 @@ func mergeCmd() *cobra.Command {
 	return cmd
 }
 
-func mergeCSVName(commits [][]byte) string {
+func outputConflicts(db kv.DB, merger *merge.Merger, commitNames []string, baseSum []byte, commits [][]byte) error {
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(path.Join(wd, mergeCSVName("CONFLICTS", commits)))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := csv.NewWriter(f)
+	defer w.Flush()
+	columns := append([]string{""}, merger.Columns(nil)...)
+	err = w.Write(columns)
+	if err != nil {
+		return err
+	}
+
+	baseName := fmt.Sprintf("BASE %s", hex.EncodeToString(baseSum)[:7])
+	names := make([]string, len(commitNames))
+	for i, name := range commitNames {
+		names[i] = fmt.Sprintf("%s (%s)", name, hex.EncodeToString(commits[i])[:7])
+	}
+
+	mc, err := merger.Start()
+	if err != nil {
+		return err
+	}
+	cd := (<-mc).ColDiff
+	for i, name := range names {
+		row := make([]string, cd.Len()+1)
+		row[0] = "COLUMNS: " + name
+		for j := 1; j < len(row); j++ {
+			if _, ok := cd.Added[i][uint32(j-1)]; ok {
+				row[j] = "NEW"
+			} else if _, ok := cd.Removed[i][uint32(j-1)]; ok {
+				row[j] = "REMOVED"
+			}
+		}
+		err = w.Write(row)
+		if err != nil {
+			return err
+		}
+	}
+	dec := objects.NewStrListDecoder(false)
+	for m := range mc {
+		if m.Base != nil {
+			rowB, err := table.GetRow(db, m.Base)
+			if err != nil {
+				return err
+			}
+			err = w.Write(append([]string{baseName}, cd.RearrangeBaseRow(dec.Decode(rowB))...))
+			if err != nil {
+				return err
+			}
+		}
+		for i, sum := range m.Others {
+			if sum == nil {
+				continue
+			}
+			rowB, err := table.GetRow(db, sum)
+			if err != nil {
+				return err
+			}
+			row := cd.RearrangeBaseRow(dec.Decode(rowB))
+			err = w.Write(append([]string{names[i]}, row...))
+			if err != nil {
+				return err
+			}
+		}
+		if len(m.ResolvedRow) > 0 {
+			err = w.Write(append([]string{"RESOLUTION"}, m.ResolvedRow...))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	rc, err := merger.SortedRows(nil)
+	if err != nil {
+		return err
+	}
+	for row := range rc {
+		err = w.Write(append([]string{""}, row...))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func mergeCSVName(prefix string, commits [][]byte) string {
 	sums := make([]string, len(commits))
 	for i, b := range commits {
 		sums[i] = hex.EncodeToString(b)[:7]
 	}
-	return fmt.Sprintf("MERGER_%s.csv", strings.Join(sums, "_"))
+	return fmt.Sprintf("%s_%s.csv", prefix, strings.Join(sums, "_"))
 }
 
 func saveMergeResultToCSV(merger *merge.Merger, removedCols map[int]struct{}, commits [][]byte) error {
@@ -177,7 +266,7 @@ func saveMergeResultToCSV(merger *merge.Merger, removedCols map[int]struct{}, co
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(path.Join(wd, mergeCSVName(commits)))
+	f, err := os.Create(path.Join(wd, mergeCSVName("MERGE", commits)))
 	if err != nil {
 		return err
 	}
@@ -251,7 +340,7 @@ func getRowsFromMerger(m *merge.Merger, removedCols map[int]struct{}) (chan inge
 
 func createMergeCommit(cmd *cobra.Command, db kv.DB, fs kv.FileStore, commitNames []string, sum []byte, parents [][]byte, message string, c *versioning.Config) error {
 	if message == "" {
-		quotedNames := make([]string, len(commitNames)-1)
+		quotedNames := []string{}
 		for _, name := range commitNames[1:] {
 			quotedNames = append(quotedNames, fmt.Sprintf("%q", name))
 		}

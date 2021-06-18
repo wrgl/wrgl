@@ -6,7 +6,6 @@ package versioning
 import (
 	"encoding/hex"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -93,16 +92,12 @@ func TestCommitMerge(t *testing.T) {
 	b, err := GetHead(db, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum3, b)
-	parents := make([]string, len(commit1.Parents))
-	for _, parent := range commit1.Parents {
-		parents = append(parents, hex.EncodeToString(parent)[:7])
-	}
 	AssertLatestReflogEqual(t, fs, "heads/"+name, &objects.Reflog{
 		NewOID:      sum3,
 		AuthorName:  commit1.AuthorName,
 		AuthorEmail: commit1.AuthorEmail,
 		Action:      "merge",
-		Message:     fmt.Sprintf("merge %s", strings.Join(parents, ", ")),
+		Message:     fmt.Sprintf("merge %s, %s", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7]),
 	})
 }
 

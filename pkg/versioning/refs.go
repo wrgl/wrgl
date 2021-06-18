@@ -80,7 +80,7 @@ func CommitHead(s kv.DB, fs kv.FileStore, name string, sum []byte, commit *objec
 }
 
 func CommitMerge(s kv.DB, fs kv.FileStore, name string, sum []byte, commit *objects.Commit) error {
-	parents := make([]string, len(commit.Parents))
+	parents := []string{}
 	for _, parent := range commit.Parents {
 		parents = append(parents, hex.EncodeToString(parent)[:7])
 	}
