@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/ingest"
+	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/versioning"
@@ -36,7 +37,14 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers)
+			rd := getRepoDir(cmd)
+			quitIfRepoDirNotExist(cmd, rd)
+			c, err := versioning.AggregateConfig(rd.FullPath)
+			if err != nil {
+				return err
+			}
+			ensureUserSet(cmd, c)
+			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers, rd, c)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
@@ -79,17 +87,21 @@ func ensureUserSet(cmd *cobra.Command, c *versioning.Config) {
 	}
 }
 
-func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int) error {
+func ingestTable(cmd *cobra.Command, db kv.DB, fs kv.FileStore, numWorkers int, f io.Reader, primaryKey []string) ([]byte, error) {
+	csvReader, columns, primaryKeyIndices, err := ingest.ReadColumns(f, primaryKey)
+	if err != nil {
+		return nil, err
+	}
+	tb := table.NewBuilder(db, fs, columns, primaryKeyIndices, seed, 0)
+	return ingest.NewIngestor(tb, seed, primaryKeyIndices, numWorkers, cmd.OutOrStdout()).
+		ReadRowsFromCSVReader(csvReader).
+		Ingest()
+}
+
+func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, rd *versioning.RepoDir, c *versioning.Config) error {
 	if !versioning.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
-	rd := getRepoDir(cmd)
-	c, err := versioning.AggregateConfig(rd.FullPath)
-	if err != nil {
-		return err
-	}
-	ensureUserSet(cmd, c)
-	quitIfRepoDirNotExist(cmd, rd)
 	kvStore, err := rd.OpenKVStore()
 	if err != nil {
 		return err
@@ -111,15 +123,11 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		f = file
 	}
 
-	csvReader, columns, primaryKeyIndices, err := ingest.ReadColumns(f, primaryKey)
+	sum, err := ingestTable(cmd, kvStore, fs, numWorkers, f, primaryKey)
 	if err != nil {
 		return err
 	}
-	tb := table.NewBuilder(kvStore, fs, columns, primaryKeyIndices, seed, 0)
-	sum, err := ingest.Ingest(seed, numWorkers, csvReader, primaryKeyIndices, tb, cmd.OutOrStdout())
-	if err != nil {
-		return err
-	}
+
 	commit := &objects.Commit{
 		Table:       sum,
 		Message:     message,

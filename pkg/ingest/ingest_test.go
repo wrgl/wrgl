@@ -133,7 +133,9 @@ func TestIngest(t *testing.T) {
 			continue
 		}
 		tb := table.NewBuilder(db, fs, columns, pk, seed, 0)
-		sum, err := Ingest(seed, 1, reader, pk, tb, io.Discard)
+		sum, err := NewIngestor(tb, seed, pk, 1, io.Discard).
+			ReadRowsFromCSVReader(reader).
+			Ingest()
 		if c.ExpectedError != nil {
 			assert.Equal(t, c.ExpectedError, err, "case %d", i)
 		} else {

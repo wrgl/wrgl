@@ -38,6 +38,8 @@ type MergeTable struct {
 	deleteColumnHandler       func(column int)
 	deleteRowHandler          func(row int)
 	showInputHandler          func(row, column int)
+	abortHandler              func()
+	finishHandler             func()
 }
 
 func NewMergeTable(db kv.DB, fs kv.FileStore, commitNames []string, commitSums [][]byte, cd *objects.ColDiff, merges []*merge.Merge, removedCols map[int]struct{}, removedRows map[int]struct{}) *MergeTable {
@@ -77,6 +79,16 @@ func (t *MergeTable) SetUndoHandler(f func()) *MergeTable {
 
 func (t *MergeTable) SetRedoHandler(f func()) *MergeTable {
 	t.redoHandler = f
+	return t
+}
+
+func (t *MergeTable) SetAbortHandler(f func()) *MergeTable {
+	t.abortHandler = f
+	return t
+}
+
+func (t *MergeTable) SetFinishHandler(f func()) *MergeTable {
+	t.finishHandler = f
 	return t
 }
 
@@ -214,6 +226,10 @@ func (t *MergeTable) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				t.deleteColumn()
 			case 'n':
 				t.selectNextConflictHandler()
+			case 'Q':
+				t.abortHandler()
+			case 'X':
+				t.finishHandler()
 			default:
 				return false
 			}

@@ -38,7 +38,7 @@ type MergeApp struct {
 	merger       *merge.Merger
 	cd           *objects.ColDiff
 	merges       []*merge.Merge
-	removedCols  map[int]struct{}
+	RemovedCols  map[int]struct{}
 	removedRows  map[int]struct{}
 	undoStack    *list.List
 	redoStack    *list.List
@@ -53,6 +53,7 @@ type MergeApp struct {
 	inputField   *tview.InputField
 	inputRow     int
 	inputColumn  int
+	Aborted      bool
 }
 
 func createMergeTitleBar(commitNames []string, baseSum []byte) *tview.TextView {
@@ -73,7 +74,7 @@ func NewMergeApp(db kv.DB, fs kv.FileStore, merger *merge.Merger, app *tview.App
 		fs:           fs,
 		merger:       merger,
 		app:          app,
-		removedCols:  map[int]struct{}{},
+		RemovedCols:  map[int]struct{}{},
 		removedRows:  map[int]struct{}{},
 		resolvedRows: map[int]struct{}{},
 		undoStack:    list.New(),
@@ -118,25 +119,27 @@ mainLoop:
 	return nil
 }
 
-func (a *MergeApp) updateStatus(s string) {
+func (a *MergeApp) updateStatus() {
 	a.statusBar.Clear()
 	n := len(a.merges)
 	resolved := len(a.resolvedRows)
 	pct := float32(resolved) / float32(n) * 100
-	fmt.Fprintf(a.statusBar, "Resolved %d / %d rows (%.1f%%) - %s", resolved, n, pct, s)
+	fmt.Fprintf(a.statusBar, "Resolved %d / %d rows (%.1f%%)", resolved, n, pct)
 }
 
 func (a *MergeApp) InitializeTable() {
-	a.Table = NewMergeTable(a.db, a.fs, a.commitNames, a.commitSums, a.cd, a.merges, a.removedCols, a.removedRows).
+	a.Table = NewMergeTable(a.db, a.fs, a.commitNames, a.commitSums, a.cd, a.merges, a.RemovedCols, a.removedRows).
 		SetUndoHandler(a.undo).
 		SetRedoHandler(a.redo).
 		SetSetCellHandler(a.setCellFromLayer).
 		SetDeleteColumnHandler(a.deleteColumn).
 		SetDeleteRowHandler(a.deleteRow).
 		SetSelectNextConflict(a.selectNextConflict).
-		SetShowInputHandler(a.showInput)
+		SetShowInputHandler(a.showInput).
+		SetAbortHandler(a.abort).
+		SetFinishHandler(a.finish)
 	a.statusBar = tview.NewTextView().SetDynamicColors(true)
-	a.updateStatus("")
+	a.updateStatus()
 	a.inputField = tview.NewInputField().
 		SetLabel("Enter cell's value: ").
 		SetDoneFunc(a.handleInput)
@@ -153,6 +156,8 @@ func (a *MergeApp) InitializeTable() {
 		{"l", "Right"},
 		{"g", "Scroll to begin"},
 		{"G", "Scroll to end"},
+		{"A", "Abort merge"},
+		{"X", "Finish merge"},
 	}, 2)
 	a.Flex.AddItem(a.statusBar, 1, 1, false).
 		AddItem(a.Table, 0, 1, true).
@@ -169,7 +174,7 @@ func (a *MergeApp) BeforeDraw(screen tcell.Screen) {
 func (a *MergeApp) execOp(op *editOp) {
 	switch op.Type {
 	case editRemoveCol:
-		a.removedCols[op.Column] = struct{}{}
+		a.RemovedCols[op.Column] = struct{}{}
 		for _, i := range op.AffectedRows {
 			cols := a.merges[i].UnresolvedCols
 			delete(cols, uint32(op.Column))
@@ -181,7 +186,7 @@ func (a *MergeApp) execOp(op *editOp) {
 		a.removedRows[op.Row] = struct{}{}
 		a.resolvedRows[op.Row] = struct{}{}
 	case editSet:
-		delete(a.removedCols, op.Column)
+		delete(a.RemovedCols, op.Column)
 		delete(a.removedRows, op.Row)
 		m := a.merges[op.Row]
 		m.ResolvedRow[op.Column] = op.Value
@@ -195,7 +200,7 @@ func (a *MergeApp) execOp(op *editOp) {
 		a.Table.SetCell(op.Row, op.Column, m.ResolvedRow[op.Column], false)
 	}
 	a.undoStack.PushFront(op)
-	a.updateStatus("")
+	a.updateStatus()
 }
 
 func (a *MergeApp) undo() {
@@ -207,7 +212,7 @@ func (a *MergeApp) undo() {
 	op := e.Value.(*editOp)
 	switch op.Type {
 	case editRemoveCol:
-		delete(a.removedCols, op.Column)
+		delete(a.RemovedCols, op.Column)
 		for _, i := range op.AffectedRows {
 			cols := a.merges[i].UnresolvedCols
 			cols[uint32(op.Column)] = struct{}{}
@@ -220,7 +225,7 @@ func (a *MergeApp) undo() {
 		}
 	case editSet:
 		if op.ColWasRemoved {
-			a.removedCols[op.Column] = struct{}{}
+			a.RemovedCols[op.Column] = struct{}{}
 		}
 		if op.RowWasRemoved {
 			a.removedRows[op.Row] = struct{}{}
@@ -239,7 +244,7 @@ func (a *MergeApp) undo() {
 	}
 	a.Table.Select(op.Row, op.Column)
 	a.redoStack.PushFront(op)
-	a.updateStatus("")
+	a.updateStatus()
 }
 
 func (a *MergeApp) redo() {
@@ -272,7 +277,7 @@ func (a *MergeApp) setCellWithValue(row, column int, value string) {
 }
 
 func (a *MergeApp) setCell(op *editOp) {
-	if _, ok := a.removedCols[op.Column]; ok {
+	if _, ok := a.RemovedCols[op.Column]; ok {
 		op.ColWasRemoved = true
 	}
 	if _, ok := a.removedRows[op.Row]; ok {
@@ -345,4 +350,41 @@ func (a *MergeApp) showInput(row, column int) {
 	a.inputField.SetText(a.merges[row].ResolvedRow[column])
 	a.Flex.ResizeItem(a.inputField, 3, 1)
 	a.app.SetFocus(a.inputField)
+}
+
+func (a *MergeApp) abort() {
+	a.Aborted = true
+	a.app.Stop()
+}
+
+func (a *MergeApp) saveResolvedRows() {
+	for _, m := range a.merges {
+		if err := a.merger.SaveResolvedRow(m.PK, m.ResolvedRow); err != nil {
+			panic(err)
+		}
+	}
+	a.Aborted = false
+	a.app.Stop()
+}
+
+func (a *MergeApp) finish() {
+	if len(a.resolvedRows) < len(a.merges) {
+		modal := tview.NewModal().
+			SetText(fmt.Sprintf(
+				"There are still %d conflicts not yet resolved. Do you want to finish merging? (conflicting rows will be saved as is)",
+				len(a.merges)-len(a.resolvedRows),
+			)).
+			AddButtons([]string{"Finish", "Cancel"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				switch buttonLabel {
+				case "Finish":
+					a.saveResolvedRows()
+				case "Cancel":
+					a.app.SetRoot(a.Flex, true)
+				}
+			})
+		a.app.SetRoot(modal, true)
+	} else {
+		a.saveResolvedRows()
+	}
 }

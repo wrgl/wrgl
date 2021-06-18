@@ -1,7 +1,6 @@
 package widgets
 
 import (
-	"encoding/hex"
 	"sort"
 	"testing"
 
@@ -12,12 +11,6 @@ import (
 	"github.com/wrgl/core/pkg/kv"
 	merge_testutils "github.com/wrgl/core/pkg/merge/testutils"
 )
-
-func hexToBytes(t *testing.T, s string) []byte {
-	b, err := hex.DecodeString(s)
-	require.NoError(t, err)
-	return b
-}
 
 func TestMergeApp(t *testing.T) {
 	db := kv.NewMockStore(false)
@@ -97,23 +90,23 @@ func TestMergeApp(t *testing.T) {
 	assert.Equal(t, []string{"3", "s", ""}, ma.merges[1].ResolvedRow)
 	assert.Len(t, ma.merges[1].UnresolvedCols, 0)
 	assert.Contains(t, ma.resolvedRows, 1)
-	assert.Contains(t, ma.removedCols, 2)
+	assert.Contains(t, ma.RemovedCols, 2)
 
 	ma.undo()
 	assert.Contains(t, ma.merges[1].UnresolvedCols, uint32(2))
 	assert.NotContains(t, ma.resolvedRows, 1)
-	assert.NotContains(t, ma.removedCols, 2)
+	assert.NotContains(t, ma.RemovedCols, 2)
 
 	ma.redo()
 	ma.setCellFromLayer(1, 2, 0)
 	assert.Equal(t, []string{"3", "s", "c"}, ma.merges[1].ResolvedRow)
 	assert.Len(t, ma.merges[1].UnresolvedCols, 0)
 	assert.Contains(t, ma.resolvedRows, 1)
-	assert.NotContains(t, ma.removedCols, 2)
+	assert.NotContains(t, ma.RemovedCols, 2)
 
 	ma.undo()
 	assert.Equal(t, []string{"3", "s", ""}, ma.merges[1].ResolvedRow)
 	assert.Len(t, ma.merges[1].UnresolvedCols, 0)
 	assert.Contains(t, ma.resolvedRows, 1)
-	assert.Contains(t, ma.removedCols, 2)
+	assert.Contains(t, ma.RemovedCols, 2)
 }

@@ -4,7 +4,9 @@
 package versioning
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -76,6 +78,31 @@ func TestSaveRef(t *testing.T) {
 		AuthorEmail: "john@doe.com",
 		Action:      "fetch",
 		Message:     "from origin",
+	})
+}
+
+func TestCommitMerge(t *testing.T) {
+	db := kv.NewMockStore(false)
+	fs := kv.NewMockStore(false)
+	name := "abc"
+	sum1, _ := SaveTestCommit(t, db, nil)
+	sum2, _ := SaveTestCommit(t, db, nil)
+	sum3, commit1 := SaveTestCommit(t, db, [][]byte{sum1, sum2})
+	err := CommitMerge(db, fs, name, sum3, commit1)
+	require.NoError(t, err)
+	b, err := GetHead(db, name)
+	require.NoError(t, err)
+	assert.Equal(t, sum3, b)
+	parents := make([]string, len(commit1.Parents))
+	for _, parent := range commit1.Parents {
+		parents = append(parents, hex.EncodeToString(parent)[:7])
+	}
+	AssertLatestReflogEqual(t, fs, "heads/"+name, &objects.Reflog{
+		NewOID:      sum3,
+		AuthorName:  commit1.AuthorName,
+		AuthorEmail: commit1.AuthorEmail,
+		Action:      "merge",
+		Message:     fmt.Sprintf("merge %s", strings.Join(parents, ", ")),
 	})
 }
 

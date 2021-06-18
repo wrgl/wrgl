@@ -19,38 +19,16 @@ import (
 	"github.com/wrgl/core/pkg/table"
 )
 
-type row struct {
+type Row struct {
 	Index  int
 	Record []string
-}
-
-func insertRows(primaryKeyIndices []uint32, seed uint64, tb *table.Builder, rows <-chan row, errChan chan<- error, wg *sync.WaitGroup, bar *progressbar.ProgressBar) {
-	defer wg.Done()
-	rh := NewRowHasher(primaryKeyIndices, seed)
-	for r := range rows {
-		pkHash, rowHash, rowContent, err := rh.Sum(r.Record)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		err = tb.InsertRow(r.Index, pkHash, rowHash, rowContent)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		err = bar.Add(1)
-		if err != nil {
-			errChan <- err
-			return
-		}
-	}
 }
 
 func ReadColumns(file io.Reader, primaryKeys []string) (reader *csv.Reader, columns []string, primaryKeyIndices []uint32, err error) {
 	reader = csv.NewReader(file)
 	columns, err = reader.Read()
 	if err != nil {
-		err = fmt.Errorf("csv.Reader.Read: %v", err)
+		err = fmt.Errorf("read CSV error: %v", err)
 		return
 	}
 
@@ -109,42 +87,100 @@ func pbar(max int64, desc string, out io.Writer) *progressbar.ProgressBar {
 	return bar
 }
 
-func Ingest(seed uint64, numWorkers int, reader *csv.Reader, primaryKeyIndices []uint32, tb *table.Builder, out io.Writer) ([]byte, error) {
-	errChan := make(chan error)
-	rows := make(chan row, 1000)
-	var wg sync.WaitGroup
-	bar := pbar(-1, fmt.Sprintf("Inserting rows using up to %d threads...", numWorkers), out)
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go insertRows(primaryKeyIndices, seed, tb, rows, errChan, &wg, bar)
-	}
+type Ingestor struct {
+	primaryKeyIndices []uint32
+	seed              uint64
+	tb                *table.Builder
+	errChan           chan error
+	wg                sync.WaitGroup
+	bar               *progressbar.ProgressBar
+	numWorkers        int
+	out               io.Writer
+	rows              chan Row
+}
 
-	n := 0
-outer:
-	for {
-		select {
-		case err := <-errChan:
-			return nil, err
-		default:
+func NewIngestor(tb *table.Builder, seed uint64, primaryKeyIndices []uint32, numWorkers int, out io.Writer) *Ingestor {
+	return &Ingestor{
+		primaryKeyIndices: primaryKeyIndices,
+		seed:              seed,
+		tb:                tb,
+		errChan:           make(chan error, numWorkers+1),
+		numWorkers:        numWorkers,
+		out:               out,
+	}
+}
+
+func (i *Ingestor) insertRows() {
+	defer i.wg.Done()
+	rh := NewRowHasher(i.primaryKeyIndices, i.seed)
+	for r := range i.rows {
+		pkHash, rowHash, rowContent, err := rh.Sum(r.Record)
+		if err != nil {
+			i.errChan <- err
+			return
+		}
+		err = i.tb.InsertRow(r.Index, pkHash, rowHash, rowContent)
+		if err != nil {
+			i.errChan <- err
+			return
+		}
+		err = i.bar.Add(1)
+		if err != nil {
+			i.errChan <- err
+			return
+		}
+	}
+}
+
+func (i *Ingestor) SetRowsChan(rows chan Row) *Ingestor {
+	i.rows = rows
+	return i
+}
+
+func (i *Ingestor) ReadRowsFromCSVReader(reader *csv.Reader) *Ingestor {
+	i.rows = make(chan Row, 1000)
+	go func() {
+		defer close(i.rows)
+		n := 0
+		for {
 			record, err := reader.Read()
 			if err == io.EOF {
-				close(rows)
-				break outer
+				break
 			} else if err != nil {
-				return nil, fmt.Errorf("csv.Reader.Read: %v", err)
+				i.errChan <- fmt.Errorf("read CSV error: %v", err)
+				return
 			} else {
-				rows <- row{n, record}
+				i.rows <- Row{n, record}
 				n++
 			}
 		}
-	}
+	}()
+	return i
+}
 
-	wg.Wait()
-	err := bar.Finish()
-	if err != nil {
+func (i *Ingestor) Error() error {
+	close(i.errChan)
+	err, ok := <-i.errChan
+	if ok {
+		return err
+	}
+	return nil
+}
+
+func (i *Ingestor) Ingest() ([]byte, error) {
+	i.bar = pbar(-1, fmt.Sprintf("Inserting rows using up to %d threads...", i.numWorkers), i.out)
+	for j := 0; j < i.numWorkers; j++ {
+		i.wg.Add(1)
+		go i.insertRows()
+	}
+	i.wg.Wait()
+	if err := i.Error(); err != nil {
 		return nil, err
 	}
-	done := printSpinner(out, "Saving table...")
+	if err := i.bar.Finish(); err != nil {
+		return nil, err
+	}
+	done := printSpinner(i.out, "Saving table...")
 	defer close(done)
-	return tb.SaveTable()
+	return i.tb.SaveTable()
 }

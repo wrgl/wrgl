@@ -130,7 +130,9 @@ func createInMemCommit(cmd *cobra.Command, db *kv.MockStore, raw bool, pk []stri
 	if raw {
 		out = io.Discard
 	}
-	sum, err := ingest.Ingest(seed, 1, csvReader, primaryKeyIndices, tb, out)
+	sum, err := ingest.NewIngestor(tb, seed, primaryKeyIndices, 1, out).
+		ReadRowsFromCSVReader(csvReader).
+		Ingest()
 	if err != nil {
 		return "", nil, err
 	}

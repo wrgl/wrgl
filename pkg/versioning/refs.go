@@ -5,6 +5,7 @@ package versioning
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
@@ -76,6 +77,16 @@ func CommitHead(s kv.DB, fs kv.FileStore, name string, sum []byte, commit *objec
 		message = commit.Message[:i]
 	}
 	return SaveRef(s, fs, headRef(name), sum, commit.AuthorName, commit.AuthorEmail, "commit", message)
+}
+
+func CommitMerge(s kv.DB, fs kv.FileStore, name string, sum []byte, commit *objects.Commit) error {
+	parents := make([]string, len(commit.Parents))
+	for _, parent := range commit.Parents {
+		parents = append(parents, hex.EncodeToString(parent)[:7])
+	}
+	return SaveRef(s, fs, headRef(name), sum, commit.AuthorName, commit.AuthorEmail, "merge", fmt.Sprintf(
+		"merge %s", strings.Join(parents, ", "),
+	))
 }
 
 func SaveTag(s kv.DB, name string, sum []byte) error {
