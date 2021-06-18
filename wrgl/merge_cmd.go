@@ -112,7 +112,7 @@ func mergeCmd() *cobra.Command {
 				return err
 			}
 			if len(pk) == 0 {
-				otherTs[0].PrimaryKey()
+				pk = otherTs[0].PrimaryKey()
 			}
 
 			if commitCSV != "" {
@@ -175,11 +175,6 @@ func outputConflicts(db kv.DB, merger *merge.Merger, commitNames []string, baseS
 	defer f.Close()
 	w := csv.NewWriter(f)
 	defer w.Flush()
-	columns := append([]string{""}, merger.Columns(nil)...)
-	err = w.Write(columns)
-	if err != nil {
-		return err
-	}
 
 	baseName := fmt.Sprintf("BASE %s", hex.EncodeToString(baseSum)[:7])
 	names := make([]string, len(commitNames))
@@ -192,6 +187,11 @@ func outputConflicts(db kv.DB, merger *merge.Merger, commitNames []string, baseS
 		return err
 	}
 	cd := (<-mc).ColDiff
+	columns := append([]string{""}, merger.Columns(nil)...)
+	err = w.Write(columns)
+	if err != nil {
+		return err
+	}
 	for i, name := range names {
 		row := make([]string, cd.Len()+1)
 		row[0] = "COLUMNS: " + name
@@ -214,7 +214,8 @@ func outputConflicts(db kv.DB, merger *merge.Merger, commitNames []string, baseS
 			if err != nil {
 				return err
 			}
-			err = w.Write(append([]string{baseName}, cd.RearrangeBaseRow(dec.Decode(rowB))...))
+			row := append([]string{baseName}, cd.RearrangeBaseRow(dec.Decode(rowB))...)
+			err = w.Write(row)
 			if err != nil {
 				return err
 			}
@@ -228,29 +229,39 @@ func outputConflicts(db kv.DB, merger *merge.Merger, commitNames []string, baseS
 				return err
 			}
 			row := cd.RearrangeBaseRow(dec.Decode(rowB))
-			err = w.Write(append([]string{names[i]}, row...))
+			row = append([]string{names[i]}, row...)
+			err = w.Write(row)
 			if err != nil {
 				return err
 			}
 		}
 		if len(m.ResolvedRow) > 0 {
-			err = w.Write(append([]string{"RESOLUTION"}, m.ResolvedRow...))
+			row := append([]string{"RESOLUTION"}, m.ResolvedRow...)
+			err = w.Write(row)
 			if err != nil {
 				return err
 			}
 		}
+		err = merger.SaveResolvedRow(m.PK, nil)
+		if err != nil {
+			return err
+		}
+	}
+	if err = merger.Error(); err != nil {
+		return err
 	}
 	rc, err := merger.SortedRows(nil)
 	if err != nil {
 		return err
 	}
 	for row := range rc {
-		err = w.Write(append([]string{""}, row...))
+		row = append([]string{""}, row...)
+		err = w.Write(row)
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return merger.Error()
 }
 
 func mergeCSVName(prefix string, commits [][]byte) string {
