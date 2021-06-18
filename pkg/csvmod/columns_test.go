@@ -43,8 +43,7 @@ func TestRemColumns(t *testing.T) {
 		{"1", "q", "w", "e"},
 		{"2", "a", "s", "d"},
 		{"3", "z", "x", "c"},
-	})
-	m.modifiedCols["a"] = struct{}{}
+	}).PreserveColumns([]string{"a"})
 	m.RemColumns(2.0 / 4.0)
 	assert.Len(t, m.Rows, 4)
 	for _, sl := range m.Rows {
@@ -72,8 +71,7 @@ func TestRenameColumns(t *testing.T) {
 		{"1", "q", "w", "e"},
 		{"2", "a", "s", "d"},
 		{"3", "z", "x", "c"},
-	})
-	m.modifiedCols["a"] = struct{}{}
+	}).PreserveColumns([]string{"a"})
 	m.RenameColumns(2.0 / 4.0)
 	assert.Len(t, m.Rows, 4)
 	for _, sl := range m.Rows {
@@ -105,8 +103,7 @@ func TestMoveColumns(t *testing.T) {
 		{"1", "q", "w", "e"},
 		{"2", "a", "s", "d"},
 		{"3", "z", "x", "c"},
-	})
-	m.modifiedCols["a"] = struct{}{}
+	}).PreserveColumns([]string{"a"})
 	m.MoveColumns(1.0 / 3.0)
 	assert.Len(t, m.Rows, 4)
 	for _, sl := range m.Rows {

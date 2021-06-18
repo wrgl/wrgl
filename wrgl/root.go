@@ -54,22 +54,26 @@ func newRootCmd() *cobra.Command {
 	return rootCmd
 }
 
-func setupDebug(cmd *cobra.Command) func() error {
+func setupDebug(cmd *cobra.Command) func() {
 	name, err := cmd.Flags().GetString("debug-file")
 	if err != nil {
 		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
-	if name == "" {
-		return nil
+	var f *os.File
+	if name != "" {
+		f, err = os.Create(name)
+		if err != nil {
+			cmd.PrintErrln(err)
+			os.Exit(1)
+		}
+		log.SetOutput(f)
 	}
-	f, err := os.Create(name)
-	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
+	return func() {
+		if f != nil {
+			f.Close()
+		}
 	}
-	log.SetOutput(f)
-	return f.Close
 }
 
 func execute() error {

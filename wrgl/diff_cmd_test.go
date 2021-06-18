@@ -89,19 +89,6 @@ func TestDiffCmd(t *testing.T) {
 	cmd.SetArgs([]string{"diff", "my-branch", "my-branch^", "--raw"})
 	assertDiffOutput(t, cmd, []*objects.Diff{
 		{
-			Type: objects.DTColumnChange,
-			ColDiff: &objects.ColDiff{
-				Names:    []string{"a", "b", "c"},
-				BasePK:   []uint32{0},
-				OtherPK:  [][]uint32{{0}},
-				Added:    []map[uint32]struct{}{{}},
-				Removed:  []map[uint32]struct{}{{}},
-				Moved:    []map[uint32][]int{{}},
-				BaseIdx:  map[uint32]uint32{0: 0, 1: 1, 2: 2},
-				OtherIdx: []map[uint32]uint32{{0: 0, 1: 1, 2: 2}},
-			},
-		},
-		{
 			Type:   objects.DTRow,
 			PK:     mustDecodeHex(t, "fd1c9513cc47feaf59fa9b76008f2521"),
 			Sum:    mustDecodeHex(t, "472dc02a63f3a555b9b39cf6c953a3ea"),
@@ -140,19 +127,6 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"diff", fp2, fp1, "--raw", "--primary-key", "a"})
 	assertDiffOutput(t, cmd, []*objects.Diff{
-		{
-			Type: objects.DTColumnChange,
-			ColDiff: &objects.ColDiff{
-				Names:    []string{"a", "c", "b"},
-				BasePK:   []uint32{0},
-				OtherPK:  [][]uint32{{0}},
-				Added:    []map[uint32]struct{}{{}},
-				Removed:  []map[uint32]struct{}{{}},
-				Moved:    []map[uint32][]int{{2: []int{-1, 0}}},
-				BaseIdx:  map[uint32]uint32{0: 0, 1: 2, 2: 1},
-				OtherIdx: []map[uint32]uint32{{0: 0, 1: 1, 2: 2}},
-			},
-		},
 		{
 			Type:   objects.DTRow,
 			PK:     mustDecodeHex(t, "fd1c9513cc47feaf59fa9b76008f2521"),

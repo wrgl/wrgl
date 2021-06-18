@@ -27,13 +27,21 @@ type Modifier struct {
 }
 
 func NewModifier(rows [][]string) *Modifier {
-	return &Modifier{
+	m := &Modifier{
 		modifiedCols: map[string]struct{}{},
 		modifiedRows: map[int]struct{}{},
 		Rows:         rows,
 		nCols:        len(rows[0]),
 		nRows:        len(rows),
 	}
+	return m
+}
+
+func (m *Modifier) PreserveColumns(columns []string) *Modifier {
+	for _, s := range columns {
+		m.modifiedCols[s] = struct{}{}
+	}
+	return m
 }
 
 func (m *Modifier) AddColumns(pct float64) *Modifier {

@@ -34,11 +34,16 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			perserveCols, err := cmd.Flags().GetStringSlice("preserve-cols")
+			if err != nil {
+				return err
+			}
 			rows, err := readCSV(args[0])
 			if err != nil {
 				return err
 			}
-			m := csvmod.NewModifier(rows)
+			m := csvmod.NewModifier(rows).
+				PreserveColumns(perserveCols)
 			pct := 0.2
 			if addRemCols {
 				m.AddColumns(pct).RemColumns(pct)
@@ -60,6 +65,7 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().Bool("rename-cols", false, "Randomly rename columns")
 	cmd.Flags().Bool("mod-rows", false, "Randomly add, remove and modify rows")
 	cmd.Flags().Bool("move-cols", false, "Randomly move columns")
+	cmd.Flags().StringSlice("preserve-cols", nil, "preserve columns with these names")
 	return cmd
 }
 

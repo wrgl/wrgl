@@ -47,6 +47,7 @@ func mergeCmd() *cobra.Command {
 				return err
 			}
 			ensureUserSet(cmd, c)
+			defer setupDebug(cmd)()
 			kvStore, err := rd.OpenKVStore()
 			if err != nil {
 				return err
@@ -441,8 +442,9 @@ func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merg
 	if err != nil {
 		return nil, err
 	}
-	if mergeApp.Aborted {
+	if !mergeApp.Finished {
 		cmd.Println("merge aborted")
+		os.Exit(0)
 	}
 	return mergeApp.RemovedCols, nil
 }

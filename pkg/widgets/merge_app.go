@@ -53,7 +53,7 @@ type MergeApp struct {
 	inputField   *tview.InputField
 	inputRow     int
 	inputColumn  int
-	Aborted      bool
+	Finished     bool
 }
 
 func createMergeTitleBar(commitNames []string, baseSum []byte) *tview.TextView {
@@ -129,7 +129,7 @@ func (a *MergeApp) updateStatus() {
 
 func (a *MergeApp) InitializeTable() {
 	if len(a.merges) == 0 {
-		a.Aborted = false
+		a.Finished = true
 		a.app.Stop()
 		return
 	}
@@ -358,7 +358,6 @@ func (a *MergeApp) showInput(row, column int) {
 }
 
 func (a *MergeApp) abort() {
-	a.Aborted = true
 	a.app.Stop()
 }
 
@@ -368,7 +367,7 @@ func (a *MergeApp) saveResolvedRows() {
 			panic(err)
 		}
 	}
-	a.Aborted = false
+	a.Finished = true
 	a.app.Stop()
 }
 
