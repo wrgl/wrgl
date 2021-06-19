@@ -116,8 +116,8 @@ func getSecondCommit(cmd *cobra.Command, db kv.DB, memDB *kv.MockStore, raw bool
 	if len(args) > 1 {
 		return getCommit(cmd, db, memDB, raw, pk, args[1])
 	}
-	if len(commit.Parents) > 0 {
-		return getCommit(cmd, db, memDB, raw, pk, hex.EncodeToString(commit.Parents[0]))
+	if len(commit1.Parents) > 0 {
+		return getCommit(cmd, db, memDB, raw, pk, hex.EncodeToString(commit1.Parents[0]))
 	}
 	err = fmt.Errorf("specify the second object to diff against")
 	return

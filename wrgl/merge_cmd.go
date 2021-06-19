@@ -148,7 +148,7 @@ func mergeCmd() *cobra.Command {
 					return err
 				}
 				if noCommit {
-					return saveMergeResultToCSV(merger, removedCols, commits)
+					return saveMergeResultToCSV(cmd, merger, removedCols, commits)
 				} else {
 					return commitMergeResult(cmd, kvStore, fs, merger, removedCols, numWorkers, commitNames, commits, message, c)
 				}
@@ -294,12 +294,13 @@ func mergeCSVName(prefix string, commits [][]byte) string {
 	return fmt.Sprintf("%s_%s.csv", prefix, strings.Join(sums, "_"))
 }
 
-func saveMergeResultToCSV(merger *merge.Merger, removedCols map[int]struct{}, commits [][]byte) error {
+func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols map[int]struct{}, commits [][]byte) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
-	f, err := os.Create(path.Join(wd, mergeCSVName("MERGE", commits)))
+	name := path.Join(wd, mergeCSVName("MERGE", commits))
+	f, err := os.Create(name)
 	if err != nil {
 		return err
 	}
@@ -314,13 +315,18 @@ func saveMergeResultToCSV(merger *merge.Merger, removedCols map[int]struct{}, co
 	if err != nil {
 		return err
 	}
+	bar := pbar(-1, fmt.Sprintf("saving merge result to %s", name), cmd.OutOrStdout(), cmd.ErrOrStderr())
 	for row := range rows {
 		err = w.Write(row)
 		if err != nil {
 			return err
 		}
+		err = bar.Add(1)
+		if err != nil {
+			return err
+		}
 	}
-	return nil
+	return bar.Finish()
 }
 
 func commitMergeResult(
@@ -432,10 +438,13 @@ func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merg
 	go func() {
 		err := mergeApp.CollectMergeConflicts()
 		if err != nil {
-			panic(err)
+			cmd.PrintErrln(err)
+			os.Exit(1)
 		}
 		mergeApp.InitializeTable()
-		app.SetFocus(mergeApp.Table)
+		if !mergeApp.Finished {
+			app.SetFocus(mergeApp.Table)
+		}
 	}()
 
 	err := app.Run()

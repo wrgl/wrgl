@@ -38,24 +38,27 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			fraction, err := cmd.Flags().GetFloat64("fraction")
+			if err != nil {
+				return err
+			}
 			rows, err := readCSV(args[0])
 			if err != nil {
 				return err
 			}
 			m := csvmod.NewModifier(rows).
 				PreserveColumns(perserveCols)
-			pct := 0.2
 			if addRemCols {
-				m.AddColumns(pct).RemColumns(pct)
+				m.AddColumns(fraction).RemColumns(fraction)
 			}
 			if renameCols {
-				m.RenameColumns(pct)
+				m.RenameColumns(fraction)
 			}
 			if moveCols {
-				m.MoveColumns(pct)
+				m.MoveColumns(fraction)
 			}
 			if modRows {
-				m.AddRows(pct).RemoveRows(pct).ModifyRows(pct)
+				m.AddRows(fraction).RemoveRows(fraction).ModifyRows(fraction)
 			}
 			w := csv.NewWriter(cmd.OutOrStdout())
 			return w.WriteAll(m.Rows)
@@ -66,6 +69,7 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().Bool("mod-rows", false, "Randomly add, remove and modify rows")
 	cmd.Flags().Bool("move-cols", false, "Randomly move columns")
 	cmd.Flags().StringSlice("preserve-cols", nil, "preserve columns with these names")
+	cmd.Flags().Float64P("fraction", "f", 0.2, "Fraction of rows/columns that will be modified. Defaults to 0.2")
 	return cmd
 }
 

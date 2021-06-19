@@ -161,7 +161,7 @@ func (a *MergeApp) InitializeTable() {
 		{"l", "Right"},
 		{"g", "Scroll to begin"},
 		{"G", "Scroll to end"},
-		{"A", "Abort merge"},
+		{"Q", "Abort merge"},
 		{"X", "Finish merge"},
 	}, 2)
 	a.Flex.AddItem(a.statusBar, 1, 1, false).
@@ -364,6 +364,7 @@ func (a *MergeApp) abort() {
 func (a *MergeApp) saveResolvedRows() {
 	for _, m := range a.merges {
 		if err := a.merger.SaveResolvedRow(m.PK, m.ResolvedRow); err != nil {
+			a.app.Stop()
 			panic(err)
 		}
 	}

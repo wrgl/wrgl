@@ -105,6 +105,27 @@ func TestDiffCmd(t *testing.T) {
 			OldSum: mustDecodeHex(t, "1c51f6044190122c554cc6794585e654"),
 		},
 	})
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"diff", "my-branch", "--raw"})
+	assertDiffOutput(t, cmd, []*objects.Diff{
+		{
+			Type:   objects.DTRow,
+			PK:     mustDecodeHex(t, "fd1c9513cc47feaf59fa9b76008f2521"),
+			Sum:    mustDecodeHex(t, "472dc02a63f3a555b9b39cf6c953a3ea"),
+			OldSum: mustDecodeHex(t, "60f1c744d65482e468bfac458a7131fe"),
+		},
+		{
+			Type: objects.DTRow,
+			PK:   mustDecodeHex(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Sum:  mustDecodeHex(t, "2e57aba9da65dfa5a185c4cb72ead76f"),
+		},
+		{
+			Type:   objects.DTRow,
+			PK:     mustDecodeHex(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			OldSum: mustDecodeHex(t, "1c51f6044190122c554cc6794585e654"),
+		},
+	})
 }
 
 func TestDiffCmdNoRepoDir(t *testing.T) {
