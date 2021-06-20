@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/csv"
 	"encoding/hex"
@@ -112,6 +113,24 @@ func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.
 	baseCommit, err := versioning.SeekCommonAncestor(kvStore, commits...)
 	if err != nil {
 		return err
+	}
+	nonAncestralCommits := [][]byte{}
+	for _, sum := range commits {
+		if !bytes.Equal(sum, baseCommit) {
+			nonAncestralCommits = append(nonAncestralCommits, sum)
+		}
+	}
+	commits = nonAncestralCommits
+	if len(commits) == 0 {
+		cmd.Println("All commits are identical, nothing to merge")
+		return nil
+	} else if len(commits) == 1 {
+		err = versioning.SaveRef(kvStore, fs, name[5:], commits[0], c.User.Name, c.User.Email, "merge", "fast-forward")
+		if err != nil {
+			return err
+		}
+		cmd.Printf("Fast forward to %s\n", hex.EncodeToString(commits[0])[:7])
+		return nil
 	}
 
 	baseT, err := getTable(kvStore, fs, baseCommit)

@@ -297,3 +297,41 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a"}, ts.PrimaryKey())
 }
+
+func TestMergeCmdFastForward(t *testing.T) {
+	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+	db, err := rd.OpenKVStore()
+	require.NoError(t, err)
+	defer db.Close()
+	fs := rd.OpenFileStore()
+	base, baseCom := factory.CommitRandom(t, db, fs, nil)
+	sum1, com1 := factory.CommitRandom(t, db, fs, [][]byte{base})
+	require.NoError(t, versioning.CommitHead(db, fs, "branch-1", base, baseCom))
+	require.NoError(t, versioning.CommitHead(db, fs, "branch-2", sum1, com1))
+	require.NoError(t, db.Close())
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"merge", "branch-1", "branch-2"})
+	assertCmdOutput(t, cmd, fmt.Sprintf("Fast forward to %s\n", hex.EncodeToString(sum1)[:7]))
+
+	db, err = rd.OpenKVStore()
+	require.NoError(t, err)
+	defer db.Close()
+	sum, err := versioning.GetHead(db, "branch-1")
+	require.NoError(t, err)
+	assert.Equal(t, sum1, sum)
+	versioning.AssertLatestReflogEqual(t, fs, "heads/branch-1", &objects.Reflog{
+		OldOID:      base,
+		NewOID:      sum1,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "merge",
+		Message:     "fast-forward",
+	})
+	require.NoError(t, db.Close())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"merge", "branch-1", "branch-2"})
+	assertCmdOutput(t, cmd, "All commits are identical, nothing to merge\n")
+}

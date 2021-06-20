@@ -78,7 +78,7 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if setUpstream && len(args) > 2 {
+			if setUpstream && len(args) > 2 && len(savedRefs) > 0 {
 				err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{{Src: name, Dst: savedRefs[0].Src}})
 				if err != nil {
 					return err
@@ -87,7 +87,7 @@ func pullCmd() *cobra.Command {
 
 			mergeHeads := extractMergeHeads(c, args, savedRefs, specs)
 			if len(mergeHeads) == 0 {
-				cmd.Println("Everything up to date.")
+				cmd.Println("Already up to date.")
 				return nil
 			}
 
