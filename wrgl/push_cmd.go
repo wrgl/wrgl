@@ -71,39 +71,41 @@ func newPushCmd() *cobra.Command {
 			}
 			reportUpdateStatus(cmd, updates)
 			if setUpstream {
-				c, err = versioning.OpenConfig(false, false, wrglDir, "")
-				if err != nil {
-					return err
-				}
-				if c.Branch == nil {
-					c.Branch = map[string]*versioning.ConfigBranch{}
-				}
+				refs := []*Ref{}
 				for _, rs := range upToDateRefspecs {
-					if strings.HasPrefix(rs.Src(), "refs/heads/") && strings.HasPrefix(rs.Dst(), "refs/heads/") {
-						c.Branch[rs.Src()[11:]] = &versioning.ConfigBranch{
-							Remote: remote,
-							Merge:  rs.Dst(),
-						}
-						cmd.Printf("branch %q setup to track remote branch %q from %q\n", rs.Src()[11:], rs.Dst()[11:], remote)
-					}
+					refs = append(refs, &Ref{Src: rs.Src(), Dst: rs.Dst()})
 				}
 				for _, u := range updates {
-					if strings.HasPrefix(u.Src, "refs/heads/") && strings.HasPrefix(u.Dst, "refs/heads/") {
-						c.Branch[u.Src[11:]] = &versioning.ConfigBranch{
-							Remote: remote,
-							Merge:  u.Dst,
-						}
-						cmd.Printf("branch %q setup to track remote branch %q from %q\n", u.Src[11:], u.Dst[11:], remote)
-					}
+					refs = append(refs, &Ref{Src: u.Src, Dst: u.Dst})
 				}
-				return c.Save()
+				return setBranchUpstream(cmd, wrglDir, remote, refs)
 			}
 			return nil
 		},
 	}
-	cmd.Flags().BoolP("force", "f", false, "Force update remote branch in certain conditions.")
-	cmd.Flags().BoolP("set-upstream", "u", false, "For every branch that is up to date or successfully pushed, add upstream (tracking) reference, used by argument-less `wrgl pull`.")
+	cmd.Flags().BoolP("force", "f", false, "force update remote branch in certain conditions.")
+	cmd.Flags().BoolP("set-upstream", "u", false, "for every branch that is up to date or successfully pushed, add upstream (tracking) reference, used by argument-less `wrgl pull`.")
 	return cmd
+}
+
+func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) error {
+	c, err := versioning.OpenConfig(false, false, wrglDir, "")
+	if err != nil {
+		return err
+	}
+	if c.Branch == nil {
+		c.Branch = map[string]*versioning.ConfigBranch{}
+	}
+	for _, ref := range refs {
+		if strings.HasPrefix(ref.Src, "refs/heads/") && strings.HasPrefix(ref.Dst, "refs/heads/") {
+			c.Branch[ref.Src[11:]] = &versioning.ConfigBranch{
+				Remote: remote,
+				Merge:  ref.Dst,
+			}
+			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src[11:], ref.Dst[11:], remote)
+		}
+	}
+	return c.Save()
 }
 
 func identifyCommonCommits(db kv.DB, remoteRefs map[string][]byte) [][]byte {

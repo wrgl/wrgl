@@ -16,6 +16,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
@@ -156,9 +157,23 @@ func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.
 	if noGUI {
 		return outputConflicts(cmd, kvStore, merger, commitNames, baseCommit, commits)
 	} else {
-		removedCols, err := displayMergeApp(cmd, kvStore, fs, merger, commitNames, commits, baseCommit)
+		cd, merges, err := collectMergeConflicts(cmd, merger)
 		if err != nil {
 			return err
+		}
+		var removedCols map[int]struct{}
+		if len(merges) == 0 {
+			removedCols = map[int]struct{}{}
+			for _, layer := range cd.Removed {
+				for col := range layer {
+					removedCols[int(col)] = struct{}{}
+				}
+			}
+		} else {
+			removedCols, err = displayMergeApp(cmd, kvStore, fs, merger, commitNames, commits, baseCommit, cd, merges)
+			if err != nil {
+				return err
+			}
 		}
 		if noCommit {
 			return saveMergeResultToCSV(cmd, merger, removedCols, commits)
@@ -425,11 +440,48 @@ func redrawEvery(app *tview.Application, d time.Duration) (cancel func()) {
 	return cancel
 }
 
-func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte) (map[int]struct{}, error) {
+func collectMergeConflicts(cmd *cobra.Command, merger *merge.Merger) (*objects.ColDiff, []*merge.Merge, error) {
+	var bar *progressbar.ProgressBar
+	mch, err := merger.Start()
+	if err != nil {
+		return nil, nil, err
+	}
+	pch := merger.Progress.Chan()
+	go merger.Progress.Run()
+	merges := []*merge.Merge{}
+mainLoop:
+	for {
+		select {
+		case p := <-pch:
+			if bar == nil {
+				bar = pbar(p.Total, "collecting merge conflicts", cmd.OutOrStdout(), cmd.OutOrStderr())
+			}
+			bar.Set64(p.Progress)
+		case m, ok := <-mch:
+			if !ok {
+				break mainLoop
+			}
+			merges = append(merges, m)
+		}
+	}
+	merger.Progress.Stop()
+	if bar != nil {
+		if err = bar.Finish(); err != nil {
+			return nil, nil, err
+		}
+	}
+	if err = merger.Error(); err != nil {
+		return nil, nil, err
+	}
+	return merges[0].ColDiff, merges[1:], nil
+}
+
+func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte, cd *objects.ColDiff, merges []*merge.Merge) (map[int]struct{}, error) {
 	app := tview.NewApplication()
 	mergeApp := widgets.NewMergeApp(db, fs, merger, app, commitNames, commitSums, baseSum)
+	mergeApp.InitializeTable(cd, merges)
 	app.SetRoot(mergeApp.Flex, true).
-		SetFocus(mergeApp.Flex).
+		SetFocus(mergeApp.Table).
 		SetBeforeDrawFunc(func(screen tcell.Screen) bool {
 			mergeApp.BeforeDraw(screen)
 			return false
@@ -438,18 +490,6 @@ func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merg
 
 	cancel := redrawEvery(app, 65*time.Millisecond)
 	defer cancel()
-
-	go func() {
-		err := mergeApp.CollectMergeConflicts()
-		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
-		}
-		mergeApp.InitializeTable()
-		if !mergeApp.Finished {
-			app.SetFocus(mergeApp.Table)
-		}
-	}()
 
 	err := app.Run()
 	if err != nil {

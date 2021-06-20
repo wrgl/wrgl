@@ -126,13 +126,28 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, 
 			}
 		}
 	}
-	for _, m := range merges {
-		err := resolver.Resolve(m)
+	for _, obj := range merges {
+		m.fillMissingSums(obj)
+		err := resolver.Resolve(obj)
 		if err != nil {
 			errChan <- fmt.Errorf("resolve error: %v", err)
 			return
 		}
-		mergeChan <- m
+		mergeChan <- obj
+	}
+}
+
+func (m *Merger) fillMissingSums(obj *Merge) {
+	if obj.Base == nil {
+		return
+	}
+	for i, s := range obj.Others {
+		if s == nil {
+			sum, ok := m.otherTs[i].GetRowHash(obj.PK)
+			if ok {
+				obj.Others[i] = sum
+			}
+		}
 	}
 }
 

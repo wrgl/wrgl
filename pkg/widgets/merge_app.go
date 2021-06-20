@@ -86,39 +86,6 @@ func NewMergeApp(db kv.DB, fs kv.FileStore, merger *merge.Merger, app *tview.App
 	}
 }
 
-func (a *MergeApp) CollectMergeConflicts() error {
-	pBar := NewProgressBar("Counting merge conflicts...")
-	a.Flex.AddItem(pBar, 1, 1, false)
-	mch, err := a.merger.Start()
-	if err != nil {
-		return err
-	}
-	pch := a.merger.Progress.Chan()
-	go a.merger.Progress.Run()
-	a.merges = []*merge.Merge{}
-mainLoop:
-	for {
-		select {
-		case p := <-pch:
-			pBar.SetTotal(p.Total)
-			pBar.SetCurrent(p.Progress)
-		case m, ok := <-mch:
-			if !ok {
-				break mainLoop
-			}
-			a.merges = append(a.merges, m)
-		}
-	}
-	a.merger.Progress.Stop()
-	a.Flex.RemoveItem(pBar)
-	if err = a.merger.Error(); err != nil {
-		return err
-	}
-	a.cd = a.merges[0].ColDiff
-	a.merges = a.merges[1:]
-	return nil
-}
-
 func (a *MergeApp) updateStatus() {
 	a.statusBar.Clear()
 	n := len(a.merges)
@@ -127,12 +94,9 @@ func (a *MergeApp) updateStatus() {
 	fmt.Fprintf(a.statusBar, "Resolved %d / %d rows (%.1f%%)", resolved, n, pct)
 }
 
-func (a *MergeApp) InitializeTable() {
-	if len(a.merges) == 0 {
-		a.Finished = true
-		a.app.Stop()
-		return
-	}
+func (a *MergeApp) InitializeTable(cd *objects.ColDiff, merges []*merge.Merge) {
+	a.cd = cd
+	a.merges = merges
 	a.Table = NewMergeTable(a.db, a.fs, a.commitNames, a.commitSums, a.cd, a.merges, a.RemovedCols, a.removedRows).
 		SetUndoHandler(a.undo).
 		SetRedoHandler(a.redo).

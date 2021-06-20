@@ -66,7 +66,8 @@ loop1:
 		}
 		current++
 		pt.SetCurrent(current)
-		if w, ok := t2.GetRowHash(k); ok {
+		w, ok := t2.GetRowHash(k)
+		if ok {
 			if !colsEqual || !bytes.Equal(v, w) {
 				diffChan <- objects.Diff{
 					Type:   objects.DTRow,

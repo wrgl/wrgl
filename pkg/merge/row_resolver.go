@@ -4,6 +4,7 @@
 package merge
 
 import (
+	"bytes"
 	"sort"
 
 	"github.com/wrgl/core/pkg/kv"
@@ -141,12 +142,16 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 
 func (r *RowResolver) Resolve(m *Merge) (err error) {
 	nonNils := 0
+	unchanges := 0
 	for _, sum := range m.Others {
 		if sum != nil {
 			nonNils++
+			if bytes.Equal(sum, m.Base) {
+				unchanges++
+			}
 		}
 	}
-	if nonNils == 0 {
+	if nonNils == 0 || unchanges == nonNils {
 		// removed in all layers or never changed in the first place
 		m.Resolved = true
 		return
@@ -156,11 +161,10 @@ func (r *RowResolver) Resolve(m *Merge) (err error) {
 		return err
 	}
 	m.ResolvedRow = resolvedRow
+	m.Resolved = resolved
 	if m.Base != nil && nonNils != r.nLayers {
 		// some modified, some removed, not resolvable
 		m.Resolved = false
-	} else {
-		m.Resolved = resolved
 	}
 	return
 }

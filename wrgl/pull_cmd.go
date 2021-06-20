@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/versioning"
@@ -56,7 +58,18 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			setUpstream, err := cmd.Flags().GetBool("set-upstream")
+			if err != nil {
+				return err
+			}
 
+			name, _, _, err := versioning.InterpretCommitName(db, args[0], true)
+			if err != nil {
+				return err
+			}
+			if !strings.HasPrefix(name, "refs/heads/") {
+				return fmt.Errorf("%q is not a branch name", args[0])
+			}
 			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, args[1:])
 			if err != nil {
 				return err
@@ -64,6 +77,12 @@ func pullCmd() *cobra.Command {
 			savedRefs, err := fetch(cmd, db, fs, c.User, remote, rem, specs, force)
 			if err != nil {
 				return err
+			}
+			if setUpstream && len(args) > 2 {
+				err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{{Src: name, Dst: savedRefs[0].Src}})
+				if err != nil {
+					return err
+				}
 			}
 
 			mergeHeads := extractMergeHeads(c, args, savedRefs, specs)
@@ -75,13 +94,14 @@ func pullCmd() *cobra.Command {
 			return runMerge(cmd, c, db, fs, append(args[:1], mergeHeads...), noCommit, noGUI, commitCSV, numWorkers, message, pk)
 		},
 	}
-	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
+	cmd.Flags().BoolP("force", "f", false, "force update local branch in certain conditions.")
 	cmd.Flags().Bool("no-commit", false, "perform the merge but don't create a merge commit, instead output merge result to file MERGE_SUM1_SUM2_..._SUMn.csv")
 	cmd.Flags().Bool("no-gui", false, "don't show mergetool, instead output conflicts (and resolved rows) to file CONFLICTS_SUM1_SUM2_..._SUMn.csv")
 	cmd.Flags().String("commit-csv", "", "don't perform merge, just create a merge commit with the specified CSV file")
 	cmd.Flags().StringP("message", "m", "", "merge commit message")
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "merge commit primary key. This is only used when --commit-csv is in use. If this isn't specified then primary key is the same as BRANCH HEAD's")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
+	cmd.Flags().BoolP("set-upstream", "u", false, "if the remote is fetched successfully, add upstream (tracking) reference, used by argument-less `wrgl pull`.")
 	return cmd
 }
 

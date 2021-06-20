@@ -84,6 +84,7 @@ func TestMergerManualResolve(t *testing.T) {
 		"1,q,w",
 		"2,a,s",
 		"3,s,d",
+		"5,t,y",
 	}, []uint32{0}, nil)
 	com1, _ := factory.Commit(t, db, fs, []string{
 		"a,b,c",
@@ -91,12 +92,14 @@ func TestMergerManualResolve(t *testing.T) {
 		"2,a,r",
 		"3,x,d",
 		"4,v,b",
+		"5,t,y",
 	}, []uint32{0}, [][]byte{base})
 	com2, _ := factory.Commit(t, db, fs, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,w",
 		"4,n,m",
+		"5,t,u",
 	}, []uint32{0}, [][]byte{base})
 	merger := merge_testutils.CreateMerger(t, db, fs, com1, com2)
 
@@ -163,6 +166,7 @@ func TestMergerManualResolve(t *testing.T) {
 		{"1", "q", "w"},
 		{"2", "c", "v"},
 		{"4", "n", "m"},
+		{"5", "t", "u"},
 	}, rows)
 	assert.Equal(t, []string{"a", "b", "c"}, merger.Columns(nil))
 	assert.Equal(t, []string{"a"}, merger.PK())
