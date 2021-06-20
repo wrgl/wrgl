@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
@@ -212,6 +213,19 @@ func TestMergeCmdNoGUI(t *testing.T) {
 	}, rows)
 }
 
+func readCSV(t *testing.T, filename string) ([]byte, [][]string) {
+	t.Helper()
+	f, err := os.Open(filename)
+	require.NoError(t, err)
+	b, err := ioutil.ReadAll(f)
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	reader := csv.NewReader(bytes.NewReader(b))
+	rows, err := reader.ReadAll()
+	require.NoError(t, err)
+	return b, rows
+}
+
 func TestMergeCmdAutoResolve(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
@@ -220,9 +234,9 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 	defer db.Close()
 	fs := rd.OpenFileStore()
 	base, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
-		"a,b,c",
-		"1,q,w",
-		"2,a,s",
+		"a,b,c,d",
+		"1,q,w,o",
+		"2,a,s,k",
 	}, []uint32{0})
 	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
 		"a,b,c",
@@ -230,20 +244,37 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 		"2,a,d",
 	}, []uint32{0})
 	sum2, com2 := factory.Commit(t, db, fs, []string{
-		"a,b,c",
-		"1,q,w",
-		"2,a,s",
-		"3,z,x",
+		"a,b,c,d",
+		"1,q,w,o",
+		"2,a,s,k",
+		"3,z,x,l",
 	}, []uint32{0}, [][]byte{base})
 	require.NoError(t, versioning.CommitHead(db, fs, "branch-2", sum2, com2))
-	t.Log(factory.SdumpCommit(t, db, fs, sum1))
-	t.Log(factory.SdumpCommit(t, db, fs, sum2))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
+	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--no-commit"})
+	cmd.SetOut(io.Discard)
+	require.NoError(t, cmd.Execute())
+
+	name := fmt.Sprintf("MERGE_%s_%s.csv", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7])
+	defer os.Remove(name)
+	b, rows := readCSV(t, name)
+	assert.Equal(t, [][]string{
+		{"a", "b", "c"},
+		{"1", "q", "e"},
+		{"2", "a", "d"},
+		{"3", "z", "x"},
+	}, rows)
+
+	cmd = newRootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2"})
 	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"export", "branch-1"})
+	assertCmdOutput(t, cmd, string(b))
 
 	db, err = rd.OpenKVStore()
 	require.NoError(t, err)
