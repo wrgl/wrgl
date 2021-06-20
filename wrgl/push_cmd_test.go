@@ -175,3 +175,57 @@ func TestPushCmdForce(t *testing.T) {
 	assertRefStore(t, dbs, "tags/2017", sum4)
 	assertRefStore(t, dbs, "heads/beta", sum5)
 }
+
+func TestPushCmdSetUpstream(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.Deactivate()
+	dbs := kv.NewMockStore(false)
+	fss := kv.NewMockStore(false)
+	sum1, c1 := factory.CommitHead(t, dbs, fss, "alpha", nil, nil)
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(dbs))
+	packtest.RegisterHandler(
+		http.MethodPost, "/receive-pack/", pack.NewReceivePackHandler(dbs, fss, packtest.ReceivePackConfig(false, true)),
+	)
+
+	rd, cleanUp := createRepoDir(t)
+	defer cleanUp()
+	db, err := rd.OpenKVStore()
+	require.NoError(t, err)
+	fs := rd.OpenFileStore()
+	packtest.CopyCommitsToNewStore(t, dbs, db, fss, fs, [][]byte{sum1})
+	require.NoError(t, versioning.CommitHead(db, fs, "alpha", sum1, c1))
+	factory.CommitHead(t, db, fs, "beta", nil, nil)
+	require.NoError(t, db.Close())
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"remote", "add", "my-repo", packtest.TestOrigin})
+	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{
+		"push", "my-repo", "--set-upstream",
+		"refs/heads/alpha:",
+		"refs/heads/beta:",
+	})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		fmt.Sprintf("To %s", packtest.TestOrigin),
+		" = [up to date]      alpha       -> alpha",
+		" * [new branch]      beta        -> beta",
+		"branch \"alpha\" setup to track remote branch \"alpha\" from \"my-repo\"",
+		"branch \"beta\" setup to track remote branch \"beta\" from \"my-repo\"",
+		"",
+	}, "\n"))
+
+	c, err := versioning.OpenConfig(false, false, rd.FullPath, "")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]*versioning.ConfigBranch{
+		"alpha": {
+			Remote: "my-repo",
+			Merge:  "refs/heads/alpha",
+		},
+		"beta": {
+			Remote: "my-repo",
+			Merge:  "refs/heads/beta",
+		},
+	}, c.Branch)
+}

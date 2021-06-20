@@ -38,8 +38,12 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			setUpstream, err := cmd.Flags().GetBool("set-upstream")
+			if err != nil {
+				return err
+			}
 
-			cr, args, err := getRepoToPush(c, args)
+			remote, cr, args, err := getRepoToPush(c, args)
 			if err != nil {
 				return err
 			}
@@ -56,7 +60,7 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("To %s\n", cr.URL)
-			updates, commits, err := identifyUpdates(cmd, db, refspecs, remoteRefs, force)
+			upToDateRefspecs, updates, commits, err := identifyUpdates(cmd, db, refspecs, remoteRefs, force)
 			if err != nil {
 				return err
 			}
@@ -66,10 +70,39 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 			reportUpdateStatus(cmd, updates)
+			if setUpstream {
+				c, err = versioning.OpenConfig(false, false, wrglDir, "")
+				if err != nil {
+					return err
+				}
+				if c.Branch == nil {
+					c.Branch = map[string]*versioning.ConfigBranch{}
+				}
+				for _, rs := range upToDateRefspecs {
+					if strings.HasPrefix(rs.Src(), "refs/heads/") && strings.HasPrefix(rs.Dst(), "refs/heads/") {
+						c.Branch[rs.Src()[11:]] = &versioning.ConfigBranch{
+							Remote: remote,
+							Merge:  rs.Dst(),
+						}
+						cmd.Printf("branch %q setup to track remote branch %q from %q\n", rs.Src()[11:], rs.Dst()[11:], remote)
+					}
+				}
+				for _, u := range updates {
+					if strings.HasPrefix(u.Src, "refs/heads/") && strings.HasPrefix(u.Dst, "refs/heads/") {
+						c.Branch[u.Src[11:]] = &versioning.ConfigBranch{
+							Remote: remote,
+							Merge:  u.Dst,
+						}
+						cmd.Printf("branch %q setup to track remote branch %q from %q\n", u.Src[11:], u.Dst[11:], remote)
+					}
+				}
+				return c.Save()
+			}
 			return nil
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "Force update remote branch in certain conditions.")
+	cmd.Flags().BoolP("set-upstream", "u", false, "For every branch that is up to date or successfully pushed, add upstream (tracking) reference, used by argument-less `wrgl pull`.")
 	return cmd
 }
 
@@ -89,19 +122,19 @@ func identifyCommonCommits(db kv.DB, remoteRefs map[string][]byte) [][]byte {
 	return sums
 }
 
-func getRepoToPush(c *versioning.Config, args []string) (cr *versioning.ConfigRemote, rem []string, err error) {
+func getRepoToPush(c *versioning.Config, args []string) (remote string, cr *versioning.ConfigRemote, rem []string, err error) {
 	if len(args) > 0 {
 		if v, ok := c.Remote[args[0]]; ok {
-			return v, args[1:], nil
+			return args[0], v, args[1:], nil
 		} else if v, ok := c.Remote["origin"]; ok {
-			return v, args, nil
+			return "origin", v, args, nil
 		} else {
-			return nil, nil, fmt.Errorf("unrecognized repository name %q", args[0])
+			return "", nil, nil, fmt.Errorf("unrecognized repository name %q", args[0])
 		}
 	} else if v, ok := c.Remote["origin"]; ok {
-		return v, args, nil
+		return "origin", v, args, nil
 	}
-	return nil, nil, fmt.Errorf("repository name not specified")
+	return "", nil, nil, fmt.Errorf("repository name not specified")
 }
 
 func getRefspecsToPush(cr *versioning.ConfigRemote, args []string) (refspecs []*versioning.Refspec, err error) {
@@ -168,7 +201,7 @@ func interpretDestination(remoteRefs map[string][]byte, src, dst string) (string
 
 func identifyUpdates(
 	cmd *cobra.Command, db kv.DB, refspecs []*versioning.Refspec, remoteRefs map[string][]byte, force bool,
-) (updates []*packutils.Update, commitsToSend []*objects.Commit, err error) {
+) (upToDateRefspecs []*versioning.Refspec, updates []*packutils.Update, commitsToSend []*objects.Commit, err error) {
 	for _, rs := range refspecs {
 		src := rs.Src()
 		dst := rs.Dst()
@@ -188,6 +221,7 @@ func identifyUpdates(
 		if v, ok := remoteRefs[dst]; ok {
 			if string(v) == string(sum) {
 				displayRefUpdate(cmd, '=', "[up to date]", "", src, dst)
+				upToDateRefspecs = append(upToDateRefspecs, rs)
 			} else if sum == nil {
 				// delete ref
 				updates = append(updates, &packutils.Update{
@@ -210,7 +244,7 @@ func identifyUpdates(
 					displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", src, dst)
 				}
 			} else if fastForward, err := versioning.IsAncestorOf(db, v, sum); err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			} else if fastForward {
 				updates = append(updates, &packutils.Update{
 					OldSum: v,
