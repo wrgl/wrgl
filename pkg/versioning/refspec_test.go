@@ -17,14 +17,15 @@ func TestRefSpec(t *testing.T) {
 		Dst    string
 		Force  bool
 		Negate bool
+		IsGlob bool
 	}{
-		{"+refs/heads/*:refs/remotes/origin/*", "refs/heads/*", "refs/remotes/origin/*", true, false},
-		{"refs/heads/main:refs/remotes/origin/main", "refs/heads/main", "refs/remotes/origin/main", false, false},
-		{"refs/heads/main", "refs/heads/main", "", false, false},
-		{"^refs/heads/qa*", "refs/heads/qa*", "", false, true},
-		{"tag v1.0.*", "refs/tags/v1.0.*", "refs/tags/v1.0.*", false, false},
-		{"main~4:refs/heads/main", "main~4", "refs/heads/main", false, false},
-		{":refs/heads/main", "", "refs/heads/main", false, false},
+		{"+refs/heads/*:refs/remotes/origin/*", "refs/heads/*", "refs/remotes/origin/*", true, false, true},
+		{"refs/heads/main:refs/remotes/origin/main", "refs/heads/main", "refs/remotes/origin/main", false, false, false},
+		{"refs/heads/main", "refs/heads/main", "", false, false, false},
+		{"^refs/heads/qa*", "refs/heads/qa*", "", false, true, true},
+		{"tag v1.0.*", "refs/tags/v1.0.*", "refs/tags/v1.0.*", false, false, true},
+		{"main~4:refs/heads/main", "main~4", "refs/heads/main", false, false, false},
+		{":refs/heads/main", "", "refs/heads/main", false, false, false},
 	} {
 		rs, err := ParseRefspec(c.Text)
 		require.NoError(t, err, "case %d", i)
@@ -35,6 +36,7 @@ func TestRefSpec(t *testing.T) {
 		b, err := rs.MarshalText()
 		require.NoError(t, err, "case %d", i)
 		assert.Equal(t, c.Text, string(b), "case %d", i)
+		assert.Equal(t, c.IsGlob, rs.IsGlob())
 	}
 }
 

@@ -26,10 +26,16 @@ type ConfigReceive struct {
 	DenyDeletes         *bool `yaml:"denyDeletes,omitempty" json:"denyDeletes,omitempty"`
 }
 
+type ConfigBranch struct {
+	Remote string `yaml:"remote,omitempty" json:"remote,omitempty"`
+	Merge  string `yaml:"merge,omitempty" json:"merge,omitempty"`
+}
+
 type Config struct {
 	User    *ConfigUser              `yaml:"user,omitempty" json:"user,omitempty"`
 	Remote  map[string]*ConfigRemote `yaml:"remote,omitempty" json:"remote,omitempty"`
 	Receive *ConfigReceive           `yaml:"receive,omitempty" json:"receive,omitempty"`
+	Branch  map[string]*ConfigBranch `yaml:"branch,omitempty" json:"branch,omitempty"`
 	path    string                   `yaml:"-" json:"-"`
 }
 

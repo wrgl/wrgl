@@ -54,40 +54,6 @@ func mergeCmd() *cobra.Command {
 			}
 			defer kvStore.Close()
 			fs := rd.OpenFileStore()
-			name, sum, _, err := versioning.InterpretCommitName(kvStore, args[0], true)
-			if err != nil {
-				return err
-			}
-			if !strings.HasPrefix(name, "refs/heads/") {
-				return fmt.Errorf("%q is not a branch name", args[0])
-			}
-			commits := [][]byte{sum}
-			commitNames := []string{trimRefPrefix(name)}
-			for _, s := range args[1:] {
-				name, sum, _, err := versioning.InterpretCommitName(kvStore, s, true)
-				if err != nil {
-					return err
-				}
-				commits = append(commits, sum)
-				commitNames = append(commitNames, trimRefPrefix(name))
-			}
-			baseCommit, err := versioning.SeekCommonAncestor(kvStore, commits...)
-			if err != nil {
-				return err
-			}
-
-			baseT, err := getTable(kvStore, fs, baseCommit)
-			if err != nil {
-				return err
-			}
-			otherTs := make([]table.Store, len(commits))
-			for i, sum := range commits {
-				otherTs[i], err = getTable(kvStore, fs, sum)
-				if err != nil {
-					return err
-				}
-			}
-
 			noCommit, err := cmd.Flags().GetBool("no-commit")
 			if err != nil {
 				return err
@@ -112,47 +78,7 @@ func mergeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(pk) == 0 {
-				pk = otherTs[0].PrimaryKey()
-			}
-
-			if commitCSV != "" {
-				file, err := os.Open(commitCSV)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-				sum, err := ingestTable(cmd, kvStore, fs, numWorkers, file, pk)
-				if err != nil {
-					return err
-				}
-				return createMergeCommit(cmd, kvStore, fs, commitNames, sum, commits, message, c)
-			}
-
-			rowCollector, cleanup, err := merge.CreateRowCollector(kvStore, baseT)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
-			merger, err := merge.NewMerger(kvStore, fs, rowCollector, 65*time.Millisecond, baseT, otherTs...)
-			if err != nil {
-				return err
-			}
-			defer merger.Close()
-
-			if noGUI {
-				return outputConflicts(cmd, kvStore, merger, commitNames, baseCommit, commits)
-			} else {
-				removedCols, err := displayMergeApp(cmd, kvStore, fs, merger, commitNames, commits, baseCommit)
-				if err != nil {
-					return err
-				}
-				if noCommit {
-					return saveMergeResultToCSV(cmd, merger, removedCols, commits)
-				} else {
-					return commitMergeResult(cmd, kvStore, fs, merger, removedCols, numWorkers, commitNames, commits, message, c)
-				}
-			}
+			return runMerge(cmd, c, kvStore, fs, args, noCommit, noGUI, commitCSV, numWorkers, message, pk)
 		},
 	}
 	cmd.Flags().Bool("no-commit", false, "perform the merge but don't create a merge commit, instead output merge result to file MERGE_SUM1_SUM2_..._SUMn.csv")
@@ -162,6 +88,84 @@ func mergeCmd() *cobra.Command {
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "merge commit primary key. This is only used when --commit-csv is in use. If this isn't specified then primary key is the same as BRANCH HEAD's")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
 	return cmd
+}
+
+func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.FileStore, args []string, noCommit, noGUI bool, commitCSV string, numWorkers int, message string, pk []string) error {
+	name, sum, _, err := versioning.InterpretCommitName(kvStore, args[0], true)
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(name, "refs/heads/") {
+		return fmt.Errorf("%q is not a branch name", args[0])
+	}
+	commits := [][]byte{sum}
+	commitNames := []string{trimRefPrefix(name)}
+	for _, s := range args[1:] {
+		name, sum, _, err := versioning.InterpretCommitName(kvStore, s, true)
+		if err != nil {
+			return err
+		}
+		commits = append(commits, sum)
+		commitNames = append(commitNames, trimRefPrefix(name))
+	}
+	baseCommit, err := versioning.SeekCommonAncestor(kvStore, commits...)
+	if err != nil {
+		return err
+	}
+
+	baseT, err := getTable(kvStore, fs, baseCommit)
+	if err != nil {
+		return err
+	}
+	otherTs := make([]table.Store, len(commits))
+	for i, sum := range commits {
+		otherTs[i], err = getTable(kvStore, fs, sum)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(pk) == 0 {
+		pk = otherTs[0].PrimaryKey()
+	}
+
+	if commitCSV != "" {
+		file, err := os.Open(commitCSV)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		sum, err := ingestTable(cmd, kvStore, fs, numWorkers, file, pk)
+		if err != nil {
+			return err
+		}
+		return createMergeCommit(cmd, kvStore, fs, commitNames, sum, commits, message, c)
+	}
+
+	rowCollector, cleanup, err := merge.CreateRowCollector(kvStore, baseT)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	merger, err := merge.NewMerger(kvStore, fs, rowCollector, 65*time.Millisecond, baseT, otherTs...)
+	if err != nil {
+		return err
+	}
+	defer merger.Close()
+
+	if noGUI {
+		return outputConflicts(cmd, kvStore, merger, commitNames, baseCommit, commits)
+	} else {
+		removedCols, err := displayMergeApp(cmd, kvStore, fs, merger, commitNames, commits, baseCommit)
+		if err != nil {
+			return err
+		}
+		if noCommit {
+			return saveMergeResultToCSV(cmd, merger, removedCols, commits)
+		} else {
+			return commitMergeResult(cmd, kvStore, fs, merger, removedCols, numWorkers, commitNames, commits, message, c)
+		}
+	}
 }
 
 func outputConflicts(cmd *cobra.Command, db kv.DB, merger *merge.Merger, commitNames []string, baseSum []byte, commits [][]byte) error {

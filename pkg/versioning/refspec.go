@@ -36,6 +36,10 @@ func NewRefspec(src, dst string, negate, force bool) (rs *Refspec, err error) {
 	return
 }
 
+func (s *Refspec) IsGlob() bool {
+	return s.srcStarInd != -1
+}
+
 func (s *Refspec) Src() string {
 	if s.tag != "" {
 		return "refs/tags/" + s.tag
@@ -169,7 +173,7 @@ func (s *Refspec) UnmarshalText(text []byte) error {
 			return fmt.Errorf("must not specify dst in negated refspec")
 		}
 	} else if (s.srcStarInd != -1 && s.dstStarInd == -1) || (s.dstStarInd != -1 && s.srcStarInd == -1) {
-		return fmt.Errorf("both src and dst must be pattern if one is pattern")
+		return fmt.Errorf("both src and dst must be glob patterns if one is a glob pattern")
 	}
 	return nil
 }

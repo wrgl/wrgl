@@ -35,6 +35,7 @@ func newFetchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			ensureUserSet(cmd, c)
 			rd := getRepoDir(cmd)
 			db, err := rd.OpenKVStore()
 			if err != nil {
@@ -52,36 +53,44 @@ func newFetchCmd() *cobra.Command {
 			}
 			if all {
 				for k, v := range c.Remote {
-					err := fetch(cmd, db, fs, c.User, k, v, v.Fetch, force)
+					_, err := fetch(cmd, db, fs, c.User, k, v, v.Fetch, force)
 					if err != nil {
 						return err
 					}
 				}
 				return nil
 			}
-
-			var remote = "origin"
-			if len(args) > 0 {
-				remote = args[0]
+			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, args)
+			if err != nil {
+				return err
 			}
-			rem := utils.MustGetRemote(cmd, c, remote)
-			specs := rem.Fetch
-			if len(args) > 1 {
-				specs = make([]*versioning.Refspec, len(args)-1)
-				for i, s := range args[1:] {
-					rs, err := versioning.ParseRefspec(s)
-					if err != nil {
-						return err
-					}
-					specs[i] = rs
-				}
-			}
-			return fetch(cmd, db, fs, c.User, remote, rem, specs, force)
+			_, err = fetch(cmd, db, fs, c.User, remote, rem, specs, force)
+			return err
 		},
 	}
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
 	return cmd
+}
+
+func parseRemoteAndRefspec(cmd *cobra.Command, c *versioning.Config, args []string) (string, *versioning.ConfigRemote, []*versioning.Refspec, error) {
+	var remote = "origin"
+	if len(args) > 0 {
+		remote = args[0]
+	}
+	rem := utils.MustGetRemote(cmd, c, remote)
+	specs := rem.Fetch
+	if len(args) > 1 {
+		specs = make([]*versioning.Refspec, len(args)-1)
+		for i, s := range args[1:] {
+			rs, err := versioning.ParseRefspec(s)
+			if err != nil {
+				return "", nil, nil, err
+			}
+			specs[i] = rs
+		}
+	}
+	return remote, rem, specs, nil
 }
 
 func saveObjects(db kv.Store, fs kv.FileStore, wg *sync.WaitGroup, seed uint64, oc <-chan *packutils.Object, ec chan<- error) (commitsChan chan []byte) {
@@ -204,7 +213,7 @@ func quickref(oldSum, sum []byte, fastForward bool) string {
 func saveFetchedRefs(
 	cmd *cobra.Command, u *versioning.ConfigUser, db kv.Store, fs kv.FileStore, remoteURL string,
 	fetchedCommits [][]byte, refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, force bool,
-) error {
+) ([]*Ref, error) {
 	someFailed := false
 	// if a remote tag point to an existing object then save that tag
 	cm := bytesSliceToMap(fetchedCommits)
@@ -226,6 +235,7 @@ func saveFetchedRefs(
 		}
 		return refs[i].Dst < refs[j].Dst
 	})
+	savedRefs := []*Ref{}
 	for _, ref := range refs {
 		oldSum, _ := versioning.GetRef(db, ref.Dst[5:])
 		sum := dstRefs[ref.Dst]
@@ -237,6 +247,7 @@ func saveFetchedRefs(
 					someFailed = true
 				} else {
 					displayRefUpdate(cmd, 't', "[tag update]", "", ref.Src, ref.Dst)
+					savedRefs = append(savedRefs, ref)
 				}
 			} else {
 				displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", ref.Src, ref.Dst)
@@ -262,12 +273,13 @@ func saveFetchedRefs(
 				someFailed = true
 			} else {
 				displayRefUpdate(cmd, '*', what, "", ref.Src, ref.Dst)
+				savedRefs = append(savedRefs, ref)
 			}
 			continue
 		}
 		fastForward, err := versioning.IsAncestorOf(db, oldSum, sum)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if fastForward {
 			err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "fast-forward")
@@ -277,6 +289,7 @@ func saveFetchedRefs(
 				someFailed = true
 			} else {
 				displayRefUpdate(cmd, ' ', qr, "", ref.Src, ref.Dst)
+				savedRefs = append(savedRefs, ref)
 			}
 		} else if force || ref.Force {
 			err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "forced-update")
@@ -286,6 +299,7 @@ func saveFetchedRefs(
 				someFailed = true
 			} else {
 				displayRefUpdate(cmd, '+', qr, "forced update", ref.Src, ref.Dst)
+				savedRefs = append(savedRefs, ref)
 			}
 		} else {
 			displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", ref.Src, ref.Dst)
@@ -293,9 +307,9 @@ func saveFetchedRefs(
 		}
 	}
 	if someFailed {
-		return fmt.Errorf("failed to fetch some refs from " + remoteURL)
+		return nil, fmt.Errorf("failed to fetch some refs from " + remoteURL)
 	}
-	return nil
+	return savedRefs, nil
 }
 
 func collectCommitSums(commitsChan <-chan []byte) (commits *[][]byte, done chan bool) {
@@ -336,19 +350,19 @@ func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *pack
 	return *sums, nil
 }
 
-func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, force bool) error {
+func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, force bool) ([]*Ref, error) {
 	cmd.Printf("From %s\n", cr.URL)
 	client, err := packclient.NewClient(db, fs, cr.URL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(client, specs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fetchedCommits, err := fetchObjects(cmd, db, fs, client, advertised)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return saveFetchedRefs(cmd, u, db, fs, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
 }

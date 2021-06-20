@@ -48,6 +48,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newFetchCmd())
 	rootCmd.AddCommand(newPushCmd())
 	rootCmd.AddCommand(mergeCmd())
+	rootCmd.AddCommand(pullCmd())
 	rootCmd.AddCommand(config.RootCmd())
 	rootCmd.AddCommand(remote.RootCmd())
 	rootCmd.AddCommand(reflog.RootCmd())
