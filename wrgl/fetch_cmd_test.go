@@ -88,6 +88,11 @@ func TestFetchCmd(t *testing.T) {
 		Action:      "fetch",
 		Message:     "storing head",
 	})
+	require.NoError(t, db.Close())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"fetch"})
+	assertCmdOutput(t, cmd, "")
 }
 
 func assertCommandNoErr(t *testing.T, cmd *cobra.Command) {

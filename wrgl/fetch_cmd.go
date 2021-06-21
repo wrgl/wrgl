@@ -53,7 +53,7 @@ func newFetchCmd() *cobra.Command {
 			}
 			if all {
 				for k, v := range c.Remote {
-					_, err := fetch(cmd, db, fs, c.User, k, v, v.Fetch, force)
+					err := fetch(cmd, db, fs, c.User, k, v, v.Fetch, force)
 					if err != nil {
 						return err
 					}
@@ -64,8 +64,7 @@ func newFetchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = fetch(cmd, db, fs, c.User, remote, rem, specs, force)
-			return err
+			return fetch(cmd, db, fs, c.User, remote, rem, specs, force)
 		},
 	}
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
@@ -236,9 +235,17 @@ func saveFetchedRefs(
 		return refs[i].Dst < refs[j].Dst
 	})
 	savedRefs := []*Ref{}
+	remoteDisplayed := false
 	for _, ref := range refs {
 		oldSum, _ := versioning.GetRef(db, ref.Dst[5:])
 		sum := dstRefs[ref.Dst]
+		if bytes.Equal(oldSum, sum) {
+			continue
+		}
+		if !remoteDisplayed {
+			cmd.Printf("From %s\n", remoteURL)
+			remoteDisplayed = true
+		}
 		if oldSum != nil && strings.HasPrefix(ref.Dst, "refs/tags/") {
 			if force || ref.Force {
 				err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "updating tag")
@@ -350,19 +357,19 @@ func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *pack
 	return *sums, nil
 }
 
-func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, force bool) ([]*Ref, error) {
-	cmd.Printf("From %s\n", cr.URL)
+func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, force bool) error {
 	client, err := packclient.NewClient(db, fs, cr.URL)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(client, specs)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	fetchedCommits, err := fetchObjects(cmd, db, fs, client, advertised)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return saveFetchedRefs(cmd, u, db, fs, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
+	_, err = saveFetchedRefs(cmd, u, db, fs, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
+	return err
 }
