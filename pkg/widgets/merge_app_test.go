@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/merge"
 	merge_testutils "github.com/wrgl/core/pkg/merge/testutils"
 )
 
@@ -35,8 +36,14 @@ func TestMergeApp(t *testing.T) {
 	merger := merge_testutils.CreateMerger(t, db, fs, com1, com2)
 	app := tview.NewApplication()
 	ma := NewMergeApp(db, fs, merger, app, []string{"branch-1", "branch-2"}, [][]byte{com1, com2}, base)
-	require.NoError(t, ma.CollectMergeConflicts())
-	ma.InitializeTable()
+	mch, err := merger.Start()
+	require.NoError(t, err)
+	merges := []*merge.Merge{}
+	cd := (<-mch).ColDiff
+	for m := range mch {
+		merges = append(merges, m)
+	}
+	ma.InitializeTable(cd, merges)
 	sort.Slice(ma.merges, func(i, j int) bool {
 		return string(ma.merges[i].PK) < string(ma.merges[j].PK)
 	})
