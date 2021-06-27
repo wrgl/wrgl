@@ -19,27 +19,27 @@ func TestTableWriter(t *testing.T) {
 	w := NewTableWriter(buf)
 	columns := []string{"q", "w", "e", "r"}
 	pk := []uint32{0}
-	rows := [][]byte{
-		testutils.SecureRandomBytes(32),
-		testutils.SecureRandomBytes(32),
-		testutils.SecureRandomBytes(32),
-		testutils.SecureRandomBytes(32),
+	blocks := [][]byte{
+		testutils.SecureRandomBytes(16),
+		testutils.SecureRandomBytes(16),
+		testutils.SecureRandomBytes(16),
+		testutils.SecureRandomBytes(16),
 	}
-	err := w.WriteMeta(columns, pk)
+	err := w.WriteMeta(columns, pk, 500)
 	require.NoError(t, err)
 	for i := 3; i >= 0; i-- {
-		err = w.WriteRowAt(rows[i], i)
+		err = w.WriteBlockAt(blocks[i], i)
 		require.NoError(t, err)
 	}
-	require.NoError(t, w.Flush())
 	r, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	require.NoError(t, err)
 	table, err := r.ReadTable()
 	require.NoError(t, err)
 	assert.Equal(t, &Table{
-		Columns: columns,
-		PK:      pk,
-		Rows:    rows,
+		Columns:   columns,
+		PK:        pk,
+		RowsCount: 500,
+		Blocks:    blocks,
 	}, table)
 }
 
@@ -47,17 +47,17 @@ func TestTableReader(t *testing.T) {
 	buf := misc.NewBuffer(nil)
 	w := NewTableWriter(buf)
 	table := &Table{
-		Columns: []string{"a", "b", "c", "d"},
-		PK:      []uint32{0, 1},
-		Rows: [][]byte{
-			testutils.SecureRandomBytes(32),
-			testutils.SecureRandomBytes(32),
-			testutils.SecureRandomBytes(32),
+		Columns:   []string{"a", "b", "c", "d"},
+		PK:        []uint32{0, 1},
+		RowsCount: 380,
+		Blocks: [][]byte{
+			testutils.SecureRandomBytes(16),
+			testutils.SecureRandomBytes(16),
+			testutils.SecureRandomBytes(16),
 		},
 	}
 	err := w.WriteTable(table)
 	require.NoError(t, err)
-	t.Logf("bytes %v", buf.Bytes())
 
 	// test ReadTable
 	r, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
@@ -65,59 +65,59 @@ func TestTableReader(t *testing.T) {
 	table2, err := r.ReadTable()
 	require.NoError(t, err)
 	assert.Equal(t, table, table2)
-	assert.Equal(t, 3, r.RowsCount())
+	assert.Equal(t, 380, r.RowsCount())
 	assert.Equal(t, []string{"a", "b", "c", "d"}, r.Columns)
 	assert.Equal(t, []uint32{0, 1}, r.PK)
 
-	// test ReadRow
+	// test ReadBlock
 	r, err = NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
-		row, err := r.ReadRow()
+		row, err := r.ReadBlock()
 		require.NoError(t, err)
-		assert.Equal(t, table.Rows[i], row)
+		assert.Equal(t, table.Blocks[i], row)
 	}
 
 	// test SeekStart
-	off, err := r.SeekRow(0, io.SeekStart)
+	off, err := r.SeekBlock(0, io.SeekStart)
 	require.NoError(t, err)
 	assert.Equal(t, 0, off)
-	row, err := r.ReadRow()
+	row, err := r.ReadBlock()
 	require.NoError(t, err)
-	assert.Equal(t, table.Rows[0], row)
+	assert.Equal(t, table.Blocks[0], row)
 
 	// test SeekCurrent
-	off, err = r.SeekRow(1, io.SeekCurrent)
+	off, err = r.SeekBlock(1, io.SeekCurrent)
 	require.NoError(t, err)
 	assert.Equal(t, 2, off)
-	row, err = r.ReadRow()
+	row, err = r.ReadBlock()
 	require.NoError(t, err)
-	assert.Equal(t, table.Rows[2], row)
+	assert.Equal(t, table.Blocks[2], row)
 
 	// test SeekEnd
-	off, err = r.SeekRow(-2, io.SeekEnd)
+	off, err = r.SeekBlock(-2, io.SeekEnd)
 	require.NoError(t, err)
 	assert.Equal(t, 1, off)
-	row, err = r.ReadRow()
+	row, err = r.ReadBlock()
 	require.NoError(t, err)
-	assert.Equal(t, table.Rows[1], row)
+	assert.Equal(t, table.Blocks[1], row)
 
 	// test ReadAt
 	r, err = NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
-		row, err := r.ReadRowAt(i)
+		row, err := r.ReadBlockAt(i)
 		require.NoError(t, err)
-		assert.Equal(t, table.Rows[i], row)
+		assert.Equal(t, table.Blocks[i], row)
 	}
-	row, err = r.ReadRow()
+	row, err = r.ReadBlock()
 	require.NoError(t, err)
-	assert.Equal(t, table.Rows[0], row)
+	assert.Equal(t, table.Blocks[0], row)
 }
 
 func TestTableReaderParseError(t *testing.T) {
 	buf := misc.NewBuffer([]byte("columns "))
-	buf.Write(NewStrListEncoder().Encode([]string{"a", "b", "c"}))
+	buf.Write(NewStrListEncoder(true).Encode([]string{"a", "b", "c"}))
 	buf.Write([]byte("\nbad input"))
 	_, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
 	assert.Equal(t, `parse error at pos=25: expected string "\npk ", received "\nbad"`, err.Error())

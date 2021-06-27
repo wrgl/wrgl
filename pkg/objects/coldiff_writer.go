@@ -24,7 +24,7 @@ func NewColDiffWriter(w io.Writer) *ColDiffWriter {
 	return &ColDiffWriter{
 		w:       w,
 		buf:     misc.NewBuffer(nil),
-		strEnc:  NewStrListEncoder(),
+		strEnc:  NewStrListEncoder(true),
 		uintEnc: NewUintListEncoder(),
 	}
 }

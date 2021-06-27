@@ -1,0 +1,52 @@
+package objects
+
+import (
+	"bytes"
+	"encoding/hex"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/testutils"
+)
+
+func fromHex(t *testing.T, s string) []byte {
+	t.Helper()
+	b, err := hex.DecodeString(s)
+	require.NoError(t, err)
+	return b
+}
+
+func TestBlockIndex(t *testing.T) {
+	idx := IndexBlock([][]string{
+		{"a", "b", "c"},
+		{"d", "e", "f"},
+		{"g", "h", "k"},
+		{"l", "m", "n"},
+	}, []uint32{0})
+	assert.Equal(t, &BlockIndex{
+		sortedOff: []uint8{3, 1, 2, 0},
+		Rows: [][]byte{
+			fromHex(t, "e5a364171a46ea44556d3cd97e99f3a8eef20ff2a729c390fcac9f0fd26ffdda"),
+			fromHex(t, "44f2d02e49bab72155e8319b62c839cc98afafdab4b3d3b689ccbed342fbad61"),
+			fromHex(t, "d97ad42f2aba836087cdc10b0f5a5ce479e081c585f5396378c6debd3b3a6944"),
+			fromHex(t, "294fca45f7629e5dde21760e232659436773cc7ad69cd3e78c6f08e7709a9449"),
+		},
+	}, idx)
+	for _, row := range idx.Rows {
+		assert.Equal(t, row[16:], idx.Get(row[:16]))
+	}
+	assert.Nil(t, idx.Get(testutils.SecureRandomBytes(16)))
+
+	buf := bytes.NewBuffer(nil)
+	w := NewBlockIndexWriter(buf)
+	n, err := w.Write(idx)
+	require.NoError(t, err)
+	b := buf.Bytes()
+	assert.Len(t, b, n)
+
+	r := NewBlockIndexReader(bytes.NewReader(b))
+	idx2, err := r.Read()
+	require.NoError(t, err)
+	assert.Equal(t, idx, idx2)
+}

@@ -23,7 +23,7 @@ func repeatStrSlice(sl []string, n int) []string {
 }
 
 func TestEncodeStrList(t *testing.T) {
-	e := NewStrListEncoder()
+	e := NewStrListEncoder(true)
 	d := NewStrListDecoder(false)
 	slices := [][]string{
 		{"a", "b", "c"},
@@ -55,8 +55,9 @@ func TestEncodeStrList(t *testing.T) {
 }
 
 func TestStrListDecoderReuseRecords(t *testing.T) {
-	b1 := NewStrListEncoder().Encode([]string{"a", "b"})
-	b2 := NewStrListEncoder().Encode([]string{"c", "d", "e"})
+	enc := NewStrListEncoder(false)
+	b1 := enc.Encode([]string{"a", "b"})
+	b2 := enc.Encode([]string{"c", "d", "e"})
 
 	d := NewStrListDecoder(false)
 	sl1 := d.Decode(b1)
@@ -72,7 +73,7 @@ func TestStrListDecoderReuseRecords(t *testing.T) {
 }
 
 func TestStrListDecoderReadColumn(t *testing.T) {
-	enc := NewStrListEncoder()
+	enc := NewStrListEncoder(true)
 	dec := NewStrListDecoder(false)
 	sl := []string{"a", "bc", "def"}
 	b := enc.Encode(sl)

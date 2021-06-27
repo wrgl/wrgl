@@ -11,12 +11,14 @@ import (
 
 // StrListEncoder encodes string slice. Max bytes size for each string is 65536 bytes
 type StrListEncoder struct {
-	buf []byte
+	buf          []byte
+	reuseRecords bool
 }
 
-func NewStrListEncoder() *StrListEncoder {
+func NewStrListEncoder(reuseRecords bool) *StrListEncoder {
 	return &StrListEncoder{
-		buf: make([]byte, 0, 256),
+		buf:          make([]byte, 0, 256),
+		reuseRecords: reuseRecords,
 	}
 }
 
@@ -39,7 +41,12 @@ func (e *StrListEncoder) Encode(sl []string) []byte {
 		copy(e.buf[offset:], []byte(s))
 		offset += l
 	}
-	return e.buf
+	b := e.buf
+	if !e.reuseRecords {
+		b = make([]byte, len(e.buf))
+		copy(b, e.buf)
+	}
+	return b
 }
 
 // StrListDecoder decodes string slice.

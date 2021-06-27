@@ -14,10 +14,11 @@ func writeLine(w io.Writer, label string, b []byte) (n int, err error) {
 	for _, sl := range [][]byte{
 		[]byte(label), {' '}, b, {'\n'},
 	} {
-		n, err = w.Write(sl)
+		m, err := w.Write(sl)
 		if err != nil {
-			return
+			return 0, err
 		}
+		n += m
 	}
 	return
 }

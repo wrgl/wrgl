@@ -7,12 +7,14 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 )
 
 type Table struct {
-	Columns []string
-	PK      []uint32
-	Rows    [][]byte
+	Columns   []string
+	PK        []uint32
+	RowsCount uint32
+	Blocks    [][]byte
 }
 
 type WriteSeekerAt interface {
@@ -21,10 +23,9 @@ type WriteSeekerAt interface {
 }
 
 type TableWriter struct {
-	w            WriteSeekerAt
-	off          int64
-	rowsStartOff int64
-	rowsCount    uint32
+	w              WriteSeekerAt
+	off            int64
+	blocksStartOff int64
 }
 
 func NewTableWriter(w WriteSeekerAt) *TableWriter {
@@ -42,8 +43,8 @@ func (w *TableWriter) writeLine(label string, b []byte) error {
 	return nil
 }
 
-func (w *TableWriter) WriteMeta(columns []string, pk []uint32) (err error) {
-	err = w.writeLine("columns", NewStrListEncoder().Encode(columns))
+func (w *TableWriter) WriteMeta(columns []string, pk []uint32, rowsCount uint32) (err error) {
+	err = w.writeLine("columns", NewStrListEncoder(true).Encode(columns))
 	if err != nil {
 		return
 	}
@@ -51,26 +52,18 @@ func (w *TableWriter) WriteMeta(columns []string, pk []uint32) (err error) {
 	if err != nil {
 		return
 	}
-	// leave 10 bytes to write rows count when finish
-	w.off, err = w.w.Seek(10, io.SeekCurrent)
+	// leave blank rows count and blocks count for now
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(rowsCount))
+	err = w.writeLine("rows", b)
 	if err != nil {
 		return
 	}
-	w.rowsStartOff = w.off
+	w.blocksStartOff = w.off
 	return
 }
 
-// Flush writes rows count
-func (w *TableWriter) Flush() (err error) {
-	b := make([]byte, 10)
-	copy(b, []byte("rows "))
-	binary.BigEndian.PutUint32(b[5:], w.rowsCount)
-	b[9] = '\n'
-	_, err = w.w.WriteAt(b, w.rowsStartOff-10)
-	return
-}
-
-func (w *TableWriter) writeRow(b []byte) (err error) {
+func (w *TableWriter) writeBlock(b []byte) (err error) {
 	var n int
 	n, err = w.w.Write(b)
 	if err != nil {
@@ -80,43 +73,40 @@ func (w *TableWriter) writeRow(b []byte) (err error) {
 	return
 }
 
-func (r *TableWriter) rowPos(offset int) int64 {
-	return int64(offset)*32 + r.rowsStartOff
+func (r *TableWriter) blockPos(offset int) int64 {
+	return int64(offset)*16 + r.blocksStartOff
 }
 
-func (w *TableWriter) WriteRowAt(b []byte, offset int) (err error) {
-	_, err = w.w.WriteAt(b, w.rowPos(offset))
+func (w *TableWriter) WriteBlockAt(b []byte, offset int) (err error) {
+	_, err = w.w.WriteAt(b, w.blockPos(offset))
 	if err != nil {
 		return
-	}
-	if uint32(offset) >= w.rowsCount {
-		w.rowsCount = uint32(offset + 1)
 	}
 	return
 }
 
 func (w *TableWriter) WriteTable(t *Table) (err error) {
-	err = w.WriteMeta(t.Columns, t.PK)
+	err = w.WriteMeta(t.Columns, t.PK, t.RowsCount)
 	if err != nil {
 		return
 	}
-	for _, b := range t.Rows {
-		err = w.writeRow(b)
+	for _, b := range t.Blocks {
+		err = w.writeBlock(b)
 		if err != nil {
 			return
 		}
 	}
-	w.rowsCount = uint32((w.off - w.rowsStartOff) / 32)
-	return w.Flush()
+	return nil
 }
 
 type TableReader struct {
-	r            io.ReadSeekCloser
-	off          int64
-	rowsStartOff int64
-	rowsCount    uint32
-	Columns      []string
-	PK           []uint32
+	r              io.ReadSeekCloser
+	off            int64
+	blocksStartOff int64
+	rowsCount      uint32
+	blocksCount    uint32
+	Columns        []string
+	PK             []uint32
 }
 
 func NewTableReader(r io.ReadSeekCloser) (*TableReader, error) {
@@ -186,7 +176,8 @@ func (r *TableReader) readMeta() (err error) {
 		return
 	}
 	err = r.consumeStr("\n")
-	r.rowsStartOff = r.off
+	r.blocksStartOff = r.off
+	r.blocksCount = uint32(math.Ceil(float64(r.rowsCount) / float64(128)))
 	return
 }
 
@@ -194,8 +185,8 @@ func (r *TableReader) RowsCount() int {
 	return int(r.rowsCount)
 }
 
-func (r *TableReader) ReadRow() (b []byte, err error) {
-	b = make([]byte, 32)
+func (r *TableReader) ReadBlock() (b []byte, err error) {
+	b = make([]byte, 16)
 	n, err := r.r.Read(b)
 	if err != nil {
 		return nil, err
@@ -204,39 +195,39 @@ func (r *TableReader) ReadRow() (b []byte, err error) {
 	return
 }
 
-func (r *TableReader) rowPos(offset int) int64 {
-	return int64(offset)*32 + r.rowsStartOff
+func (r *TableReader) blockPos(offset int) int64 {
+	return int64(offset)*16 + r.blocksStartOff
 }
 
-func (r *TableReader) SeekRow(offset int, whence int) (int, error) {
+func (r *TableReader) SeekBlock(offset int, whence int) (int, error) {
 	switch whence {
 	default:
 		return 0, fmt.Errorf("seek: invalid whence")
 	case io.SeekStart:
 		break
 	case io.SeekCurrent:
-		offset += int((r.off - r.rowsStartOff) / 32)
+		offset += int((r.off - r.blocksStartOff) / 16)
 	case io.SeekEnd:
-		offset += int(r.rowsCount)
+		offset += int(r.blocksCount)
 	}
 	if offset < 0 {
 		return 0, fmt.Errorf("seek: invalid offset")
 	}
 	var err error
-	r.off, err = r.r.Seek(r.rowPos(offset), io.SeekStart)
+	r.off, err = r.r.Seek(r.blockPos(offset), io.SeekStart)
 	if err != nil {
 		return 0, err
 	}
 	return offset, nil
 }
 
-func (r *TableReader) ReadRowAt(offset int) (b []byte, err error) {
+func (r *TableReader) ReadBlockAt(offset int) (b []byte, err error) {
 	off := r.off
-	_, err = r.SeekRow(offset, io.SeekStart)
+	_, err = r.SeekBlock(offset, io.SeekStart)
 	if err != nil {
 		return
 	}
-	b, err = r.ReadRow()
+	b, err = r.ReadBlock()
 	if err != nil {
 		return
 	}
@@ -245,15 +236,16 @@ func (r *TableReader) ReadRowAt(offset int) (b []byte, err error) {
 }
 
 func (r *TableReader) ReadTable() (t *Table, err error) {
-	rows := make([][]byte, r.rowsCount)
-	for i, b := range rows {
-		b, err = r.ReadRow()
-		rows[i] = b
+	blocks := make([][]byte, r.blocksCount)
+	for i, b := range blocks {
+		b, err = r.ReadBlock()
+		blocks[i] = b
 	}
 	t = &Table{
-		Columns: r.Columns,
-		PK:      r.PK,
-		Rows:    rows,
+		Columns:   r.Columns,
+		PK:        r.PK,
+		Blocks:    blocks,
+		RowsCount: r.rowsCount,
 	}
 	return
 }
