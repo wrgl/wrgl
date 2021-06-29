@@ -1,0 +1,115 @@
+package diff
+
+import (
+	"bytes"
+
+	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
+	"github.com/wrgl/core/pkg/objects"
+)
+
+func getBlockIndex(db kvcommon.DB, sum []byte) (*objects.BlockIndex, error) {
+	b, err := kv.GetBlockIndex(db, sum)
+	if err != nil {
+		return nil, err
+	}
+	_, idx, err := objects.ReadBlockIndex(bytes.NewReader(b))
+	return idx, err
+}
+
+func findOverlappingBlocks(tblIdx1 [][]string, tblIdx2 [][]string, off1, prevEnd int) (start, end int) {
+	n := len(tblIdx2)
+
+	// find starting block in table 2
+	start = -1
+findStart:
+	for j := prevEnd - 1; j < n; j++ {
+		for k, s := range tblIdx1[off1] {
+			if tblIdx2[j][k] > s {
+				start = j - 1
+				break findStart
+			} else if tblIdx2[j][k] < s {
+				continue findStart
+			}
+		}
+		start = j
+		break
+	}
+	if start == -1 {
+		return n, n
+	}
+
+	// find end block in table 2
+	end = -1
+findEnd:
+	for j := start; j < n; j++ {
+		for k, s := range tblIdx1[off1+1] {
+			if tblIdx2[j][k] > s {
+				end = j
+				break findEnd
+			} else if tblIdx2[j][k] < s {
+				continue findEnd
+			}
+		}
+		end = j
+		break
+	}
+	if end == -1 {
+		end = n
+	}
+
+	return
+}
+
+func getBlockIndices(db kvcommon.DB, tbl *objects.Table, start, end int, prevSl []*objects.BlockIndex, prevStart, prevEnd int) ([]*objects.BlockIndex, error) {
+	if start >= len(tbl.Blocks) || start == end {
+		return nil, nil
+	}
+	sl := make([]*objects.BlockIndex, end-start)
+	if prevEnd > start {
+		copy(sl, prevSl[start-prevStart:])
+		start = prevEnd
+	}
+	var err error
+	for j := start; j < end; j++ {
+		sl[j-start], err = getBlockIndex(db, tbl.Blocks[j])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return sl, nil
+}
+
+// iterateAndMatch iterates through a single table while trying to match its rows with another table
+func iterateAndMatch(db kvcommon.DB, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, cb func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte)) error {
+	var prevStart, prevEnd int
+	var indices2 []*objects.BlockIndex
+	for i, sum := range tbl1.Blocks {
+		idx1, err := getBlockIndex(db, sum)
+		if err != nil {
+			return err
+		}
+		start, end := findOverlappingBlocks(tblIdx1, tblIdx2, i, prevEnd)
+		indices2, err = getBlockIndices(db, tbl2, start, end, indices2, prevStart, prevEnd)
+		if err != nil {
+			return err
+		}
+		prevStart, prevEnd = start, end
+
+		for rowOff1, b := range idx1.Rows {
+			var row2 []byte
+			var rowOff2 byte
+			var blkOff2 uint32
+			for k, idx := range indices2 {
+				if off, sum := idx.Get(b[:16]); sum != nil {
+					row2 = sum
+					rowOff2 = off
+					blkOff2 = uint32(k + start)
+					break
+				}
+			}
+			cb(b[:16], b[16:], row2, uint32(i), blkOff2, byte(rowOff1), rowOff2)
+		}
+	}
+	return nil
+}

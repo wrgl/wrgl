@@ -15,11 +15,11 @@ import (
 
 func TestIngestTable(t *testing.T) {
 	rows := createRandomCSV([]string{"a", "b", "c", "d"}, 700)
-	name := writeCSV(t, rows)
-	defer os.Remove(name)
+	f := writeCSV(t, rows)
+	defer os.Remove(f.Name())
 	db := kvtestutils.NewMockStore(false)
 
-	sum, err := IngestTable(db, name, []string{"a"}, 0, 1, io.Discard)
+	sum, err := IngestTable(db, f, f.Name(), []string{"a"}, 0, 1, io.Discard)
 	require.NoError(t, err)
 
 	b, err := kv.GetTable(db, sum)

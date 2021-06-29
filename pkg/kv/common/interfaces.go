@@ -3,7 +3,10 @@
 
 package kvcommon
 
-import "time"
+import (
+	"io"
+	"time"
+)
 
 type DB interface {
 	Get([]byte) ([]byte, error)
@@ -30,4 +33,10 @@ type Txn interface {
 	PartialCommit() error
 	Commit() error
 	Discard()
+}
+
+type File interface {
+	io.ReadSeekCloser
+	io.ReaderAt
+	io.Writer
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package ref
 
 import (
 	"io"
@@ -9,19 +9,20 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
+	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
+	reftestutils "github.com/wrgl/core/pkg/ref/testutils"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestCommitQueue(t *testing.T) {
-	db := kv.NewMockStore(false)
-	sum1, c1 := SaveTestCommit(t, db, nil)
-	sum2, c2 := SaveTestCommit(t, db, nil)
-	sum3, c3 := SaveTestCommit(t, db, [][]byte{sum1})
-	sum4, c4 := SaveTestCommit(t, db, [][]byte{sum2})
-	sum5, c5 := SaveTestCommit(t, db, [][]byte{sum3, sum4})
-	sum6, c6 := SaveTestCommit(t, db, [][]byte{sum3})
+	db := kvtestutils.NewMockStore(false)
+	sum1, c1 := reftestutils.SaveTestCommit(t, db, nil)
+	sum2, c2 := reftestutils.SaveTestCommit(t, db, nil)
+	sum3, c3 := reftestutils.SaveTestCommit(t, db, [][]byte{sum1})
+	sum4, c4 := reftestutils.SaveTestCommit(t, db, [][]byte{sum2})
+	sum5, c5 := reftestutils.SaveTestCommit(t, db, [][]byte{sum3, sum4})
+	sum6, c6 := reftestutils.SaveTestCommit(t, db, [][]byte{sum3})
 
 	q, err := NewCommitsQueue(db, [][]byte{sum5, sum6})
 	require.NoError(t, err)
@@ -63,12 +64,12 @@ func TestCommitQueue(t *testing.T) {
 }
 
 func TestCommitQueuePopUntil(t *testing.T) {
-	db := kv.NewMockStore(false)
+	db := kvtestutils.NewMockStore(false)
 	sums := make([][]byte, 0, 5)
 	commits := make([]*objects.Commit, 0, 5)
 	parents := [][]byte{}
 	for i := 0; i < 5; i++ {
-		sum, c := SaveTestCommit(t, db, parents)
+		sum, c := reftestutils.SaveTestCommit(t, db, parents)
 		sums = append(sums, sum)
 		commits = append(commits, c)
 		parents = [][]byte{sum}
@@ -91,16 +92,16 @@ func TestCommitQueuePopUntil(t *testing.T) {
 }
 
 func TestCommitQueueRemoveAncestors(t *testing.T) {
-	db := kv.NewMockStore(false)
-	sum1, _ := SaveTestCommit(t, db, nil)
-	sum2, _ := SaveTestCommit(t, db, nil)
-	sum3, _ := SaveTestCommit(t, db, nil)
-	sum4, _ := SaveTestCommit(t, db, [][]byte{sum1})
-	sum5, _ := SaveTestCommit(t, db, [][]byte{sum2, sum3})
-	sum6, _ := SaveTestCommit(t, db, [][]byte{sum3})
-	sum7, _ := SaveTestCommit(t, db, [][]byte{sum4})
-	sum8, _ := SaveTestCommit(t, db, [][]byte{sum5})
-	sum9, _ := SaveTestCommit(t, db, [][]byte{sum6})
+	db := kvtestutils.NewMockStore(false)
+	sum1, _ := reftestutils.SaveTestCommit(t, db, nil)
+	sum2, _ := reftestutils.SaveTestCommit(t, db, nil)
+	sum3, _ := reftestutils.SaveTestCommit(t, db, nil)
+	sum4, _ := reftestutils.SaveTestCommit(t, db, [][]byte{sum1})
+	sum5, _ := reftestutils.SaveTestCommit(t, db, [][]byte{sum2, sum3})
+	sum6, _ := reftestutils.SaveTestCommit(t, db, [][]byte{sum3})
+	sum7, _ := reftestutils.SaveTestCommit(t, db, [][]byte{sum4})
+	sum8, _ := reftestutils.SaveTestCommit(t, db, [][]byte{sum5})
+	sum9, _ := reftestutils.SaveTestCommit(t, db, [][]byte{sum6})
 
 	q, err := NewCommitsQueue(db, [][]byte{sum9, sum8, sum6, sum5, sum4, sum3, sum2, sum1})
 	require.NoError(t, err)
@@ -117,12 +118,12 @@ func TestCommitQueueRemoveAncestors(t *testing.T) {
 }
 
 func TestIsAncestorOf(t *testing.T) {
-	db := kv.NewMockStore(false)
-	sum1, _ := SaveTestCommit(t, db, nil)
-	sum2, _ := SaveTestCommit(t, db, nil)
-	sum3, _ := SaveTestCommit(t, db, [][]byte{sum1})
-	sum4, _ := SaveTestCommit(t, db, [][]byte{sum3, sum2})
-	sum5, _ := SaveTestCommit(t, db, nil)
+	db := kvtestutils.NewMockStore(false)
+	sum1, _ := reftestutils.SaveTestCommit(t, db, nil)
+	sum2, _ := reftestutils.SaveTestCommit(t, db, nil)
+	sum3, _ := reftestutils.SaveTestCommit(t, db, [][]byte{sum1})
+	sum4, _ := reftestutils.SaveTestCommit(t, db, [][]byte{sum3, sum2})
+	sum5, _ := reftestutils.SaveTestCommit(t, db, nil)
 	ok, err := IsAncestorOf(db, sum4, sum1)
 	require.NoError(t, err)
 	assert.False(t, ok)

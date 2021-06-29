@@ -8,16 +8,17 @@ import (
 	"path"
 	"sort"
 
+	"github.com/wrgl/core/pkg/mem"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 )
 
 func getRunSize() (uint64, error) {
-	total, err := getTotalMem()
+	total, err := mem.GetTotalMem()
 	if err != nil {
 		return 0, err
 	}
-	avail, err := getAvailMem()
+	avail, err := mem.GetAvailMem()
 	if err != nil {
 		return 0, err
 	}
@@ -69,27 +70,23 @@ func sortBlock(blk [][]string, pk []uint32) {
 	})
 }
 
-func NewSorter(name string, pk []string, runSize uint64, out io.Writer) (s *Sorter, err error) {
+func NewSorter(f io.ReadCloser, name string, pk []string, runSize uint64, out io.Writer) (s *Sorter, err error) {
 	s = &Sorter{
 		out: out,
 	}
-	err = s.readIntoSortedChunks(name, pk, runSize)
+	err = s.readIntoSortedChunks(f, name, pk, runSize)
 	if err != nil {
 		return nil, err
 	}
 	return
 }
 
-func (s *Sorter) readIntoSortedChunks(name string, pk []string, runSize uint64) (err error) {
+func (s *Sorter) readIntoSortedChunks(f io.ReadCloser, name string, pk []string, runSize uint64) (err error) {
 	if runSize == 0 {
 		runSize, err = getRunSize()
 		if err != nil {
 			return
 		}
-	}
-	f, err := os.Open(name)
-	if err != nil {
-		return
 	}
 	r := csv.NewReader(f)
 	s.Columns, err = r.Read()

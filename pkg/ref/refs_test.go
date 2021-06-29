@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package ref
 
 import (
 	"encoding/hex"
@@ -10,14 +10,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
+	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
+	reftestutils "github.com/wrgl/core/pkg/ref/testutils"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestSaveRef(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
 	sum := testutils.SecureRandomBytes(16)
 	err := SaveRef(db, fs, "remotes/origin/abc", sum, "John Doe", "john@doe.com", "fetch", "from origin")
 	require.NoError(t, err)
@@ -27,7 +28,7 @@ func TestSaveRef(t *testing.T) {
 	b, err = GetRef(db, "remotes/origin/abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum, b)
-	AssertLatestReflogEqual(t, fs, "remotes/origin/abc", &objects.Reflog{
+	reftestutils.AssertLatestReflogEqual(t, fs, "remotes/origin/abc", &objects.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
@@ -46,7 +47,7 @@ func TestSaveRef(t *testing.T) {
 	assert.Equal(t, sum, sum1)
 	_, err = fs.Reader([]byte("logs/refs/remotes/origin/abc"))
 	assert.Error(t, err)
-	AssertLatestReflogEqual(t, fs, "remotes/origin2/abc", &objects.Reflog{
+	reftestutils.AssertLatestReflogEqual(t, fs, "remotes/origin2/abc", &objects.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
@@ -64,14 +65,14 @@ func TestSaveRef(t *testing.T) {
 	sum2, err = GetRef(db, "remotes/origin2/def")
 	require.NoError(t, err)
 	assert.Equal(t, sum, sum2)
-	AssertLatestReflogEqual(t, fs, "remotes/origin2/abc", &objects.Reflog{
+	reftestutils.AssertLatestReflogEqual(t, fs, "remotes/origin2/abc", &objects.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
 		Action:      "fetch",
 		Message:     "from origin",
 	})
-	AssertLatestReflogEqual(t, fs, "remotes/origin2/def", &objects.Reflog{
+	reftestutils.AssertLatestReflogEqual(t, fs, "remotes/origin2/def", &objects.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
@@ -81,18 +82,18 @@ func TestSaveRef(t *testing.T) {
 }
 
 func TestCommitMerge(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
 	name := "abc"
-	sum1, _ := SaveTestCommit(t, db, nil)
-	sum2, _ := SaveTestCommit(t, db, nil)
-	sum3, commit1 := SaveTestCommit(t, db, [][]byte{sum1, sum2})
+	sum1, _ := reftestutils.SaveTestCommit(t, db, nil)
+	sum2, _ := reftestutils.SaveTestCommit(t, db, nil)
+	sum3, commit1 := reftestutils.SaveTestCommit(t, db, [][]byte{sum1, sum2})
 	err := CommitMerge(db, fs, name, sum3, commit1)
 	require.NoError(t, err)
 	b, err := GetHead(db, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum3, b)
-	AssertLatestReflogEqual(t, fs, "heads/"+name, &objects.Reflog{
+	reftestutils.AssertLatestReflogEqual(t, fs, "heads/"+name, &objects.Reflog{
 		NewOID:      sum3,
 		AuthorName:  commit1.AuthorName,
 		AuthorEmail: commit1.AuthorEmail,
@@ -102,16 +103,16 @@ func TestCommitMerge(t *testing.T) {
 }
 
 func TestCommitHead(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
 	name := "abc"
-	sum1, commit1 := SaveTestCommit(t, db, nil)
+	sum1, commit1 := reftestutils.SaveTestCommit(t, db, nil)
 	err := CommitHead(db, fs, name, sum1, commit1)
 	require.NoError(t, err)
 	b, err := GetHead(db, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum1, b)
-	AssertLatestReflogEqual(t, fs, "heads/"+name, &objects.Reflog{
+	reftestutils.AssertLatestReflogEqual(t, fs, "heads/"+name, &objects.Reflog{
 		NewOID:      sum1,
 		AuthorName:  commit1.AuthorName,
 		AuthorEmail: commit1.AuthorEmail,
@@ -119,13 +120,13 @@ func TestCommitHead(t *testing.T) {
 		Message:     commit1.Message,
 	})
 
-	sum2, commit2 := SaveTestCommit(t, db, [][]byte{sum1})
+	sum2, commit2 := reftestutils.SaveTestCommit(t, db, [][]byte{sum1})
 	err = CommitHead(db, fs, name, sum2, commit2)
 	require.NoError(t, err)
 	b, err = GetHead(db, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum2, b)
-	AssertLatestReflogEqual(t, fs, "heads/"+name, &objects.Reflog{
+	reftestutils.AssertLatestReflogEqual(t, fs, "heads/"+name, &objects.Reflog{
 		OldOID:      sum1,
 		NewOID:      sum2,
 		AuthorName:  commit2.AuthorName,
@@ -135,7 +136,7 @@ func TestCommitHead(t *testing.T) {
 	})
 
 	name2 := "def"
-	sum3, commit3 := SaveTestCommit(t, db, nil)
+	sum3, commit3 := reftestutils.SaveTestCommit(t, db, nil)
 	err = CommitHead(db, fs, name2, sum3, commit3)
 	require.NoError(t, err)
 	m, err := ListHeads(db)
@@ -152,7 +153,7 @@ func TestCommitHead(t *testing.T) {
 }
 
 func TestRefTag(t *testing.T) {
-	db := kv.NewMockStore(false)
+	db := kvtestutils.NewMockStore(false)
 	name := "abc"
 	sum1 := testutils.SecureRandomBytes(16)
 	err := SaveTag(db, name, sum1)
@@ -178,8 +179,8 @@ func TestRefTag(t *testing.T) {
 }
 
 func TestRemoteRef(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
 	remote := "origin"
 	name := "abc"
 	sum := testutils.SecureRandomBytes(16)
@@ -188,7 +189,7 @@ func TestRemoteRef(t *testing.T) {
 	b, err := GetRemoteRef(db, remote, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum, b)
-	AssertLatestReflogEqual(t, fs, remoteRef(remote, name), &objects.Reflog{
+	reftestutils.AssertLatestReflogEqual(t, fs, remoteRef(remote, name), &objects.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
@@ -205,8 +206,8 @@ func TestRemoteRef(t *testing.T) {
 }
 
 func TestListRemoteRefs(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
 	remote1 := "origin"
 	remote2 := "org"
 	names := []string{"def", "qwe"}
@@ -264,17 +265,17 @@ func TestListRemoteRefs(t *testing.T) {
 }
 
 func TestListAllRefs(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
-	sum1, commit1 := SaveTestCommit(t, db, nil)
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
+	sum1, commit1 := reftestutils.SaveTestCommit(t, db, nil)
 	head := "my-branch"
 	err := CommitHead(db, fs, head, sum1, commit1)
 	require.NoError(t, err)
-	sum2, _ := SaveTestCommit(t, db, nil)
+	sum2, _ := reftestutils.SaveTestCommit(t, db, nil)
 	tag := "my-tag"
 	err = SaveTag(db, tag, sum2)
 	require.NoError(t, err)
-	sum3, _ := SaveTestCommit(t, db, nil)
+	sum3, _ := reftestutils.SaveTestCommit(t, db, nil)
 	remote := "origin"
 	name := "main"
 	err = SaveRemoteRef(

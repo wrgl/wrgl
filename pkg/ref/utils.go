@@ -1,13 +1,13 @@
-package versioning
+package ref
 
 import (
 	"fmt"
 	"io"
 
-	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 )
 
-func SeekCommonAncestor(db kv.DB, commits ...[]byte) (baseCommit []byte, err error) {
+func SeekCommonAncestor(db kvcommon.DB, commits ...[]byte) (baseCommit []byte, err error) {
 	n := len(commits)
 	qs := make([]*CommitsQueue, n)
 	bases := make([][]byte, n)

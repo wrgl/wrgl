@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2021 Wrangle Ltd
+
 package objects
 
 import (
@@ -33,15 +36,19 @@ func TestBlockIndex(t *testing.T) {
 			fromHex(t, "294fca45f7629e5dde21760e232659436773cc7ad69cd3e78c6f08e7709a9449"),
 		},
 	}, idx)
-	for _, row := range idx.Rows {
-		assert.Equal(t, row[16:], idx.Get(row[:16]))
+	for i, row := range idx.Rows {
+		j, b := idx.Get(row[:16])
+		assert.Equal(t, row[16:], b)
+		assert.Equal(t, i, int(j))
 	}
-	assert.Nil(t, idx.Get(testutils.SecureRandomBytes(16)))
+	j, b := idx.Get(testutils.SecureRandomBytes(16))
+	assert.Nil(t, b)
+	assert.Empty(t, j)
 
 	buf := bytes.NewBuffer(nil)
 	n, err := idx.WriteTo(buf)
 	require.NoError(t, err)
-	b := buf.Bytes()
+	b = buf.Bytes()
 	assert.Len(t, b, int(n))
 
 	n, idx2, err := ReadBlockIndex((bytes.NewReader(b)))

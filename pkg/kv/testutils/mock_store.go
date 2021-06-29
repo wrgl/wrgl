@@ -231,19 +231,19 @@ func (f *MockFile) ReadAt(p []byte, off int64) (n int, err error) {
 	return n, nil
 }
 
-// func (s *MockStore) Reader(k []byte) (File, error) {
-// 	if s.EnableMock {
-// 		args := s.Called(k)
-// 		return args.Get(0).(File), args.Error(1)
-// 	}
-// 	v, ok := s.store[string(k)]
-// 	if !ok {
-// 		return nil, kvcommon.ErrKeyNotFound
-// 	}
-// 	return &MockFile{
-// 		b: v,
-// 	}, nil
-// }
+func (s *MockStore) Reader(k []byte) (kvcommon.File, error) {
+	if s.EnableMock {
+		args := s.Called(k)
+		return args.Get(0).(kvcommon.File), args.Error(1)
+	}
+	v, ok := s.store[string(k)]
+	if !ok {
+		return nil, kvcommon.ErrKeyNotFound
+	}
+	return &MockFile{
+		b: v,
+	}, nil
+}
 
 type mockStoreWriter struct {
 	s   *MockStore

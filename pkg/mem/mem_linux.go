@@ -1,9 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package ingest
+package mem
 
-func getTotalMem() (uint64, error) {
+import (
+	"os/exec"
+	"strconv"
+	"strings"
+)
+
+func GetTotalMem() (uint64, error) {
 	out, err := exec.Command("awk", "/MemTotal/ {print $2}", "/proc/meminfo")
 	if err != nil {
 		return 0, err
@@ -15,7 +21,7 @@ func getTotalMem() (uint64, error) {
 	return u * 1024, nil
 }
 
-func getAvailMem() (uint64, error) {
+func GetAvailMem() (uint64, error) {
 	out, err := exec.Command("awk", "/MemFree/ {print $2}", "/proc/meminfo")
 	if err != nil {
 		return 0, err

@@ -1,27 +1,37 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package ref
 
 import (
+	"bytes"
 	"io"
 	"sort"
 
 	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 )
 
 const maxQueueGrow = 1 << 10
 
 type CommitsQueue struct {
-	db      kv.DB
+	db      kvcommon.DB
 	commits []*objects.Commit
 	sums    [][]byte
 	seen    map[string]struct{}
 	grow    int
 }
 
-func NewCommitsQueue(db kv.DB, initialSums [][]byte) (*CommitsQueue, error) {
+func getCommit(db kvcommon.DB, sum []byte) (*objects.Commit, error) {
+	b, err := kv.GetCommit(db, sum)
+	if err != nil {
+		return nil, err
+	}
+	return objects.NewCommitReader(bytes.NewReader(b)).Read()
+}
+
+func NewCommitsQueue(db kvcommon.DB, initialSums [][]byte) (*CommitsQueue, error) {
 	sums := [][]byte{}
 	commits := []*objects.Commit{}
 	seen := map[string]struct{}{}
@@ -29,11 +39,11 @@ func NewCommitsQueue(db kv.DB, initialSums [][]byte) (*CommitsQueue, error) {
 		if _, ok := seen[string(v)]; ok {
 			continue
 		}
-		sums = append(sums, v)
-		commit, err := GetCommit(db, v)
+		commit, err := getCommit(db, v)
 		if err != nil {
 			return nil, err
 		}
+		sums = append(sums, v)
 		commits = append(commits, commit)
 		seen[string(v)] = struct{}{}
 	}
@@ -73,7 +83,7 @@ func (q *CommitsQueue) Insert(sum []byte) (err error) {
 	if q.Seen(sum) {
 		return
 	}
-	commit, err := GetCommit(q.db, sum)
+	commit, err := getCommit(q.db, sum)
 	if err != nil {
 		return
 	}
@@ -196,7 +206,7 @@ func (q *CommitsQueue) Seen(b []byte) bool {
 }
 
 // IsAncestorOf returns true if "commit1" is ancestor of "commit2"
-func IsAncestorOf(db kv.DB, commit1, commit2 []byte) (ok bool, err error) {
+func IsAncestorOf(db kvcommon.DB, commit1, commit2 []byte) (ok bool, err error) {
 	q, err := NewCommitsQueue(db, [][]byte{commit2})
 	if err != nil {
 		return

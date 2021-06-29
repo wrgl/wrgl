@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package ref
 
 import (
 	"bytes"
@@ -11,7 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
+	kvfs "github.com/wrgl/core/pkg/kv/fs"
 	"github.com/wrgl/core/pkg/objects"
 )
 
@@ -42,7 +43,7 @@ func reflogKey(refKey []byte) []byte {
 	return append([]byte("logs/"), refKey...)
 }
 
-func SaveRef(s kv.DB, fs kv.FileStore, name string, commit []byte, authorName, authorEmail, action, message string) error {
+func SaveRef(s kvcommon.DB, fs kvfs.FileStore, name string, commit []byte, authorName, authorEmail, action, message string) error {
 	reflog := &objects.Reflog{
 		AuthorName:  authorName,
 		AuthorEmail: authorEmail,
@@ -68,7 +69,7 @@ func SaveRef(s kv.DB, fs kv.FileStore, name string, commit []byte, authorName, a
 	return s.Set(key, commit)
 }
 
-func CommitHead(s kv.DB, fs kv.FileStore, name string, sum []byte, commit *objects.Commit) error {
+func CommitHead(s kvcommon.DB, fs kvfs.FileStore, name string, sum []byte, commit *objects.Commit) error {
 	i := bytes.IndexByte([]byte(commit.Message), '\n')
 	var message string
 	if i == -1 {
@@ -79,7 +80,7 @@ func CommitHead(s kv.DB, fs kv.FileStore, name string, sum []byte, commit *objec
 	return SaveRef(s, fs, headRef(name), sum, commit.AuthorName, commit.AuthorEmail, "commit", message)
 }
 
-func CommitMerge(s kv.DB, fs kv.FileStore, name string, sum []byte, commit *objects.Commit) error {
+func CommitMerge(s kvcommon.DB, fs kvfs.FileStore, name string, sum []byte, commit *objects.Commit) error {
 	parents := []string{}
 	for _, parent := range commit.Parents {
 		parents = append(parents, hex.EncodeToString(parent)[:7])
@@ -89,31 +90,31 @@ func CommitMerge(s kv.DB, fs kv.FileStore, name string, sum []byte, commit *obje
 	))
 }
 
-func SaveTag(s kv.DB, name string, sum []byte) error {
+func SaveTag(s kvcommon.DB, name string, sum []byte) error {
 	return s.Set(refKey(tagRef(name)), sum)
 }
 
-func SaveRemoteRef(s kv.DB, fs kv.FileStore, remote, name string, commit []byte, authorName, authorEmail, action, message string) error {
+func SaveRemoteRef(s kvcommon.DB, fs kvfs.FileStore, remote, name string, commit []byte, authorName, authorEmail, action, message string) error {
 	return SaveRef(s, fs, remoteRef(remote, name), commit, authorName, authorEmail, action, message)
 }
 
-func GetRef(s kv.DB, name string) ([]byte, error) {
+func GetRef(s kvcommon.DB, name string) ([]byte, error) {
 	return s.Get(refKey(name))
 }
 
-func GetHead(s kv.DB, name string) ([]byte, error) {
+func GetHead(s kvcommon.DB, name string) ([]byte, error) {
 	return s.Get(refKey(headRef(name)))
 }
 
-func GetTag(s kv.DB, name string) ([]byte, error) {
+func GetTag(s kvcommon.DB, name string) ([]byte, error) {
 	return s.Get(refKey(tagRef(name)))
 }
 
-func GetRemoteRef(s kv.DB, remote, name string) ([]byte, error) {
+func GetRemoteRef(s kvcommon.DB, remote, name string) ([]byte, error) {
 	return s.Get(refKey(remoteRef(remote, name)))
 }
 
-func listRefs(s kv.DB, prefix []byte) (map[string][]byte, error) {
+func listRefs(s kvcommon.DB, prefix []byte) (map[string][]byte, error) {
 	result := map[string][]byte{}
 	m, err := s.Filter(prefix)
 	if err != nil {
@@ -127,23 +128,23 @@ func listRefs(s kv.DB, prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
-func ListHeads(s kv.DB) (map[string][]byte, error) {
+func ListHeads(s kvcommon.DB) (map[string][]byte, error) {
 	return listRefs(s, refKey(headPrefix))
 }
 
-func ListTags(s kv.DB) (map[string][]byte, error) {
+func ListTags(s kvcommon.DB) (map[string][]byte, error) {
 	return listRefs(s, refKey(tagPrefix))
 }
 
-func ListRemoteRefs(s kv.DB, remote string) (map[string][]byte, error) {
+func ListRemoteRefs(s kvcommon.DB, remote string) (map[string][]byte, error) {
 	return listRefs(s, refKey(remoteRef(remote, "")))
 }
 
-func ListAllRefs(s kv.DB) (map[string][]byte, error) {
+func ListAllRefs(s kvcommon.DB) (map[string][]byte, error) {
 	return s.Filter(refPrefix)
 }
 
-func ListLocalRefs(s kv.DB) (map[string][]byte, error) {
+func ListLocalRefs(s kvcommon.DB) (map[string][]byte, error) {
 	m, err := ListAllRefs(s)
 	if err != nil {
 		return nil, err
@@ -156,7 +157,7 @@ func ListLocalRefs(s kv.DB) (map[string][]byte, error) {
 	return m, nil
 }
 
-func DeleteRef(s kv.DB, fs kv.FileStore, name string) error {
+func DeleteRef(s kvcommon.DB, fs kvfs.FileStore, name string) error {
 	err := fs.Delete(reflogKey(refKey(name)))
 	if err != nil {
 		return err
@@ -164,19 +165,19 @@ func DeleteRef(s kv.DB, fs kv.FileStore, name string) error {
 	return s.Delete(refKey(name))
 }
 
-func DeleteHead(s kv.DB, fs kv.FileStore, name string) error {
+func DeleteHead(s kvcommon.DB, fs kvfs.FileStore, name string) error {
 	return DeleteRef(s, fs, "heads/"+name)
 }
 
-func DeleteTag(s kv.DB, name string) error {
+func DeleteTag(s kvcommon.DB, name string) error {
 	return s.Delete(refKey(tagRef(name)))
 }
 
-func DeleteRemoteRef(s kv.DB, fs kv.FileStore, remote, name string) error {
+func DeleteRemoteRef(s kvcommon.DB, fs kvfs.FileStore, remote, name string) error {
 	return DeleteRef(s, fs, fmt.Sprintf("remotes/%s/%s", remote, name))
 }
 
-func DeleteAllRemoteRefs(s kv.DB, fs kv.FileStore, remote string) error {
+func DeleteAllRemoteRefs(s kvcommon.DB, fs kvfs.FileStore, remote string) error {
 	keys, err := s.FilterKey(refKey(remoteRef(remote, "")))
 	if err != nil {
 		return err
@@ -194,7 +195,7 @@ func DeleteAllRemoteRefs(s kv.DB, fs kv.FileStore, remote string) error {
 	return nil
 }
 
-func RenameRef(s kv.DB, fs kv.FileStore, oldName, newName string) (sum []byte, err error) {
+func RenameRef(s kvcommon.DB, fs kvfs.FileStore, oldName, newName string) (sum []byte, err error) {
 	oldKey := refKey(oldName)
 	newKey := refKey(newName)
 	sum, err = s.Get(oldKey)
@@ -216,7 +217,7 @@ func RenameRef(s kv.DB, fs kv.FileStore, oldName, newName string) (sum []byte, e
 	return sum, nil
 }
 
-func CopyRef(s kv.DB, fs kv.FileStore, oldName, newName string) (sum []byte, err error) {
+func CopyRef(s kvcommon.DB, fs kvfs.FileStore, oldName, newName string) (sum []byte, err error) {
 	oldKey := refKey(oldName)
 	newKey := refKey(newName)
 	sum, err = s.Get(oldKey)
@@ -244,7 +245,7 @@ func CopyRef(s kv.DB, fs kv.FileStore, oldName, newName string) (sum []byte, err
 	return sum, nil
 }
 
-func RenameAllRemoteRefs(s kv.DB, fs kv.FileStore, oldRemote, newRemote string) error {
+func RenameAllRemoteRefs(s kvcommon.DB, fs kvfs.FileStore, oldRemote, newRemote string) error {
 	prefix := refKey(remoteRef(oldRemote, ""))
 	n := len(prefix)
 	keys, err := s.FilterKey(prefix)

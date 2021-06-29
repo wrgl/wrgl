@@ -5,12 +5,11 @@ package diff
 
 import (
 	"bytes"
-	"io"
 	"time"
 
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/progress"
-	"github.com/wrgl/core/pkg/table"
 )
 
 func strSliceEqual(s1, s2 []string) bool {
@@ -25,21 +24,29 @@ func strSliceEqual(s1, s2 []string) bool {
 	return true
 }
 
-func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<- error, emitRowChangeWhenPKDiffer bool) (<-chan objects.Diff, progress.Tracker) {
-	diffChan := make(chan objects.Diff)
+func uintSliceEqual(s1, s2 []uint32) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+	for i, v := range s1 {
+		if v != s2[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func DiffTables(db kvcommon.DB, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, progressPeriod time.Duration, errChan chan<- error) (<-chan *objects.Diff, progress.Tracker) {
+	diffChan := make(chan *objects.Diff)
 	pt := progress.NewTracker(progressPeriod, 0)
 	go func() {
 		defer close(diffChan)
 
-		pk1 := t1.PrimaryKey()
-		cols1 := t1.Columns()
-		pk2 := t2.PrimaryKey()
-		cols2 := t2.Columns()
-		pkEqual := strSliceEqual(pk1, pk2)
-		colsEqual := strSliceEqual(cols1, cols2)
+		pkEqual := uintSliceEqual(tbl1.PK, tbl2.PK)
+		colsEqual := strSliceEqual(tbl1.Columns, tbl2.Columns)
 
-		if (!pkEqual && emitRowChangeWhenPKDiffer) || (pkEqual && (len(pk1) > 0 || colsEqual)) {
-			err := diffRows(t1, t2, diffChan, pt, colsEqual)
+		if pkEqual && (len(tbl1.PK) > 0 || colsEqual) {
+			err := diffRows(db, tbl1, tbl2, tblIdx1, tblIdx2, diffChan, pt, colsEqual)
 			if err != nil {
 				errChan <- err
 				return
@@ -49,60 +56,46 @@ func DiffTables(t1, t2 table.Store, progressPeriod time.Duration, errChan chan<-
 	return diffChan, pt
 }
 
-func diffRows(t1, t2 table.Store, diffChan chan<- objects.Diff, pt progress.Tracker, colsEqual bool) error {
-	l1 := t1.NumRows()
-	l2 := t2.NumRows()
-	r1 := t1.NewRowHashReader(0, 0)
-	pt.SetTotal(int64(l1 + l2))
+func diffRows(db kvcommon.DB, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, diffChan chan<- *objects.Diff, pt progress.Tracker, colsEqual bool) error {
+	pt.SetTotal(int64(tbl1.RowsCount + tbl2.RowsCount))
 	var current int64
-loop1:
-	for {
-		k, v, err := r1.Read()
-		if err == io.EOF {
-			break loop1
-		}
-		if err != nil {
-			return err
-		}
+	err := iterateAndMatch(db, tbl1, tbl2, tblIdx1, tblIdx2, func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte) {
 		current++
 		pt.SetCurrent(current)
-		w, ok := t2.GetRowHash(k)
-		if ok {
-			if !colsEqual || !bytes.Equal(v, w) {
-				diffChan <- objects.Diff{
-					Type:   objects.DTRow,
-					PK:     k,
-					OldSum: w,
-					Sum:    v,
+		if row2 != nil {
+			if !colsEqual || !bytes.Equal(row1, row2) {
+				diffChan <- &objects.Diff{
+					PK:       pk,
+					Sum:      row1,
+					Block:    blkOff1,
+					Row:      rowOff1,
+					OldSum:   row2,
+					OldBlock: blkOff2,
+					OldRow:   rowOff2,
 				}
 			}
 		} else {
-			diffChan <- objects.Diff{
-				Type: objects.DTRow,
-				PK:   k,
-				Sum:  v,
+			diffChan <- &objects.Diff{
+				PK:    pk,
+				Sum:   row1,
+				Block: blkOff1,
+				Row:   rowOff1,
 			}
 		}
+	})
+	if err != nil {
+		return err
 	}
-	r2 := t2.NewRowHashReader(0, 0)
-loop2:
-	for {
-		k, v, err := r2.Read()
-		if err == io.EOF {
-			break loop2
-		}
-		if err != nil {
-			return err
-		}
+	return iterateAndMatch(db, tbl2, tbl1, tblIdx2, tblIdx1, func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte) {
 		current++
 		pt.SetCurrent(current)
-		if _, ok := t1.GetRowHash(k); !ok {
-			diffChan <- objects.Diff{
-				Type:   objects.DTRow,
-				PK:     k,
-				OldSum: v,
+		if row2 == nil {
+			diffChan <- &objects.Diff{
+				PK:     pk,
+				OldSum: row1,
+				Block:  blkOff1,
+				Row:    rowOff1,
 			}
 		}
-	}
-	return nil
+	})
 }

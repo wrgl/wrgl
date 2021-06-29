@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package ref
 
 import (
 	"encoding/hex"
@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 )
 
@@ -36,11 +36,11 @@ func parseNavigationChars(commitStr string) (commitName string, numPeel int, err
 	return
 }
 
-func peelCommit(db kv.DB, hash []byte, commit *objects.Commit, numPeel int) ([]byte, *objects.Commit, error) {
+func peelCommit(db kvcommon.DB, hash []byte, commit *objects.Commit, numPeel int) ([]byte, *objects.Commit, error) {
 	var err error
 	for numPeel > 0 {
 		hash = commit.Parents[0][:]
-		commit, err = GetCommit(db, hash)
+		commit, err = getCommit(db, hash)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -49,7 +49,7 @@ func peelCommit(db kv.DB, hash []byte, commit *objects.Commit, numPeel int) ([]b
 	return hash, commit, nil
 }
 
-func interpretRef(db kv.DB, name string, excludeTag bool) (ref string, sum []byte, err error) {
+func interpretRef(db kvcommon.DB, name string, excludeTag bool) (ref string, sum []byte, err error) {
 	m, err := ListAllRefs(db)
 	if err != nil {
 		return
@@ -96,10 +96,10 @@ func interpretRef(db kv.DB, name string, excludeTag bool) (ref string, sum []byt
 			return ref, sum, nil
 		}
 	}
-	return name, nil, kv.KeyNotFoundError
+	return name, nil, kvcommon.ErrKeyNotFound
 }
 
-func InterpretCommitName(db kv.DB, commitStr string, excludeTag bool) (name string, hash []byte, commit *objects.Commit, err error) {
+func InterpretCommitName(db kvcommon.DB, commitStr string, excludeTag bool) (name string, hash []byte, commit *objects.Commit, err error) {
 	name, numPeel, err := parseNavigationChars(commitStr)
 	if err != nil {
 		return "", nil, nil, err
@@ -109,7 +109,7 @@ func InterpretCommitName(db kv.DB, commitStr string, excludeTag bool) (name stri
 		if err != nil {
 			return
 		}
-		commit, err = GetCommit(db, hash)
+		commit, err = getCommit(db, hash)
 		if err == nil {
 			hash, commit, err = peelCommit(db, hash, commit, numPeel)
 			name = hex.EncodeToString(hash)
@@ -120,7 +120,7 @@ func InterpretCommitName(db kv.DB, commitStr string, excludeTag bool) (name stri
 		var commitSum []byte
 		name, commitSum, err = interpretRef(db, name, excludeTag)
 		if err == nil {
-			commit, err = GetCommit(db, commitSum)
+			commit, err = getCommit(db, commitSum)
 			if err != nil {
 				return "", nil, nil, err
 			}

@@ -4,146 +4,181 @@
 package diff
 
 import (
+	"bytes"
+	"encoding/csv"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
+	kvfs "github.com/wrgl/core/pkg/kv/fs"
+	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
+func getTable(t testing.TB, db kvcommon.DB, sum []byte) (*objects.Table, [][]string) {
+	t.Helper()
+	b, err := kv.GetTable(db, sum)
+	require.NoError(t, err)
+	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
+	require.NoError(t, err)
+	b, err = kv.GetTableIndex(db, sum)
+	require.NoError(t, err)
+	_, tblIdx, err := objects.ReadBlockFrom(bytes.NewReader(b))
+	return tbl, tblIdx
+}
+
 func TestDiffTables(t *testing.T) {
+	db := kvtestutils.NewMockStore(false)
 	cases := []struct {
-		T1     table.Store
-		T2     table.Store
-		Events []objects.Diff
+		Sum1, Sum2 []byte
+		Events     []objects.Diff
 	}{
 		{
-			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			table.NewMockStore([]string{"a", "b", "c"}, nil, [][2]string{
-				{"abc", "123"},
-				{"def", "059"},
-				{"asd", "789"},
-			}),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
+			factory.BuildTable(t, db, []string{
+				"a,b,c",
+				"1,q,w",
+				"2,a,s",
+				"3,z,x",
+			}, []uint32{0}),
 			[]objects.Diff{},
 		},
 		{
-			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
-				{"abc", "123"},
-				{"def", "059"},
-				{"asd", "789"},
-			}),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
+			[]objects.Diff{},
+		},
+		{
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
+			factory.BuildTable(t, db, []string{
+				"a,c",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
+			[]objects.Diff{},
+		},
+		{
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, nil),
+			factory.BuildTable(t, db, []string{
+				"a,c",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, nil),
+			[]objects.Diff{},
+		},
+		{
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,s",
+				"4,x",
+			}, []uint32{0}),
 			[]objects.Diff{
-				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("059")},
-				{Type: objects.DTRow, PK: []byte("qwe"), Sum: []byte("234")},
-				{Type: objects.DTRow, PK: []byte("asd"), OldSum: []byte("789")},
+				{PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("059")},
+				{PK: []byte("qwe"), Sum: []byte("234")},
+				{PK: []byte("asd"), OldSum: []byte("789")},
 			},
 		},
 		{
-			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			[]objects.Diff{},
-		},
-		{
-			table.NewMockStore([]string{"a", "b"}, nil, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			table.NewMockStore([]string{"a", "c"}, nil, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			[]objects.Diff{},
-		},
-		{
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
-				{"abc", "123"},
-				{"def", "059"},
-				{"asd", "789"},
-			}),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, nil),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,s",
+				"4,x",
+			}, nil),
 			[]objects.Diff{
-				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("059")},
-				{Type: objects.DTRow, PK: []byte("qwe"), Sum: []byte("234")},
-				{Type: objects.DTRow, PK: []byte("asd"), OldSum: []byte("789")},
+				{PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("059")},
+				{PK: []byte("qwe"), Sum: []byte("234")},
+				{PK: []byte("asd"), OldSum: []byte("789")},
 			},
 		},
 		{
-			table.NewMockStore([]string{"one", "two", "three"}, []uint32{0}, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-			}),
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
-				{"abc", "345"},
-				{"def", "678"},
-			}),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+			}, nil),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,w",
+				"2,s",
+			}, nil),
 			[]objects.Diff{
-				{Type: objects.DTRow, PK: []byte("abc"), Sum: []byte("123"), OldSum: []byte("345")},
-				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("678")},
+				{PK: []byte("abc"), Sum: []byte("123"), OldSum: []byte("345")},
+				{PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("678")},
 			},
 		},
 		{
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			[]objects.Diff{},
-		},
-		{
-			table.NewMockStore([]string{"one", "two"}, []uint32{0}, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
-			table.NewMockStore([]string{"one", "three"}, []uint32{0}, [][2]string{
-				{"abc", "123"},
-				{"def", "456"},
-				{"qwe", "234"},
-			}),
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
+			factory.BuildTable(t, db, []string{
+				"a,c",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
 			[]objects.Diff{
-				{Type: objects.DTRow, PK: []byte("abc"), Sum: []byte("123"), OldSum: []byte("123")},
-				{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("456")},
-				{Type: objects.DTRow, PK: []byte("qwe"), Sum: []byte("234"), OldSum: []byte("234")},
+				{PK: []byte("abc"), Sum: []byte("123"), OldSum: []byte("123")},
+				{PK: []byte("def"), Sum: []byte("456"), OldSum: []byte("456")},
+				{PK: []byte("qwe"), Sum: []byte("234"), OldSum: []byte("234")},
 			},
 		},
 	}
 	for i, c := range cases {
 		errChan := make(chan error, 1000)
-		diffChan, _ := DiffTables(c.T1, c.T2, 0, errChan, false)
-		events := []objects.Diff{}
+		tbl1, tblIdx1 := getTable(t, db, c.Sum1)
+		tbl2, tblIdx2 := getTable(t, db, c.Sum2)
+		diffChan, _ := DiffTables(db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan)
+		events := []*objects.Diff{}
 		for e := range diffChan {
 			events = append(events, e)
 		}
@@ -154,65 +189,53 @@ func TestDiffTables(t *testing.T) {
 	}
 }
 
-func TestDiffTablesSkipColumnChange(t *testing.T) {
-	ts1 := table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil)
-	ts2 := table.NewMockStore([]string{"one", "two"}, []uint32{0}, nil)
-	errChan := make(chan error, 1000)
-	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, false)
-	events := []objects.Diff{}
-	for e := range diffChan {
-		events = append(events, e)
-	}
-	assert.Equal(t, []objects.Diff{}, events)
-}
+// func TestDiffTablesEmitRowChangeWhenPKDiffer(t *testing.T) {
+// 	db := kvtestutils.NewMockStore(false)
+// 	sum1 := factory.BuildTable(t, db, []string{
+// 		"a,b",
+// 		"1,q",
+// 		"2,a",
+// 	}, []uint32{0})
+// 	sum2 := factory.BuildTable(t, db, []string{
+// 		"a,b",
+// 		"3,z",
+// 		"4,x",
+// 	}, []uint32{0})
+// 	tbl1, tblIdx1 := getTable(t, db, sum1)
+// 	tbl2, tblIdx2 := getTable(t, db, sum2)
+// 	errChan := make(chan error, 1000)
+// 	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, true)
+// 	events := []objects.Diff{}
+// 	for e := range diffChan {
+// 		events = append(events, e)
+// 	}
+// 	assert.Equal(t, []objects.Diff{
+// 		{PK: []byte("abc"), Sum: []byte("123")},
+// 		{PK: []byte("def"), Sum: []byte("456")},
+// 		{PK: []byte("wer"), OldSum: []byte("321")},
+// 		{PK: []byte("sdf"), OldSum: []byte("432")},
+// 	}, events)
+// }
 
-func TestDiffTablesEmitRowChangeWhenPKDiffer(t *testing.T) {
-	ts1 := table.NewMockStore([]string{"a", "b"}, []uint32{0}, [][2]string{
-		{"abc", "123"},
-		{"def", "456"},
-	})
-	ts2 := table.NewMockStore([]string{"a", "c"}, []uint32{1}, [][2]string{
-		{"wer", "321"},
-		{"sdf", "432"},
-	})
-	errChan := make(chan error, 1000)
-	diffChan, _ := DiffTables(ts1, ts2, 0, errChan, true)
-	events := []objects.Diff{}
-	for e := range diffChan {
-		events = append(events, e)
-	}
-	assert.Equal(t, []objects.Diff{
-		{Type: objects.DTRow, PK: []byte("abc"), Sum: []byte("123")},
-		{Type: objects.DTRow, PK: []byte("def"), Sum: []byte("456")},
-		{Type: objects.DTRow, PK: []byte("wer"), OldSum: []byte("321")},
-		{Type: objects.DTRow, PK: []byte("sdf"), OldSum: []byte("432")},
-	}, events)
-}
-
-func ingestRawCSV(b *testing.B, db kv.DB, fs kv.FileStore, rows [][]string) table.Store {
+func ingestRawCSV(b *testing.B, db kvcommon.DB, fs kvfs.FileStore, rows [][]string) (*objects.Table, [][]string) {
 	b.Helper()
-	cols := rows[0]
-	reader := testutils.RawCSVReader(rows[1:])
-	tb := table.NewBuilder(db, fs, cols, nil, 0, 0)
-	sum, err := ingest.NewIngestor(tb, 0, []uint32{}, 1, io.Discard).
-		ReadRowsFromCSVReader(reader).
-		Ingest()
+	buf := bytes.NewBuffer(nil)
+	require.NoError(b, csv.NewWriter(buf).WriteAll(rows))
+	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), "test.csv", nil, 0, 1, io.Discard)
 	require.NoError(b, err)
-	ts, err := table.ReadTable(db, fs, sum)
-	require.NoError(b, err)
-	return ts
+	return getTable(b, db, sum)
 }
 
 func BenchmarkDiffRows(b *testing.B) {
 	rawCSV1 := testutils.BuildRawCSV(12, b.N)
 	rawCSV2 := testutils.ModifiedCSV(rawCSV1, 1)
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
-	store1 := ingestRawCSV(b, db, fs, rawCSV1)
-	store2 := ingestRawCSV(b, db, fs, rawCSV2)
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
+	tbl1, tblIdx1 := ingestRawCSV(b, db, fs, rawCSV1)
+	tbl2, tblIdx2 := ingestRawCSV(b, db, fs, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
-	diffChan, _ := DiffTables(store1, store2, 0, errChan, false)
+	diffChan, _ := DiffTables(db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan)
 	for d := range diffChan {
 		assert.NotNil(b, d)
 	}

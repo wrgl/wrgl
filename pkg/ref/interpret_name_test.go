@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package ref
 
 import (
 	"encoding/hex"
@@ -10,8 +10,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
+	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
+	reftestutils "github.com/wrgl/core/pkg/ref/testutils"
 )
 
 func TestParseNavigationChars(t *testing.T) {
@@ -33,10 +35,10 @@ func TestParseNavigationChars(t *testing.T) {
 }
 
 func TestGetPrevCommit(t *testing.T) {
-	db := kv.NewMockStore(false)
-	sum1, commit1 := SaveTestCommit(t, db, nil)
-	sum2, commit2 := SaveTestCommit(t, db, [][]byte{sum1})
-	sum3, commit3 := SaveTestCommit(t, db, [][]byte{sum2})
+	db := kvtestutils.NewMockStore(false)
+	sum1, commit1 := reftestutils.SaveTestCommit(t, db, nil)
+	sum2, commit2 := reftestutils.SaveTestCommit(t, db, [][]byte{sum1})
+	sum3, commit3 := reftestutils.SaveTestCommit(t, db, [][]byte{sum2})
 
 	sum, commit, err := peelCommit(db, sum3, commit3, 0)
 	require.NoError(t, err)
@@ -55,16 +57,16 @@ func TestGetPrevCommit(t *testing.T) {
 }
 
 func TestInterpretCommitName(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
-	sum1, commit1 := SaveTestCommit(t, db, nil)
-	sum2, commit2 := SaveTestCommit(t, db, [][]byte{sum1})
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
+	sum1, commit1 := reftestutils.SaveTestCommit(t, db, nil)
+	sum2, commit2 := reftestutils.SaveTestCommit(t, db, [][]byte{sum1})
 	branchName := "my-branch"
 	err := CommitHead(db, fs, branchName, sum2, commit2)
 	require.NoError(t, err)
 
 	for i, c := range []struct {
-		db        kv.DB
+		db        kvcommon.DB
 		commitStr string
 		name      string
 		sum       []byte
@@ -91,21 +93,21 @@ func TestInterpretCommitName(t *testing.T) {
 }
 
 func TestInterpretRefName(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
-	sum1, c1 := SaveTestCommit(t, db, nil)
+	db := kvtestutils.NewMockStore(false)
+	fs := kvtestutils.NewMockStore(false)
+	sum1, c1 := reftestutils.SaveTestCommit(t, db, nil)
 	require.NoError(t, CommitHead(db, fs, "abc", sum1, c1))
-	sum2, c2 := SaveTestCommit(t, db, nil)
+	sum2, c2 := reftestutils.SaveTestCommit(t, db, nil)
 	require.NoError(t, SaveTag(db, "abc", sum2))
-	sum3, c3 := SaveTestCommit(t, db, nil)
+	sum3, c3 := reftestutils.SaveTestCommit(t, db, nil)
 	require.NoError(t, SaveRemoteRef(db, fs, "origin", "abc", sum3, "test", "test@domain.com", "test", "test interpret ref"))
-	sum4, c4 := SaveTestCommit(t, db, nil)
+	sum4, c4 := reftestutils.SaveTestCommit(t, db, nil)
 	require.NoError(t, SaveTag(db, "def", sum4))
-	sum5, c5 := SaveTestCommit(t, db, nil)
+	sum5, c5 := reftestutils.SaveTestCommit(t, db, nil)
 	require.NoError(t, SaveRemoteRef(db, fs, "origin", "def", sum5, "test", "test@domain.com", "test", "test interpret ref"))
-	sum6, c6 := SaveTestCommit(t, db, nil)
+	sum6, c6 := reftestutils.SaveTestCommit(t, db, nil)
 	require.NoError(t, SaveRemoteRef(db, fs, "origin", "ghj", sum6, "test", "test@domain.com", "test", "test interpret ref"))
-	sum7, c7 := SaveTestCommit(t, db, nil)
+	sum7, c7 := reftestutils.SaveTestCommit(t, db, nil)
 	require.NoError(t, SaveRef(db, fs, "custom/ghj", sum7, "test", "test@domain.com", "test", "test interpret ref"))
 
 	name, sum, c, err := InterpretCommitName(db, "abc", false)

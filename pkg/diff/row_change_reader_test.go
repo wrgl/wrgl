@@ -7,55 +7,48 @@ import (
 	"io"
 	"testing"
 
-	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/factory"
+	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
 )
 
-func insertRecord(t *testing.T, db kv.DB, row []string) []byte {
-	t.Helper()
-	enc := objects.NewStrListEncoder()
-	b := enc.Encode(row)
-	sumArr := meow.Checksum(0, b)
-	err := table.SaveRow(db, sumArr[:], b)
-	require.NoError(t, err)
-	return sumArr[:]
-}
-
 func TestRowChangeReader(t *testing.T) {
-	db := kv.NewMockStore(false)
-	cols := []string{"a", "b", "c", "d"}
-	oldCols := []string{"a", "b", "c", "e"}
-	pk := []string{"a"}
-
-	sumPairs := [][2][]byte{}
-	for _, recs := range [][2][]string{
-		{
-			[]string{"1", "2", "3", "4"},
-			[]string{"1", "2", "3", "5"},
-		},
-		{
-			[]string{"2", "2", "3", "4"},
-			[]string{"2", "6", "3", "5"},
-		},
-		{
-			[]string{"3", "2", "7", "4"},
-			[]string{"3", "2", "3", "5"},
-		},
-	} {
-		sumPairs = append(sumPairs, [2][]byte{
-			insertRecord(t, db, recs[0]),
-			insertRecord(t, db, recs[1]),
-		})
+	db := kvtestutils.NewMockStore(false)
+	sum1 := factory.BuildTable(t, db, []string{
+		"a,b,c,d",
+		"1,2,3,4",
+		"2,2,3,4",
+		"3,2,7,4",
+	}, []uint32{0})
+	sum2 := factory.BuildTable(t, db, []string{
+		"a,b,c,e",
+		"1,2,3,5",
+		"2,6,3,5",
+		"3,2,3,5",
+	}, []uint32{0})
+	tbl1, tblIdx1 := getTable(t, db, sum1)
+	tbl2, tblIdx2 := getTable(t, db, sum2)
+	errCh := make(chan error, 1)
+	diffCh, _ := DiffTables(db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errCh)
+	close(errCh)
+	err, ok := <-errCh
+	assert.False(t, ok)
+	require.NoError(t, err)
+	diffs := []*objects.Diff{}
+	for d := range diffCh {
+		diffs = append(diffs, d)
 	}
+	assert.Len(t, diffs, 3)
 
 	// test Read
-	reader, err := NewRowChangeReader(db, db, objects.CompareColumns([2][]string{oldCols, pk}, [2][]string{cols, pk}))
+	reader, err := NewRowChangeReader(
+		db, db, tbl1, tbl2,
+		objects.CompareColumns([2][]string{{"a", "b", "c", "e"}, {"a"}}, [2][]string{{"a", "b", "c", "d"}, {"a"}}),
+	)
 	require.NoError(t, err)
-	reader.AddRowPair(sumPairs[0][0], sumPairs[0][1])
+	reader.AddRowDiff(diffs[0])
 	assert.Equal(t, 1, reader.NumRows())
 	mr, err := reader.Read()
 	require.NoError(t, err)
@@ -64,8 +57,8 @@ func TestRowChangeReader(t *testing.T) {
 	}, mr)
 
 	// test seek
-	reader.AddRowPair(sumPairs[1][0], sumPairs[1][1])
-	reader.AddRowPair(sumPairs[2][0], sumPairs[2][1])
+	reader.AddRowDiff(diffs[1])
+	reader.AddRowDiff(diffs[2])
 	assert.Equal(t, 3, reader.NumRows())
 	reader.Seek(1, io.SeekCurrent)
 	mr, err = reader.Read()

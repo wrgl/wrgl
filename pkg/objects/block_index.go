@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2021 Wrangle Ltd
+
 package objects
 
 import (
@@ -47,20 +50,21 @@ func (idx *BlockIndex) Swap(i, j int) {
 	idx.sortedOff[uint8(i)], idx.sortedOff[uint8(j)] = idx.sortedOff[uint8(j)], idx.sortedOff[uint8(i)]
 }
 
-func (idx *BlockIndex) Get(pkSum []byte) []byte {
+func (idx *BlockIndex) Get(pkSum []byte) (byte, []byte) {
 	n := idx.Len()
 	i := sort.Search(idx.Len(), func(i int) bool {
 		b := idx.Rows[idx.sortedOff[byte(i)]][:16]
 		return string(b) >= string(pkSum)
 	})
 	if i >= n {
-		return nil
+		return 0, nil
 	}
-	b := idx.Rows[idx.sortedOff[byte(i)]]
+	j := idx.sortedOff[byte(i)]
+	b := idx.Rows[j]
 	if bytes.Equal(b[:16], pkSum) {
-		return b[16:]
+		return j, b[16:]
 	}
-	return nil
+	return 0, nil
 }
 
 func (idx *BlockIndex) WriteTo(w io.Writer) (int64, error) {

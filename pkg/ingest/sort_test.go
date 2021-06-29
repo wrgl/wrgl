@@ -26,15 +26,16 @@ func createRandomCSV(columns []string, n int) [][]string {
 	return rows
 }
 
-func writeCSV(t *testing.T, rows [][]string) string {
+func writeCSV(t *testing.T, rows [][]string) *os.File {
 	t.Helper()
 	f, err := ioutil.TempFile("", "test_sorter_*")
 	require.NoError(t, err)
 	w := csv.NewWriter(f)
 	require.NoError(t, w.WriteAll(rows))
 	w.Flush()
-	require.NoError(t, f.Close())
-	return f.Name()
+	_, err = f.Seek(0, io.SeekStart)
+	require.NoError(t, err)
+	return f
 }
 
 func collectBlocks(t *testing.T, s *Sorter, rowsCount uint32) []*block {
@@ -54,10 +55,10 @@ func collectBlocks(t *testing.T, s *Sorter, rowsCount uint32) []*block {
 
 func TestSorter(t *testing.T) {
 	rows := createRandomCSV([]string{"a", "b", "c", "d"}, 700)
-	name := writeCSV(t, rows)
-	defer os.Remove(name)
+	f := writeCSV(t, rows)
+	defer os.Remove(f.Name())
 
-	s, err := NewSorter(name, []string{"a"}, 4096, io.Discard)
+	s, err := NewSorter(f, f.Name(), []string{"a"}, 4096, io.Discard)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a", "b", "c", "d"}, s.Columns)
 	assert.Equal(t, []uint32{0}, s.PK)
@@ -82,7 +83,9 @@ func TestSorter(t *testing.T) {
 	}
 
 	// sorter run entirely in memory
-	s, err = NewSorter(name, []string{"a"}, 0, io.Discard)
+	f, err = os.Open(f.Name())
+	require.NoError(t, err)
+	s, err = NewSorter(f, f.Name(), []string{"a"}, 0, io.Discard)
 	require.NoError(t, err)
 	blocks2 := collectBlocks(t, s, 700)
 	assert.Equal(t, blocks, blocks2)

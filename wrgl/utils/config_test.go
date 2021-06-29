@@ -1,17 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package utils
 
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/testutils"
 )
+
+func MockSystemConf(t *testing.T) func() {
+	t.Helper()
+	orig := systemConfigPath
+	dir, err := ioutil.TempDir("", "test_wrgl_config")
+	require.NoError(t, err)
+	systemConfigPath = filepath.Join(dir, "wrgl/config.yaml")
+	return func() {
+		require.NoError(t, os.RemoveAll(dir))
+		systemConfigPath = orig
+	}
+}
 
 func randomConfig() *Config {
 	return &Config{

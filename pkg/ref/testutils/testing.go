@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package reftestutils
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
+	kvfs "github.com/wrgl/core/pkg/kv/fs"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/testutils"
 )
@@ -23,7 +26,7 @@ func init() {
 	tg = testutils.CreateTimeGen()
 }
 
-func SaveTestCommit(t *testing.T, db kv.DB, parents [][]byte) (sum []byte, commit *objects.Commit) {
+func SaveTestCommit(t *testing.T, db kvcommon.DB, parents [][]byte) (sum []byte, commit *objects.Commit) {
 	t.Helper()
 	commit = &objects.Commit{
 		Table:       testutils.SecureRandomBytes(16),
@@ -33,13 +36,15 @@ func SaveTestCommit(t *testing.T, db kv.DB, parents [][]byte) (sum []byte, commi
 		Message:     testutils.BrokenRandomAlphaNumericString(40),
 		Parents:     parents,
 	}
-	var err error
-	sum, err = SaveCommit(db, 0, commit)
-	require.NoError(t, err)
+	buf := bytes.NewBuffer(nil)
+	require.NoError(t, objects.NewCommitWriter(buf).Write(commit))
+	arr := meow.Checksum(0, buf.Bytes())
+	sum = arr[:]
+	require.NoError(t, kv.SaveCommit(db, sum, buf.Bytes()))
 	return sum, commit
 }
 
-func AssertLatestReflogEqual(t *testing.T, fs kv.FileStore, name string, rl *objects.Reflog) {
+func AssertLatestReflogEqual(t *testing.T, fs kvfs.FileStore, name string, rl *objects.Reflog) {
 	t.Helper()
 	r, err := fs.Reader([]byte("logs/refs/" + name))
 	require.NoError(t, err)
@@ -82,17 +87,5 @@ func MockGlobalConf(t *testing.T, setXDGConfigHome bool) func() {
 		if cleanup2 != nil {
 			cleanup2()
 		}
-	}
-}
-
-func MockSystemConf(t *testing.T) func() {
-	t.Helper()
-	orig := systemConfigPath
-	dir, err := ioutil.TempDir("", "test_wrgl_config")
-	require.NoError(t, err)
-	systemConfigPath = filepath.Join(dir, "wrgl/config.yaml")
-	return func() {
-		require.NoError(t, os.RemoveAll(dir))
-		systemConfigPath = orig
 	}
 }

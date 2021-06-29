@@ -33,20 +33,20 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 	}
 	headerRow := []*TableCell{}
 	colStatuses := []*TableCell{}
-	for i, name := range reader.Columns.Names {
+	for i, name := range reader.ColDiff.Names {
 		headerRow = append(headerRow, NewTableCell(name).SetStyle(columnStyle))
 		colStatuses = append(colStatuses, nil)
-		if _, ok := reader.Columns.Added[0][uint32(i)]; ok {
+		if _, ok := reader.ColDiff.Added[0][uint32(i)]; ok {
 			colStatuses[i] = NewTableCell("Added").SetStyle(addedStyle)
 			t.statusExist = true
-		} else if _, ok := reader.Columns.Removed[0][uint32(i)]; ok {
+		} else if _, ok := reader.ColDiff.Removed[0][uint32(i)]; ok {
 			colStatuses[i] = NewTableCell("Removed").SetStyle(removedStyle)
 			t.statusExist = true
-		} else if m, ok := reader.Columns.Moved[0][uint32(i)]; ok && m[0] != -1 {
-			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be before %q", reader.Columns.Names[m[0]])).SetStyle(movedStyle)
+		} else if m, ok := reader.ColDiff.Moved[0][uint32(i)]; ok && m[0] != -1 {
+			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be before %q", reader.ColDiff.Names[m[0]])).SetStyle(movedStyle)
 			t.statusExist = true
 		} else if ok && m[1] != -1 {
-			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be after %q", reader.Columns.Names[m[1]])).SetStyle(movedStyle)
+			colStatuses[i] = NewTableCell(fmt.Sprintf("Moved, used to be after %q", reader.ColDiff.Names[m[1]])).SetStyle(movedStyle)
 			t.statusExist = true
 		}
 	}
@@ -54,15 +54,15 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 	if t.statusExist {
 		t.DataTable.SetColumnStatuses(colStatuses)
 	}
-	t.DataTable.SetShape(t.reader.NumRows(), t.reader.Columns.Len()).
-		SetPrimaryKeyIndices(t.reader.Columns.PKIndices())
+	t.DataTable.SetShape(t.reader.NumRows(), t.reader.ColDiff.Len()).
+		SetPrimaryKeyIndices(t.reader.ColDiff.PKIndices())
 
 	t.headerRow = headerRow
 	return t
 }
 
 func (t *DiffTable) UpdateRowCount() {
-	t.DataTable.SetShape(t.reader.NumRows(), t.reader.Columns.Len())
+	t.DataTable.SetShape(t.reader.NumRows(), t.reader.ColDiff.Len())
 }
 
 func (t *DiffTable) rowToCells(row [][]string) [][]*TableCell {
@@ -139,9 +139,9 @@ func (t *DiffTable) styledCells(row, column int) []*TableCell {
 	} else if len(cells) == 2 {
 		cells[0].SetStyle(addedStyle).SetExpansion(1)
 		cells[1].SetStyle(removedStyle).SetExpansion(1)
-	} else if _, ok := t.reader.Columns.Added[0][uint32(column)]; ok {
+	} else if _, ok := t.reader.ColDiff.Added[0][uint32(column)]; ok {
 		cells[0].SetStyle(addedStyle)
-	} else if _, ok := t.reader.Columns.Removed[0][uint32(column)]; ok {
+	} else if _, ok := t.reader.ColDiff.Removed[0][uint32(column)]; ok {
 		cells[0].SetStyle(removedStyle)
 	} else {
 		cells[0].SetStyle(cellStyle)

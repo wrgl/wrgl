@@ -47,8 +47,8 @@ func insertBlock(db kvcommon.DB, bar *progressbar.ProgressBar, tbl *objects.Tabl
 	}
 }
 
-func IngestTable(db kvcommon.DB, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
-	s, err := NewSorter(name, pk, sortRunSize, out)
+func IngestTable(db kvcommon.DB, f io.ReadCloser, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
+	s, err := NewSorter(f, name, pk, sortRunSize, out)
 	if err != nil {
 		return nil, err
 	}

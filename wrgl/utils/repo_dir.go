@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package versioning
+package utils
 
 import (
 	"os"
 	"path/filepath"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/wrgl/core/pkg/kv"
+	kvbadger "github.com/wrgl/core/pkg/kv/badger"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
+	kvfs "github.com/wrgl/core/pkg/kv/fs"
 )
 
 type RepoDir struct {
@@ -33,7 +35,7 @@ func (d *RepoDir) KVPath() string {
 	return filepath.Join(d.FullPath, "kv")
 }
 
-func (d *RepoDir) OpenKVStore() (kv.Store, error) {
+func (d *RepoDir) OpenKVStore() (kvcommon.Store, error) {
 	opts := badger.DefaultOptions(d.KVPath()).
 		WithLoggingLevel(badger.ERROR)
 	if d.badgerLogDebug {
@@ -45,11 +47,11 @@ func (d *RepoDir) OpenKVStore() (kv.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return kv.NewBadgerStore(badgerDB), nil
+	return kvbadger.NewBadgerStore(badgerDB), nil
 }
 
-func (d *RepoDir) OpenFileStore() kv.FileStore {
-	return kv.NewFileStore(d.FilesPath())
+func (d *RepoDir) OpenFileStore() kvfs.FileStore {
+	return kvfs.NewFileStore(d.FilesPath())
 }
 
 func (d *RepoDir) Init() error {

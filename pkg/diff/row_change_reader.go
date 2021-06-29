@@ -4,33 +4,126 @@
 package diff
 
 import (
+	"bytes"
+	"container/list"
 	"fmt"
 	"io"
 
 	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
+	"github.com/wrgl/core/pkg/mem"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
 )
 
-type RowChangeReader struct {
-	Columns  *objects.ColDiff
-	rowPairs [][2][]byte
-	off      int
-	db1, db2 kv.DB
-	dec      *objects.StrListDecoder
+func getBufferSize() (uint64, error) {
+	total, err := mem.GetTotalMem()
+	if err != nil {
+		return 0, err
+	}
+	avail, err := mem.GetAvailMem()
+	if err != nil {
+		return 0, err
+	}
+	size := avail
+	if size < total/8 {
+		size = total / 8
+	}
+	return size / 2, nil
 }
 
-func NewRowChangeReader(db1, db2 kv.DB, colDiff *objects.ColDiff) (*RowChangeReader, error) {
-	return &RowChangeReader{
-		db1:     db1,
-		db2:     db2,
-		Columns: colDiff,
-		dec:     objects.NewStrListDecoder(false),
+type blockEl struct {
+	Table  byte
+	Offset uint32
+	Size   uint64
+	Block  [][]string
+}
+
+type blockBuffer struct {
+	db            []kvcommon.DB
+	tbl           []*objects.Table
+	buf           *list.List
+	maxSize, size uint64
+}
+
+func newBlockBuffer(db1, db2 kvcommon.DB, tbl1, tbl2 *objects.Table) (*blockBuffer, error) {
+	maxSize, err := getBufferSize()
+	if err != nil {
+		return nil, err
+	}
+	return &blockBuffer{
+		db:      []kvcommon.DB{db1, db2},
+		tbl:     []*objects.Table{tbl1, tbl2},
+		buf:     list.New(),
+		maxSize: maxSize,
 	}, nil
 }
 
-func (r *RowChangeReader) AddRowPair(row, oldRow []byte) {
-	r.rowPairs = append(r.rowPairs, [2][]byte{row, oldRow})
+func (buf *blockBuffer) addBlock(table byte, offset uint32) ([][]string, error) {
+	if buf.size >= buf.maxSize {
+		buf.size -= buf.buf.Remove(buf.buf.Back()).(*blockEl).Size
+	}
+	b, err := kv.GetBlock(buf.db[table], buf.tbl[table].Blocks[offset])
+	if err != nil {
+		return nil, err
+	}
+	_, blk, err := objects.ReadBlockFrom(bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	n := len(blk)
+	m := len(blk[0])
+	size := uint64(24 + 24*n + len(b) - n*(4+m*2))
+	buf.buf.PushFront(&blockEl{
+		Table:  table,
+		Offset: offset,
+		Block:  blk,
+		Size:   size,
+	})
+	buf.size += size
+	return blk, nil
+}
+
+func (buf *blockBuffer) getBlock(table byte, offset uint32) ([][]string, error) {
+	el := buf.buf.Front()
+	for el != nil {
+		be := el.Value.(*blockEl)
+		if be.Table == table && be.Offset == offset {
+			buf.buf.MoveToFront(el)
+			return be.Block, nil
+		}
+		el = el.Next()
+	}
+	return buf.addBlock(table, offset)
+}
+
+func (buf *blockBuffer) getRow(table byte, offset uint32, rowOffset byte) ([]string, error) {
+	blk, err := buf.getBlock(table, offset)
+	if err != nil {
+		return nil, err
+	}
+	return blk[rowOffset], nil
+}
+
+type RowChangeReader struct {
+	ColDiff  *objects.ColDiff
+	rowDiffs []*objects.Diff
+	off      int
+	buf      *blockBuffer
+}
+
+func NewRowChangeReader(db1, db2 kvcommon.DB, tbl1, tbl2 *objects.Table, colDiff *objects.ColDiff) (*RowChangeReader, error) {
+	buf, err := newBlockBuffer(db1, db2, tbl1, tbl2)
+	if err != nil {
+		return nil, err
+	}
+	return &RowChangeReader{
+		buf:     buf,
+		ColDiff: colDiff,
+	}, nil
+}
+
+func (r *RowChangeReader) AddRowDiff(d *objects.Diff) {
+	r.rowDiffs = append(r.rowDiffs, d)
 }
 
 func (r *RowChangeReader) Read() ([][]string, error) {
@@ -43,7 +136,7 @@ func (r *RowChangeReader) Read() ([][]string, error) {
 }
 
 func (r *RowChangeReader) NumRows() int {
-	return len(r.rowPairs)
+	return len(r.rowDiffs)
 }
 
 func (r *RowChangeReader) Seek(offset int, whence int) (int, error) {
@@ -55,7 +148,7 @@ func (r *RowChangeReader) Seek(offset int, whence int) (int, error) {
 	case io.SeekCurrent:
 		offset += r.off
 	case io.SeekEnd:
-		offset += len(r.rowPairs)
+		offset += len(r.rowDiffs)
 	}
 	if offset < 0 {
 		return 0, fmt.Errorf("Seek: invalid offset")
@@ -64,26 +157,18 @@ func (r *RowChangeReader) Seek(offset int, whence int) (int, error) {
 	return offset, nil
 }
 
-func fetchRow(db kv.DB, row []byte, dec *objects.StrListDecoder) ([]string, error) {
-	b, err := table.GetRow(db, row)
-	if err != nil {
-		return nil, err
-	}
-	return dec.Decode(b), nil
-}
-
 func (r *RowChangeReader) ReadAt(offset int) (mergedRow [][]string, err error) {
-	if offset >= len(r.rowPairs) {
+	if offset >= len(r.rowDiffs) {
 		return nil, io.EOF
 	}
-	pair := r.rowPairs[offset]
-	row, err := fetchRow(r.db1, pair[0], r.dec)
+	d := r.rowDiffs[offset]
+	row, err := r.buf.getRow(1, d.Block, d.Row)
 	if err != nil {
 		return nil, err
 	}
-	oldRow, err := fetchRow(r.db2, pair[1], r.dec)
+	oldRow, err := r.buf.getRow(2, d.OldBlock, d.OldRow)
 	if err != nil {
 		return nil, err
 	}
-	return r.Columns.CombineRows(0, row, oldRow), nil
+	return r.ColDiff.CombineRows(0, row, oldRow), nil
 }

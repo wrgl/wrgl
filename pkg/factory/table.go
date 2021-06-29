@@ -4,6 +4,8 @@
 package factory
 
 import (
+	"bytes"
+	"encoding/csv"
 	"fmt"
 	"io"
 	"strings"
@@ -12,8 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -38,49 +41,36 @@ func parseRows(rows []string, pk []uint32) ([][]string, []uint32) {
 	return records, pk
 }
 
-func fillTable(t *testing.T, db kv.DB, tb *table.Builder, records [][]string, pk []uint32) []byte {
+func BuildTable(t *testing.T, db kvcommon.DB, rows []string, pk []uint32) []byte {
 	t.Helper()
-	rh := ingest.NewRowHasher(pk, 0)
-	for i, rec := range records[1:] {
-		pkHash, rowHash, rowContent, err := rh.Sum(rec)
-		require.NoError(t, err)
-		err = tb.InsertRow(i, pkHash, rowHash, rowContent)
-		require.NoError(t, err)
-	}
-	sum, err := tb.SaveTable()
+	records, pk := parseRows(rows, pk)
+	buf := bytes.NewBuffer(nil)
+	w := csv.NewWriter(buf)
+	require.NoError(t, w.WriteAll(records))
+	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), "test.csv", slice.IndicesToValues(records[0], pk), 0, 1, io.Discard)
 	require.NoError(t, err)
 	return sum
 }
 
-func BuildTable(t *testing.T, db kv.DB, fs kv.FileStore, rows []string, pk []uint32) ([]byte, table.Store) {
+func SdumpTable(t *testing.T, db kvcommon.DB, sum []byte, indent int) string {
 	t.Helper()
-	records, pk := parseRows(rows, pk)
-	tb := table.NewBuilder(db, fs, records[0], pk, 0, 0)
-	sum := fillTable(t, db, tb, records, pk)
-	ts, err := table.ReadTable(db, fs, sum)
+	b, err := kv.GetTable(db, sum)
 	require.NoError(t, err)
-	return sum, ts
-}
-
-func SdumpTable(t *testing.T, db kv.DB, fs kv.FileStore, sum []byte, indent int) string {
-	t.Helper()
-	ts, err := table.ReadTable(db, fs, sum)
+	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
 	require.NoError(t, err)
 	lines := []string{
 		fmt.Sprintf("table %x", sum),
-		fmt.Sprintf("%s %s", strings.Repeat(" ", 65), strings.Join(ts.Columns(), ", ")),
+		fmt.Sprintf("    %s", strings.Join(tbl.Columns, ", ")),
 	}
-	rhr := ts.NewRowHashReader(0, 0)
-	dec := objects.NewStrListDecoder(true)
-	for {
-		pk, rh, err := rhr.Read()
-		if err == io.EOF {
-			break
+	for _, sum := range tbl.Blocks {
+		lines = append(lines, fmt.Sprintf("  block %x", sum))
+		b, err = kv.GetBlock(db, sum)
+		require.NoError(t, err)
+		_, blk, err := objects.ReadBlockFrom(bytes.NewReader(b))
+		require.NoError(t, err)
+		for _, row := range blk {
+			lines = append(lines, fmt.Sprintf("    %s", strings.Join(row, ", ")))
 		}
-		require.NoError(t, err)
-		b, err := table.GetRow(db, rh)
-		require.NoError(t, err)
-		lines = append(lines, fmt.Sprintf("%x %x %s", pk, rh, strings.Join(dec.Decode(b), ", ")))
 	}
 	if indent > 0 {
 		for i, line := range lines {
