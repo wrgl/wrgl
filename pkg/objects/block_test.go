@@ -10,8 +10,8 @@ import (
 )
 
 func randomBlock() [][]string {
-	blk := make([][]string, 128)
-	for i := 0; i < 128; i++ {
+	blk := make([][]string, 255)
+	for i := 0; i < 255; i++ {
 		blk[i] = make([]string, 10)
 		for j := 0; j < 10; j++ {
 			blk[i][j] = testutils.BrokenRandomAlphaNumericString(5)
@@ -28,8 +28,8 @@ func TestBlockWriter(t *testing.T) {
 	require.NoError(t, err)
 	b := buf.Bytes()
 	assert.Equal(t, n, len(b))
-	r := NewBlockReader(bytes.NewReader(b))
-	blk2, err := r.Read()
+	m, blk2, err := ReadBlockFrom(bytes.NewReader(b))
 	require.NoError(t, err)
+	assert.Len(t, b, int(m))
 	assert.Equal(t, blk, blk2)
 }

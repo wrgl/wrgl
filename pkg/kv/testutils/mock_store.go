@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package kv
+package kvtestutils
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/mock"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 )
 
 type MockWriteCloser struct {
@@ -49,7 +50,7 @@ func (s *MockStore) Get(k []byte) ([]byte, error) {
 	}
 	v, ok := s.store[string(k)]
 	if !ok {
-		return nil, KeyNotFoundError
+		return nil, kvcommon.ErrKeyNotFound
 	}
 	return v, nil
 }
@@ -61,7 +62,7 @@ func (s *MockStore) Size(k []byte) (uint64, error) {
 	}
 	v, ok := s.store[string(k)]
 	if !ok {
-		return 0, KeyNotFoundError
+		return 0, kvcommon.ErrKeyNotFound
 	}
 	return uint64(len(v)), nil
 }
@@ -150,7 +151,7 @@ func (s *MockStore) BatchGet(keys [][]byte) ([][]byte, error) {
 	for _, k := range keys {
 		v, ok := s.store[string(k)]
 		if !ok {
-			return nil, KeyNotFoundError
+			return nil, kvcommon.ErrKeyNotFound
 		}
 		result = append(result, v)
 	}
@@ -230,19 +231,19 @@ func (f *MockFile) ReadAt(p []byte, off int64) (n int, err error) {
 	return n, nil
 }
 
-func (s *MockStore) Reader(k []byte) (File, error) {
-	if s.EnableMock {
-		args := s.Called(k)
-		return args.Get(0).(File), args.Error(1)
-	}
-	v, ok := s.store[string(k)]
-	if !ok {
-		return nil, KeyNotFoundError
-	}
-	return &MockFile{
-		b: v,
-	}, nil
-}
+// func (s *MockStore) Reader(k []byte) (File, error) {
+// 	if s.EnableMock {
+// 		args := s.Called(k)
+// 		return args.Get(0).(File), args.Error(1)
+// 	}
+// 	v, ok := s.store[string(k)]
+// 	if !ok {
+// 		return nil, kvcommon.ErrKeyNotFound
+// 	}
+// 	return &MockFile{
+// 		b: v,
+// 	}, nil
+// }
 
 type mockStoreWriter struct {
 	s   *MockStore
@@ -329,7 +330,7 @@ func (s *MockStore) FilterKey(prefix []byte) ([][]byte, error) {
 	return result, nil
 }
 
-func (s *MockStore) NewTransaction() Txn {
+func (s *MockStore) NewTransaction() kvcommon.Txn {
 	return s
 }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package kv
+package kvbadger
 
 import (
 	"os"
@@ -11,6 +11,7 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 )
 
 func TestBadger(t *testing.T) {
@@ -66,7 +67,7 @@ func TestBadger(t *testing.T) {
 	assert.False(t, s.Exist([]byte("ab")))
 
 	_, err = s.Get([]byte("ab"))
-	assert.Equal(t, KeyNotFoundError, err)
+	assert.Equal(t, kvcommon.ErrKeyNotFound, err)
 
 	_, err = s.BatchGet([][]byte{[]byte("e"), []byte("ab")})
 	assert.Error(t, err)

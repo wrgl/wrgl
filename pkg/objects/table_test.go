@@ -5,7 +5,6 @@ package objects
 
 import (
 	"bytes"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,111 +13,41 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func TestTableWriter(t *testing.T) {
-	buf := misc.NewBuffer(nil)
-	w := NewTableWriter(buf)
-	columns := []string{"q", "w", "e", "r"}
-	pk := []uint32{0}
-	blocks := [][]byte{
-		testutils.SecureRandomBytes(16),
-		testutils.SecureRandomBytes(16),
-		testutils.SecureRandomBytes(16),
-		testutils.SecureRandomBytes(16),
-	}
-	err := w.WriteMeta(columns, pk, 500)
-	require.NoError(t, err)
-	for i := 3; i >= 0; i-- {
-		err = w.WriteBlockAt(blocks[i], i)
-		require.NoError(t, err)
-	}
-	r, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
-	require.NoError(t, err)
-	table, err := r.ReadTable()
-	require.NoError(t, err)
-	assert.Equal(t, &Table{
-		Columns:   columns,
-		PK:        pk,
-		RowsCount: 500,
-		Blocks:    blocks,
-	}, table)
+func TestTableInsertBlock(t *testing.T) {
+	tbl := NewTable([]string{"a", "b", "c", "d"}, []uint32{0, 1}, 760)
+	assert.Len(t, tbl.Blocks, 3)
 }
 
 func TestTableReader(t *testing.T) {
 	buf := misc.NewBuffer(nil)
-	w := NewTableWriter(buf)
 	table := &Table{
 		Columns:   []string{"a", "b", "c", "d"},
 		PK:        []uint32{0, 1},
-		RowsCount: 380,
+		RowsCount: 760,
 		Blocks: [][]byte{
 			testutils.SecureRandomBytes(16),
 			testutils.SecureRandomBytes(16),
 			testutils.SecureRandomBytes(16),
 		},
 	}
-	err := w.WriteTable(table)
+	n, err := table.WriteTo(buf)
 	require.NoError(t, err)
+	assert.Len(t, buf.Bytes(), int(n))
 
 	// test ReadTable
-	r, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
+	n, table2, err := ReadTableFrom(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
-	table2, err := r.ReadTable()
-	require.NoError(t, err)
+	assert.Len(t, buf.Bytes(), int(n))
 	assert.Equal(t, table, table2)
-	assert.Equal(t, 380, r.RowsCount())
-	assert.Equal(t, []string{"a", "b", "c", "d"}, r.Columns)
-	assert.Equal(t, []uint32{0, 1}, r.PK)
-
-	// test ReadBlock
-	r, err = NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
-	require.NoError(t, err)
-	for i := 0; i < 3; i++ {
-		row, err := r.ReadBlock()
-		require.NoError(t, err)
-		assert.Equal(t, table.Blocks[i], row)
-	}
-
-	// test SeekStart
-	off, err := r.SeekBlock(0, io.SeekStart)
-	require.NoError(t, err)
-	assert.Equal(t, 0, off)
-	row, err := r.ReadBlock()
-	require.NoError(t, err)
-	assert.Equal(t, table.Blocks[0], row)
-
-	// test SeekCurrent
-	off, err = r.SeekBlock(1, io.SeekCurrent)
-	require.NoError(t, err)
-	assert.Equal(t, 2, off)
-	row, err = r.ReadBlock()
-	require.NoError(t, err)
-	assert.Equal(t, table.Blocks[2], row)
-
-	// test SeekEnd
-	off, err = r.SeekBlock(-2, io.SeekEnd)
-	require.NoError(t, err)
-	assert.Equal(t, 1, off)
-	row, err = r.ReadBlock()
-	require.NoError(t, err)
-	assert.Equal(t, table.Blocks[1], row)
-
-	// test ReadAt
-	r, err = NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
-	require.NoError(t, err)
-	for i := 0; i < 3; i++ {
-		row, err := r.ReadBlockAt(i)
-		require.NoError(t, err)
-		assert.Equal(t, table.Blocks[i], row)
-	}
-	row, err = r.ReadBlock()
-	require.NoError(t, err)
-	assert.Equal(t, table.Blocks[0], row)
+	assert.Equal(t, 760, int(table2.RowsCount))
+	assert.Equal(t, []string{"a", "b", "c", "d"}, table2.Columns)
+	assert.Equal(t, []uint32{0, 1}, table2.PK)
 }
 
 func TestTableReaderParseError(t *testing.T) {
 	buf := misc.NewBuffer([]byte("columns "))
 	buf.Write(NewStrListEncoder(true).Encode([]string{"a", "b", "c"}))
 	buf.Write([]byte("\nbad input"))
-	_, err := NewTableReader(NopCloser(bytes.NewReader(buf.Bytes())))
-	assert.Equal(t, `parse error at pos=25: expected string "\npk ", received "\nbad"`, err.Error())
+	_, _, err := ReadTableFrom(bytes.NewReader(buf.Bytes()))
+	assert.Equal(t, `parse error at pos=21: expected string "\npk ", received "\nbad"`, err.Error())
 }

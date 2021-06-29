@@ -63,71 +63,53 @@ func (idx *BlockIndex) Get(pkSum []byte) []byte {
 	return nil
 }
 
-type BlockIndexWriter struct {
-	w io.Writer
-}
-
-func NewBlockIndexWriter(w io.Writer) *BlockIndexWriter {
-	return &BlockIndexWriter{
-		w: w,
-	}
-}
-
-func (w *BlockIndexWriter) Write(idx *BlockIndex) (int, error) {
+func (idx *BlockIndex) WriteTo(w io.Writer) (int64, error) {
 	n := idx.Len()
 	b := []byte{byte(n)}
-	total := 0
-	n, err := w.w.Write(b)
+	n, err := w.Write(b)
+	if err != nil {
+		return 0, err
+	}
+	total := int64(n)
+	n, err = w.Write(idx.sortedOff)
 	if err != nil {
 		return total, err
 	}
-	total += n
-	n, err = w.w.Write(idx.sortedOff)
-	if err != nil {
-		return total, err
-	}
-	total += n
+	total += int64(n)
 	for i := 0; i < n; i++ {
-		n, err := w.w.Write(idx.Rows[i])
+		n, err := w.Write(idx.Rows[i])
 		if err != nil {
 			return total, err
 		}
-		total += n
+		total += int64(n)
 	}
 	return total, nil
 }
 
-type BlockIndexReader struct {
-	r io.Reader
-}
-
-func NewBlockIndexReader(r io.Reader) *BlockIndexReader {
-	return &BlockIndexReader{
-		r: r,
-	}
-}
-
-func (r *BlockIndexReader) Read() (*BlockIndex, error) {
+func ReadBlockIndex(r io.Reader) (int64, *BlockIndex, error) {
 	b := []byte{0}
-	_, err := r.r.Read(b)
+	n, err := r.Read(b)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	n := int(b[0])
+	total := int64(n)
+	l := int(b[0])
 	idx := &BlockIndex{
-		Rows:      make([][]byte, n),
-		sortedOff: make([]uint8, n),
+		Rows:      make([][]byte, l),
+		sortedOff: make([]uint8, l),
 	}
-	_, err = r.r.Read(idx.sortedOff)
+	n, err = r.Read(idx.sortedOff)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	for i := 0; i < n; i++ {
+	total += int64(n)
+	for i := 0; i < l; i++ {
 		idx.Rows[i] = make([]byte, 32)
-		_, err = r.r.Read(idx.Rows[i])
+		n, err = r.Read(idx.Rows[i])
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
+		total += int64(n)
 	}
-	return idx, nil
+	return total, idx, nil
 }

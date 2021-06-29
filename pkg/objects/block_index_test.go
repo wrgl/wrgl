@@ -39,14 +39,13 @@ func TestBlockIndex(t *testing.T) {
 	assert.Nil(t, idx.Get(testutils.SecureRandomBytes(16)))
 
 	buf := bytes.NewBuffer(nil)
-	w := NewBlockIndexWriter(buf)
-	n, err := w.Write(idx)
+	n, err := idx.WriteTo(buf)
 	require.NoError(t, err)
 	b := buf.Bytes()
-	assert.Len(t, b, n)
+	assert.Len(t, b, int(n))
 
-	r := NewBlockIndexReader(bytes.NewReader(b))
-	idx2, err := r.Read()
+	n, idx2, err := ReadBlockIndex((bytes.NewReader(b)))
 	require.NoError(t, err)
 	assert.Equal(t, idx, idx2)
+	assert.Len(t, b, int(n))
 }

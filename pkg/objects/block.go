@@ -1,7 +1,7 @@
 package objects
 
 import (
-	"fmt"
+	"encoding/binary"
 	"io"
 )
 
@@ -19,10 +19,8 @@ func NewBlockWriter(w io.Writer) *BlockWriter {
 
 func (w *BlockWriter) Write(blk [][]string) (int, error) {
 	n := len(blk)
-	if n > 128 {
-		return 0, fmt.Errorf("block size is too big, max size is 128")
-	}
-	b := []byte{byte(n)}
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(n))
 	total, err := w.w.Write(b)
 	if err != nil {
 		return total, err
@@ -38,33 +36,24 @@ func (w *BlockWriter) Write(blk [][]string) (int, error) {
 	return total, nil
 }
 
-type BlockReader struct {
-	dec *StrListDecoder
-	r   io.Reader
-}
-
-func NewBlockReader(r io.Reader) *BlockReader {
-	return &BlockReader{
-		dec: NewStrListDecoder(false),
-		r:   r,
-	}
-}
-
-func (r *BlockReader) Read() ([][]string, error) {
-	b := make([]byte, 1)
-	_, err := r.r.Read(b)
+func ReadBlockFrom(r io.Reader) (int64, [][]string, error) {
+	b := make([]byte, 4)
+	m, err := r.Read(b)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	blk := make([][]string, b[0])
-	var i uint8
-	for i = 0; i < b[0]; i++ {
-		_, line, err := r.dec.Read(r.r)
+	total := int64(m)
+	n := binary.BigEndian.Uint32(b)
+	blk := make([][]string, n)
+	var i uint32
+	dec := NewStrListDecoder(false)
+	for i = 0; i < n; i++ {
+		m, line, err := dec.Read(r)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
-		fmt.Printf("line: %v\n", line)
 		blk[i] = line
+		total += int64(m)
 	}
-	return blk, nil
+	return total, blk, nil
 }

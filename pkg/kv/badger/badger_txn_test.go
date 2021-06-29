@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package kv
+package kvbadger
 
 import (
 	"os"
@@ -11,6 +11,7 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 )
 
 func TestBadgerTxn(t *testing.T) {
@@ -61,7 +62,7 @@ func TestBadgerTxn(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []byte("b"), v)
 	_, err = txn.Get([]byte("c"))
-	assert.Equal(t, KeyNotFoundError, err)
+	assert.Equal(t, kvcommon.ErrKeyNotFound, err)
 
 	err = txn.Delete([]byte("a"))
 	require.NoError(t, err)
@@ -72,7 +73,7 @@ func TestBadgerTxn(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.Get([]byte("a"))
-	assert.Equal(t, KeyNotFoundError, err)
+	assert.Equal(t, kvcommon.ErrKeyNotFound, err)
 	v, err = s.Get([]byte("c"))
 	require.NoError(t, err)
 	assert.Equal(t, []byte("d"), v)
@@ -86,7 +87,7 @@ func TestBadgerTxn(t *testing.T) {
 	txn.Discard()
 
 	_, err = s.Get([]byte("e"))
-	assert.Equal(t, KeyNotFoundError, err)
+	assert.Equal(t, kvcommon.ErrKeyNotFound, err)
 	v, err = s.Get([]byte("c"))
 	require.NoError(t, err)
 	assert.Equal(t, []byte("d"), v)

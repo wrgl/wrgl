@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package kv
+package kvbadger
 
-import "github.com/dgraph-io/badger/v3"
+import (
+	"github.com/dgraph-io/badger/v3"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
+)
 
 type badgerTxn struct {
 	db  *badger.DB
@@ -21,7 +24,7 @@ func (t *badgerTxn) Get(k []byte) ([]byte, error) {
 	item, err := t.txn.Get(k)
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
-			return nil, KeyNotFoundError
+			return nil, kvcommon.ErrKeyNotFound
 		}
 		return nil, err
 	}
@@ -82,7 +85,7 @@ func (t *badgerTxn) Discard() {
 	t.txn.Discard()
 }
 
-func (s *BadgerStore) NewTransaction() Txn {
+func (s *BadgerStore) NewTransaction() kvcommon.Txn {
 	return newBadgerTxn(s.db)
 }
 

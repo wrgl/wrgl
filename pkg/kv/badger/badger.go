@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package kv
+package kvbadger
 
 import (
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/prometheus/client_golang/prometheus"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 )
 
 type BadgerStore struct {
@@ -24,7 +25,7 @@ func (s *BadgerStore) Get(k []byte) ([]byte, error) {
 		item, err := txn.Get(k)
 		if err != nil {
 			if err == badger.ErrKeyNotFound {
-				return KeyNotFoundError
+				return kvcommon.ErrKeyNotFound
 			}
 			return err
 		}
@@ -59,7 +60,7 @@ func (s *BadgerStore) BatchGet(keys [][]byte) ([][]byte, error) {
 			item, err := txn.Get(k)
 			if err != nil {
 				if err == badger.ErrKeyNotFound {
-					return KeyNotFoundError
+					return kvcommon.ErrKeyNotFound
 				}
 				return err
 			}
