@@ -42,41 +42,41 @@ func EncodeTime(t time.Time) []byte {
 	return []byte(fmt.Sprintf("%010d %s", t.Unix(), t.Format("-0700")))
 }
 
-type DecodeFunc func(p *Parser) error
+type DecodeFunc func(p *Parser) (int, error)
 
 func DecodeBytes(b []byte) DecodeFunc {
-	return func(p *Parser) error {
+	return func(p *Parser) (int, error) {
 		return p.ReadBytes(b)
 	}
 }
 
 func DecodeStr(s *string) DecodeFunc {
-	return func(p *Parser) error {
+	return func(p *Parser) (int, error) {
 		b, err := p.NextBytes(2)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		l := binary.BigEndian.Uint16(b)
 		b, err = p.NextBytes(int(l))
 		if err != nil {
-			return err
+			return 0, err
 		}
 		*s = string(b)
-		return nil
+		return 2 + int(l), nil
 	}
 }
 
 func DecodeTimeFunc(t *time.Time) DecodeFunc {
-	return func(p *Parser) error {
+	return func(p *Parser) (int, error) {
 		b, err := p.NextBytes(16)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		*t, err = DecodeTime(string(b))
 		if err != nil {
-			return err
+			return 0, err
 		}
-		return nil
+		return 16, nil
 	}
 }
 

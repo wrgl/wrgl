@@ -25,7 +25,7 @@ func TestPackfileWriter(t *testing.T) {
 	require.NoError(t, w.WriteObject(ObjectCommit, commit1))
 	require.NoError(t, w.WriteObject(ObjectCommit, commit2))
 	require.NoError(t, w.WriteObject(ObjectTable, table))
-	require.NoError(t, w.WriteObject(ObjectRow, row))
+	require.NoError(t, w.WriteObject(ObjectBlock, row))
 
 	r, err := NewPackfileReader(io.NopCloser(bytes.NewReader(buf.Bytes())))
 	require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestPackfileWriter(t *testing.T) {
 	assert.Equal(t, table, b)
 	typ, b, err = r.ReadObject()
 	require.NoError(t, err)
-	assert.Equal(t, ObjectRow, typ)
+	assert.Equal(t, ObjectBlock, typ)
 	assert.Equal(t, row, b)
 	_, _, err = r.ReadObject()
 	assert.Equal(t, io.EOF, err)

@@ -20,19 +20,8 @@ type Commit struct {
 	Parents     [][]byte
 }
 
-type CommitWriter struct {
-	w   io.Writer
-	buf *misc.Buffer
-}
-
-func NewCommitWriter(w io.Writer) *CommitWriter {
-	return &CommitWriter{
-		w:   w,
-		buf: misc.NewBuffer(nil),
-	}
-}
-
-func (w *CommitWriter) Write(c *Commit) (err error) {
+func (c *Commit) WriteTo(w io.Writer) (int64, error) {
+	buf := misc.NewBuffer(nil)
 	type line struct {
 		label string
 		f     encoding.EncodeFunc
@@ -47,31 +36,25 @@ func (w *CommitWriter) Write(c *Commit) (err error) {
 	for _, parent := range c.Parents {
 		lines = append(lines, line{"parent", encoding.EncodeBytes(parent)})
 	}
+	var total int64
 	for _, l := range lines {
-		_, err = writeLine(w.w, l.label, l.f(w.buf))
+		n, err := writeLine(w, l.label, l.f(buf))
 		if err != nil {
-			return
+			return 0, err
 		}
+		total += int64(n)
 	}
-	return
+	return total, nil
 }
 
-type CommitReader struct {
-	parser *encoding.Parser
-}
-
-func NewCommitReader(r io.Reader) *CommitReader {
-	return &CommitReader{
-		parser: encoding.NewParser(r),
-	}
-}
-
-func (r *CommitReader) Read() (*Commit, error) {
-	c := &Commit{Table: make([]byte, 16)}
+func (c *Commit) ReadFrom(r io.Reader) (int64, error) {
+	parser := encoding.NewParser(r)
+	c.Table = make([]byte, 16)
 	type line struct {
 		label string
 		f     encoding.DecodeFunc
 	}
+	var total int64
 	for _, l := range []line{
 		{"table", encoding.DecodeBytes(c.Table)},
 		{"authorName", encoding.DecodeStr(&c.AuthorName)},
@@ -79,21 +62,29 @@ func (r *CommitReader) Read() (*Commit, error) {
 		{"time", encoding.DecodeTimeFunc(&c.Time)},
 		{"message", encoding.DecodeStr(&c.Message)},
 	} {
-		err := readLine(r.parser, l.label, l.f)
+		n, err := readLine(parser, l.label, l.f)
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
+		total += int64(n)
 	}
 	for {
 		b := make([]byte, 16)
-		err := readLine(r.parser, "parent", encoding.DecodeBytes(b))
+		n, err := readLine(parser, "parent", encoding.DecodeBytes(b))
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
+		total += int64(n)
 		c.Parents = append(c.Parents, b)
 	}
-	return c, nil
+	return total, nil
+}
+
+func ReadCommitFrom(r io.Reader) (int64, *Commit, error) {
+	c := &Commit{}
+	n, err := c.ReadFrom(r)
+	return n, c, err
 }

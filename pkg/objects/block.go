@@ -8,33 +8,23 @@ import (
 	"io"
 )
 
-type BlockWriter struct {
-	enc *StrListEncoder
-	w   io.Writer
-}
-
-func NewBlockWriter(w io.Writer) *BlockWriter {
-	return &BlockWriter{
-		enc: NewStrListEncoder(false),
-		w:   w,
-	}
-}
-
-func (w *BlockWriter) Write(blk [][]string) (int, error) {
+func WriteBlockTo(w io.Writer, blk [][]string) (int64, error) {
+	enc := NewStrListEncoder(false)
 	n := len(blk)
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, uint32(n))
-	total, err := w.w.Write(b)
+	_, err := w.Write(b)
 	if err != nil {
-		return total, err
+		return 0, err
 	}
+	var total int64 = 4
 	for _, line := range blk {
-		b := w.enc.Encode(line)
-		n, err := w.w.Write(b)
+		b := enc.Encode(line)
+		m, err := w.Write(b)
 		if err != nil {
-			return total, err
+			return 0, err
 		}
-		total += n
+		total += int64(m)
 	}
 	return total, nil
 }

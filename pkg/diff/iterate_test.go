@@ -19,7 +19,7 @@ import (
 func saveBlock(t *testing.T, db kvcommon.DB, blk [][]string, pk []uint32) ([]byte, *objects.BlockIndex) {
 	t.Helper()
 	buf := bytes.NewBuffer(nil)
-	_, err := objects.NewBlockWriter(buf).Write(blk)
+	_, err := objects.WriteBlockTo(buf, blk)
 	require.NoError(t, err)
 	sum := meow.Checksum(0, buf.Bytes())
 	require.NoError(t, kv.SaveBlock(db, sum[:], buf.Bytes()))

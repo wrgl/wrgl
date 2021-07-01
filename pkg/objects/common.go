@@ -23,32 +23,35 @@ func writeLine(w io.Writer, label string, b []byte) (n int, err error) {
 	return
 }
 
-func consumeStr(p *encoding.Parser, s string) error {
-	b, err := p.NextBytes(len(s))
+func consumeStr(p *encoding.Parser, s string) (int, error) {
+	n := len(s)
+	b, err := p.NextBytes(n)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if string(b) != s {
-		return p.ParseError("expected string %q, received %q", s, string(b))
+		return 0, p.ParseError("expected string %q, received %q", s, string(b))
 	}
-	return nil
+	return n, nil
 }
 
-func readLine(p *encoding.Parser, label string, f encoding.DecodeFunc) error {
-	err := consumeStr(p, fmt.Sprintf("%s ", label))
+func readLine(p *encoding.Parser, label string, f encoding.DecodeFunc) (int, error) {
+	total, err := consumeStr(p, fmt.Sprintf("%s ", label))
 	if err == io.EOF {
-		return io.EOF
+		return 0, io.EOF
 	}
 	if err != nil {
-		return fmt.Errorf("error reading label %q: %v", label, err)
+		return 0, fmt.Errorf("error reading label %q: %v", label, err)
 	}
-	err = f(p)
+	n, err := f(p)
 	if err != nil {
-		return fmt.Errorf("error reading label %q: %v", label, err)
+		return 0, fmt.Errorf("error reading label %q: %v", label, err)
 	}
-	err = consumeStr(p, "\n")
+	total += n
+	n, err = consumeStr(p, "\n")
 	if err != nil {
-		return fmt.Errorf("error reading label %q: %v", label, err)
+		return 0, fmt.Errorf("error reading label %q: %v", label, err)
 	}
-	return nil
+	total += n
+	return total, nil
 }

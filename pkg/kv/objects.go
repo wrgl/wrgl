@@ -97,6 +97,22 @@ func DeleteCommit(db kvcommon.DB, sum []byte) error {
 	return db.Delete(commitKey(sum))
 }
 
+func BlockExist(s kvcommon.DB, sum []byte) bool {
+	return s.Exist(blockKey(sum))
+}
+
+func BlockIndexExist(s kvcommon.DB, sum []byte) bool {
+	return s.Exist(blockIndexKey(sum))
+}
+
+func TableExist(s kvcommon.DB, sum []byte) bool {
+	return s.Exist(tableKey(sum))
+}
+
+func TableIndexExist(s kvcommon.DB, sum []byte) bool {
+	return s.Exist(tableIndexKey(sum))
+}
+
 func CommitExist(s kvcommon.DB, sum []byte) bool {
 	return s.Exist(commitKey(sum))
 }

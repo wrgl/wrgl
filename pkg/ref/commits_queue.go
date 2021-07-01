@@ -28,7 +28,8 @@ func getCommit(db kvcommon.DB, sum []byte) (*objects.Commit, error) {
 	if err != nil {
 		return nil, err
 	}
-	return objects.NewCommitReader(bytes.NewReader(b)).Read()
+	_, c, err := objects.ReadCommitFrom(bytes.NewReader(b))
+	return c, err
 }
 
 func NewCommitsQueue(db kvcommon.DB, initialSums [][]byte) (*CommitsQueue, error) {

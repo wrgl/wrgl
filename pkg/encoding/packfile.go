@@ -15,7 +15,7 @@ import (
 const (
 	ObjectCommit int = iota + 1
 	ObjectTable
-	ObjectRow
+	ObjectBlock
 )
 
 type PackfileWriter struct {

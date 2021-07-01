@@ -32,7 +32,8 @@ func Commit(t *testing.T, db kvcommon.DB, rows []string, pk []uint32, parents []
 	sum := BuildTable(t, db, rows, pk)
 	c.Table = sum
 	buf := bytes.NewBuffer(nil)
-	require.NoError(t, objects.NewCommitWriter(buf).Write(c))
+	_, err := c.WriteTo(buf)
+	require.NoError(t, err)
 	arr := meow.Checksum(0, buf.Bytes())
 	require.NoError(t, kv.SaveCommit(db, arr[:], buf.Bytes()))
 	return sum, c
@@ -68,7 +69,7 @@ func SdumpCommit(t *testing.T, db kvcommon.DB, sum []byte) string {
 	}
 	b, err := kv.GetCommit(db, sum)
 	require.NoError(t, err)
-	c, err := objects.NewCommitReader(bytes.NewReader(b)).Read()
+	_, c, err := objects.ReadCommitFrom(bytes.NewReader(b))
 	require.NoError(t, err)
 	lines = append(lines, SdumpTable(t, db, c.Table, 2))
 	return strings.Join(lines, "\n")

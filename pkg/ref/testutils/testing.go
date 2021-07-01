@@ -37,7 +37,8 @@ func SaveTestCommit(t *testing.T, db kvcommon.DB, parents [][]byte) (sum []byte,
 		Parents:     parents,
 	}
 	buf := bytes.NewBuffer(nil)
-	require.NoError(t, objects.NewCommitWriter(buf).Write(commit))
+	_, err := commit.WriteTo(buf)
+	require.NoError(t, err)
 	arr := meow.Checksum(0, buf.Bytes())
 	sum = arr[:]
 	require.NoError(t, kv.SaveCommit(db, sum, buf.Bytes()))

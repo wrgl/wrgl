@@ -14,11 +14,11 @@ import (
 
 func insertBlock(db kvcommon.DB, bar *progressbar.ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *block, wg *sync.WaitGroup, errChan chan<- error) {
 	buf := bytes.NewBuffer(nil)
-	w := objects.NewBlockWriter(buf)
 	defer wg.Done()
 	for blk := range blocks {
 		// write block and add block to table
-		_, err := w.Write(blk.Block)
+		buf.Reset()
+		_, err := objects.WriteBlockTo(buf, blk.Block)
 		if err != nil {
 			errChan <- err
 			return
@@ -41,7 +41,6 @@ func insertBlock(db kvcommon.DB, bar *progressbar.ProgressBar, tbl *objects.Tabl
 			errChan <- err
 			return
 		}
-		buf.Reset()
 		tblIdx[blk.Offset] = blk.PK
 		bar.Add(1)
 	}
@@ -91,7 +90,7 @@ func IngestTable(db kvcommon.DB, f io.ReadCloser, name string, pk []string, sort
 
 	// write and save table index
 	buf.Reset()
-	_, err = objects.NewBlockWriter(buf).Write(tblIdx)
+	_, err = objects.WriteBlockTo(buf, tblIdx)
 	if err != nil {
 		return nil, err
 	}

@@ -25,12 +25,11 @@ func randomBlock() [][]string {
 
 func TestBlockWriter(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
-	w := NewBlockWriter(buf)
 	blk := randomBlock()
-	n, err := w.Write(blk)
+	n, err := WriteBlockTo(buf, blk)
 	require.NoError(t, err)
 	b := buf.Bytes()
-	assert.Equal(t, n, len(b))
+	assert.Len(t, b, int(n))
 	m, blk2, err := ReadBlockFrom(bytes.NewReader(b))
 	require.NoError(t, err)
 	assert.Len(t, b, int(m))

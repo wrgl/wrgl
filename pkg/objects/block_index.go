@@ -90,30 +90,35 @@ func (idx *BlockIndex) WriteTo(w io.Writer) (int64, error) {
 	return total, nil
 }
 
-func ReadBlockIndex(r io.Reader) (int64, *BlockIndex, error) {
+func (idx *BlockIndex) ReadFrom(r io.Reader) (int64, error) {
 	b := []byte{0}
 	n, err := r.Read(b)
 	if err != nil {
-		return 0, nil, err
+		return 0, err
 	}
 	total := int64(n)
 	l := int(b[0])
-	idx := &BlockIndex{
-		Rows:      make([][]byte, l),
-		sortedOff: make([]uint8, l),
-	}
+	idx.Rows = make([][]byte, l)
+	idx.sortedOff = make([]uint8, l)
 	n, err = r.Read(idx.sortedOff)
 	if err != nil {
-		return 0, nil, err
+		return 0, err
 	}
 	total += int64(n)
 	for i := 0; i < l; i++ {
 		idx.Rows[i] = make([]byte, 32)
 		n, err = r.Read(idx.Rows[i])
 		if err != nil {
-			return 0, nil, err
+			return 0, err
 		}
 		total += int64(n)
 	}
-	return total, idx, nil
+	return total, nil
+
+}
+
+func ReadBlockIndex(r io.Reader) (int64, *BlockIndex, error) {
+	idx := &BlockIndex{}
+	n, err := idx.ReadFrom(r)
+	return n, idx, err
 }

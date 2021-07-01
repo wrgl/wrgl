@@ -8,14 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestWriteCommit(t *testing.T) {
-	buf := bytes.NewBufferString("")
-	w := NewCommitWriter(buf)
-	r := NewCommitReader(buf)
 	c := &Commit{
 		Table:       testutils.SecureRandomBytes(16),
 		AuthorName:  "John Doe",
@@ -26,9 +24,12 @@ func TestWriteCommit(t *testing.T) {
 			testutils.SecureRandomBytes(16),
 		},
 	}
-	err := w.Write(c)
+	buf := bytes.NewBufferString("")
+	n, err := c.WriteTo(buf)
 	require.NoError(t, err)
-	c2, err := r.Read()
+	assert.Len(t, buf.Bytes(), int(n))
+	n, c2, err := ReadCommitFrom(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
+	assert.Len(t, buf.Bytes(), int(n))
 	AssertCommitEqual(t, c, c2)
 }

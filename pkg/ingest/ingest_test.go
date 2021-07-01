@@ -9,9 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/kv"
+	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
 )
+
+func getTable(t *testing.T, db kvcommon.DB, sum []byte) *objects.Table {
+	b, err := kv.GetTable(db, sum)
+	require.NoError(t, err)
+	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
+	require.NoError(t, err)
+	return tbl
+}
 
 func TestIngestTable(t *testing.T) {
 	rows := createRandomCSV([]string{"a", "b", "c", "d"}, 700)
@@ -22,19 +31,13 @@ func TestIngestTable(t *testing.T) {
 	sum, err := IngestTable(db, f, f.Name(), []string{"a"}, 0, 1, io.Discard)
 	require.NoError(t, err)
 
-	b, err := kv.GetTable(db, sum)
-	require.NoError(t, err)
-	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
-	require.NoError(t, err)
+	tbl := getTable(t, db, sum)
 	assert.Equal(t, []string{"a", "b", "c", "d"}, tbl.Columns)
 	assert.Equal(t, []uint32{0}, tbl.PK)
 	assert.Equal(t, 700, int(tbl.RowsCount))
 	assert.Len(t, tbl.Blocks, 3)
 
-	b, err = kv.GetTableIndex(db, sum)
-	require.NoError(t, err)
-	_, tblIdx, err := objects.ReadBlockFrom(bytes.NewReader(b))
-	require.NoError(t, err)
+	tblIdx := getTableIndex(t, db, sum)
 	assert.Len(t, tblIdx, 3)
 
 	sortBlock(rows[1:], []uint32{0})
