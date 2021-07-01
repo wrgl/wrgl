@@ -22,11 +22,18 @@ func findOverlappingBlocks(tblIdx1 [][]string, tblIdx2 [][]string, off1, prevEnd
 
 	// find starting block in table 2
 	start = -1
+	if prevEnd == 0 {
+		prevEnd++
+	}
 findStart:
 	for j := prevEnd - 1; j < n; j++ {
 		for k, s := range tblIdx1[off1] {
 			if tblIdx2[j][k] > s {
-				start = j - 1
+				if j == 0 {
+					start = j
+				} else {
+					start = j - 1
+				}
 				break findStart
 			} else if tblIdx2[j][k] < s {
 				continue findStart
@@ -36,23 +43,25 @@ findStart:
 		break
 	}
 	if start == -1 {
-		return n, n
+		return n - 1, n
 	}
 
 	// find end block in table 2
 	end = -1
-findEnd:
-	for j := start; j < n; j++ {
-		for k, s := range tblIdx1[off1+1] {
-			if tblIdx2[j][k] > s {
-				end = j
-				break findEnd
-			} else if tblIdx2[j][k] < s {
-				continue findEnd
+	if off1 < len(tblIdx1)-1 {
+	findEnd:
+		for j := start; j < n; j++ {
+			for k, s := range tblIdx1[off1+1] {
+				if tblIdx2[j][k] > s {
+					end = j
+					break findEnd
+				} else if tblIdx2[j][k] < s {
+					continue findEnd
+				}
 			}
+			end = j
+			break
 		}
-		end = j
-		break
 	}
 	if end == -1 {
 		end = n
@@ -66,13 +75,14 @@ func getBlockIndices(db kvcommon.DB, tbl *objects.Table, start, end int, prevSl 
 		return nil, nil
 	}
 	sl := make([]*objects.BlockIndex, end-start)
+	slStart := start
 	if prevEnd > start {
 		copy(sl, prevSl[start-prevStart:])
 		start = prevEnd
 	}
 	var err error
 	for j := start; j < end; j++ {
-		sl[j-start], err = getBlockIndex(db, tbl.Blocks[j])
+		sl[j-slStart], err = getBlockIndex(db, tbl.Blocks[j])
 		if err != nil {
 			return nil, err
 		}

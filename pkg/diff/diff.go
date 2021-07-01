@@ -91,10 +91,10 @@ func diffRows(db kvcommon.DB, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]st
 		pt.SetCurrent(current)
 		if row2 == nil {
 			diffChan <- &objects.Diff{
-				PK:     pk,
-				OldSum: row1,
-				Block:  blkOff1,
-				Row:    rowOff1,
+				PK:       pk,
+				OldSum:   row1,
+				OldBlock: blkOff1,
+				OldRow:   rowOff1,
 			}
 		}
 	})
