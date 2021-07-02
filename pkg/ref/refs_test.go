@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
@@ -29,7 +28,7 @@ func TestSaveRef(t *testing.T) {
 	b, err = ref.GetRef(s, "remotes/origin/abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum, b)
-	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin/abc", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin/abc", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
@@ -48,7 +47,7 @@ func TestSaveRef(t *testing.T) {
 	assert.Equal(t, sum, sum1)
 	_, err = s.LogReader("remotes/origin/abc")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
-	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/abc", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/abc", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
@@ -66,14 +65,14 @@ func TestSaveRef(t *testing.T) {
 	sum2, err = ref.GetRef(s, "remotes/origin2/def")
 	require.NoError(t, err)
 	assert.Equal(t, sum, sum2)
-	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/abc", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/abc", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
 		Action:      "fetch",
 		Message:     "from origin",
 	})
-	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/def", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/def", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
@@ -94,7 +93,7 @@ func TestCommitMerge(t *testing.T) {
 	b, err := ref.GetHead(s, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum3, b)
-	refhelpers.AssertLatestReflogEqual(t, s, "heads/"+name, &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "heads/"+name, &ref.Reflog{
 		NewOID:      sum3,
 		AuthorName:  commit1.AuthorName,
 		AuthorEmail: commit1.AuthorEmail,
@@ -113,7 +112,7 @@ func TestCommitHead(t *testing.T) {
 	b, err := ref.GetHead(s, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum1, b)
-	refhelpers.AssertLatestReflogEqual(t, s, "heads/"+name, &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "heads/"+name, &ref.Reflog{
 		NewOID:      sum1,
 		AuthorName:  commit1.AuthorName,
 		AuthorEmail: commit1.AuthorEmail,
@@ -127,7 +126,7 @@ func TestCommitHead(t *testing.T) {
 	b, err = ref.GetHead(s, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum2, b)
-	refhelpers.AssertLatestReflogEqual(t, s, "heads/"+name, &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "heads/"+name, &ref.Reflog{
 		OldOID:      sum1,
 		NewOID:      sum2,
 		AuthorName:  commit2.AuthorName,
@@ -189,7 +188,7 @@ func TestRemoteRef(t *testing.T) {
 	b, err := ref.GetRemoteRef(s, remote, name)
 	require.NoError(t, err)
 	assert.Equal(t, sum, b)
-	refhelpers.AssertLatestReflogEqual(t, s, ref.RemoteRef(remote, name), &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, ref.RemoteRef(remote, name), &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",

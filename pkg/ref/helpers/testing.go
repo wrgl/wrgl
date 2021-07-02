@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/testutils"
@@ -39,17 +40,37 @@ func SaveTestCommit(t *testing.T, db objects.Store, parents [][]byte) (sum []byt
 	return sum, commit
 }
 
-func AssertLatestReflogEqual(t *testing.T, s ref.Store, name string, rl *objects.Reflog) {
+func AssertLatestReflogEqual(t *testing.T, s ref.Store, name string, rl *ref.Reflog) {
 	t.Helper()
 	r, err := s.LogReader(name)
 	require.NoError(t, err)
 	defer r.Close()
 	obj, err := r.Read()
 	require.NoError(t, err)
-	assert.Equal(t, rl.OldOID, obj.OldOID)
-	assert.Equal(t, rl.NewOID, obj.NewOID)
-	assert.Equal(t, rl.AuthorName, obj.AuthorName)
-	assert.Equal(t, rl.AuthorEmail, obj.AuthorEmail)
-	assert.Equal(t, rl.Action, obj.Action)
-	assert.Equal(t, rl.Message, obj.Message)
+	AssertReflogEqual(t, rl, obj)
+}
+
+func RandomReflog() *ref.Reflog {
+	return &ref.Reflog{
+		OldOID:      testutils.SecureRandomBytes(16),
+		NewOID:      testutils.SecureRandomBytes(16),
+		AuthorName:  testutils.BrokenRandomLowerAlphaString(10),
+		AuthorEmail: testutils.BrokenRandomLowerAlphaString(10),
+		Time:        time.Now(),
+		Action:      testutils.BrokenRandomLowerAlphaString(5),
+		Message:     testutils.BrokenRandomLowerAlphaString(10),
+	}
+}
+
+func AssertReflogEqual(t *testing.T, a, b *ref.Reflog) {
+	t.Helper()
+	assert.Equal(t, a.OldOID, b.OldOID, "OldOID not equal")
+	assert.Equal(t, a.NewOID, b.NewOID, "NewOID not equal")
+	assert.Equal(t, a.AuthorName, b.AuthorName, "AuthorName not equal")
+	assert.Equal(t, a.AuthorEmail, b.AuthorEmail, "AuthorEmail not equal")
+	assert.Equal(t, a.Action, b.Action, "Action not equal")
+	assert.Equal(t, a.Message, b.Message, "Message not equal")
+	if !a.Time.IsZero() {
+		assert.Equal(t, encoding.EncodeTime(a.Time), encoding.EncodeTime(b.Time), "Time not equal")
+	}
 }

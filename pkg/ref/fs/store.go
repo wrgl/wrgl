@@ -62,6 +62,10 @@ func (s *Store) SetWithLog(key string, val []byte, log *ref.Reflog) error {
 	if err != nil {
 		return err
 	}
+	_, err = f.Write([]byte{'\n'})
+	if err != nil {
+		return err
+	}
 	err = f.Close()
 	if err != nil {
 		return err
@@ -95,9 +99,8 @@ func (s *Store) Filter(prefix string) (m map[string][]byte, err error) {
 		return
 	}
 	m = map[string][]byte{}
-	dir := s.refPath(prefix)
 	for _, k := range keys {
-		b, err := os.ReadFile(path.Join(dir, k))
+		b, err := os.ReadFile(s.refPath(k))
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +118,7 @@ func (s *Store) FilterKey(prefix string) (keys []string, err error) {
 		return
 	}
 	for _, f := range files {
-		keys = append(keys, f.Name())
+		keys = append(keys, path.Join(prefix, f.Name()))
 	}
 	return
 }
