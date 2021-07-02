@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 )
 
@@ -18,7 +17,7 @@ type RowChangeReader struct {
 	buf      *blockBuffer
 }
 
-func NewRowChangeReader(db1, db2 kvcommon.DB, tbl1, tbl2 *objects.Table, colDiff *objects.ColDiff) (*RowChangeReader, error) {
+func NewRowChangeReader(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, colDiff *objects.ColDiff) (*RowChangeReader, error) {
 	buf, err := newBlockBuffer(db1, db2, tbl1, tbl2)
 	if err != nil {
 		return nil, err

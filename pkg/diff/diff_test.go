@@ -13,29 +13,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/kv"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
-	kvfs "github.com/wrgl/core/pkg/kv/fs"
-	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func getTable(t testing.TB, db kvcommon.DB, sum []byte) (*objects.Table, [][]string) {
+func getTable(t testing.TB, db objects.Store, sum []byte) (*objects.Table, [][]string) {
 	t.Helper()
-	b, err := kv.GetTable(db, sum)
+	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)
-	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
-	require.NoError(t, err)
-	b, err = kv.GetTableIndex(db, sum)
-	require.NoError(t, err)
-	_, tblIdx, err := objects.ReadBlockFrom(bytes.NewReader(b))
+	tblIdx, err := objects.GetTableIndex(db, sum)
 	require.NoError(t, err)
 	return tbl, tblIdx
 }
 
 func TestDiffTables(t *testing.T) {
-	db := kvtestutils.NewMockStore(false)
+	db := objmock.NewStore()
 	cases := []struct {
 		Sum1, Sum2 []byte
 		Events     []*objects.Diff
@@ -188,7 +181,7 @@ func TestDiffTables(t *testing.T) {
 	}
 }
 
-func ingestRawCSV(b *testing.B, db kvcommon.DB, fs kvfs.FileStore, rows [][]string) (*objects.Table, [][]string) {
+func ingestRawCSV(b *testing.B, db objects.Store, rows [][]string) (*objects.Table, [][]string) {
 	b.Helper()
 	buf := bytes.NewBuffer(nil)
 	require.NoError(b, csv.NewWriter(buf).WriteAll(rows))
@@ -200,10 +193,9 @@ func ingestRawCSV(b *testing.B, db kvcommon.DB, fs kvfs.FileStore, rows [][]stri
 func BenchmarkDiffRows(b *testing.B) {
 	rawCSV1 := testutils.BuildRawCSV(12, b.N)
 	rawCSV2 := testutils.ModifiedCSV(rawCSV1, 1)
-	db := kvtestutils.NewMockStore(false)
-	fs := kvtestutils.NewMockStore(false)
-	tbl1, tblIdx1 := ingestRawCSV(b, db, fs, rawCSV1)
-	tbl2, tblIdx2 := ingestRawCSV(b, db, fs, rawCSV2)
+	db := objmock.NewStore()
+	tbl1, tblIdx1 := ingestRawCSV(b, db, rawCSV1)
+	tbl2, tblIdx2 := ingestRawCSV(b, db, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
 	diffChan, _ := DiffTables(db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan)

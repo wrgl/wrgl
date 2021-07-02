@@ -1,0 +1,179 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2021 Wrangle Ltd
+
+package objects
+
+import (
+	"bytes"
+	"sort"
+
+	"github.com/mmcloughlin/meow"
+)
+
+var (
+	blkPrefix    = []byte("blk/")
+	tblPrefix    = []byte("tbl/")
+	blkIdxPrefix = []byte("blkidx/")
+	tblIdxPrefix = []byte("tblidx/")
+	comPrefix    = []byte("com/")
+)
+
+func blockKey(sum []byte) []byte {
+	return append(blkPrefix, sum...)
+}
+
+func tableKey(sum []byte) []byte {
+	return append(tblPrefix, sum...)
+}
+
+func blockIndexKey(sum []byte) []byte {
+	return append(blkIdxPrefix, sum...)
+}
+
+func tableIndexKey(sum []byte) []byte {
+	return append(tblIdxPrefix, sum...)
+}
+
+func commitKey(sum []byte) []byte {
+	return append(comPrefix, sum...)
+}
+
+func SaveBlock(s Store, content []byte) (sum []byte, err error) {
+	arr := meow.Checksum(0, content)
+	err = s.Set(blockKey(arr[:]), content)
+	if err != nil {
+		return
+	}
+	return arr[:], nil
+}
+
+func SaveBlockIndex(s Store, sum, content []byte) (err error) {
+	return s.Set(blockIndexKey(sum), content)
+}
+
+func SaveTable(s Store, content []byte) (sum []byte, err error) {
+	arr := meow.Checksum(0, content)
+	err = s.Set(tableKey(arr[:]), content)
+	if err != nil {
+		return
+	}
+	return arr[:], nil
+}
+
+func SaveTableIndex(s Store, sum, content []byte) (err error) {
+	return s.Set(tableIndexKey(sum), content)
+}
+
+func SaveCommit(s Store, content []byte) (sum []byte, err error) {
+	arr := meow.Checksum(0, content)
+	err = s.Set(commitKey(arr[:]), content)
+	if err != nil {
+		return
+	}
+	return arr[:], nil
+}
+
+func GetBlock(s Store, sum []byte) ([][]string, error) {
+	b, err := s.Get(blockKey(sum))
+	if err != nil {
+		return nil, err
+	}
+	_, blk, err := ReadBlockFrom(bytes.NewReader(b))
+	return blk, err
+}
+
+func GetBlockIndex(s Store, sum []byte) (*BlockIndex, error) {
+	b, err := s.Get(blockIndexKey(sum))
+	if err != nil {
+		return nil, err
+	}
+	_, idx, err := ReadBlockIndex(bytes.NewReader(b))
+	return idx, err
+}
+
+func GetTable(s Store, sum []byte) (*Table, error) {
+	b, err := s.Get(tableKey(sum))
+	if err != nil {
+		return nil, err
+	}
+	_, tbl, err := ReadTableFrom(bytes.NewReader(b))
+	return tbl, err
+}
+
+func GetTableIndex(s Store, sum []byte) ([][]string, error) {
+	b, err := s.Get(tableIndexKey(sum))
+	if err != nil {
+		return nil, err
+	}
+	_, idx, err := ReadBlockFrom(bytes.NewReader(b))
+	return idx, err
+}
+
+func GetCommit(s Store, sum []byte) (*Commit, error) {
+	b, err := s.Get(commitKey(sum))
+	if err != nil {
+		return nil, err
+	}
+	_, com, err := ReadCommitFrom(bytes.NewReader(b))
+	return com, err
+}
+
+func DeleteBlock(s Store, sum []byte) error {
+	return s.Delete(blockKey(sum))
+}
+
+func DeleteBlockIndex(s Store, sum []byte) error {
+	return s.Delete(blockIndexKey(sum))
+}
+
+func DeleteTable(s Store, sum []byte) error {
+	return s.Delete(tableKey(sum))
+}
+
+func DeleteTableIndex(s Store, sum []byte) error {
+	return s.Delete(tableIndexKey(sum))
+}
+
+func DeleteCommit(s Store, sum []byte) error {
+	return s.Delete(commitKey(sum))
+}
+
+func BlockExist(s Store, sum []byte) bool {
+	return s.Exist(blockKey(sum))
+}
+
+func BlockIndexExist(s Store, sum []byte) bool {
+	return s.Exist(blockIndexKey(sum))
+}
+
+func TableExist(s Store, sum []byte) bool {
+	return s.Exist(tableKey(sum))
+}
+
+func TableIndexExist(s Store, sum []byte) bool {
+	return s.Exist(tableIndexKey(sum))
+}
+
+func CommitExist(s Store, sum []byte) bool {
+	return s.Exist(commitKey(sum))
+}
+
+func GetAllCommits(s Store) ([][]byte, error) {
+	sl, err := s.FilterKey(comPrefix)
+	if err != nil {
+		return nil, err
+	}
+	l := len(comPrefix)
+	result := make([][]byte, len(sl))
+	for i, h := range sl {
+		result[i] = h[l:]
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return string(result[i]) < string(result[j])
+	})
+	return result, nil
+}
+
+func DeleteAllCommit(s Store) error {
+	return s.Clear(comPrefix)
+}

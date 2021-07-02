@@ -5,33 +5,30 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
-	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func saveBlock(t *testing.T, db kvcommon.DB, blk [][]string, pk []uint32) ([]byte, *objects.BlockIndex) {
+func saveBlock(t *testing.T, db objects.Store, blk [][]string, pk []uint32) ([]byte, *objects.BlockIndex) {
 	t.Helper()
 	buf := bytes.NewBuffer(nil)
 	_, err := objects.WriteBlockTo(buf, blk)
 	require.NoError(t, err)
-	sum := meow.Checksum(0, buf.Bytes())
-	require.NoError(t, kv.SaveBlock(db, sum[:], buf.Bytes()))
+	sum, err := objects.SaveBlock(db, buf.Bytes())
+	require.NoError(t, err)
 	idx := objects.IndexBlock(blk, pk)
 	buf.Reset()
 	_, err = idx.WriteTo(buf)
 	require.NoError(t, err)
-	kv.SaveBlockIndex(db, sum[:], buf.Bytes())
+	require.NoError(t, objects.SaveBlockIndex(db, sum[:], buf.Bytes()))
 	return sum[:], idx
 }
 
-func createTableFromBlock(t *testing.T, db kvcommon.DB, columns []string, pk []uint32, blks [][][]string) (*objects.Table, [][]string) {
+func createTableFromBlock(t *testing.T, db objects.Store, columns []string, pk []uint32, blks [][][]string) (*objects.Table, [][]string) {
 	tbl := &objects.Table{
 		Columns: columns,
 		PK:      pk,
@@ -114,7 +111,7 @@ func TestFindOverlappingBlocks(t *testing.T) {
 }
 
 func TestGetBlockIndices(t *testing.T) {
-	db := kvtestutils.NewMockStore(false)
+	db := objmock.NewStore()
 	indices := []*objects.BlockIndex{}
 	tbl := &objects.Table{}
 	for i := 0; i < 10; i++ {
@@ -169,7 +166,7 @@ func hexToBytes(t *testing.T, s string) []byte {
 }
 
 func TestIterateAndMatch(t *testing.T) {
-	db := kvtestutils.NewMockStore(false)
+	db := objmock.NewStore()
 	tbl1, tblIdx1 := createTableFromBlock(t, db, []string{"a", "b", "c"}, []uint32{0}, [][][]string{
 		{
 			{"01", "q", "w"},

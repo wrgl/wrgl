@@ -1,13 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2021 Wrangle Ltd
+
 package ref
 
 import (
 	"fmt"
 	"io"
 
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
+	"github.com/wrgl/core/pkg/objects"
 )
 
-func SeekCommonAncestor(db kvcommon.DB, commits ...[]byte) (baseCommit []byte, err error) {
+func SeekCommonAncestor(db objects.Store, commits ...[]byte) (baseCommit []byte, err error) {
 	n := len(commits)
 	qs := make([]*CommitsQueue, n)
 	bases := make([][]byte, n)

@@ -4,11 +4,8 @@
 package diff
 
 import (
-	"bytes"
 	"container/list"
 
-	"github.com/wrgl/core/pkg/kv"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/mem"
 	"github.com/wrgl/core/pkg/objects"
 )
@@ -37,19 +34,19 @@ type blockEl struct {
 }
 
 type blockBuffer struct {
-	db            []kvcommon.DB
+	db            []objects.Store
 	tbl           []*objects.Table
 	buf           *list.List
 	maxSize, size uint64
 }
 
-func newBlockBuffer(db1, db2 kvcommon.DB, tbl1, tbl2 *objects.Table) (*blockBuffer, error) {
+func newBlockBuffer(db1, db2 objects.Store, tbl1, tbl2 *objects.Table) (*blockBuffer, error) {
 	maxSize, err := getBufferSize()
 	if err != nil {
 		return nil, err
 	}
 	return &blockBuffer{
-		db:      []kvcommon.DB{db1, db2},
+		db:      []objects.Store{db1, db2},
 		tbl:     []*objects.Table{tbl1, tbl2},
 		buf:     list.New(),
 		maxSize: maxSize,
@@ -60,17 +57,17 @@ func (buf *blockBuffer) addBlock(table byte, offset uint32) ([][]string, error) 
 	if buf.size >= buf.maxSize {
 		buf.size -= buf.buf.Remove(buf.buf.Back()).(*blockEl).Size
 	}
-	b, err := kv.GetBlock(buf.db[table], buf.tbl[table].Blocks[offset])
-	if err != nil {
-		return nil, err
-	}
-	_, blk, err := objects.ReadBlockFrom(bytes.NewReader(b))
+	blk, err := objects.GetBlock(buf.db[table], buf.tbl[table].Blocks[offset])
 	if err != nil {
 		return nil, err
 	}
 	n := len(blk)
-	m := len(blk[0])
-	size := uint64(24 + 24*n + len(b) - n*(4+m*2))
+	size := uint64(24 + 24*n)
+	for _, sl := range blk {
+		for _, s := range sl {
+			size += uint64(len(s))
+		}
+	}
 	buf.buf.PushFront(&blockEl{
 		Table:  table,
 		Offset: offset,

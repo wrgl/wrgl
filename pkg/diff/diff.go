@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"time"
 
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/progress"
 )
@@ -36,7 +35,7 @@ func uintSliceEqual(s1, s2 []uint32) bool {
 	return true
 }
 
-func DiffTables(db kvcommon.DB, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, progressPeriod time.Duration, errChan chan<- error) (<-chan *objects.Diff, progress.Tracker) {
+func DiffTables(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, progressPeriod time.Duration, errChan chan<- error) (<-chan *objects.Diff, progress.Tracker) {
 	diffChan := make(chan *objects.Diff)
 	pt := progress.NewTracker(progressPeriod, 0)
 	go func() {
@@ -56,7 +55,7 @@ func DiffTables(db kvcommon.DB, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]
 	return diffChan, pt
 }
 
-func diffRows(db kvcommon.DB, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, diffChan chan<- *objects.Diff, pt progress.Tracker, colsEqual bool) error {
+func diffRows(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, diffChan chan<- *objects.Diff, pt progress.Tracker, colsEqual bool) error {
 	pt.SetTotal(int64(tbl1.RowsCount + tbl2.RowsCount))
 	var current int64
 	err := iterateAndMatch(db, tbl1, tbl2, tblIdx1, tblIdx2, func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte) {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package ref
+package ref_test
 
 import (
 	"encoding/hex"
@@ -10,10 +10,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
-	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
-	reftestutils "github.com/wrgl/core/pkg/ref/testutils"
+	objhelpers "github.com/wrgl/core/pkg/objects/helpers"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
+	"github.com/wrgl/core/pkg/ref"
+	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
+	refmock "github.com/wrgl/core/pkg/ref/mock"
 )
 
 func TestParseNavigationChars(t *testing.T) {
@@ -27,7 +29,7 @@ func TestParseNavigationChars(t *testing.T) {
 		{"my-branch~0", "my-branch", 0},
 		{"my-branch~4", "my-branch", 4},
 	} {
-		name, goBack, err := parseNavigationChars(c.commitStr)
+		name, goBack, err := ref.ParseNavigationChars(c.commitStr)
 		require.NoError(t, err)
 		assert.Equal(t, c.name, name)
 		assert.Equal(t, c.goBack, goBack)
@@ -35,120 +37,118 @@ func TestParseNavigationChars(t *testing.T) {
 }
 
 func TestGetPrevCommit(t *testing.T) {
-	db := kvtestutils.NewMockStore(false)
-	sum1, commit1 := reftestutils.SaveTestCommit(t, db, nil)
-	sum2, commit2 := reftestutils.SaveTestCommit(t, db, [][]byte{sum1})
-	sum3, commit3 := reftestutils.SaveTestCommit(t, db, [][]byte{sum2})
+	db := objmock.NewStore()
+	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
+	sum2, commit2 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
+	sum3, commit3 := refhelpers.SaveTestCommit(t, db, [][]byte{sum2})
 
-	sum, commit, err := peelCommit(db, sum3, commit3, 0)
+	sum, commit, err := ref.PeelCommit(db, sum3, commit3, 0)
 	require.NoError(t, err)
 	assert.Equal(t, sum3, sum)
-	objects.AssertCommitEqual(t, commit3, commit)
+	objhelpers.AssertCommitEqual(t, commit3, commit)
 
-	sum, commit, err = peelCommit(db, sum3, commit3, 1)
+	sum, commit, err = ref.PeelCommit(db, sum3, commit3, 1)
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	objects.AssertCommitEqual(t, commit2, commit)
+	objhelpers.AssertCommitEqual(t, commit2, commit)
 
-	sum, commit, err = peelCommit(db, sum3, commit3, 2)
+	sum, commit, err = ref.PeelCommit(db, sum3, commit3, 2)
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	objects.AssertCommitEqual(t, commit1, commit)
+	objhelpers.AssertCommitEqual(t, commit1, commit)
 }
 
 func TestInterpretCommitName(t *testing.T) {
-	db := kvtestutils.NewMockStore(false)
-	fs := kvtestutils.NewMockStore(false)
-	sum1, commit1 := reftestutils.SaveTestCommit(t, db, nil)
-	sum2, commit2 := reftestutils.SaveTestCommit(t, db, [][]byte{sum1})
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
+	sum2, commit2 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
 	branchName := "my-branch"
-	err := CommitHead(db, fs, branchName, sum2, commit2)
-	require.NoError(t, err)
+	require.NoError(t, ref.CommitHead(rs, branchName, sum2, commit2))
 
 	for i, c := range []struct {
-		db        kvcommon.DB
 		commitStr string
 		name      string
 		sum       []byte
 		commit    *objects.Commit
 		err       error
 	}{
-		{db, "my-branch", "refs/heads/my-branch", sum2, commit2, nil},
-		{db, "my-branch^", "refs/heads/my-branch", sum1, commit1, nil},
-		{db, hex.EncodeToString(sum2), hex.EncodeToString(sum2), sum2, commit2, nil},
-		{db, fmt.Sprintf("%s~1", hex.EncodeToString(sum2)), hex.EncodeToString(sum1), sum1, commit1, nil},
-		{db, "aaaabbbbccccdddd0000111122223333", "", nil, nil, fmt.Errorf("can't find commit aaaabbbbccccdddd0000111122223333")},
-		{db, "some-branch", "", nil, nil, fmt.Errorf("can't find branch some-branch")},
+		{"my-branch", "heads/my-branch", sum2, commit2, nil},
+		{"my-branch^", "heads/my-branch", sum1, commit1, nil},
+		{hex.EncodeToString(sum2), hex.EncodeToString(sum2), sum2, commit2, nil},
+		{fmt.Sprintf("%s~1", hex.EncodeToString(sum2)), hex.EncodeToString(sum1), sum1, commit1, nil},
+		{"aaaabbbbccccdddd0000111122223333", "", nil, nil, fmt.Errorf("can't find commit aaaabbbbccccdddd0000111122223333")},
+		{"some-branch", "", nil, nil, fmt.Errorf("can't find branch some-branch")},
 	} {
-		name, sum, commit, err := InterpretCommitName(c.db, c.commitStr, false)
+		name, sum, commit, err := ref.InterpretCommitName(db, rs, c.commitStr, false)
 		require.Equal(t, c.err, err, "case %d", i)
 		assert.Equal(t, c.name, name)
 		assert.Equal(t, c.sum, sum)
 		if c.commit == nil {
 			assert.Nil(t, commit)
 		} else {
-			objects.AssertCommitEqual(t, c.commit, commit)
+			objhelpers.AssertCommitEqual(t, c.commit, commit)
 		}
 	}
 }
 
 func TestInterpretRefName(t *testing.T) {
-	db := kvtestutils.NewMockStore(false)
-	fs := kvtestutils.NewMockStore(false)
-	sum1, c1 := reftestutils.SaveTestCommit(t, db, nil)
-	require.NoError(t, CommitHead(db, fs, "abc", sum1, c1))
-	sum2, c2 := reftestutils.SaveTestCommit(t, db, nil)
-	require.NoError(t, SaveTag(db, "abc", sum2))
-	sum3, c3 := reftestutils.SaveTestCommit(t, db, nil)
-	require.NoError(t, SaveRemoteRef(db, fs, "origin", "abc", sum3, "test", "test@domain.com", "test", "test interpret ref"))
-	sum4, c4 := reftestutils.SaveTestCommit(t, db, nil)
-	require.NoError(t, SaveTag(db, "def", sum4))
-	sum5, c5 := reftestutils.SaveTestCommit(t, db, nil)
-	require.NoError(t, SaveRemoteRef(db, fs, "origin", "def", sum5, "test", "test@domain.com", "test", "test interpret ref"))
-	sum6, c6 := reftestutils.SaveTestCommit(t, db, nil)
-	require.NoError(t, SaveRemoteRef(db, fs, "origin", "ghj", sum6, "test", "test@domain.com", "test", "test interpret ref"))
-	sum7, c7 := reftestutils.SaveTestCommit(t, db, nil)
-	require.NoError(t, SaveRef(db, fs, "custom/ghj", sum7, "test", "test@domain.com", "test", "test interpret ref"))
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	sum1, c1 := refhelpers.SaveTestCommit(t, db, nil)
+	require.NoError(t, ref.CommitHead(rs, "abc", sum1, c1))
+	sum2, c2 := refhelpers.SaveTestCommit(t, db, nil)
+	require.NoError(t, ref.SaveTag(rs, "abc", sum2))
+	sum3, c3 := refhelpers.SaveTestCommit(t, db, nil)
+	require.NoError(t, ref.SaveRemoteRef(rs, "origin", "abc", sum3, "test", "test@domain.com", "test", "test interpret ref"))
+	sum4, c4 := refhelpers.SaveTestCommit(t, db, nil)
+	require.NoError(t, ref.SaveTag(rs, "def", sum4))
+	sum5, c5 := refhelpers.SaveTestCommit(t, db, nil)
+	require.NoError(t, ref.SaveRemoteRef(rs, "origin", "def", sum5, "test", "test@domain.com", "test", "test interpret ref"))
+	sum6, c6 := refhelpers.SaveTestCommit(t, db, nil)
+	require.NoError(t, ref.SaveRemoteRef(rs, "origin", "ghj", sum6, "test", "test@domain.com", "test", "test interpret ref"))
+	sum7, c7 := refhelpers.SaveTestCommit(t, db, nil)
+	require.NoError(t, ref.SaveRef(rs, "custom/ghj", sum7, "test", "test@domain.com", "test", "test interpret ref"))
 
-	name, sum, c, err := InterpretCommitName(db, "abc", false)
+	name, sum, c, err := ref.InterpretCommitName(db, rs, "abc", false)
 	require.NoError(t, err)
-	assert.Equal(t, "refs/heads/abc", name)
+	assert.Equal(t, "heads/abc", name)
 	assert.Equal(t, sum1, sum)
-	objects.AssertCommitEqual(t, c1, c)
+	objhelpers.AssertCommitEqual(t, c1, c)
 
-	name, sum, c, err = InterpretCommitName(db, "tags/abc", false)
+	name, sum, c, err = ref.InterpretCommitName(db, rs, "tags/abc", false)
 	require.NoError(t, err)
-	assert.Equal(t, "refs/tags/abc", name)
+	assert.Equal(t, "tags/abc", name)
 	assert.Equal(t, sum2, sum)
-	objects.AssertCommitEqual(t, c2, c)
+	objhelpers.AssertCommitEqual(t, c2, c)
 
-	name, sum, c, err = InterpretCommitName(db, "refs/remotes/origin/abc", false)
+	name, sum, c, err = ref.InterpretCommitName(db, rs, "remotes/origin/abc", false)
 	require.NoError(t, err)
-	assert.Equal(t, "refs/remotes/origin/abc", name)
+	assert.Equal(t, "remotes/origin/abc", name)
 	assert.Equal(t, sum3, sum)
-	objects.AssertCommitEqual(t, c3, c)
+	objhelpers.AssertCommitEqual(t, c3, c)
 
-	name, sum, c, err = InterpretCommitName(db, "def", false)
+	name, sum, c, err = ref.InterpretCommitName(db, rs, "def", false)
 	require.NoError(t, err)
-	assert.Equal(t, "refs/tags/def", name)
+	assert.Equal(t, "tags/def", name)
 	assert.Equal(t, sum4, sum)
-	objects.AssertCommitEqual(t, c4, c)
+	objhelpers.AssertCommitEqual(t, c4, c)
 
-	name, sum, c, err = InterpretCommitName(db, "def", true)
+	name, sum, c, err = ref.InterpretCommitName(db, rs, "def", true)
 	require.NoError(t, err)
-	assert.Equal(t, "refs/remotes/origin/def", name)
+	assert.Equal(t, "remotes/origin/def", name)
 	assert.Equal(t, sum5, sum)
-	objects.AssertCommitEqual(t, c5, c)
+	objhelpers.AssertCommitEqual(t, c5, c)
 
-	name, sum, c, err = InterpretCommitName(db, "ghj", false)
+	name, sum, c, err = ref.InterpretCommitName(db, rs, "ghj", false)
 	require.NoError(t, err)
-	assert.Equal(t, "refs/remotes/origin/ghj", name)
+	assert.Equal(t, "remotes/origin/ghj", name)
 	assert.Equal(t, sum6, sum)
-	objects.AssertCommitEqual(t, c6, c)
+	objhelpers.AssertCommitEqual(t, c6, c)
 
-	name, sum, c, err = InterpretCommitName(db, "custom/ghj", false)
+	name, sum, c, err = ref.InterpretCommitName(db, rs, "custom/ghj", false)
 	require.NoError(t, err)
-	assert.Equal(t, "refs/custom/ghj", name)
+	assert.Equal(t, "custom/ghj", name)
 	assert.Equal(t, sum7, sum)
-	objects.AssertCommitEqual(t, c7, c)
+	objhelpers.AssertCommitEqual(t, c7, c)
 }

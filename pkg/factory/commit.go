@@ -10,17 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
-	kvfs "github.com/wrgl/core/pkg/kv/fs"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func Commit(t *testing.T, db kvcommon.DB, rows []string, pk []uint32, parents [][]byte) ([]byte, *objects.Commit) {
+func Commit(t *testing.T, db objects.Store, rows []string, pk []uint32, parents [][]byte) ([]byte, *objects.Commit) {
 	t.Helper()
 	c := &objects.Commit{
 		AuthorEmail: testutils.BrokenRandomLowerAlphaString(6) + "@domain.com",
@@ -34,47 +30,45 @@ func Commit(t *testing.T, db kvcommon.DB, rows []string, pk []uint32, parents []
 	buf := bytes.NewBuffer(nil)
 	_, err := c.WriteTo(buf)
 	require.NoError(t, err)
-	arr := meow.Checksum(0, buf.Bytes())
-	require.NoError(t, kv.SaveCommit(db, arr[:], buf.Bytes()))
-	return sum, c
+	comSum, err := objects.SaveCommit(db, buf.Bytes())
+	require.NoError(t, err)
+	return comSum, c
 }
 
-func CommitRandom(t *testing.T, db kvcommon.DB, parents [][]byte) ([]byte, *objects.Commit) {
+func CommitRandom(t *testing.T, db objects.Store, parents [][]byte) ([]byte, *objects.Commit) {
 	return Commit(t, db, nil, nil, parents)
 }
 
-func CommitHead(t *testing.T, db kvcommon.DB, fs kvfs.FileStore, branch string, rows []string, pk []uint32) ([]byte, *objects.Commit) {
+func CommitHead(t *testing.T, db objects.Store, rs ref.Store, branch string, rows []string, pk []uint32) ([]byte, *objects.Commit) {
 	t.Helper()
 	var parents [][]byte
-	commitSum, err := ref.GetHead(db, branch)
+	commitSum, err := ref.GetHead(rs, branch)
 	if err == nil {
 		parents = append(parents, commitSum)
 	}
 	sum, c := Commit(t, db, rows, pk, parents)
-	require.NoError(t, ref.CommitHead(db, fs, branch, sum, c))
+	require.NoError(t, ref.CommitHead(rs, branch, sum, c))
 	return sum, c
 }
 
-func CommitTag(t *testing.T, db kvcommon.DB, tag string, rows []string, pk []uint32, parents [][]byte) ([]byte, *objects.Commit) {
+func CommitTag(t *testing.T, db objects.Store, rs ref.Store, tag string, rows []string, pk []uint32, parents [][]byte) ([]byte, *objects.Commit) {
 	t.Helper()
 	sum, c := Commit(t, db, rows, pk, parents)
-	require.NoError(t, ref.SaveTag(db, tag, sum))
+	require.NoError(t, ref.SaveTag(rs, tag, sum))
 	return sum, c
 }
 
-func SdumpCommit(t *testing.T, db kvcommon.DB, sum []byte) string {
+func SdumpCommit(t *testing.T, db objects.Store, sum []byte) string {
 	t.Helper()
 	lines := []string{
 		fmt.Sprintf("commit %x", sum),
 	}
-	b, err := kv.GetCommit(db, sum)
-	require.NoError(t, err)
-	_, c, err := objects.ReadCommitFrom(bytes.NewReader(b))
+	c, err := objects.GetCommit(db, sum)
 	require.NoError(t, err)
 	lines = append(lines, SdumpTable(t, db, c.Table, 2))
 	return strings.Join(lines, "\n")
 }
 
-func LogCommit(t *testing.T, db kvcommon.DB, msg string, sum []byte) {
+func LogCommit(t *testing.T, db objects.Store, msg string, sum []byte) {
 	t.Logf("%s:\n%s", msg, SdumpCommit(t, db, sum))
 }

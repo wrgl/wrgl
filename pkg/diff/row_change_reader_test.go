@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
-	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
 	"github.com/wrgl/core/pkg/objects"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
 )
 
 func TestRowChangeReader(t *testing.T) {
-	db := kvtestutils.NewMockStore(false)
+	db := objmock.NewStore()
 	sum1 := factory.BuildTable(t, db, []string{
 		"a,b,c,d",
 		"1,2,3,4",

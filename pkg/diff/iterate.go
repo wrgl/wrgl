@@ -1,21 +1,8 @@
 package diff
 
 import (
-	"bytes"
-
-	"github.com/wrgl/core/pkg/kv"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 )
-
-func getBlockIndex(db kvcommon.DB, sum []byte) (*objects.BlockIndex, error) {
-	b, err := kv.GetBlockIndex(db, sum)
-	if err != nil {
-		return nil, err
-	}
-	_, idx, err := objects.ReadBlockIndex(bytes.NewReader(b))
-	return idx, err
-}
 
 func findOverlappingBlocks(tblIdx1 [][]string, tblIdx2 [][]string, off1, prevEnd int) (start, end int) {
 	n := len(tblIdx2)
@@ -70,7 +57,7 @@ findStart:
 	return
 }
 
-func getBlockIndices(db kvcommon.DB, tbl *objects.Table, start, end int, prevSl []*objects.BlockIndex, prevStart, prevEnd int) ([]*objects.BlockIndex, error) {
+func getBlockIndices(db objects.Store, tbl *objects.Table, start, end int, prevSl []*objects.BlockIndex, prevStart, prevEnd int) ([]*objects.BlockIndex, error) {
 	if start >= len(tbl.Blocks) || start == end {
 		return nil, nil
 	}
@@ -82,7 +69,7 @@ func getBlockIndices(db kvcommon.DB, tbl *objects.Table, start, end int, prevSl 
 	}
 	var err error
 	for j := start; j < end; j++ {
-		sl[j-slStart], err = getBlockIndex(db, tbl.Blocks[j])
+		sl[j-slStart], err = objects.GetBlockIndex(db, tbl.Blocks[j])
 		if err != nil {
 			return nil, err
 		}
@@ -91,11 +78,11 @@ func getBlockIndices(db kvcommon.DB, tbl *objects.Table, start, end int, prevSl 
 }
 
 // iterateAndMatch iterates through a single table while trying to match its rows with another table
-func iterateAndMatch(db kvcommon.DB, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, cb func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte)) error {
+func iterateAndMatch(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, cb func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte)) error {
 	var prevStart, prevEnd int
 	var indices2 []*objects.BlockIndex
 	for i, sum := range tbl1.Blocks {
-		idx1, err := getBlockIndex(db, sum)
+		idx1, err := objects.GetBlockIndex(db, sum)
 		if err != nil {
 			return err
 		}

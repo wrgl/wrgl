@@ -5,12 +5,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	kvtestutils "github.com/wrgl/core/pkg/kv/testutils"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestBlockBuffer(t *testing.T) {
-	db := kvtestutils.NewMockStore(false)
+	db := objmock.NewStore()
 	rows1 := testutils.BuildRawCSV(4, 9)
 	tbl1, _ := createTableFromBlock(t, db, rows1[0], []uint32{0}, [][][]string{
 		rows1[1:4],

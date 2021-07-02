@@ -5,14 +5,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/mmcloughlin/meow"
 	"github.com/schollz/progressbar/v3"
-	"github.com/wrgl/core/pkg/kv"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 )
 
-func insertBlock(db kvcommon.DB, bar *progressbar.ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *block, wg *sync.WaitGroup, errChan chan<- error) {
+func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *block, wg *sync.WaitGroup, errChan chan<- error) {
 	buf := bytes.NewBuffer(nil)
 	defer wg.Done()
 	for blk := range blocks {
@@ -23,20 +20,18 @@ func insertBlock(db kvcommon.DB, bar *progressbar.ProgressBar, tbl *objects.Tabl
 			errChan <- err
 			return
 		}
-		b := buf.Bytes()
-		sum := meow.Checksum(0, b)
-		err = kv.SaveBlock(db, sum[:], b)
+		sum, err := objects.SaveBlock(db, buf.Bytes())
 		if err != nil {
 			errChan <- err
 			return
 		}
-		buf.Reset()
-		tbl.Blocks[blk.Offset] = sum[:]
+		tbl.Blocks[blk.Offset] = sum
 
 		// write block index and add pk sums to table index
 		idx := objects.IndexBlock(blk.Block, tbl.PK)
+		buf.Reset()
 		idx.WriteTo(buf)
-		err = kv.SaveBlockIndex(db, sum[:], buf.Bytes())
+		err = objects.SaveBlockIndex(db, sum, buf.Bytes())
 		if err != nil {
 			errChan <- err
 			return
@@ -46,7 +41,7 @@ func insertBlock(db kvcommon.DB, bar *progressbar.ProgressBar, tbl *objects.Tabl
 	}
 }
 
-func IngestTable(db kvcommon.DB, f io.ReadCloser, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
+func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
 	s, err := NewSorter(f, name, pk, sortRunSize, out)
 	if err != nil {
 		return nil, err
@@ -82,8 +77,7 @@ func IngestTable(db kvcommon.DB, f io.ReadCloser, name string, pk []string, sort
 	if err != nil {
 		return nil, err
 	}
-	sum := meow.Checksum(0, buf.Bytes())
-	err = kv.SaveTable(db, sum[:], buf.Bytes())
+	sum, err := objects.SaveTable(db, buf.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +88,10 @@ func IngestTable(db kvcommon.DB, f io.ReadCloser, name string, pk []string, sort
 	if err != nil {
 		return nil, err
 	}
-	err = kv.SaveTableIndex(db, sum[:], buf.Bytes())
+	err = objects.SaveTableIndex(db, sum, buf.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	return sum[:], nil
+	return sum, nil
 }

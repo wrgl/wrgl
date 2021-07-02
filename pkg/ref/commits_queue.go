@@ -4,35 +4,23 @@
 package ref
 
 import (
-	"bytes"
 	"io"
 	"sort"
 
-	"github.com/wrgl/core/pkg/kv"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 )
 
 const maxQueueGrow = 1 << 10
 
 type CommitsQueue struct {
-	db      kvcommon.DB
+	db      objects.Store
 	commits []*objects.Commit
 	sums    [][]byte
 	seen    map[string]struct{}
 	grow    int
 }
 
-func getCommit(db kvcommon.DB, sum []byte) (*objects.Commit, error) {
-	b, err := kv.GetCommit(db, sum)
-	if err != nil {
-		return nil, err
-	}
-	_, c, err := objects.ReadCommitFrom(bytes.NewReader(b))
-	return c, err
-}
-
-func NewCommitsQueue(db kvcommon.DB, initialSums [][]byte) (*CommitsQueue, error) {
+func NewCommitsQueue(db objects.Store, initialSums [][]byte) (*CommitsQueue, error) {
 	sums := [][]byte{}
 	commits := []*objects.Commit{}
 	seen := map[string]struct{}{}
@@ -40,7 +28,7 @@ func NewCommitsQueue(db kvcommon.DB, initialSums [][]byte) (*CommitsQueue, error
 		if _, ok := seen[string(v)]; ok {
 			continue
 		}
-		commit, err := getCommit(db, v)
+		commit, err := objects.GetCommit(db, v)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +72,7 @@ func (q *CommitsQueue) Insert(sum []byte) (err error) {
 	if q.Seen(sum) {
 		return
 	}
-	commit, err := getCommit(q.db, sum)
+	commit, err := objects.GetCommit(q.db, sum)
 	if err != nil {
 		return
 	}
@@ -207,7 +195,7 @@ func (q *CommitsQueue) Seen(b []byte) bool {
 }
 
 // IsAncestorOf returns true if "commit1" is ancestor of "commit2"
-func IsAncestorOf(db kvcommon.DB, commit1, commit2 []byte) (ok bool, err error) {
+func IsAncestorOf(db objects.Store, commit1, commit2 []byte) (ok bool, err error) {
 	q, err := NewCommitsQueue(db, [][]byte{commit2})
 	if err != nil {
 		return

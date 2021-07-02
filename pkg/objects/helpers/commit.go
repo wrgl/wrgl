@@ -1,16 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package objects
+package objhelpers
 
 import (
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/testutils"
 )
 
-func AssertCommitEqual(t *testing.T, a, b *Commit) {
+func RandomCommit() *objects.Commit {
+	return &objects.Commit{
+		Table:       testutils.SecureRandomBytes(16),
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@doe.com",
+		Time:        time.Now(),
+		Message:     "new commit",
+		Parents: [][]byte{
+			testutils.SecureRandomBytes(16),
+		},
+	}
+}
+
+func AssertCommitEqual(t *testing.T, a, b *objects.Commit) {
 	t.Helper()
 	require.Equal(t, a.Table, b.Table)
 	require.Equal(t, a.AuthorName, b.AuthorName)
@@ -21,12 +37,12 @@ func AssertCommitEqual(t *testing.T, a, b *Commit) {
 	require.Equal(t, a.Time.Format("-0700"), b.Time.Format("-0700"))
 }
 
-func AssertCommitsEqual(t *testing.T, sla, slb []*Commit, ignoreOrder bool) {
+func AssertCommitsEqual(t *testing.T, sla, slb []*objects.Commit, ignoreOrder bool) {
 	t.Helper()
 	require.Equal(t, len(sla), len(slb))
 	if ignoreOrder {
-		sortedCopy := func(obj []*Commit) []*Commit {
-			sl := make([]*Commit, len(obj))
+		sortedCopy := func(obj []*objects.Commit) []*objects.Commit {
+			sl := make([]*objects.Commit, len(obj))
 			copy(sl, obj)
 			sort.Slice(sl, func(i, j int) bool {
 				a, b := sl[i], sl[j]

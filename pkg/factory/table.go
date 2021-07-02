@@ -13,8 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/kv"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/testutils"
@@ -41,7 +39,7 @@ func parseRows(rows []string, pk []uint32) ([][]string, []uint32) {
 	return records, pk
 }
 
-func BuildTable(t *testing.T, db kvcommon.DB, rows []string, pk []uint32) []byte {
+func BuildTable(t *testing.T, db objects.Store, rows []string, pk []uint32) []byte {
 	t.Helper()
 	records, pk := parseRows(rows, pk)
 	buf := bytes.NewBuffer(nil)
@@ -52,11 +50,9 @@ func BuildTable(t *testing.T, db kvcommon.DB, rows []string, pk []uint32) []byte
 	return sum
 }
 
-func SdumpTable(t *testing.T, db kvcommon.DB, sum []byte, indent int) string {
+func SdumpTable(t *testing.T, db objects.Store, sum []byte, indent int) string {
 	t.Helper()
-	b, err := kv.GetTable(db, sum)
-	require.NoError(t, err)
-	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
+	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)
 	lines := []string{
 		fmt.Sprintf("table %x", sum),
@@ -64,9 +60,7 @@ func SdumpTable(t *testing.T, db kvcommon.DB, sum []byte, indent int) string {
 	}
 	for _, sum := range tbl.Blocks {
 		lines = append(lines, fmt.Sprintf("  block %x", sum))
-		b, err = kv.GetBlock(db, sum)
-		require.NoError(t, err)
-		_, blk, err := objects.ReadBlockFrom(bytes.NewReader(b))
+		blk, err := objects.GetBlock(db, sum)
 		require.NoError(t, err)
 		for _, row := range blk {
 			lines = append(lines, fmt.Sprintf("    %s", strings.Join(row, ", ")))
