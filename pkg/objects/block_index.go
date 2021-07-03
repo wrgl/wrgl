@@ -17,6 +17,11 @@ type BlockIndex struct {
 	Rows      [][]byte
 }
 
+func PKCheckSum(enc *StrListEncoder, row []string, pk []uint32) []byte {
+	sum := meow.Checksum(0, enc.Encode(slice.IndicesToValues(row, pk)))
+	return sum[:]
+}
+
 func IndexBlock(blk [][]string, pk []uint32) *BlockIndex {
 	n := len(blk)
 	idx := &BlockIndex{
@@ -28,8 +33,7 @@ func IndexBlock(blk [][]string, pk []uint32) *BlockIndex {
 		rowSum := meow.Checksum(0, enc.Encode(row))
 		pkSum := rowSum[:]
 		if len(pk) > 0 {
-			sum := meow.Checksum(0, enc.Encode(slice.IndicesToValues(row, pk)))
-			pkSum = sum[:]
+			pkSum = PKCheckSum(enc, row, pk)
 		}
 		idx.sortedOff[i] = uint8(i)
 		idx.Rows[i] = append(pkSum, rowSum[:]...)

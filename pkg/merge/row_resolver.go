@@ -7,13 +7,12 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
 )
 
 type RowResolver struct {
-	db      kv.DB
+	buf     *diff.BlockBuffer
 	cd      *objects.ColDiff
 	rows    *Rows
 	nCols   int
@@ -21,28 +20,39 @@ type RowResolver struct {
 	rowDec  *objects.StrListDecoder
 }
 
-func NewRowResolver(db kv.DB, cd *objects.ColDiff) *RowResolver {
+func NewRowResolver(db objects.Store, cd *objects.ColDiff, baseTbl *objects.Table, tbl []*objects.Table) (*RowResolver, error) {
 	nCols := cd.Len()
 	nLayers := cd.Layers()
+	buf, err := diff.BlockBufferWithSingleStore(db, append([]*objects.Table{baseTbl}, tbl...))
+	if err != nil {
+		return nil, err
+	}
 	return &RowResolver{
-		db:      db,
+		buf:     buf,
 		cd:      cd,
 		nCols:   nCols,
 		nLayers: nLayers,
 		rows:    NewRows(nLayers),
 		rowDec:  objects.NewStrListDecoder(false),
-	}
+	}, nil
 }
 
-func (r *RowResolver) decodeRow(layer int, sum []byte) ([]string, error) {
+func (r *RowResolver) getRow(m *Merge, layer int) ([]string, error) {
+	blkOffset := m.BaseBlockOffset
+	offset := m.BaseRowOffset
+	sum := m.Base
+	if layer >= 0 {
+		blkOffset = m.BlockOffset[layer]
+		offset = m.RowOffset[layer]
+		sum = m.Others[layer]
+	}
 	if sum == nil {
 		return nil, nil
 	}
-	b, err := table.GetRow(r.db, []byte(sum))
+	row, err := r.buf.GetRow(byte(layer+1), blkOffset, offset)
 	if err != nil {
 		return nil, err
 	}
-	row := r.rowDec.Decode(b)
 	if layer < 0 {
 		row = r.cd.RearrangeBaseRow(row)
 	} else {
@@ -59,8 +69,8 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 		}
 	}
 	r.rows.Reset()
-	for sum, layer := range uniqSums {
-		row, err := r.decodeRow(layer, []byte(sum))
+	for _, layer := range uniqSums {
+		row, err := r.getRow(m, layer)
 		if err != nil {
 			return nil, false, err
 		}
@@ -72,7 +82,7 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 		return
 	}
 	sort.Sort(r.rows)
-	baseRow, err := r.decodeRow(-1, m.Base)
+	baseRow, err := r.getRow(m, -1)
 	if err != nil {
 		return
 	}

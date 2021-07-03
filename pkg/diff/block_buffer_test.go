@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/testutils"
 )
@@ -23,14 +24,14 @@ func TestBlockBuffer(t *testing.T) {
 		rows2[4:7],
 		rows2[7:],
 	})
-	buf, err := newBlockBuffer(db, db, tbl1, tbl2)
+	buf, err := NewBlockBuffer([]objects.Store{db, db}, []*objects.Table{tbl1, tbl2})
 	require.NoError(t, err)
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
-			row, err := buf.getRow(0, uint32(i), byte(j))
+			row, err := buf.GetRow(0, uint32(i), byte(j))
 			require.NoError(t, err)
 			assert.Equal(t, row, rows1[i*3+j+1])
-			row, err = buf.getRow(1, uint32(i), byte(j))
+			row, err = buf.GetRow(1, uint32(i), byte(j))
 			require.NoError(t, err)
 			assert.Equal(t, row, rows2[i*3+j+1])
 		}

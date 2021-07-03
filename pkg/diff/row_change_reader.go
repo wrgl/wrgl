@@ -14,11 +14,11 @@ type RowChangeReader struct {
 	ColDiff  *objects.ColDiff
 	rowDiffs []*objects.Diff
 	off      int
-	buf      *blockBuffer
+	buf      *BlockBuffer
 }
 
 func NewRowChangeReader(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, colDiff *objects.ColDiff) (*RowChangeReader, error) {
-	buf, err := newBlockBuffer(db1, db2, tbl1, tbl2)
+	buf, err := NewBlockBuffer([]objects.Store{db1, db2}, []*objects.Table{tbl1, tbl2})
 	if err != nil {
 		return nil, err
 	}
@@ -68,11 +68,11 @@ func (r *RowChangeReader) ReadAt(offset int) (mergedRow [][]string, err error) {
 		return nil, io.EOF
 	}
 	d := r.rowDiffs[offset]
-	row, err := r.buf.getRow(0, d.Block, d.Row)
+	row, err := r.buf.GetRow(0, d.Block, d.Row)
 	if err != nil {
 		return nil, err
 	}
-	oldRow, err := r.buf.getRow(1, d.OldBlock, d.OldRow)
+	oldRow, err := r.buf.GetRow(1, d.OldBlock, d.OldRow)
 	if err != nil {
 		return nil, err
 	}

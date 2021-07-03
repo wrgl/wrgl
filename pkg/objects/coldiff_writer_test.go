@@ -15,7 +15,6 @@ func TestColDiffWriter(t *testing.T) {
 	for i, c := range []struct {
 		ColDiff *ColDiff
 	}{
-		{&ColDiff{}},
 		{&ColDiff{
 			Names:    []string{"a", "b", "c", "d", "f", "e"},
 			BasePK:   []uint32{1},

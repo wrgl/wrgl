@@ -43,16 +43,20 @@ func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Ta
 }
 
 func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
-	s, err := sorter.NewSorter(f, name, pk, sortRunSize, out)
+	s, err := sorter.NewSorter(sortRunSize, out)
 	if err != nil {
 		return nil, err
 	}
+	defer s.Close()
 	numWorkers -= 2
 	if numWorkers <= 0 {
 		numWorkers = 1
 	}
 	errChan := make(chan error, numWorkers+1)
-	blocks := s.SortedBlocks(errChan)
+	blocks, err := s.SortFile(f, name, pk, errChan)
+	if err != nil {
+		return nil, err
+	}
 	bar := pbar(-1, "saving blocks", out)
 	tbl := objects.NewTable(s.Columns, s.PK, s.RowsCount)
 	tblIdx := make([][]string, objects.BlocksCount(s.RowsCount))

@@ -6,23 +6,21 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/index"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/core/pkg/sorter"
 )
 
-func CreateCollector(t *testing.T, db kv.DB, fs kv.FileStore, baseCom *objects.Commit) *merge.RowCollector {
+func CreateCollector(t *testing.T, db objects.Store, baseCom *objects.Commit) *merge.RowCollector {
 	t.Helper()
-	resolvedRows, err := merge.NewSortableRows(misc.NewBuffer(nil), misc.NewBuffer(nil), []int{1})
-	require.NoError(t, err)
 	discardedRows, err := index.NewHashSet(misc.NewBuffer(nil), 0)
 	require.NoError(t, err)
-	baseT, err := table.ReadTable(db, fs, baseCom.Table)
+	baseT, err := objects.GetTable(db, baseCom.Table)
 	require.NoError(t, err)
-	collector := merge.NewCollector(db, baseT, resolvedRows, discardedRows)
+	collector, err := merge.NewCollector(db, baseT, discardedRows)
+	require.NoError(t, err)
 	return collector
 }
 
@@ -52,35 +50,37 @@ func CollectUnresolvedMerges(t *testing.T, merger *merge.Merger) []*merge.Merge 
 	return merges
 }
 
-func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) [][]string {
+func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) []*sorter.Block {
 	t.Helper()
-	rows := [][]string{}
-	ch, err := merger.SortedRows(removedCols)
+	rows := []*sorter.Block{}
+	ch, err := merger.SortedBlocks(removedCols)
 	require.NoError(t, err)
-	for sl := range ch {
-		rows = append(rows, sl)
+	for blk := range ch {
+		rows = append(rows, blk)
 	}
 	require.NoError(t, merger.Error())
 	return rows
 }
 
-func CreateMerger(t *testing.T, db kv.DB, fs kv.FileStore, commits ...[]byte) *merge.Merger {
-	base, err := versioning.SeekCommonAncestor(db, commits...)
+func CreateMerger(t *testing.T, db objects.Store, commits ...[]byte) *merge.Merger {
+	base, err := ref.SeekCommonAncestor(db, commits...)
 	require.NoError(t, err)
-	baseCom, err := versioning.GetCommit(db, base)
+	baseCom, err := objects.GetCommit(db, base)
 	require.NoError(t, err)
-	baseT, err := table.ReadTable(db, fs, baseCom.Table)
+	baseT, err := objects.GetTable(db, baseCom.Table)
 	require.NoError(t, err)
-	otherTs := make([]table.Store, len(commits))
+	otherTs := make([]*objects.Table, len(commits))
+	otherSums := make([][]byte, len(commits))
 	for i, sum := range commits {
-		com, err := versioning.GetCommit(db, sum)
+		com, err := objects.GetCommit(db, sum)
 		require.NoError(t, err)
-		otherT, err := table.ReadTable(db, fs, com.Table)
+		otherT, err := objects.GetTable(db, com.Table)
 		require.NoError(t, err)
 		otherTs[i] = otherT
+		otherSums[i] = com.Table
 	}
-	collector := CreateCollector(t, db, fs, baseCom)
-	merger, err := merge.NewMerger(db, fs, collector, 0, baseT, otherTs...)
+	collector := CreateCollector(t, db, baseCom)
+	merger, err := merge.NewMerger(db, collector, 0, baseT, otherTs, baseCom.Table, otherSums)
 	require.NoError(t, err)
 	return merger
 }

@@ -35,7 +35,7 @@ func uintSliceEqual(s1, s2 []uint32) bool {
 	return true
 }
 
-func DiffTables(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, progressPeriod time.Duration, errChan chan<- error) (<-chan *objects.Diff, progress.Tracker) {
+func DiffTables(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, progressPeriod time.Duration, errChan chan<- error, emitUnchangedRow bool) (<-chan *objects.Diff, progress.Tracker) {
 	diffChan := make(chan *objects.Diff)
 	pt := progress.NewTracker(progressPeriod, 0)
 	go func() {
@@ -45,7 +45,7 @@ func DiffTables(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 []
 		colsEqual := strSliceEqual(tbl1.Columns, tbl2.Columns)
 
 		if pkEqual && (len(tbl1.PK) > 0 || colsEqual) {
-			err := diffRows(db, tbl1, tbl2, tblIdx1, tblIdx2, diffChan, pt, colsEqual)
+			err := diffRows(db, tbl1, tbl2, tblIdx1, tblIdx2, diffChan, pt, colsEqual, emitUnchangedRow)
 			if err != nil {
 				errChan <- err
 				return
@@ -55,14 +55,14 @@ func DiffTables(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 []
 	return diffChan, pt
 }
 
-func diffRows(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, diffChan chan<- *objects.Diff, pt progress.Tracker, colsEqual bool) error {
+func diffRows(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, diffChan chan<- *objects.Diff, pt progress.Tracker, colsEqual, emitUnchangedRow bool) error {
 	pt.SetTotal(int64(tbl1.RowsCount + tbl2.RowsCount))
 	var current int64
 	err := iterateAndMatch(db, tbl1, tbl2, tblIdx1, tblIdx2, func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte) {
 		current++
 		pt.SetCurrent(current)
 		if row2 != nil {
-			if !colsEqual || !bytes.Equal(row1, row2) {
+			if emitUnchangedRow || !colsEqual || !bytes.Equal(row1, row2) {
 				diffChan <- &objects.Diff{
 					PK:       pk,
 					Sum:      row1,

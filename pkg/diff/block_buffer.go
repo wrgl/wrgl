@@ -33,27 +33,35 @@ type blockEl struct {
 	Block  [][]string
 }
 
-type blockBuffer struct {
+type BlockBuffer struct {
 	db            []objects.Store
 	tbl           []*objects.Table
 	buf           *list.List
 	maxSize, size uint64
 }
 
-func newBlockBuffer(db1, db2 objects.Store, tbl1, tbl2 *objects.Table) (*blockBuffer, error) {
+func NewBlockBuffer(db []objects.Store, tbl []*objects.Table) (*BlockBuffer, error) {
 	maxSize, err := getBufferSize()
 	if err != nil {
 		return nil, err
 	}
-	return &blockBuffer{
-		db:      []objects.Store{db1, db2},
-		tbl:     []*objects.Table{tbl1, tbl2},
+	return &BlockBuffer{
+		db:      db,
+		tbl:     tbl,
 		buf:     list.New(),
 		maxSize: maxSize,
 	}, nil
 }
 
-func (buf *blockBuffer) addBlock(table byte, offset uint32) ([][]string, error) {
+func BlockBufferWithSingleStore(db objects.Store, tbl []*objects.Table) (*BlockBuffer, error) {
+	sl := make([]objects.Store, len(tbl))
+	for i := range sl {
+		sl[i] = db
+	}
+	return NewBlockBuffer(sl, tbl)
+}
+
+func (buf *BlockBuffer) addBlock(table byte, offset uint32) ([][]string, error) {
 	if buf.size >= buf.maxSize {
 		buf.size -= buf.buf.Remove(buf.buf.Back()).(*blockEl).Size
 	}
@@ -78,7 +86,7 @@ func (buf *blockBuffer) addBlock(table byte, offset uint32) ([][]string, error) 
 	return blk, nil
 }
 
-func (buf *blockBuffer) getBlock(table byte, offset uint32) ([][]string, error) {
+func (buf *BlockBuffer) getBlock(table byte, offset uint32) ([][]string, error) {
 	el := buf.buf.Front()
 	for el != nil {
 		be := el.Value.(*blockEl)
@@ -91,7 +99,7 @@ func (buf *blockBuffer) getBlock(table byte, offset uint32) ([][]string, error) 
 	return buf.addBlock(table, offset)
 }
 
-func (buf *blockBuffer) getRow(table byte, offset uint32, rowOffset byte) ([]string, error) {
+func (buf *BlockBuffer) GetRow(table byte, offset uint32, rowOffset byte) ([]string, error) {
 	blk, err := buf.getBlock(table, offset)
 	if err != nil {
 		return nil, err

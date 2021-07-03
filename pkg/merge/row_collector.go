@@ -8,35 +8,38 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sort"
 
 	"github.com/wrgl/core/pkg/index"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/sorter"
 )
 
 type RowCollector struct {
 	discardedRows *index.HashSet
-	resolvedRows  *SortableRows
+	resolvedRows  *sorter.Sorter
 	cd            *objects.ColDiff
-	db            kv.DB
-	baseT         table.Store
+	db            objects.Store
+	baseT         *objects.Table
 }
 
-func NewCollector(db kv.DB, baseT table.Store, resolvedRows *SortableRows, discardedRow *index.HashSet) *RowCollector {
+func NewCollector(db objects.Store, baseT *objects.Table, discardedRow *index.HashSet) (*RowCollector, error) {
+	s, err := sorter.NewSorter(0, io.Discard)
+	if err != nil {
+		return nil, err
+	}
+	s.PK = baseT.PK
 	c := &RowCollector{
 		db:            db,
 		discardedRows: discardedRow,
-		resolvedRows:  resolvedRows,
+		resolvedRows:  s,
 		baseT:         baseT,
 	}
-	return c
+	return c, nil
 }
 
 func (c *RowCollector) SaveResolvedRow(pk []byte, row []string) error {
 	if row != nil {
-		err := c.resolvedRows.Add(row)
+		err := c.resolvedRows.AddRow(row)
 		if err != nil {
 			return err
 		}
@@ -86,49 +89,37 @@ func (c *RowCollector) collectRowsThatStayedTheSame() error {
 	if err != nil {
 		return err
 	}
-	rhr := c.baseT.NewRowHashReader(0, 0)
-	for {
-		pk, sum, err := rhr.Read()
-		if err == io.EOF {
-			break
-		}
+	enc := objects.NewStrListEncoder(true)
+	for _, sum := range c.baseT.Blocks {
+		blk, err := objects.GetBlock(c.db, sum)
 		if err != nil {
 			return err
 		}
-		ok, err := c.discardedRows.Has(pk)
-		if err != nil {
-			return err
-		}
-		if ok {
-			continue
-		}
-		b, err := table.GetRow(c.db, sum)
-		if err != nil {
-			return err
-		}
-		err = c.resolvedRows.AddBytes(b)
-		if err != nil {
-			return err
+		for _, row := range blk {
+			pk := objects.PKCheckSum(enc, row, c.baseT.PK)
+			ok, err := c.discardedRows.Has(pk)
+			if err != nil {
+				return err
+			}
+			if ok {
+				continue
+			}
+			err = c.resolvedRows.AddRow(row)
+			if err != nil {
+				return err
+			}
+
 		}
 	}
 	return nil
 }
 
-func (c *RowCollector) SortedRows(removedCols map[int]struct{}, errChan chan<- error) (<-chan []string, error) {
+func (c *RowCollector) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error) (<-chan *sorter.Block, error) {
 	err := c.collectRowsThatStayedTheSame()
 	if err != nil {
 		return nil, err
 	}
-	sortBy := make([]int, len(c.cd.OtherPK[0]))
-	for i, j := range c.cd.OtherPK[0] {
-		sortBy[i] = int(j) + 1
-	}
-	err = c.resolvedRows.SetSortBy(sortBy)
-	if err != nil {
-		return nil, err
-	}
-	sort.Sort(c.resolvedRows)
-	return c.resolvedRows.RowsChan(removedCols, errChan), nil
+	return c.resolvedRows.SortedBlocks(removedCols, errChan), nil
 }
 
 func (c *RowCollector) Close() error {
@@ -139,19 +130,7 @@ func (c *RowCollector) Close() error {
 	return c.resolvedRows.Close()
 }
 
-func CreateRowCollector(db kv.DB, baseT table.Store) (collector *RowCollector, cleanup func(), err error) {
-	rowsFile, err := ioutil.TempFile("", "rows_")
-	if err != nil {
-		return
-	}
-	offFile, err := ioutil.TempFile("", "off_")
-	if err != nil {
-		return
-	}
-	resolvedRows, err := NewSortableRows(rowsFile, offFile, nil)
-	if err != nil {
-		return
-	}
+func CreateRowCollector(db objects.Store, baseT *objects.Table) (collector *RowCollector, cleanup func(), err error) {
 	hashSetFile, err := ioutil.TempFile("", "hashset_")
 	if err != nil {
 		return
@@ -160,11 +139,12 @@ func CreateRowCollector(db kv.DB, baseT table.Store) (collector *RowCollector, c
 	if err != nil {
 		return
 	}
-	collector = NewCollector(db, baseT, resolvedRows, discardedRows)
+	collector, err = NewCollector(db, baseT, discardedRows)
+	if err != nil {
+		return
+	}
 	cleanup = func() {
 		collector.Close()
-		os.Remove(rowsFile.Name())
-		os.Remove(offFile.Name())
 		os.Remove(hashSetFile.Name())
 	}
 	return

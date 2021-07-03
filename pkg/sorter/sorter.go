@@ -8,6 +8,7 @@ import (
 	"path"
 	"sort"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/core/pkg/mem"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
@@ -52,6 +53,9 @@ func writeChunk(rows [][]string) (*os.File, error) {
 // Sorter sorts input CSV based on PK and output blocks of 255 rows each
 type Sorter struct {
 	PK        []uint32
+	runSize   uint64
+	bar       *progressbar.ProgressBar
+	size      uint64
 	out       io.Writer
 	chunks    []*os.File
 	current   [][]string
@@ -70,24 +74,44 @@ func SortBlock(blk [][]string, pk []uint32) {
 	})
 }
 
-func NewSorter(f io.ReadCloser, name string, pk []string, runSize uint64, out io.Writer) (s *Sorter, err error) {
-	s = &Sorter{
-		out: out,
-	}
-	err = s.readIntoSortedChunks(f, name, pk, runSize)
-	if err != nil {
-		return nil, err
-	}
-	return
-}
-
-func (s *Sorter) readIntoSortedChunks(f io.ReadCloser, name string, pk []string, runSize uint64) (err error) {
+func NewSorter(runSize uint64, out io.Writer) (s *Sorter, err error) {
 	if runSize == 0 {
 		runSize, err = getRunSize()
 		if err != nil {
 			return
 		}
 	}
+	s = &Sorter{
+		out:     out,
+		runSize: runSize,
+	}
+	return
+}
+
+func (s *Sorter) AddRow(row []string) error {
+	s.size += 4
+	for _, str := range row {
+		s.size += uint64(len(str)) + 2
+	}
+	if s.bar != nil {
+		s.bar.Add(1)
+	}
+	s.RowsCount++
+	s.current = append(s.current, row)
+	if s.size >= s.runSize {
+		s.size = 0
+		SortBlock(s.current, s.PK)
+		chunk, err := writeChunk(s.current)
+		if err != nil {
+			return err
+		}
+		s.chunks = append(s.chunks, chunk)
+		s.current = s.current[:0]
+	}
+	return nil
+}
+
+func (s *Sorter) SortFile(f io.ReadCloser, name string, pk []string, errChan chan<- error) (blocks chan *Block, err error) {
 	r := csv.NewReader(f)
 	s.Columns, err = r.Read()
 	if err != nil {
@@ -98,48 +122,26 @@ func (s *Sorter) readIntoSortedChunks(f io.ReadCloser, name string, pk []string,
 		return
 	}
 	var row []string
-	eof := false
-	bar := pbar(-1, "reading "+path.Base(name), s.out)
-	var size uint64
-	for run := 0; ; run++ {
-		for {
-			row, err = r.Read()
-			if err == io.EOF {
-				eof = true
-				break
-			}
-			if err != nil {
-				return
-			}
-			size += 4
-			for _, s := range row {
-				size += uint64(len(s)) + 2
-			}
-			bar.Add(1)
-			s.RowsCount++
-			s.current = append(s.current, row)
-			if size >= runSize {
-				size = 0
-				break
-			}
-		}
-		SortBlock(s.current, s.PK)
-		if eof {
+	s.bar = pbar(-1, "reading "+path.Base(name), s.out)
+	s.size = 0
+	for {
+		row, err = r.Read()
+		if err == io.EOF {
 			break
-		} else {
-			chunk, err := writeChunk(s.current)
-			if err != nil {
-				return err
-			}
-			s.chunks = append(s.chunks, chunk)
-			s.current = s.current[:0]
+		} else if err != nil {
+			return
 		}
+		s.AddRow(row)
 	}
-	err = bar.Finish()
+	err = s.bar.Finish()
 	if err != nil {
 		return
 	}
-	return f.Close()
+	err = f.Close()
+	if err != nil {
+		return
+	}
+	return s.SortedBlocks(nil, errChan), nil
 }
 
 type Block struct {
@@ -148,7 +150,21 @@ type Block struct {
 	PK     []string
 }
 
-func (s *Sorter) SortedBlocks(errChan chan<- error) (blocks chan *Block) {
+func (s *Sorter) removeCols(row []string, removedCols map[int]struct{}) []string {
+	if removedCols == nil {
+		return row
+	}
+	strs := make([]string, 0, len(row)-len(removedCols))
+	for i, s := range row {
+		if _, ok := removedCols[i]; ok {
+			continue
+		}
+		strs = append(strs, s)
+	}
+	return strs
+}
+
+func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error) (blocks chan *Block) {
 	blocks = make(chan *Block, 1000)
 	dec := objects.NewStrListDecoder(false)
 	n := len(s.chunks)
@@ -159,6 +175,7 @@ func (s *Sorter) SortedBlocks(errChan chan<- error) (blocks chan *Block) {
 		blk := make([][]string, 0, 255)
 		offset := 0
 		var pk []string
+		SortBlock(s.current, s.PK)
 		for {
 			minInd := 0
 			var minRow []string
@@ -213,7 +230,7 @@ func (s *Sorter) SortedBlocks(errChan chan<- error) (blocks chan *Block) {
 			if minRow == nil {
 				break
 			}
-			blk = append(blk, minRow)
+			blk = append(blk, s.removeCols(minRow, removedCols))
 			if len(blk) == 1 {
 				pk = slice.IndicesToValues(blk[0], s.PK)
 			}
@@ -241,4 +258,14 @@ func (s *Sorter) SortedBlocks(errChan chan<- error) (blocks chan *Block) {
 		}
 	}()
 	return blocks
+}
+
+func (s *Sorter) Close() error {
+	for _, f := range s.chunks {
+		f.Close()
+		if err := os.Remove(f.Name()); err != nil {
+			return err
+		}
+	}
+	return nil
 }

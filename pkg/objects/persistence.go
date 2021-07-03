@@ -73,8 +73,12 @@ func SaveCommit(s Store, content []byte) (sum []byte, err error) {
 	return arr[:], nil
 }
 
+func GetBlockBytes(s Store, sum []byte) ([]byte, error) {
+	return s.Get(blockKey(sum))
+}
+
 func GetBlock(s Store, sum []byte) ([][]string, error) {
-	b, err := s.Get(blockKey(sum))
+	b, err := GetBlockBytes(s, sum)
 	if err != nil {
 		return nil, err
 	}

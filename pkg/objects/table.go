@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+
+	"github.com/wrgl/core/pkg/slice"
 )
 
 type Table struct {
@@ -28,6 +30,10 @@ func NewTable(columns []string, pk []uint32, rowsCount uint32) *Table {
 		RowsCount: rowsCount,
 		Blocks:    make([][]byte, BlocksCount(rowsCount)),
 	}
+}
+
+func (t *Table) PrimaryKey() []string {
+	return slice.IndicesToValues(t.Columns, t.PK)
 }
 
 func (t *Table) writeLine(w io.Writer, label string, b []byte) (int64, error) {

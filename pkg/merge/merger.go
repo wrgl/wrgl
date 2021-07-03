@@ -4,36 +4,38 @@
 package merge
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/wrgl/core/pkg/diff"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/progress"
-	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/sorter"
 )
 
 type Merger struct {
-	db             kv.DB
-	fs             kv.FileStore
+	db             objects.Store
 	errChan        chan error
 	progressPeriod time.Duration
 	Progress       progress.Tracker
-	baseT          table.Store
-	otherTs        []table.Store
+	baseT          *objects.Table
+	otherTs        []*objects.Table
+	baseSum        []byte
+	otherSums      [][]byte
 	collector      *RowCollector
 }
 
-func NewMerger(db kv.DB, fs kv.FileStore, collector *RowCollector, progressPeriod time.Duration, baseT table.Store, otherTs ...table.Store) (m *Merger, err error) {
+func NewMerger(db objects.Store, collector *RowCollector, progressPeriod time.Duration, baseT *objects.Table, otherTs []*objects.Table, baseSum []byte, otherSums [][]byte) (m *Merger, err error) {
 	m = &Merger{
 		db:             db,
-		fs:             fs,
 		errChan:        make(chan error, len(otherTs)),
 		progressPeriod: progressPeriod,
 		baseT:          baseT,
 		otherTs:        otherTs,
+		baseSum:        baseSum,
+		otherSums:      otherSums,
 		collector:      collector,
 	}
 	return
@@ -60,15 +62,19 @@ func strSliceEqual(left, right []string) bool {
 	return true
 }
 
-func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, errChan chan<- error, diffChans ...<-chan objects.Diff) {
+func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, errChan chan<- error, diffChans ...<-chan *objects.Diff) {
 	var (
-		n        = len(diffChans)
-		cases    = make([]reflect.SelectCase, n)
-		closed   = make([]bool, n)
-		merges   = map[string]*Merge{}
-		counter  = map[string]int{}
-		resolver = NewRowResolver(m.db, colDiff)
+		n       = len(diffChans)
+		cases   = make([]reflect.SelectCase, n)
+		closed  = make([]bool, n)
+		merges  = map[string]*Merge{}
+		counter = map[string]int{}
 	)
+	resolver, err := NewRowResolver(m.db, colDiff, m.baseT, m.otherTs)
+	if err != nil {
+		errChan <- err
+		return
+	}
 
 	mergeChan <- &Merge{
 		ColDiff: colDiff,
@@ -98,56 +104,48 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, 
 			}
 			continue
 		}
-		d := recv.Interface().(objects.Diff)
-		switch d.Type {
-		case objects.DTRow:
-			pkSum := string(d.PK)
-			if m, ok := merges[pkSum]; !ok {
-				merges[pkSum] = &Merge{
-					PK:     d.PK,
-					Base:   d.OldSum,
-					Others: make([][]byte, n),
-				}
-				merges[pkSum].Others[chosen] = d.Sum
-				counter[pkSum] = 1
-			} else {
-				m.Others[chosen] = d.Sum
-				counter[pkSum]++
-				if counter[pkSum] == n {
-					err := resolver.Resolve(merges[pkSum])
-					if err != nil {
-						errChan <- fmt.Errorf("resolve error: %v", err)
-						return
-					}
-					mergeChan <- merges[pkSum]
-					delete(merges, pkSum)
-					delete(counter, pkSum)
-				}
+		d := recv.Interface().(*objects.Diff)
+		pkSum := string(d.PK)
+		if m, ok := merges[pkSum]; !ok {
+			merges[pkSum] = &Merge{
+				PK:              d.PK,
+				Base:            d.OldSum,
+				BaseBlockOffset: d.OldBlock,
+				BaseRowOffset:   d.OldRow,
+				Others:          make([][]byte, n),
+				BlockOffset:     make([]uint32, n),
+				RowOffset:       make([]byte, n),
 			}
+			merges[pkSum].Others[chosen] = d.Sum
+			merges[pkSum].BlockOffset[chosen] = d.Block
+			merges[pkSum].RowOffset[chosen] = d.Row
+			counter[pkSum] = 1
+		} else {
+			m.Others[chosen] = d.Sum
+			m.BlockOffset[chosen] = d.Block
+			m.RowOffset[chosen] = d.Row
+			counter[pkSum]++
 		}
 	}
 	for _, obj := range merges {
-		m.fillMissingSums(obj)
+		if obj.Base != nil {
+			noChanges := true
+			for _, b := range obj.Others {
+				if !bytes.Equal(b, obj.Base) {
+					noChanges = false
+					break
+				}
+			}
+			if noChanges {
+				continue
+			}
+		}
 		err := resolver.Resolve(obj)
 		if err != nil {
 			errChan <- fmt.Errorf("resolve error: %v", err)
 			return
 		}
 		mergeChan <- obj
-	}
-}
-
-func (m *Merger) fillMissingSums(obj *Merge) {
-	if obj.Base == nil {
-		return
-	}
-	for i, s := range obj.Others {
-		if s == nil {
-			sum, ok := m.otherTs[i].GetRowHash(obj.PK)
-			if ok {
-				obj.Others[i] = sum
-			}
-		}
 	}
 }
 
@@ -162,16 +160,24 @@ func (m *Merger) Start() (ch <-chan *Merge, err error) {
 		}
 	}
 	mergeChan := make(chan *Merge)
-	diffs := make([]<-chan objects.Diff, n)
+	diffs := make([]<-chan *objects.Diff, n)
 	progs := make([]progress.Tracker, n)
 	cols := make([][2][]string, n)
+	baseIdx, err := objects.GetTableIndex(m.db, m.baseSum)
+	if err != nil {
+		return nil, err
+	}
 	for i, t := range m.otherTs {
-		diffChan, progTracker := diff.DiffTables(t, m.baseT, m.progressPeriod*time.Duration(n), m.errChan, false)
+		idx, err := objects.GetTableIndex(m.db, m.otherSums[i])
+		if err != nil {
+			return nil, err
+		}
+		diffChan, progTracker := diff.DiffTables(m.db, t, m.baseT, idx, baseIdx, m.progressPeriod*time.Duration(n), m.errChan, true)
 		diffs[i] = diffChan
 		progs[i] = progTracker
-		cols[i] = [2][]string{t.Columns(), t.PrimaryKey()}
+		cols[i] = [2][]string{t.Columns, t.PrimaryKey()}
 	}
-	colDiff := objects.CompareColumns([2][]string{m.baseT.Columns(), m.baseT.PrimaryKey()}, cols...)
+	colDiff := objects.CompareColumns([2][]string{m.baseT.Columns, m.baseT.PrimaryKey()}, cols...)
 	m.Progress = progress.JoinTrackers(progs...)
 	go m.mergeTables(colDiff, mergeChan, m.errChan, diffs...)
 	return m.collector.CollectResolvedRow(m.errChan, mergeChan), nil
@@ -181,9 +187,9 @@ func (m *Merger) SaveResolvedRow(pk []byte, row []string) error {
 	return m.collector.SaveResolvedRow(pk, row)
 }
 
-func (m *Merger) SortedRows(removedCols map[int]struct{}) (<-chan []string, error) {
+func (m *Merger) SortedBlocks(removedCols map[int]struct{}) (<-chan *sorter.Block, error) {
 	m.errChan = make(chan error, 1)
-	return m.collector.SortedRows(removedCols, m.errChan)
+	return m.collector.SortedBlocks(removedCols, m.errChan)
 }
 
 func (m *Merger) Columns(removedCols map[int]struct{}) []string {
