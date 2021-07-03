@@ -9,15 +9,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
+	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestIndexTable(t *testing.T) {
-	rows := createRandomCSV([]string{"a", "b", "c", "d"}, 700)
+	rows := testutils.BuildRawCSV(4, 700)
 	f := writeCSV(t, rows)
 	defer os.Remove(f.Name())
 	db := objmock.NewStore()
 
-	sum, err := IngestTable(db, f, "test.csv", []string{"a"}, 0, 1, io.Discard)
+	sum, err := IngestTable(db, f, "test.csv", rows[0][:1], 0, 1, io.Discard)
 	require.NoError(t, err)
 	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)

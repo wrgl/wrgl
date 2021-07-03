@@ -1,4 +1,4 @@
-package ingest
+package sorter
 
 import (
 	"encoding/csv"
@@ -13,19 +13,6 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func createRandomCSV(columns []string, n int) [][]string {
-	rows := make([][]string, n+1)
-	rows[0] = columns
-	m := len(columns)
-	for i := 0; i < n; i++ {
-		rows[i+1] = make([]string, m)
-		for j := 0; j < m; j++ {
-			rows[i+1][j] = testutils.BrokenRandomAlphaNumericString(5)
-		}
-	}
-	return rows
-}
-
 func writeCSV(t *testing.T, rows [][]string) *os.File {
 	t.Helper()
 	f, err := ioutil.TempFile("", "test_sorter_*")
@@ -38,11 +25,11 @@ func writeCSV(t *testing.T, rows [][]string) *os.File {
 	return f
 }
 
-func collectBlocks(t *testing.T, s *Sorter, rowsCount uint32) []*block {
+func collectBlocks(t *testing.T, s *Sorter, rowsCount uint32) []*Block {
 	t.Helper()
 	errCh := make(chan error, 1)
-	blkCh := s.EmitChunks(errCh)
-	blocks := make([]*block, objects.BlocksCount(700))
+	blkCh := s.SortedBlocks(errCh)
+	blocks := make([]*Block, objects.BlocksCount(700))
 	for blk := range blkCh {
 		blocks[blk.Offset] = blk
 	}
@@ -54,17 +41,17 @@ func collectBlocks(t *testing.T, s *Sorter, rowsCount uint32) []*block {
 }
 
 func TestSorter(t *testing.T) {
-	rows := createRandomCSV([]string{"a", "b", "c", "d"}, 700)
+	rows := testutils.BuildRawCSV(4, 700)
 	f := writeCSV(t, rows)
 	defer os.Remove(f.Name())
 
-	s, err := NewSorter(f, f.Name(), []string{"a"}, 4096, io.Discard)
+	s, err := NewSorter(f, f.Name(), rows[0][:1], 4096, io.Discard)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"a", "b", "c", "d"}, s.Columns)
+	assert.Equal(t, rows[0], s.Columns)
 	assert.Equal(t, []uint32{0}, s.PK)
 	blocks := collectBlocks(t, s, 700)
 	assert.Len(t, blocks, 3)
-	sortBlock(rows[1:], s.PK)
+	SortBlock(rows[1:], s.PK)
 	for i, blk := range blocks {
 		require.Equal(t, i, blk.Offset)
 		if i < len(blocks)-1 {
@@ -85,7 +72,7 @@ func TestSorter(t *testing.T) {
 	// sorter run entirely in memory
 	f, err = os.Open(f.Name())
 	require.NoError(t, err)
-	s, err = NewSorter(f, f.Name(), []string{"a"}, 0, io.Discard)
+	s, err = NewSorter(f, f.Name(), rows[0][:1], 0, io.Discard)
 	require.NoError(t, err)
 	blocks2 := collectBlocks(t, s, 700)
 	assert.Equal(t, blocks, blocks2)

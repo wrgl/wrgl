@@ -1,4 +1,4 @@
-package ingest
+package sorter
 
 import (
 	"encoding/csv"
@@ -59,7 +59,7 @@ type Sorter struct {
 	RowsCount uint32
 }
 
-func sortBlock(blk [][]string, pk []uint32) {
+func SortBlock(blk [][]string, pk []uint32) {
 	sort.Slice(blk, func(i, j int) bool {
 		for _, u := range pk {
 			if blk[i][u] < blk[j][u] {
@@ -123,7 +123,7 @@ func (s *Sorter) readIntoSortedChunks(f io.ReadCloser, name string, pk []string,
 				break
 			}
 		}
-		sortBlock(s.current, s.PK)
+		SortBlock(s.current, s.PK)
 		if eof {
 			break
 		} else {
@@ -142,14 +142,14 @@ func (s *Sorter) readIntoSortedChunks(f io.ReadCloser, name string, pk []string,
 	return f.Close()
 }
 
-type block struct {
+type Block struct {
 	Offset int
 	Block  [][]string
 	PK     []string
 }
 
-func (s *Sorter) EmitChunks(errChan chan<- error) (blocks chan *block) {
-	blocks = make(chan *block, 1000)
+func (s *Sorter) SortedBlocks(errChan chan<- error) (blocks chan *Block) {
+	blocks = make(chan *Block, 1000)
 	dec := objects.NewStrListDecoder(false)
 	n := len(s.chunks)
 	chunkRows := make([][]string, n)
@@ -223,7 +223,7 @@ func (s *Sorter) EmitChunks(errChan chan<- error) (blocks chan *block) {
 				s.current = s.current[1:]
 			}
 			if len(blk) == 255 {
-				blocks <- &block{
+				blocks <- &Block{
 					Offset: offset,
 					Block:  blk,
 					PK:     pk,
@@ -233,7 +233,7 @@ func (s *Sorter) EmitChunks(errChan chan<- error) (blocks chan *block) {
 			}
 		}
 		if len(blk) > 0 {
-			blocks <- &block{
+			blocks <- &Block{
 				Offset: offset,
 				Block:  blk,
 				PK:     pk,

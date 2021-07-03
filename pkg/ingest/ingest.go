@@ -7,9 +7,10 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/sorter"
 )
 
-func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *block, wg *sync.WaitGroup, errChan chan<- error) {
+func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *sorter.Block, wg *sync.WaitGroup, errChan chan<- error) {
 	buf := bytes.NewBuffer(nil)
 	defer wg.Done()
 	for blk := range blocks {
@@ -42,7 +43,7 @@ func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Ta
 }
 
 func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
-	s, err := NewSorter(f, name, pk, sortRunSize, out)
+	s, err := sorter.NewSorter(f, name, pk, sortRunSize, out)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,7 @@ func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, so
 		numWorkers = 1
 	}
 	errChan := make(chan error, numWorkers+1)
-	blocks := s.EmitChunks(errChan)
+	blocks := s.SortedBlocks(errChan)
 	bar := pbar(-1, "saving blocks", out)
 	tbl := objects.NewTable(s.Columns, s.PK, s.RowsCount)
 	tblIdx := make([][]string, objects.BlocksCount(s.RowsCount))
