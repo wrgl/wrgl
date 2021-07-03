@@ -4,35 +4,32 @@
 package pack
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/mmcloughlin/meow"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 )
 
 var zeroOID = strings.Repeat("0", 32)
 
 type ReceivePackHandler struct {
-	db kv.DB
-	fs kv.FileStore
-	c  *versioning.Config
+	db objects.Store
+	rs ref.Store
+	c  *conf.Config
 }
 
-func NewReceivePackHandler(db kv.DB, fs kv.FileStore, c *versioning.Config) *ReceivePackHandler {
+func NewReceivePackHandler(db objects.Store, rs ref.Store, c *conf.Config) *ReceivePackHandler {
 	return &ReceivePackHandler{
 		db: db,
-		fs: fs,
+		rs: rs,
 		c:  c,
 	}
 }
@@ -96,26 +93,16 @@ func (h *ReceivePackHandler) saveObjects(pr *encoding.PackfileReader) error {
 		}
 		switch ot {
 		case encoding.ObjectCommit:
-			_, err := versioning.SaveCommitBytes(h.db, 0, oc)
-			if err != nil {
-				return err
-			}
+			_, err = objects.SaveCommit(h.db, oc)
 		case encoding.ObjectTable:
-			tr, err := objects.NewTableReader(objects.NopCloser(bytes.NewReader(oc)))
-			if err != nil {
-				return err
-			}
-			b := table.NewBuilder(h.db, h.fs, tr.Columns, tr.PK, 0, 0)
-			_, err = b.SaveTableBytes(oc, tr.RowsCount())
-			if err != nil {
-				return err
-			}
-		case encoding.ObjectRow:
-			sum := meow.Checksum(0, oc)
-			err := table.SaveRow(h.db, sum[:], oc)
-			if err != nil {
-				return err
-			}
+			_, err = objects.SaveTable(h.db, oc)
+		case encoding.ObjectBlock:
+			_, err = objects.SaveBlock(h.db, oc)
+		default:
+			panic(fmt.Sprintf("unrecognized object type %v", ot))
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -128,23 +115,23 @@ func (h *ReceivePackHandler) saveRefs(updates []*packutils.Update) error {
 				u.ErrMsg = "remote does not support deleting refs"
 				continue
 			} else {
-				err := versioning.DeleteRef(h.db, h.fs, u.Dst[5:])
+				err := ref.DeleteRef(h.rs, u.Dst[5:])
 				if err != nil {
 					return err
 				}
 			}
-		} else if !versioning.CommitExist(h.db, u.Sum) {
+		} else if !objects.CommitExist(h.db, u.Sum) {
 			u.ErrMsg = "remote did not receive commit"
 			continue
 		}
-		oldSum, _ := versioning.GetRef(h.db, u.Dst[5:])
+		oldSum, _ := ref.GetRef(h.rs, u.Dst[5:])
 		var msg string
 		if oldSum != nil {
 			if string(u.OldSum) != string(oldSum) {
 				u.ErrMsg = "remote ref updated since checkout"
 				continue
 			} else if *h.c.Receive.DenyNonFastForwards {
-				fastForward, err := versioning.IsAncestorOf(h.db, oldSum, u.Sum)
+				fastForward, err := ref.IsAncestorOf(h.db, oldSum, u.Sum)
 				if err != nil {
 					return err
 				} else if !fastForward {
@@ -156,7 +143,7 @@ func (h *ReceivePackHandler) saveRefs(updates []*packutils.Update) error {
 		} else {
 			msg = "create ref"
 		}
-		err := versioning.SaveRef(h.db, h.fs, u.Dst[5:], u.Sum, h.c.User.Name, h.c.User.Email, "receive-pack", msg)
+		err := ref.SaveRef(h.rs, u.Dst[5:], u.Sum, h.c.User.Name, h.c.User.Email, "receive-pack", msg)
 		if err != nil {
 			return err
 		}

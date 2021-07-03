@@ -9,9 +9,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 )
 
 type Negotiator struct {
@@ -46,7 +45,7 @@ func (n *Negotiator) CommitsToSend() (commits []*objects.Commit) {
 	return
 }
 
-func (n *Negotiator) ensureWantsAreReachable(queue *versioning.CommitsQueue, wants [][]byte) error {
+func (n *Negotiator) ensureWantsAreReachable(queue *ref.CommitsQueue, wants [][]byte) error {
 	confirmed := map[string]struct{}{}
 	for _, want := range wants {
 		if queue.Seen(want) {
@@ -75,7 +74,7 @@ func (n *Negotiator) ensureWantsAreReachable(queue *versioning.CommitsQueue, wan
 	return NewBadRequestError("unrecognized wants: %s", strings.Join(sums, ", "))
 }
 
-func (n *Negotiator) findCommons(db kv.DB, queue *versioning.CommitsQueue, haves [][]byte) (commons [][]byte, err error) {
+func (n *Negotiator) findCommons(db objects.Store, queue *ref.CommitsQueue, haves [][]byte) (commons [][]byte, err error) {
 	ancestors := map[string]struct{}{}
 	addToCommons := func(b []byte) error {
 		if _, ok := ancestors[string(b)]; ok {
@@ -92,7 +91,7 @@ func (n *Negotiator) findCommons(db kv.DB, queue *versioning.CommitsQueue, haves
 				continue
 			}
 			ancestors[string(sum)] = struct{}{}
-			commit, err := versioning.GetCommit(db, sum)
+			commit, err := objects.GetCommit(db, sum)
 			if err != nil {
 				return err
 			}
@@ -128,7 +127,7 @@ func (n *Negotiator) findCommons(db kv.DB, queue *versioning.CommitsQueue, haves
 	return commons, nil
 }
 
-func (n *Negotiator) findClosedSetOfObjects(db kv.DB) (err error) {
+func (n *Negotiator) findClosedSetOfObjects(db objects.Store) (err error) {
 	alreadySeenCommits := map[string]struct{}{}
 	wants := map[string]struct{}{}
 wantsLoop:
@@ -148,7 +147,7 @@ wantsLoop:
 			if _, ok := n.commons[string(sum)]; ok {
 				continue
 			}
-			c, err := versioning.GetCommit(db, sum)
+			c, err := objects.GetCommit(db, sum)
 			if err != nil {
 				return err
 			}
@@ -178,14 +177,14 @@ wantsLoop:
 
 // HandleUploadPackRequest parse upload-pack request and returns non-nil acks if there are ACK to send to client.
 // Otherwise it returns nil acks to denote that the negotiation is done and a Packfile should be sent now.
-func (n *Negotiator) HandleUploadPackRequest(db kv.DB, wants, haves [][]byte, done bool) (acks [][]byte, err error) {
+func (n *Negotiator) HandleUploadPackRequest(db objects.Store, rs ref.Store, wants, haves [][]byte, done bool) (acks [][]byte, err error) {
 	if len(n.wants) == 0 {
 		// first request must have non-empty want list
 		if len(wants) == 0 {
 			return nil, NewBadRequestError("empty wants list")
 		}
 	}
-	m, err := versioning.ListLocalRefs(db)
+	m, err := ref.ListLocalRefs(rs)
 	if err != nil {
 		return
 	}
@@ -193,7 +192,7 @@ func (n *Negotiator) HandleUploadPackRequest(db kv.DB, wants, haves [][]byte, do
 	for _, v := range m {
 		sl = append(sl, v)
 	}
-	queue, err := versioning.NewCommitsQueue(db, sl)
+	queue, err := ref.NewCommitsQueue(db, sl)
 	if err != nil {
 		return
 	}

@@ -7,17 +7,14 @@ import (
 	"io"
 
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
-func getCommonTables(db kv.DB, commonCommits [][]byte) (map[string]struct{}, error) {
+func getCommonTables(db objects.Store, commonCommits [][]byte) (map[string]struct{}, error) {
 	commonTables := map[string]struct{}{}
 	for _, b := range commonCommits {
-		c, err := versioning.GetCommit(db, b)
+		c, err := objects.GetCommit(db, b)
 		if err != nil {
 			return nil, err
 		}
@@ -28,10 +25,9 @@ func getCommonTables(db kv.DB, commonCommits [][]byte) (map[string]struct{}, err
 
 func getTablesToSend(commits []*objects.Commit, buf *misc.Buffer, pw *encoding.PackfileWriter, commonTables map[string]struct{}) ([][]byte, error) {
 	tables := [][]byte{}
-	cw := objects.NewCommitWriter(buf)
 	for _, c := range commits {
 		buf.Reset()
-		err := cw.Write(c)
+		_, err := c.WriteTo(buf)
 		if err != nil {
 			return nil, err
 		}
@@ -47,62 +43,36 @@ func getTablesToSend(commits []*objects.Commit, buf *misc.Buffer, pw *encoding.P
 	return tables, nil
 }
 
-func getCommonRows(db kv.DB, fs kv.FileStore, commonTables map[string]struct{}) (map[string]struct{}, error) {
-	commonRows := map[string]struct{}{}
+func getCommonBlocks(db objects.Store, commonTables map[string]struct{}) (map[string]struct{}, error) {
+	commonBlocks := map[string]struct{}{}
 	for b := range commonTables {
-		t, err := table.ReadTable(db, fs, []byte(b))
+		t, err := objects.GetTable(db, []byte(b))
 		if err != nil {
 			return nil, err
 		}
-		rhr := t.NewRowHashReader(0, 0)
-		for {
-			_, row, err := rhr.Read()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-			commonRows[string(row)] = struct{}{}
+		for _, blk := range t.Blocks {
+			commonBlocks[string(blk)] = struct{}{}
 		}
 	}
-	return commonRows, nil
+	return commonBlocks, nil
 }
 
-func getRowsToSend(db kv.DB, fs kv.FileStore, buf *misc.Buffer, pw *encoding.PackfileWriter, commonRows map[string]struct{}, tables [][]byte) ([][]byte, error) {
-	tw := objects.NewTableWriter(buf)
-	rows := [][]byte{}
+func getBlocksToSend(db objects.Store, buf *misc.Buffer, pw *encoding.PackfileWriter, commonBlocks map[string]struct{}, tables [][]byte) ([][]byte, error) {
+	blocks := [][]byte{}
 	for _, b := range tables {
-		buf.Reset()
-		t, err := table.ReadTable(db, fs, []byte(b))
+		tbl, err := objects.GetTable(db, b)
 		if err != nil {
 			return nil, err
 		}
-		err = tw.WriteMeta(t.Columns(), t.PrimaryKeyIndices())
-		if err != nil {
-			return nil, err
-		}
-		rhr := t.NewRowHashReader(0, 0)
-		i := 0
-		for {
-			pk, row, err := rhr.Read()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-			err = tw.WriteRowAt(append(pk, row...), i)
-			if err != nil {
-				return nil, err
-			}
-			i++
-			if _, ok := commonRows[string(row)]; ok {
+		for _, blk := range tbl.Blocks {
+			if _, ok := commonBlocks[string(blk)]; ok {
 				continue
 			}
-			rows = append(rows, row)
+			blocks = append(blocks, blk)
 		}
-		err = tw.Flush()
+
+		buf.Reset()
+		_, err = tbl.WriteTo(buf)
 		if err != nil {
 			return nil, err
 		}
@@ -111,16 +81,16 @@ func getRowsToSend(db kv.DB, fs kv.FileStore, buf *misc.Buffer, pw *encoding.Pac
 			return nil, err
 		}
 	}
-	return rows, nil
+	return blocks, nil
 }
 
-func sendRows(db kv.DB, pw *encoding.PackfileWriter, rows [][]byte) error {
-	for _, row := range rows {
-		obj, err := table.GetRow(db, row)
+func sendBlocks(db objects.Store, pw *encoding.PackfileWriter, blocks [][]byte) error {
+	for _, blk := range blocks {
+		b, err := objects.GetBlockBytes(db, blk)
 		if err != nil {
 			return err
 		}
-		err = pw.WriteObject(encoding.ObjectRow, obj)
+		err = pw.WriteObject(encoding.ObjectBlock, b)
 		if err != nil {
 			return err
 		}
@@ -128,12 +98,12 @@ func sendRows(db kv.DB, pw *encoding.PackfileWriter, rows [][]byte) error {
 	return nil
 }
 
-func WriteCommitsToPackfile(db kv.DB, fs kv.FileStore, commits []*objects.Commit, commonCommits [][]byte, w io.Writer) error {
+func WriteCommitsToPackfile(db objects.Store, commits []*objects.Commit, commonCommits [][]byte, w io.Writer) error {
 	commonTables, err := getCommonTables(db, commonCommits)
 	if err != nil {
 		return err
 	}
-	commonRows, err := getCommonRows(db, fs, commonTables)
+	commonBlocks, err := getCommonBlocks(db, commonTables)
 	if err != nil {
 		return err
 	}
@@ -146,9 +116,9 @@ func WriteCommitsToPackfile(db kv.DB, fs kv.FileStore, commits []*objects.Commit
 	if err != nil {
 		return err
 	}
-	rows, err := getRowsToSend(db, fs, buf, pw, commonRows, tables)
+	blocks, err := getBlocksToSend(db, buf, pw, commonBlocks, tables)
 	if err != nil {
 		return err
 	}
-	return sendRows(db, pw, rows)
+	return sendBlocks(db, pw, blocks)
 }

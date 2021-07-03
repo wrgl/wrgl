@@ -10,47 +10,48 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
 	packclient "github.com/wrgl/core/pkg/pack/client"
 	packtest "github.com/wrgl/core/pkg/pack/test"
+	"github.com/wrgl/core/pkg/ref"
+	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
+	refmock "github.com/wrgl/core/pkg/ref/mock"
 	"github.com/wrgl/core/pkg/testutils"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 func TestInfoRefs(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
-	sum1, commit1 := versioning.SaveTestCommit(t, db, nil)
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
 	head := "my-branch"
-	err := versioning.CommitHead(db, fs, head, sum1, commit1)
+	err := ref.CommitHead(rs, head, sum1, commit1)
 	require.NoError(t, err)
-	sum2, _ := versioning.SaveTestCommit(t, db, nil)
+	sum2, _ := refhelpers.SaveTestCommit(t, db, nil)
 	tag := "my-tag"
-	err = versioning.SaveTag(db, tag, sum2)
+	err = ref.SaveTag(rs, tag, sum2)
 	require.NoError(t, err)
-	sum3, _ := versioning.SaveTestCommit(t, db, nil)
+	sum3, _ := refhelpers.SaveTestCommit(t, db, nil)
 	remote := "origin"
 	name := "main"
-	err = versioning.SaveRemoteRef(
-		db, fs, remote, name, sum3,
+	err = ref.SaveRemoteRef(
+		rs, remote, name, sum3,
 		testutils.BrokenRandomAlphaNumericString(8),
 		testutils.BrokenRandomAlphaNumericString(10),
 		"fetch",
 		"from origin",
 	)
 	require.NoError(t, err)
-	packtest.RegisterHandler(http.MethodGet, "/info/refs/", NewInfoRefsHandler(db))
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", NewInfoRefsHandler(rs))
 
-	dbc := kv.NewMockStore(false)
-	fsc := kv.NewMockStore(false)
-	c, err := packclient.NewClient(dbc, fsc, packtest.TestOrigin)
+	dbc := objmock.NewStore()
+	c, err := packclient.NewClient(dbc, packtest.TestOrigin)
 	require.NoError(t, err)
 	m, err := c.GetRefsInfo()
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
-		"refs/heads/" + head: sum1,
-		"refs/tags/" + tag:   sum2,
+		"heads/" + head: sum1,
+		"tags/" + tag:   sum2,
 	}, m)
 }

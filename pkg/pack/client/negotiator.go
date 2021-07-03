@@ -9,20 +9,20 @@ import (
 	"sync"
 
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/objects"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 )
 
 const defaultHavesPerRoundTrip = 32
 
 type Negotiator struct {
 	c                 *Client
-	db                kv.DB
-	fs                kv.FileStore
+	db                objects.Store
+	rs                ref.Store
 	ObjectChan        chan *packutils.Object
 	wants             [][]byte
-	q                 *versioning.CommitsQueue
+	q                 *ref.CommitsQueue
 	done              bool
 	popCount          int
 	wg                *sync.WaitGroup
@@ -30,20 +30,20 @@ type Negotiator struct {
 	havesPerRoundTrip int
 }
 
-func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, advertised [][]byte, havesPerRoundTrip int) (*Negotiator, error) {
+func NewNegotiator(db objects.Store, rs ref.Store, wg *sync.WaitGroup, c *Client, advertised [][]byte, havesPerRoundTrip int) (*Negotiator, error) {
 	if havesPerRoundTrip == 0 {
 		havesPerRoundTrip = defaultHavesPerRoundTrip
 	}
 	neg := &Negotiator{
 		c:                 c,
 		db:                db,
-		fs:                fs,
+		rs:                rs,
 		ObjectChan:        make(chan *packutils.Object, 100),
 		wg:                wg,
 		havesPerRoundTrip: havesPerRoundTrip,
 	}
 	for _, b := range advertised {
-		if !versioning.CommitExist(db, b) {
+		if !objects.CommitExist(db, b) {
 			neg.wants = append(neg.wants, b)
 		}
 	}
@@ -55,7 +55,7 @@ func NewNegotiator(db kv.DB, fs kv.FileStore, wg *sync.WaitGroup, c *Client, adv
 
 func (n *Negotiator) popHaves() (haves [][]byte, err error) {
 	if n.q == nil {
-		m, err := versioning.ListAllRefs(n.db)
+		m, err := ref.ListAllRefs(n.rs)
 		if err != nil {
 			return nil, err
 		}
@@ -63,7 +63,7 @@ func (n *Negotiator) popHaves() (haves [][]byte, err error) {
 		for _, v := range m {
 			sl = append(sl, v)
 		}
-		n.q, err = versioning.NewCommitsQueue(n.db, sl)
+		n.q, err = ref.NewCommitsQueue(n.db, sl)
 		if err != nil {
 			return nil, err
 		}

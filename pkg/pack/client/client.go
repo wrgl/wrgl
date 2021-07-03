@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
@@ -26,11 +25,10 @@ type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
 	origin string
-	db     kv.DB
-	fs     kv.FileStore
+	db     objects.Store
 }
 
-func NewClient(db kv.DB, fs kv.FileStore, origin string) (*Client, error) {
+func NewClient(db objects.Store, origin string) (*Client, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, err
@@ -41,7 +39,6 @@ func NewClient(db kv.DB, fs kv.FileStore, origin string) (*Client, error) {
 		},
 		origin: origin,
 		db:     db,
-		fs:     fs,
 	}, nil
 }
 
@@ -154,7 +151,7 @@ func (c *Client) sendReceivePackRequest(updates []*packutils.Update, commits []*
 		return
 	}
 	if sendPackfile {
-		err = packutils.WriteCommitsToPackfile(c.db, c.fs, commits, commonCommits, gzw)
+		err = packutils.WriteCommitsToPackfile(c.db, commits, commonCommits, gzw)
 		if err != nil {
 			return
 		}

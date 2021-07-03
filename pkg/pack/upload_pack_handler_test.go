@@ -10,36 +10,37 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/kv"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
 	packtest "github.com/wrgl/core/pkg/pack/test"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
+	refmock "github.com/wrgl/core/pkg/ref/mock"
 )
 
 func TestUploadPack(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
-	sum1, c1 := factory.CommitRandom(t, db, fs, nil)
-	sum2, c2 := factory.CommitRandom(t, db, fs, [][]byte{sum1})
-	sum3, _ := factory.CommitRandom(t, db, fs, nil)
-	sum4, _ := factory.CommitRandom(t, db, fs, [][]byte{sum3})
-	require.NoError(t, versioning.CommitHead(db, fs, "main", sum2, c2))
-	require.NoError(t, versioning.SaveTag(db, "v1", sum4))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", NewUploadPackHandler(db, fs))
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	sum1, c1 := factory.CommitRandom(t, db, nil)
+	sum2, c2 := factory.CommitRandom(t, db, [][]byte{sum1})
+	sum3, _ := factory.CommitRandom(t, db, nil)
+	sum4, _ := factory.CommitRandom(t, db, [][]byte{sum3})
+	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2))
+	require.NoError(t, ref.SaveTag(rs, "v1", sum4))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", NewUploadPackHandler(db, rs))
 
-	dbc := kv.NewMockStore(false)
-	fsc := kv.NewMockStore(false)
-	oc := packtest.FetchObjects(t, dbc, fsc, [][]byte{sum2}, 0)
-	packtest.AssertSentMissingCommits(t, db, fs, oc, [][]byte{sum1, sum2}, nil)
+	dbc := objmock.NewStore()
+	rsc := refmock.NewStore()
+	oc := packtest.FetchObjects(t, dbc, rsc, [][]byte{sum2}, 0)
+	packtest.AssertSentMissingCommits(t, db, oc, [][]byte{sum1, sum2}, nil)
 
-	packtest.CopyCommitsToNewStore(t, db, dbc, fs, fsc, [][]byte{sum1})
-	require.NoError(t, versioning.CommitHead(dbc, fsc, "main", sum1, c1))
-	oc = packtest.FetchObjects(t, dbc, fsc, [][]byte{sum2}, 0)
-	packtest.AssertSentMissingCommits(t, db, fs, oc, [][]byte{sum2}, [][]byte{sum1})
+	packtest.CopyCommitsToNewStore(t, db, dbc, [][]byte{sum1})
+	require.NoError(t, ref.CommitHead(rsc, "main", sum1, c1))
+	oc = packtest.FetchObjects(t, dbc, rsc, [][]byte{sum2}, 0)
+	packtest.AssertSentMissingCommits(t, db, oc, [][]byte{sum2}, [][]byte{sum1})
 
-	packtest.CopyCommitsToNewStore(t, db, dbc, fs, fsc, [][]byte{sum3})
-	require.NoError(t, versioning.SaveTag(dbc, "v0", sum3))
-	oc = packtest.FetchObjects(t, dbc, fsc, [][]byte{sum2, sum4}, 1)
-	packtest.AssertSentMissingCommits(t, db, fs, oc, [][]byte{sum2, sum4}, [][]byte{sum1, sum3})
+	packtest.CopyCommitsToNewStore(t, db, dbc, [][]byte{sum3})
+	require.NoError(t, ref.SaveTag(rsc, "v0", sum3))
+	oc = packtest.FetchObjects(t, dbc, rsc, [][]byte{sum2, sum4}, 1)
+	packtest.AssertSentMissingCommits(t, db, oc, [][]byte{sum2, sum4}, [][]byte{sum1, sum3})
 }

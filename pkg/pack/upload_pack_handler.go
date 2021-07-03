@@ -13,22 +13,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/misc"
+	"github.com/wrgl/core/pkg/objects"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
+	"github.com/wrgl/core/pkg/ref"
 )
 
 type UploadPackHandler struct {
-	db          kv.DB
-	fs          kv.FileStore
+	db          objects.Store
+	rs          ref.Store
 	negotiators map[string]*Negotiator
 	Path        string
 }
 
-func NewUploadPackHandler(db kv.DB, fs kv.FileStore) *UploadPackHandler {
+func NewUploadPackHandler(db objects.Store, rs ref.Store) *UploadPackHandler {
 	return &UploadPackHandler{
 		db:          db,
-		fs:          fs,
+		rs:          rs,
 		Path:        "/upload-pack/",
 		negotiators: map[string]*Negotiator{},
 	}
@@ -98,7 +99,7 @@ func (h *UploadPackHandler) sendPackfile(rw http.ResponseWriter, r *http.Request
 	gzw := gzip.NewWriter(rw)
 	defer gzw.Close()
 
-	err = packutils.WriteCommitsToPackfile(h.db, h.fs, neg.CommitsToSend(), neg.CommonCommmits(), gzw)
+	err = packutils.WriteCommitsToPackfile(h.db, neg.CommitsToSend(), neg.CommonCommmits(), gzw)
 	if err != nil {
 		panic(err)
 	}
@@ -156,7 +157,7 @@ func (h *UploadPackHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	acks, err := neg.HandleUploadPackRequest(h.db, wants, haves, done)
+	acks, err := neg.HandleUploadPackRequest(h.db, h.rs, wants, haves, done)
 	if err != nil {
 		if v, ok := err.(*BadRequestError); ok {
 			http.Error(rw, v.Message, http.StatusBadRequest)

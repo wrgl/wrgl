@@ -18,13 +18,14 @@ import (
 	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/ingest"
+	"github.com/wrgl/core/pkg/objects"
 	packclient "github.com/wrgl/core/pkg/pack/client"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
-	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/testutils"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 const (
@@ -78,29 +79,23 @@ func RegisterHandlerWithOrigin(origin, method, path string, handler http.Handler
 	)
 }
 
-func AssertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan *packutils.Object, sentCommits, commonCommits [][]byte) {
+func AssertSentMissingCommits(t *testing.T, db objects.Store, oc <-chan *packutils.Object, sentCommits, commonCommits [][]byte) {
 	t.Helper()
 	commonTables := map[string]struct{}{}
-	commonRows := map[string]struct{}{}
+	commonBlocks := map[string]struct{}{}
 	for _, sum := range commonCommits {
-		commit, err := versioning.GetCommit(db, sum)
+		commit, err := objects.GetCommit(db, sum)
 		require.NoError(t, err)
 		commonTables[string(commit.Table)] = struct{}{}
-		tbl, err := table.ReadTable(db, fs, commit.Table)
+		tbl, err := objects.GetTable(db, commit.Table)
 		require.NoError(t, err)
-		rhr := tbl.NewRowHashReader(0, 0)
-		for {
-			_, sum, err := rhr.Read()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			commonRows[string(sum)] = struct{}{}
+		for _, blk := range tbl.Blocks {
+			commonBlocks[string(blk)] = struct{}{}
 		}
 	}
 	commitMap := map[string]struct{}{}
 	tableMap := map[string]struct{}{}
-	rowMap := map[string]struct{}{}
+	blockMap := map[string]struct{}{}
 	for obj := range oc {
 		switch obj.Type {
 		case encoding.ObjectCommit:
@@ -113,11 +108,11 @@ func AssertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan
 			tableMap[string(sum[:])] = struct{}{}
 			_, ok := commonTables[string(sum[:])]
 			assert.False(t, ok)
-		case encoding.ObjectRow:
+		case encoding.ObjectBlock:
 			sum := meow.Checksum(0, obj.Content)
-			t.Logf("received row %x", sum)
-			rowMap[string(sum[:])] = struct{}{}
-			_, ok := commonRows[string(sum[:])]
+			t.Logf("received block %x", sum)
+			blockMap[string(sum[:])] = struct{}{}
+			_, ok := commonBlocks[string(sum[:])]
 			assert.False(t, ok)
 		}
 	}
@@ -127,7 +122,7 @@ func AssertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan
 			t.Errorf("commit %x not found", sum)
 			continue
 		}
-		commit, err := versioning.GetCommit(db, sum)
+		commit, err := objects.GetCommit(db, sum)
 		require.NoError(t, err)
 		_, ok1 := tableMap[string(commit.Table)]
 		_, ok2 := commonTables[string(commit.Table)]
@@ -135,91 +130,82 @@ func AssertSentMissingCommits(t *testing.T, db kv.DB, fs kv.FileStore, oc <-chan
 			t.Errorf("table %x not found", commit.Table)
 			continue
 		}
-		tbl, err := table.ReadTable(db, fs, commit.Table)
+		tbl, err := objects.GetTable(db, commit.Table)
 		require.NoError(t, err)
-		rhr := tbl.NewRowHashReader(0, 0)
-		for {
-			_, sum, err := rhr.Read()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
-			_, ok1 := rowMap[string(sum)]
-			_, ok2 := commonRows[string(sum)]
+		for _, blk := range tbl.Blocks {
+			_, ok1 := blockMap[string(blk)]
+			_, ok2 := commonBlocks[string(blk)]
 			if !ok1 && !ok2 {
-				t.Errorf("row %x not found", sum)
+				t.Errorf("block %x not found", sum)
 				break
 			}
 		}
 	}
 }
 
-func FetchObjects(t *testing.T, db kv.DB, fs kv.FileStore, advertised [][]byte, havesPerRoundTrip int) <-chan *packutils.Object {
+func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, advertised [][]byte, havesPerRoundTrip int) <-chan *packutils.Object {
 	t.Helper()
-	c, err := packclient.NewClient(db, fs, TestOrigin)
+	c, err := packclient.NewClient(db, TestOrigin)
 	require.NoError(t, err)
 	wg := sync.WaitGroup{}
-	neg, err := packclient.NewNegotiator(db, fs, &wg, c, advertised, havesPerRoundTrip)
+	neg, err := packclient.NewNegotiator(db, rs, &wg, c, advertised, havesPerRoundTrip)
 	require.NoError(t, err)
 	err = neg.Start()
 	require.NoError(t, err)
 	return neg.ObjectChan
 }
 
-func CopyCommitsToNewStore(t *testing.T, dba, dbb kv.DB, fsa, fsb kv.FileStore, commits [][]byte) {
+func CopyCommitsToNewStore(t *testing.T, dba, dbb objects.Store, commits [][]byte) {
 	t.Helper()
 	for _, sum := range commits {
-		c, err := versioning.GetCommit(dba, sum)
+		c, err := objects.GetCommit(dba, sum)
 		require.NoError(t, err)
-		_, err = versioning.SaveCommit(dbb, 0, c)
+		tbl, err := objects.GetTable(dba, c.Table)
 		require.NoError(t, err)
-		tbl, err := table.ReadTable(dba, fsa, c.Table)
-		require.NoError(t, err)
-		builder := table.NewBuilder(dbb, fsb, tbl.Columns(), tbl.PrimaryKeyIndices(), 0, 0)
-		r1 := tbl.NewRowReader()
-		r2 := tbl.NewRowHashReader(0, 0)
-		i := 0
-		for {
-			pk, sum, err := r2.Read()
-			if err == io.EOF {
-				break
-			}
+		buf := bytes.NewBuffer(nil)
+		for _, sum := range tbl.Blocks {
+			blk, err := objects.GetBlock(dba, sum)
 			require.NoError(t, err)
-			_, rc, err := r1.Read()
+			buf.Reset()
+			_, err = objects.WriteBlockTo(buf, blk)
 			require.NoError(t, err)
-			require.NoError(t, builder.InsertRow(i, pk, sum, rc))
-			i++
+			_, err = objects.SaveBlock(dbb, buf.Bytes())
+			require.NoError(t, err)
 		}
-		_, err = builder.SaveTable()
+		buf.Reset()
+		_, err = tbl.WriteTo(buf)
 		require.NoError(t, err)
+		_, err = objects.SaveTable(dbb, buf.Bytes())
+		require.NoError(t, err)
+		buf.Reset()
+		_, err = c.WriteTo(buf)
+		require.NoError(t, err)
+		_, err = objects.SaveCommit(dbb, buf.Bytes())
+		require.NoError(t, err)
+		require.NoError(t, ingest.IndexTable(dbb, c.Table, tbl))
 	}
 }
 
-func AssertCommitsPersisted(t *testing.T, db kv.DB, fs kv.FileStore, commits [][]byte) {
+func AssertCommitsPersisted(t *testing.T, db objects.Store, rs ref.Store, commits [][]byte) {
 	t.Helper()
 	for _, sum := range commits {
-		c, err := versioning.GetCommit(db, sum)
+		c, err := objects.GetCommit(db, sum)
 		require.NoError(t, err)
-		tbl, err := table.ReadTable(db, fs, c.Table)
+		tbl, err := objects.GetTable(db, c.Table)
 		require.NoError(t, err)
-		reader := tbl.NewRowReader()
-		for {
-			_, _, err := reader.Read()
-			if err == io.EOF {
-				break
-			}
-			require.NoError(t, err)
+		for _, blk := range tbl.Blocks {
+			assert.True(t, objects.BlockExist(db, blk))
 		}
 	}
 }
 
-func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *versioning.Config {
-	return &versioning.Config{
-		User: &versioning.ConfigUser{
+func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *conf.Config {
+	return &conf.Config{
+		User: &conf.ConfigUser{
 			Name:  "test",
 			Email: "test@domain.com",
 		},
-		Receive: &versioning.ConfigReceive{
+		Receive: &conf.ConfigReceive{
 			DenyNonFastForwards: &denyNonFastForwards,
 			DenyDeletes:         &denyDeletes,
 		},

@@ -10,17 +10,16 @@ import (
 	"strings"
 
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/misc"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 )
 
 type InfoRefsHandler struct {
-	db kv.DB
+	rs ref.Store
 }
 
-func NewInfoRefsHandler(db kv.DB) *InfoRefsHandler {
-	return &InfoRefsHandler{db: db}
+func NewInfoRefsHandler(rs ref.Store) *InfoRefsHandler {
+	return &InfoRefsHandler{rs: rs}
 }
 
 func (h *InfoRefsHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
@@ -28,7 +27,7 @@ func (h *InfoRefsHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
 	}
-	refs, err := versioning.ListLocalRefs(h.db)
+	refs, err := ref.ListLocalRefs(h.rs)
 	if err != nil {
 		panic(err)
 	}
