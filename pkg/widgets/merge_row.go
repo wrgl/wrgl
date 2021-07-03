@@ -2,27 +2,24 @@ package widgets
 
 import (
 	"github.com/gdamore/tcell/v2"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
 )
 
 type MergeRow struct {
-	db      kv.DB
 	cd      *objects.ColDiff
 	Cells   [][]*TableCell
 	baseRow []string
-	dec     *objects.StrListDecoder
+	buf     *diff.BlockBuffer
 }
 
-func NewMergeRow(db kv.DB, dec *objects.StrListDecoder, cd *objects.ColDiff, names []string) *MergeRow {
+func NewMergeRow(buf *diff.BlockBuffer, cd *objects.ColDiff, names []string) *MergeRow {
 	l := cd.Layers() + 1
 	n := cd.Len() + 1
 	numPK := len(cd.OtherPK[0])
 	c := &MergeRow{
-		db:    db,
-		dec:   dec,
+		buf:   buf,
 		cd:    cd,
 		Cells: make([][]*TableCell, l),
 	}
@@ -46,11 +43,11 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 	baseInd := len(c.Cells) - 1
 	if m.Base != nil {
 		c.baseRow = make([]string, c.cd.Len())
-		rowB, err := table.GetRow(c.db, m.Base)
+		row, err := c.buf.GetRow(0, m.BaseBlockOffset, m.BaseRowOffset)
 		if err != nil {
 			return err
 		}
-		row := c.cd.RearrangeBaseRow(c.dec.Decode(rowB))
+		row = c.cd.RearrangeBaseRow(row)
 		for i, s := range row {
 			c.baseRow[i] = s
 		}
@@ -80,11 +77,11 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 			cell.SetStyle(boldYellowStyle)
 		}
 
-		rowB, err := table.GetRow(c.db, sum)
+		row, err := c.buf.GetRow(byte(i+1), m.BlockOffset[i], m.RowOffset[i])
 		if err != nil {
 			return err
 		}
-		row := c.cd.RearrangeRow(i, c.dec.Decode(rowB))
+		row = c.cd.RearrangeRow(i, row)
 		for j, s := range row {
 			cell := c.Cells[i][j+1]
 			cell.SetText(s)
@@ -146,9 +143,8 @@ func (c *MergeRow) SetCell(col int, s string, unresolved bool) {
 }
 
 type MergeRowPool struct {
-	db     kv.DB
+	blkBuf *diff.BlockBuffer
 	cd     *objects.ColDiff
-	dec    *objects.StrListDecoder
 	names  []string
 	buf    []*MergeRow
 	rowMap map[int]int
@@ -157,11 +153,10 @@ type MergeRowPool struct {
 	maxInd int
 }
 
-func NewMergeRowPool(db kv.DB, cd *objects.ColDiff, names []string, merges []*merge.Merge) *MergeRowPool {
+func NewMergeRowPool(blkBuf *diff.BlockBuffer, cd *objects.ColDiff, names []string, merges []*merge.Merge) *MergeRowPool {
 	return &MergeRowPool{
-		db:     db,
+		blkBuf: blkBuf,
 		cd:     cd,
-		dec:    objects.NewStrListDecoder(false),
 		names:  names,
 		merges: merges,
 		rowMap: map[int]int{},
@@ -176,7 +171,7 @@ func (p *MergeRowPool) rowFromBuf(ind int) (*MergeRow, error) {
 		p.buf = p.buf[:n+1]
 	}
 	if p.buf[n] == nil {
-		p.buf[n] = NewMergeRow(p.db, p.dec, p.cd, p.names)
+		p.buf[n] = NewMergeRow(p.blkBuf, p.cd, p.names)
 	}
 	err := p.buf[n].DisplayMerge(p.merges[ind])
 	if err != nil {

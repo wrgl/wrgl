@@ -1,10 +1,11 @@
-package merge_testutils
+package mergehelpers
 
 import (
 	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/index"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/misc"
@@ -62,7 +63,7 @@ func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]s
 	return rows
 }
 
-func CreateMerger(t *testing.T, db objects.Store, commits ...[]byte) *merge.Merger {
+func CreateMerger(t *testing.T, db objects.Store, commits ...[]byte) (*merge.Merger, *diff.BlockBuffer) {
 	base, err := ref.SeekCommonAncestor(db, commits...)
 	require.NoError(t, err)
 	baseCom, err := objects.GetCommit(db, base)
@@ -80,7 +81,9 @@ func CreateMerger(t *testing.T, db objects.Store, commits ...[]byte) *merge.Merg
 		otherSums[i] = com.Table
 	}
 	collector := CreateCollector(t, db, baseCom)
-	merger, err := merge.NewMerger(db, collector, 0, baseT, otherTs, baseCom.Table, otherSums)
+	buf, err := diff.BlockBufferWithSingleStore(db, append([]*objects.Table{baseT}, otherTs...))
 	require.NoError(t, err)
-	return merger
+	merger, err := merge.NewMerger(db, collector, buf, 0, baseT, otherTs, baseCom.Table, otherSums)
+	require.NoError(t, err)
+	return merger, buf
 }

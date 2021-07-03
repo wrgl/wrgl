@@ -6,22 +6,20 @@ package widgets
 import (
 	"io"
 
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/diff"
 )
 
 type PreviewTable struct {
 	*DataTable
-	rowReader        table.RowReader
+	rowReader        *diff.RowReader
 	headerRow        []*TableCell
 	buf              [][]*TableCell
 	pkMap            map[uint32]struct{}
 	columnsCount     int
 	bufStart, bufEnd int
-	dec              *objects.StrListDecoder
 }
 
-func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, primaryKeyIndices []uint32) *PreviewTable {
+func NewPreviewTable(rowReader *diff.RowReader, rowCount int, columns []string, primaryKeyIndices []uint32) *PreviewTable {
 	headerRow := []*TableCell{}
 	for _, text := range columns {
 		headerRow = append(headerRow, NewTableCell(text).SetStyle(columnStyle))
@@ -36,7 +34,6 @@ func NewPreviewTable(rowReader table.RowReader, rowCount int, columns []string, 
 		headerRow:    headerRow,
 		columnsCount: len(columns),
 		pkMap:        pkMap,
-		dec:          objects.NewStrListDecoder(false),
 	}
 	t.DataTable.SetGetCellsFunc(t.getCells).
 		SetShape(rowCount, len(columns)).
@@ -49,21 +46,24 @@ func (t *PreviewTable) SetRowCount(num int) *PreviewTable {
 	return t
 }
 
-func (t *PreviewTable) decodeRow(b []byte) []*TableCell {
-	record := t.dec.Decode(b)
+func (t *PreviewTable) createCells(row []string) []*TableCell {
 	sl := []*TableCell{}
-	for _, text := range record {
+	for _, text := range row {
 		sl = append(sl, NewTableCell(text))
 	}
 	return sl
 }
 
 func (t *PreviewTable) readRowAt(row int) []*TableCell {
-	_, rowContent, err := t.rowReader.ReadAt(row)
+	_, err := t.rowReader.Seek(row, io.SeekStart)
 	if err != nil {
 		panic(err)
 	}
-	return t.decodeRow(rowContent)
+	rowContent, err := t.rowReader.Read()
+	if err != nil {
+		panic(err)
+	}
+	return t.createCells(rowContent)
 }
 
 func (t *PreviewTable) readRowsFrom(start, end int) [][]*TableCell {
@@ -74,14 +74,14 @@ func (t *PreviewTable) readRowsFrom(start, end int) [][]*TableCell {
 	}
 	off := start
 	for off < end {
-		_, rowContent, err := t.rowReader.Read()
+		rowContent, err := t.rowReader.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			panic(err)
 		}
-		rows = append(rows, t.decodeRow(rowContent))
+		rows = append(rows, t.createCells(rowContent))
 		off++
 	}
 	return rows

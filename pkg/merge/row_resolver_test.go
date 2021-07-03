@@ -1,252 +1,234 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package merge
+package merge_test
 
 import (
 	"testing"
 
-	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/core/pkg/merge"
+	mergehelpers "github.com/wrgl/core/pkg/merge/helpers"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
+	"github.com/wrgl/core/pkg/sorter"
 )
 
-func addRow(t *testing.T, db kv.DB, row []string) []byte {
-	t.Helper()
-	if row == nil {
-		return nil
-	}
-	enc := objects.NewStrListEncoder()
-	b := enc.Encode(row)
-	sum := meow.Checksum(0, b)
-	err := table.SaveRow(db, sum[:], b)
-	require.NoError(t, err)
-	return sum[:]
+func TestRowResolverSimpleCases(t *testing.T) {
+	db := objmock.NewStore()
+	base, _ := factory.Commit(t, db, []string{
+		"a,b,c",
+		"1,q,w",
+		"4,e,r",
+	}, []uint32{0}, nil)
+	sum1, _ := factory.Commit(t, db, []string{
+		"a,b,c",
+		"2,a,s",
+		"3,z,x",
+		"4,e,t",
+	}, []uint32{0}, [][]byte{base})
+	sum2, _ := factory.Commit(t, db, []string{
+		"a,b,c",
+		"3,z,x",
+		"4,e,t",
+	}, []uint32{0}, [][]byte{base})
+
+	m, _ := mergehelpers.CreateMerger(t, db, sum1, sum2)
+	merges := mergehelpers.CollectUnresolvedMerges(t, m)
+	assert.Len(t, merges, 1)
+	assert.NotEmpty(t, merges[0].ColDiff)
+	blocks := mergehelpers.CollectSortedRows(t, m, nil)
+	assert.Equal(t, []*sorter.Block{
+		{
+			Block: [][]string{
+				{"2", "a", "s"},
+				{"3", "z", "x"},
+				{"4", "e", "t"},
+			},
+			PK: []string{"2"},
+		},
+	}, blocks)
 }
 
-func addRandomRow(t *testing.T, db kv.DB, n int) ([]byte, []string) {
-	t.Helper()
-	row := []string{}
-	for i := 0; i < n; i++ {
-		row = append(row, testutils.BrokenRandomAlphaNumericString(5))
-	}
-	sum := addRow(t, db, row)
-	return sum, row
-}
+func TestRowResolverComplexCases(t *testing.T) {
+	db := objmock.NewStore()
+	base, _ := factory.Commit(t, db, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+		"4,t,y",
+		"5,g,h",
+	}, []uint32{0}, nil)
+	sum1, _ := factory.Commit(t, db, []string{
+		"a,b,c,d",
+		"1,q,w,e",
+		"2,g,s,d",
+		"3,z,v,c",
+		"4,q,y,u",
+		"5,g,h,j",
+	}, []uint32{0}, [][]byte{base})
+	sum2, _ := factory.Commit(t, db, []string{
+		"a,b",
+		"1,q",
+		"2,g",
+		"3,z",
+		"4,a",
+		"5,s",
+	}, []uint32{0}, [][]byte{base})
 
-func TestRowResolver(t *testing.T) {
-	db := kv.NewMockStore(false)
-	cd := objects.CompareColumns([2][]string{{"a", "b", "c"}, {"a"}}, [][2][]string{
-		{{"a", "b", "c"}, {"a"}},
-		{{"a", "b", "c"}, {"a"}},
-	}...)
-	r := NewRowResolver(db, cd)
-
-	// resolve removed row
-	m := &Merge{
-		Base:   testutils.SecureRandomBytes(16),
-		Others: make([][]byte, 2),
-	}
-	require.NoError(t, r.Resolve(m))
-	assert.True(t, m.Resolved)
-	assert.Nil(t, m.ResolvedRow)
-
-	// resolve singly added row
-	sum, row := addRandomRow(t, db, 3)
-	m = &Merge{
-		Others: [][]byte{sum, nil},
-	}
-	require.NoError(t, r.Resolve(m))
-	assert.True(t, m.Resolved)
-	assert.Equal(t, row, m.ResolvedRow)
-
-	// resolve similarly modified row
-	sum, row = addRandomRow(t, db, 3)
-	m = &Merge{
-		Others: [][]byte{sum, sum},
-	}
-	require.NoError(t, r.Resolve(m))
-	assert.True(t, m.Resolved)
-	assert.Equal(t, row, m.ResolvedRow)
-
-	// resolve similarly modified row
-	sum, row = addRandomRow(t, db, 3)
-	m = &Merge{
-		Base:   testutils.SecureRandomBytes(16),
-		Others: [][]byte{sum, sum},
-	}
-	require.NoError(t, r.Resolve(m))
-	assert.True(t, m.Resolved)
-	assert.Equal(t, row, m.ResolvedRow)
-}
-
-func TestResolveRow(t *testing.T) {
-	cd1 := objects.CompareColumns([2][]string{{"a", "b", "c"}, {"a"}}, [][2][]string{
-		{{"a", "b", "c", "d"}, {"a"}},
-		{{"a", "b"}, {"a"}},
-	}...)
-	cd2 := objects.CompareColumns([2][]string{{"a", "b", "c"}, {"a"}}, [][2][]string{
-		{{"a", "b"}, {"a"}},
-		{{"a", "b", "c", "d"}, {"a"}},
-	}...)
-	cd3 := objects.CompareColumns([2][]string{{"a", "b", "c"}, {"a"}}, [][2][]string{
-		{{"a", "b", "c", "d"}, {"a"}},
-		{{"a", "b", "c", "d"}, {"a"}},
-	}...)
-
-	for i, c := range []struct {
-		cd             *objects.ColDiff
-		base           []string
-		others         [][]string
-		resolved       bool
-		resolvedRow    []string
-		unresolvedCols map[uint32]struct{}
-	}{
+	m, _ := mergehelpers.CreateMerger(t, db, sum1, sum2)
+	merges := mergehelpers.CollectUnresolvedMerges(t, m)
+	assert.Equal(t, []*merge.Merge{
 		{
-			cd:   cd1,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "w", "e", "r"},
-				{"q", "w"},
-			},
-			resolved:    true,
-			resolvedRow: []string{"q", "w", "", "r"},
-		},
-		{
-			cd:   cd2,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "w"},
-				{"q", "w", "e", "r"},
-			},
-			resolved:    true,
-			resolvedRow: []string{"q", "w", "", "r"},
-		},
-		{
-			cd:   cd1,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "s", "e", "r"},
-				{"q", "s"},
-			},
-			resolved:    true,
-			resolvedRow: []string{"q", "s", "", "r"},
-		},
-		{
-			cd:   cd2,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "s"},
-				{"q", "s", "e", "r"},
-			},
-			resolved:    true,
-			resolvedRow: []string{"q", "s", "", "r"},
-		},
-		{
-			cd:   cd1,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "w", "y", "r"},
-				{"q", "w"},
-			},
-			resolvedRow:    []string{"q", "w", "e", "r"},
-			unresolvedCols: map[uint32]struct{}{2: {}},
-		},
-		{
-			cd:   cd2,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "w"},
-				{"q", "w", "y", "r"},
-			},
-			resolvedRow:    []string{"q", "w", "e", "r"},
-			unresolvedCols: map[uint32]struct{}{2: {}},
-		},
-		{
-			cd:   cd1,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "u", "e", "r"},
-				{"q", "s"},
-			},
-			resolvedRow:    []string{"q", "w", "", "r"},
-			unresolvedCols: map[uint32]struct{}{1: {}},
-		},
-		{
-			cd:   cd2,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "s"},
-				{"q", "u", "e", "r"},
-			},
-			resolvedRow:    []string{"q", "w", "", "r"},
-			unresolvedCols: map[uint32]struct{}{1: {}},
-		},
-		{
-			cd:   cd1,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "w", "e", "r"},
-				{"q", "u"},
-			},
-			resolved:    true,
-			resolvedRow: []string{"q", "u", "", "r"},
-		},
-		{
-			cd:   cd2,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "u"},
-				{"q", "w", "e", "r"},
-			},
-			resolved:    true,
-			resolvedRow: []string{"q", "u", "", "r"},
-		},
-		{
-			cd:   cd3,
-			base: []string{"q", "w", "e"},
-			others: [][]string{
-				{"q", "u", "e", "g"},
-				{"q", "u", "e", "r"},
-			},
-			resolvedRow:    []string{"q", "u", "e", ""},
-			unresolvedCols: map[uint32]struct{}{3: {}},
-		},
-		{
-			cd: cd3,
-			others: [][]string{
-				{"q", "u", "e", "g"},
-				{"q", "u", "e", "r"},
-			},
-			resolvedRow:    []string{"q", "u", "e", ""},
-			unresolvedCols: map[uint32]struct{}{3: {}},
-		},
-		{
-			cd:   cd3,
-			base: []string{"q", "w", "e", "r"},
-			others: [][]string{
-				nil,
-				{"q", "u", "e", "r"},
-			},
-			resolvedRow: []string{"q", "u", "e", "r"},
-		},
-	} {
-		db := kv.NewMockStore(false)
-		r := NewRowResolver(db, c.cd)
-		m := &Merge{
-			Base: addRow(t, db, c.base),
+			PK:            hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			Base:          hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
+			BaseRowOffset: 2,
 			Others: [][]byte{
-				addRow(t, db, c.others[0]),
-				addRow(t, db, c.others[1]),
+				hexToBytes(t, "c0862c2d8d7f0bf7bc7bbb0890497f6a"),
+				hexToBytes(t, "776beabc377528a964029835c5387e86"),
 			},
-		}
-		require.NoError(t, r.Resolve(m))
-		assert.Equal(t, c.resolved, m.Resolved, "case %d", i)
-		assert.Equal(t, c.resolvedRow, m.ResolvedRow, "case %d", i)
-		assert.Equal(t, c.unresolvedCols, m.UnresolvedCols, "case %d", i)
-	}
+			BlockOffset:    []uint32{0, 0},
+			RowOffset:      []uint8{2, 2},
+			ResolvedRow:    []string{"3", "z", "x", "c"},
+			UnresolvedCols: map[uint32]struct{}{2: {}},
+		},
+		{
+			PK:            hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Base:          hexToBytes(t, "9896effbd1a3352e214a496218523c12"),
+			BaseRowOffset: 3,
+			Others: [][]byte{
+				hexToBytes(t, "da8e1ab26a4ee16559d154a16b380648"),
+				hexToBytes(t, "85785beedceb27a5a18d7facd8ab23be"),
+			},
+			BlockOffset:    []uint32{0, 0},
+			RowOffset:      []uint8{3, 3},
+			ResolvedRow:    []string{"4", "t", "", "u"},
+			UnresolvedCols: map[uint32]struct{}{1: {}},
+		},
+	}, merges[1:])
+	blocks := mergehelpers.CollectSortedRows(t, m, nil)
+	assert.Equal(t, []*sorter.Block{
+		{
+			Block: [][]string{
+				{"1", "q", "", "e"},
+				{"2", "g", "", "d"},
+				{"3", "z", "x"},
+				{"4", "t", "y"},
+				{"5", "s", "", "j"},
+			},
+			PK: []string{"1"},
+		},
+	}, blocks)
+
+	m, _ = mergehelpers.CreateMerger(t, db, sum2, sum1)
+	merges = mergehelpers.CollectUnresolvedMerges(t, m)
+	assert.Equal(t, []*merge.Merge{
+		{
+			PK:            hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			Base:          hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
+			BaseRowOffset: 2,
+			Others: [][]byte{
+				hexToBytes(t, "776beabc377528a964029835c5387e86"),
+				hexToBytes(t, "c0862c2d8d7f0bf7bc7bbb0890497f6a"),
+			},
+			BlockOffset:    []uint32{0, 0},
+			RowOffset:      []uint8{2, 2},
+			ResolvedRow:    []string{"3", "z", "x", "c"},
+			UnresolvedCols: map[uint32]struct{}{2: {}},
+		},
+		{
+			PK:            hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Base:          hexToBytes(t, "9896effbd1a3352e214a496218523c12"),
+			BaseRowOffset: 3,
+			Others: [][]byte{
+				hexToBytes(t, "85785beedceb27a5a18d7facd8ab23be"),
+				hexToBytes(t, "da8e1ab26a4ee16559d154a16b380648"),
+			},
+			BlockOffset:    []uint32{0, 0},
+			RowOffset:      []uint8{3, 3},
+			ResolvedRow:    []string{"4", "t", "", "u"},
+			UnresolvedCols: map[uint32]struct{}{1: {}},
+		},
+	}, merges[1:])
+	blocks = mergehelpers.CollectSortedRows(t, m, nil)
+	assert.Equal(t, []*sorter.Block{
+		{
+			Block: [][]string{
+				{"1", "q", "", "e"},
+				{"2", "g", "", "d"},
+				{"3", "z", "x"},
+				{"4", "t", "y"},
+				{"5", "s", "", "j"},
+			},
+			PK: []string{"1"},
+		},
+	}, blocks)
+
+	base, _ = factory.Commit(t, db, []string{
+		"a,b,c",
+		"1,q,w",
+		"3,z,x",
+	}, []uint32{0}, nil)
+	sum1, _ = factory.Commit(t, db, []string{
+		"a,b,c,d",
+		"1,y,w,u",
+		"2,a,s,f",
+	}, []uint32{0}, [][]byte{base})
+	sum2, _ = factory.Commit(t, db, []string{
+		"a,b,c,d",
+		"1,y,w,t",
+		"2,a,s,d",
+		"3,v,x,c",
+	}, []uint32{0}, [][]byte{base})
+
+	m, _ = mergehelpers.CreateMerger(t, db, sum1, sum2)
+	merges = mergehelpers.CollectUnresolvedMerges(t, m)
+	assert.Equal(t, []*merge.Merge{
+		{
+			PK: hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"),
+			Others: [][]byte{
+				hexToBytes(t, "16cf50d440fc0422278abb626446d3e9"),
+				hexToBytes(t, "4740760d0aaeecd7cac6ee3eb423ecea"),
+			},
+			BlockOffset:    []uint32{0, 0},
+			RowOffset:      []byte{1, 1},
+			ResolvedRow:    []string{"2", "a", "s", ""},
+			UnresolvedCols: map[uint32]struct{}{3: {}},
+		},
+		{
+			PK:            hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			Base:          hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
+			BaseRowOffset: 1,
+			Others: [][]byte{
+				nil,
+				hexToBytes(t, "28c710dac52b757b8626ecb45fd5cf8b"),
+			},
+			BlockOffset: []uint32{0, 0},
+			RowOffset:   []byte{0, 2},
+			ResolvedRow: []string{"3", "v", "x", "c"},
+		},
+		{
+			PK:   hexToBytes(t, "fd1c9513cc47feaf59fa9b76008f2521"),
+			Base: hexToBytes(t, "60f1c744d65482e468bfac458a7131fe"),
+			Others: [][]byte{
+				hexToBytes(t, "3ae9ce5c2ac6dce8c1e92dc4a6ab7b2c"),
+				hexToBytes(t, "114ee66177b00886476ebe85b13973a9"),
+			},
+			BlockOffset:    []uint32{0, 0},
+			RowOffset:      []byte{0, 0},
+			ResolvedRow:    []string{"1", "y", "w", ""},
+			UnresolvedCols: map[uint32]struct{}{3: {}},
+		},
+	}, merges[1:])
+	blocks = mergehelpers.CollectSortedRows(t, m, nil)
+	assert.Equal(t, []*sorter.Block{
+		{
+			Block: [][]string{
+				{"1", "q", "w"},
+				{"3", "z", "x"},
+			},
+			PK: []string{"1"},
+		},
+	}, blocks)
 }

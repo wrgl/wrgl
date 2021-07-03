@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/merge"
-	merge_testutils "github.com/wrgl/core/pkg/merge/testutils"
+	mergehelpers "github.com/wrgl/core/pkg/merge/helpers"
 	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/sorter"
@@ -43,9 +43,9 @@ func TestMergerAutoResolve(t *testing.T) {
 		"3,s,d",
 		"4,r,t",
 	}, []uint32{0}, [][]byte{base})
-	merger := merge_testutils.CreateMerger(t, db, com1, com2)
+	merger, _ := mergehelpers.CreateMerger(t, db, com1, com2)
 
-	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
+	merges := mergehelpers.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{
 		{
 			ColDiff: &objects.ColDiff{
@@ -65,7 +65,7 @@ func TestMergerAutoResolve(t *testing.T) {
 	}, merges)
 	require.NoError(t, merger.Error())
 
-	rows := merge_testutils.CollectSortedRows(t, merger, nil)
+	rows := mergehelpers.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -105,9 +105,9 @@ func TestMergerManualResolve(t *testing.T) {
 		"4,n,m",
 		"5,t,u",
 	}, []uint32{0}, [][]byte{base})
-	merger := merge_testutils.CreateMerger(t, db, com1, com2)
+	merger, _ := mergehelpers.CreateMerger(t, db, com1, com2)
 
-	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
+	merges := mergehelpers.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{
 		{
 			ColDiff: &objects.ColDiff{
@@ -173,7 +173,7 @@ func TestMergerManualResolve(t *testing.T) {
 		hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"), []string{"4", "n", "m"},
 	))
 
-	rows := merge_testutils.CollectSortedRows(t, merger, nil)
+	rows := mergehelpers.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -210,9 +210,9 @@ func TestMergerRemoveCols(t *testing.T) {
 		"2,x,s",
 		"4,f,t",
 	}, []uint32{0}, [][]byte{base})
-	merger := merge_testutils.CreateMerger(t, db, com1, com2)
+	merger, _ := mergehelpers.CreateMerger(t, db, com1, com2)
 
-	merges := merge_testutils.CollectUnresolvedMerges(t, merger)
+	merges := mergehelpers.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{
 		{
 			ColDiff: &objects.ColDiff{
@@ -231,7 +231,7 @@ func TestMergerRemoveCols(t *testing.T) {
 		},
 	}, merges)
 
-	rows := merge_testutils.CollectSortedRows(t, merger, map[int]struct{}{2: {}})
+	rows := mergehelpers.CollectSortedRows(t, merger, map[int]struct{}{2: {}})
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{

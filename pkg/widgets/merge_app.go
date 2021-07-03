@@ -8,7 +8,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
 )
@@ -33,8 +33,7 @@ type editOp struct {
 }
 
 type MergeApp struct {
-	db           kv.DB
-	fs           kv.FileStore
+	buf          *diff.BlockBuffer
 	merger       *merge.Merger
 	cd           *objects.ColDiff
 	merges       []*merge.Merge
@@ -68,10 +67,9 @@ func createMergeTitleBar(commitNames []string, baseSum []byte) *tview.TextView {
 	return titleBar
 }
 
-func NewMergeApp(db kv.DB, fs kv.FileStore, merger *merge.Merger, app *tview.Application, commitNames []string, commitSums [][]byte, baseSum []byte) *MergeApp {
+func NewMergeApp(buf *diff.BlockBuffer, merger *merge.Merger, app *tview.Application, commitNames []string, commitSums [][]byte, baseSum []byte) *MergeApp {
 	return &MergeApp{
-		db:           db,
-		fs:           fs,
+		buf:          buf,
 		merger:       merger,
 		app:          app,
 		RemovedCols:  map[int]struct{}{},
@@ -97,7 +95,7 @@ func (a *MergeApp) updateStatus() {
 func (a *MergeApp) InitializeTable(cd *objects.ColDiff, merges []*merge.Merge) {
 	a.cd = cd
 	a.merges = merges
-	a.Table = NewMergeTable(a.db, a.fs, a.commitNames, a.commitSums, a.cd, a.merges, a.RemovedCols, a.removedRows).
+	a.Table = NewMergeTable(a.buf, a.commitNames, a.commitSums, a.cd, a.merges, a.RemovedCols, a.removedRows).
 		SetUndoHandler(a.undo).
 		SetRedoHandler(a.redo).
 		SetSetCellHandler(a.setCellFromLayer).

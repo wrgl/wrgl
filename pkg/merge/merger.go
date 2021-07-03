@@ -24,10 +24,11 @@ type Merger struct {
 	otherTs        []*objects.Table
 	baseSum        []byte
 	otherSums      [][]byte
+	buf            *diff.BlockBuffer
 	collector      *RowCollector
 }
 
-func NewMerger(db objects.Store, collector *RowCollector, progressPeriod time.Duration, baseT *objects.Table, otherTs []*objects.Table, baseSum []byte, otherSums [][]byte) (m *Merger, err error) {
+func NewMerger(db objects.Store, collector *RowCollector, buf *diff.BlockBuffer, progressPeriod time.Duration, baseT *objects.Table, otherTs []*objects.Table, baseSum []byte, otherSums [][]byte) (m *Merger, err error) {
 	m = &Merger{
 		db:             db,
 		errChan:        make(chan error, len(otherTs)),
@@ -37,6 +38,7 @@ func NewMerger(db objects.Store, collector *RowCollector, progressPeriod time.Du
 		baseSum:        baseSum,
 		otherSums:      otherSums,
 		collector:      collector,
+		buf:            buf,
 	}
 	return
 }
@@ -64,17 +66,13 @@ func strSliceEqual(left, right []string) bool {
 
 func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, errChan chan<- error, diffChans ...<-chan *objects.Diff) {
 	var (
-		n       = len(diffChans)
-		cases   = make([]reflect.SelectCase, n)
-		closed  = make([]bool, n)
-		merges  = map[string]*Merge{}
-		counter = map[string]int{}
+		n        = len(diffChans)
+		cases    = make([]reflect.SelectCase, n)
+		closed   = make([]bool, n)
+		merges   = map[string]*Merge{}
+		counter  = map[string]int{}
+		resolver = NewRowResolver(m.db, colDiff, m.buf)
 	)
-	resolver, err := NewRowResolver(m.db, colDiff, m.baseT, m.otherTs)
-	if err != nil {
-		errChan <- err
-		return
-	}
 
 	mergeChan <- &Merge{
 		ColDiff: colDiff,

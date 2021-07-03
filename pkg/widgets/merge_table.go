@@ -6,7 +6,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
 )
@@ -24,7 +24,7 @@ var (
 type MergeTable struct {
 	*SelectableTable
 
-	db          kv.DB
+	buf         *diff.BlockBuffer
 	cd          *objects.ColDiff
 	columnCells []*TableCell
 	removedCols map[int]struct{}
@@ -42,9 +42,9 @@ type MergeTable struct {
 	finishHandler             func()
 }
 
-func NewMergeTable(db kv.DB, fs kv.FileStore, commitNames []string, commitSums [][]byte, cd *objects.ColDiff, merges []*merge.Merge, removedCols map[int]struct{}, removedRows map[int]struct{}) *MergeTable {
+func NewMergeTable(buf *diff.BlockBuffer, commitNames []string, commitSums [][]byte, cd *objects.ColDiff, merges []*merge.Merge, removedCols map[int]struct{}, removedRows map[int]struct{}) *MergeTable {
 	t := &MergeTable{
-		db:              db,
+		buf:             buf,
 		SelectableTable: NewSelectableTable(),
 		cd:              cd,
 		removedCols:     removedCols,
@@ -55,7 +55,7 @@ func NewMergeTable(db kv.DB, fs kv.FileStore, commitNames []string, commitSums [
 		names[i] = fmt.Sprintf("%s (%s)", name, hex.EncodeToString(commitSums[i])[:7])
 	}
 	names[cd.Layers()] = "resolution"
-	t.rowPool = NewMergeRowPool(db, cd, names, merges)
+	t.rowPool = NewMergeRowPool(buf, cd, names, merges)
 	t.SelectableTable.SetGetCellsFunc(t.getMergeCells).
 		SetSelectedFunc(t.selectCell).
 		SetMinSelection(1, 1).

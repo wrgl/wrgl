@@ -20,13 +20,9 @@ type RowResolver struct {
 	rowDec  *objects.StrListDecoder
 }
 
-func NewRowResolver(db objects.Store, cd *objects.ColDiff, baseTbl *objects.Table, tbl []*objects.Table) (*RowResolver, error) {
+func NewRowResolver(db objects.Store, cd *objects.ColDiff, buf *diff.BlockBuffer) *RowResolver {
 	nCols := cd.Len()
 	nLayers := cd.Layers()
-	buf, err := diff.BlockBufferWithSingleStore(db, append([]*objects.Table{baseTbl}, tbl...))
-	if err != nil {
-		return nil, err
-	}
 	return &RowResolver{
 		buf:     buf,
 		cd:      cd,
@@ -34,7 +30,7 @@ func NewRowResolver(db objects.Store, cd *objects.ColDiff, baseTbl *objects.Tabl
 		nLayers: nLayers,
 		rows:    NewRows(nLayers),
 		rowDec:  objects.NewStrListDecoder(false),
-	}, nil
+	}
 }
 
 func (r *RowResolver) getRow(m *Merge, layer int) ([]string, error) {

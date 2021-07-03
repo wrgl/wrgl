@@ -8,34 +8,33 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/merge"
-	merge_testutils "github.com/wrgl/core/pkg/merge/testutils"
+	mergehelpers "github.com/wrgl/core/pkg/merge/helpers"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
 )
 
 func TestMergeApp(t *testing.T) {
-	db := kv.NewMockStore(false)
-	fs := kv.NewMockStore(false)
-	base, _ := factory.Commit(t, db, fs, []string{
+	db := objmock.NewStore()
+	base, _ := factory.Commit(t, db, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 	}, []uint32{0}, nil)
-	com1, _ := factory.Commit(t, db, fs, []string{
+	com1, _ := factory.Commit(t, db, []string{
 		"a,b,c",
 		"1,q,r",
 		"2,f,s",
 		"3,v,c",
 		"4,r,t",
 	}, []uint32{0}, [][]byte{base})
-	com2, _ := factory.Commit(t, db, fs, []string{
+	com2, _ := factory.Commit(t, db, []string{
 		"a,b,c",
 		"1,q,t",
 		"3,s,d",
 	}, []uint32{0}, [][]byte{base})
-	merger := merge_testutils.CreateMerger(t, db, fs, com1, com2)
+	merger, buf := mergehelpers.CreateMerger(t, db, com1, com2)
 	app := tview.NewApplication()
-	ma := NewMergeApp(db, fs, merger, app, []string{"branch-1", "branch-2"}, [][]byte{com1, com2}, base)
+	ma := NewMergeApp(buf, merger, app, []string{"branch-1", "branch-2"}, [][]byte{com1, com2}, base)
 	mch, err := merger.Start()
 	require.NoError(t, err)
 	merges := []*merge.Merge{}
