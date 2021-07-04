@@ -11,9 +11,8 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/ref"
 )
 
 func newPruneCmd() *cobra.Command {
@@ -24,14 +23,14 @@ func newPruneCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
-			kvStore, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
-			defer kvStore.Close()
-			fileStore := rd.OpenFileStore()
+			defer db.Close()
+			rs := rd.OpenRefStore()
 
-			commitsToRemove, survivingCommits, err := findCommitsToRemove(cmd, kvStore)
+			commitsToRemove, survivingCommits, err := findCommitsToRemove(cmd, db, rs)
 			if err != nil {
 				return err
 			}
@@ -39,23 +38,23 @@ func newPruneCmd() *cobra.Command {
 				return nil
 			}
 
-			allRowKeys, err := table.GetAllRowKeys(kvStore)
+			allBlockKeys, err := objects.GetAllBlockKeys(db)
 			if err != nil {
 				return err
 			}
-			keepRow := make([]bool, len(allRowKeys))
+			keepRow := make([]bool, len(allBlockKeys))
 
 			// remove orphaned tables
-			err = pruneSmallTables(cmd, kvStore, fileStore, survivingCommits, allRowKeys, keepRow)
+			err = pruneTables(cmd, db, survivingCommits, allBlockKeys, keepRow)
 			if err != nil {
 				return err
 			}
 
 			// remove orphaned rows
 			bar := pbar(-1, "removing rows", cmd.OutOrStdout(), cmd.ErrOrStderr())
-			for i, hash := range allRowKeys {
+			for i, sum := range allBlockKeys {
 				if !keepRow[i] {
-					err := table.DeleteRow(kvStore, []byte(hash))
+					err := objects.DeleteBlock(db, sum)
 					if err != nil {
 						return err
 					}
@@ -68,8 +67,8 @@ func newPruneCmd() *cobra.Command {
 
 			// remove orphaned commits
 			bar = pbar(-1, "removing commits", cmd.OutOrStdout(), cmd.ErrOrStderr())
-			for _, hash := range commitsToRemove {
-				err = versioning.DeleteCommit(kvStore, hash)
+			for _, sum := range commitsToRemove {
+				err = objects.DeleteCommit(db, sum)
 				if err != nil {
 					return err
 				}
@@ -100,85 +99,82 @@ func pbar(max int64, desc string, out, err io.Writer) *progressbar.ProgressBar {
 	return bar
 }
 
-func findCommitsToRemove(cmd *cobra.Command, kvStore kv.Store) (commitsToRemove [][]byte, survivingCommits [][]byte, err error) {
+func findCommitsToRemove(cmd *cobra.Command, db objects.Store, rs ref.Store) (commitsToRemove [][]byte, survivingCommits [][]byte, err error) {
 	bar := pbar(-1, "finding commits to remove", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
-	branchMap, err := versioning.ListHeads(kvStore)
+	branchMap, err := ref.ListHeads(rs)
+	if err != nil {
+		return
+	}
+	q, err := ref.NewCommitsQueue(db, nil)
+	if err != nil {
+		return
+	}
+	for _, sum := range branchMap {
+		q.Insert(sum)
+	}
+	commitKeys, err := objects.GetAllCommitKeys(db)
 	if err != nil {
 		return nil, nil, err
 	}
-	commitHashes, err := versioning.GetAllCommitHashes(kvStore)
-	if err != nil {
-		return nil, nil, err
-	}
-	commitFound := make([]bool, len(commitHashes))
-	for _, b := range branchMap {
-		for {
-			ind := sort.Search(len(commitHashes), func(i int) bool { return string(commitHashes[i]) >= string(b) })
-			commitFound[ind] = true
-			commit, err := versioning.GetCommit(kvStore, b)
-			if err != nil {
-				return nil, nil, err
-			}
-			if len(commit.Parents) == 0 {
-				break
-			}
-			b = commit.Parents[0]
+	commitFound := make([]bool, len(commitKeys))
+	for {
+		sum, _, err := q.PopInsertParents()
+		if err == io.EOF {
+			break
 		}
+		if err != nil {
+			return nil, nil, err
+		}
+		ind := sort.Search(len(commitKeys), func(i int) bool {
+			return string(commitKeys[i]) >= string(sum)
+		})
+		commitFound[ind] = true
 	}
 	for i, found := range commitFound {
 		if !found {
-			commitsToRemove = append(commitsToRemove, commitHashes[i])
+			commitsToRemove = append(commitsToRemove, commitKeys[i])
 			bar.Add(1)
 		} else {
-			survivingCommits = append(survivingCommits, commitHashes[i])
+			survivingCommits = append(survivingCommits, commitKeys[i])
 		}
 	}
 	return
 }
 
-func pruneSmallTables(cmd *cobra.Command, kvStore kv.Store, fs kv.FileStore, survivingCommits [][]byte, allRowKeys []string, keepRow []bool) (err error) {
+func pruneTables(cmd *cobra.Command, db objects.Store, survivingCommits [][]byte, allBlockKeys [][]byte, keepRow []bool) (err error) {
 	bar := pbar(-1, "removing small tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
-	tableHashes, err := table.GetAllTableHashes(kvStore, fs)
+	tableHashes, err := objects.GetAllTableKeys(db)
 	if err != nil {
 		return
 	}
 	tableFound := make([]bool, len(tableHashes))
 	for _, commitHash := range survivingCommits {
-		commit, err := versioning.GetCommit(kvStore, commitHash)
+		commit, err := objects.GetCommit(db, commitHash)
 		if err != nil {
 			return err
 		}
-		// if commit.TableType != objects.TableType_TS_SMALL {
-		// 	continue
-		// }
 		i := sort.Search(len(tableHashes), func(i int) bool { return string(tableHashes[i]) >= string(commit.Table) })
 		tableFound[i] = true
 	}
 	for i, keep := range tableFound {
-		hash := tableHashes[i]
+		sum := tableHashes[i]
 		if !keep {
-			err := table.DeleteTable(kvStore, fs, hash)
+			err := objects.DeleteTable(db, sum)
 			if err != nil {
 				return err
 			}
 			bar.Add(1)
 		} else {
-			ts, err := table.ReadTable(kvStore, fs, hash)
+			ts, err := objects.GetTable(db, sum)
 			if err != nil {
 				return err
 			}
-			reader := ts.NewRowHashReader(0, 0)
-			for {
-				_, rowhash, err := reader.Read()
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return err
-				}
-				j := sort.SearchStrings(allRowKeys, string(rowhash))
+			for _, blk := range ts.Blocks {
+				j := sort.Search(len(allBlockKeys), func(i int) bool {
+					return string(allBlockKeys[i]) >= string(blk)
+				})
 				keepRow[j] = true
 			}
 		}

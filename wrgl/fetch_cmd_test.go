@@ -16,36 +16,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/objects"
+	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/pack"
 	packtest "github.com/wrgl/core/pkg/pack/test"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
+	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
+	refmock "github.com/wrgl/core/pkg/ref/mock"
 )
 
 func TestFetchCmd(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
-	dbs := kv.NewMockStore(false)
-	fss := kv.NewMockStore(false)
-	sum1, c1 := factory.CommitRandom(t, dbs, fss, nil)
-	sum2, c2 := factory.CommitRandom(t, dbs, fss, [][]byte{sum1})
-	sum3, c3 := factory.CommitRandom(t, dbs, fss, nil)
-	sum4, c4 := factory.CommitRandom(t, dbs, fss, [][]byte{sum3})
-	require.NoError(t, versioning.CommitHead(dbs, fss, "main", sum2, c2))
-	require.NoError(t, versioning.CommitHead(dbs, fss, "tickets", sum4, c4))
-	require.NoError(t, versioning.SaveTag(dbs, "2020", sum1))
-	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(dbs))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, fss))
+	dbs := objmock.NewStore()
+	rss := refmock.NewStore()
+	sum1, c1 := factory.CommitRandom(t, dbs, nil)
+	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
+	sum3, c3 := factory.CommitRandom(t, dbs, nil)
+	sum4, c4 := factory.CommitRandom(t, dbs, [][]byte{sum3})
+	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rss, "tickets", sum4, c4))
+	require.NoError(t, ref.SaveTag(rss, "2020", sum1))
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rss))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, rss))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	packtest.CopyCommitsToNewStore(t, dbs, db, fss, fs, [][]byte{sum1, sum3})
-	require.NoError(t, versioning.CommitHead(db, fs, "main", sum1, c1))
-	require.NoError(t, versioning.CommitHead(db, fs, "tickets", sum3, c3))
+	rs := rd.OpenRefStore()
+	packtest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum3})
+	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
+	require.NoError(t, ref.CommitHead(rs, "tickets", sum3, c3))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
@@ -61,27 +62,27 @@ func TestFetchCmd(t *testing.T) {
 		" * [new tag]         2020        -> 2020",
 		"",
 	}, "\n"))
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetRemoteRef(db, "origin", "main")
+	sum, err := ref.GetRemoteRef(rs, "origin", "main")
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	sum, err = versioning.GetRemoteRef(db, "origin", "tickets")
+	sum, err = ref.GetRemoteRef(rs, "origin", "tickets")
 	require.NoError(t, err)
 	assert.Equal(t, sum4, sum)
-	sum, err = versioning.GetTag(db, "2020")
+	sum, err = ref.GetTag(rs, "2020")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum2, sum4})
-	versioning.AssertLatestReflogEqual(t, fs, "remotes/origin/main", &objects.Reflog{
+	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum2, sum4})
+	refhelpers.AssertLatestReflogEqual(t, rs, "remotes/origin/main", &ref.Reflog{
 		NewOID:      sum2,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
 		Action:      "fetch",
 		Message:     "storing head",
 	})
-	versioning.AssertLatestReflogEqual(t, fs, "remotes/origin/tickets", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "remotes/origin/tickets", &ref.Reflog{
 		NewOID:      sum4,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
@@ -105,32 +106,32 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 
-	db1 := kv.NewMockStore(false)
-	fs1 := kv.NewMockStore(false)
-	sum1, c1 := factory.CommitRandom(t, db1, fs1, nil)
-	require.NoError(t, versioning.CommitHead(db1, fs1, "main", sum1, c1))
+	db1 := objmock.NewStore()
+	rs1 := refmock.NewStore()
+	sum1, c1 := factory.CommitRandom(t, db1, nil)
+	require.NoError(t, ref.CommitHead(rs1, "main", sum1, c1))
 	url1 := "https://origin.remote"
-	packtest.RegisterHandlerWithOrigin(url1, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
-	packtest.RegisterHandlerWithOrigin(url1, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
+	packtest.RegisterHandlerWithOrigin(url1, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs1))
+	packtest.RegisterHandlerWithOrigin(url1, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1))
 
-	db2 := kv.NewMockStore(false)
-	fs2 := kv.NewMockStore(false)
-	sum2, c2 := factory.CommitRandom(t, db2, fs2, nil)
-	require.NoError(t, versioning.CommitHead(db2, fs2, "main", sum2, c2))
+	db2 := objmock.NewStore()
+	rs2 := refmock.NewStore()
+	sum2, c2 := factory.CommitRandom(t, db2, nil)
+	require.NoError(t, ref.CommitHead(rs2, "main", sum2, c2))
 	url2 := "https://acme.remote"
-	packtest.RegisterHandlerWithOrigin(url2, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db2))
-	packtest.RegisterHandlerWithOrigin(url2, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db2, fs2))
+	packtest.RegisterHandlerWithOrigin(url2, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs2))
+	packtest.RegisterHandlerWithOrigin(url2, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db2, rs2))
 
-	db3 := kv.NewMockStore(false)
-	fs3 := kv.NewMockStore(false)
-	sum3, c3 := factory.CommitRandom(t, db3, fs3, nil)
-	require.NoError(t, versioning.CommitHead(db3, fs3, "main", sum3, c3))
+	db3 := objmock.NewStore()
+	rs3 := refmock.NewStore()
+	sum3, c3 := factory.CommitRandom(t, db3, nil)
+	require.NoError(t, ref.CommitHead(rs3, "main", sum3, c3))
 	url3 := "https://home.remote"
-	packtest.RegisterHandlerWithOrigin(url3, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db3))
-	packtest.RegisterHandlerWithOrigin(url3, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db3, fs3))
+	packtest.RegisterHandlerWithOrigin(url3, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs3))
+	packtest.RegisterHandlerWithOrigin(url3, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db3, rs3))
 
 	rd, cleanUp := createRepoDir(t)
-	fs := rd.OpenFileStore()
+	rs := rd.OpenRefStore()
 	defer cleanUp()
 
 	cmd := newRootCmd()
@@ -146,30 +147,30 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "acme"})
 	assertCommandNoErr(t, cmd)
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	sum, err := versioning.GetRemoteRef(db, "acme", "main")
+	sum, err := ref.GetRemoteRef(rs, "acme", "main")
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	_, err = versioning.GetRemoteRef(db, "origin", "main")
-	assert.Equal(t, kv.KeyNotFoundError, err)
-	_, err = versioning.GetRemoteRef(db, "home", "main")
-	assert.Equal(t, kv.KeyNotFoundError, err)
-	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum2})
+	_, err = ref.GetRemoteRef(rs, "origin", "main")
+	assert.Equal(t, ref.ErrKeyNotFound, err)
+	_, err = ref.GetRemoteRef(rs, "home", "main")
+	assert.Equal(t, ref.ErrKeyNotFound, err)
+	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum2})
 	require.NoError(t, db.Close())
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "--all"})
 	assertCommandNoErr(t, cmd)
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
-	sum, err = versioning.GetRemoteRef(db, "origin", "main")
+	sum, err = ref.GetRemoteRef(rs, "origin", "main")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	sum, err = versioning.GetRemoteRef(db, "home", "main")
+	sum, err = ref.GetRemoteRef(rs, "home", "main")
 	require.NoError(t, err)
 	assert.Equal(t, sum3, sum)
-	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum1, sum3})
+	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum1, sum3})
 	require.NoError(t, db.Close())
 }
 
@@ -177,15 +178,15 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 
-	db1 := kv.NewMockStore(false)
-	fs1 := kv.NewMockStore(false)
-	sum1, _ := factory.CommitRandom(t, db1, fs1, nil)
-	require.NoError(t, versioning.SaveRef(db1, fs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom"))
-	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
+	db1 := objmock.NewStore()
+	rs1 := refmock.NewStore()
+	sum1, _ := factory.CommitRandom(t, db1, nil)
+	require.NoError(t, ref.SaveRef(rs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom"))
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs1))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1))
 
 	rd, cleanUp := createRepoDir(t)
-	fs := rd.OpenFileStore()
+	rs := rd.OpenRefStore()
 	defer cleanUp()
 
 	cmd := newRootCmd()
@@ -199,14 +200,14 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 		" * [new ref]         refs/custom/abc -> refs/custom/abc",
 		"",
 	}, "\n"))
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetRef(db, "custom/abc")
+	sum, err := ref.GetRef(rs, "custom/abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum1})
-	versioning.AssertLatestReflogEqual(t, fs, "custom/abc", &objects.Reflog{
+	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum1})
+	refhelpers.AssertLatestReflogEqual(t, rs, "custom/abc", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
@@ -219,24 +220,24 @@ func TestFetchCmdTag(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 
-	db1 := kv.NewMockStore(false)
-	fs1 := kv.NewMockStore(false)
-	sum1, _ := factory.CommitRandom(t, db1, fs1, nil)
-	require.NoError(t, versioning.SaveTag(db1, "2020-dec", sum1))
-	sum2, _ := factory.CommitRandom(t, db1, fs1, nil)
-	require.NoError(t, versioning.SaveTag(db1, "2021-dec", sum2))
-	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
+	db1 := objmock.NewStore()
+	rs1 := refmock.NewStore()
+	sum1, _ := factory.CommitRandom(t, db1, nil)
+	require.NoError(t, ref.SaveTag(rs1, "2020-dec", sum1))
+	sum2, _ := factory.CommitRandom(t, db1, nil)
+	require.NoError(t, ref.SaveTag(rs1, "2021-dec", sum2))
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs1))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	sum3, _ := factory.CommitRandom(t, db, fs, nil)
-	require.NoError(t, versioning.SaveTag(db, "2020-dec", sum3))
-	sum4, _ := factory.CommitRandom(t, db, fs, nil)
-	require.NoError(t, versioning.SaveTag(db, "2021-dec", sum4))
+	rs := rd.OpenRefStore()
+	sum3, _ := factory.CommitRandom(t, db, nil)
+	require.NoError(t, ref.SaveTag(rs, "2020-dec", sum3))
+	sum4, _ := factory.CommitRandom(t, db, nil)
+	require.NoError(t, ref.SaveTag(rs, "2021-dec", sum4))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
@@ -259,13 +260,13 @@ func TestFetchCmdTag(t *testing.T) {
 		" t [tag update]      2020-dec    -> 2020-dec",
 		"",
 	}, "\n"))
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
-	sum, err := versioning.GetTag(db, "2020-dec")
+	sum, err := ref.GetTag(rs, "2020-dec")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum1})
-	versioning.AssertLatestReflogEqual(t, fs, "tags/2020-dec", &objects.Reflog{
+	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum1})
+	refhelpers.AssertLatestReflogEqual(t, rs, "tags/2020-dec", &ref.Reflog{
 		OldOID:      sum3,
 		NewOID:      sum1,
 		AuthorName:  "John Doe",
@@ -282,13 +283,13 @@ func TestFetchCmdTag(t *testing.T) {
 		" t [tag update]      2021-dec    -> 2021-dec",
 		"",
 	}, "\n"))
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
-	sum, err = versioning.GetTag(db, "2021-dec")
+	sum, err = ref.GetTag(rs, "2021-dec")
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum2})
-	versioning.AssertLatestReflogEqual(t, fs, "tags/2021-dec", &objects.Reflog{
+	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum2})
+	refhelpers.AssertLatestReflogEqual(t, rs, "tags/2021-dec", &ref.Reflog{
 		OldOID:      sum4,
 		NewOID:      sum2,
 		AuthorName:  "John Doe",
@@ -303,20 +304,20 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 
-	db1 := kv.NewMockStore(false)
-	fs1 := kv.NewMockStore(false)
-	sum1, c1 := factory.CommitRandom(t, db1, fs1, nil)
-	require.NoError(t, versioning.CommitHead(db1, fs1, "abc", sum1, c1))
-	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(db1))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, fs1))
+	db1 := objmock.NewStore()
+	rs1 := refmock.NewStore()
+	sum1, c1 := factory.CommitRandom(t, db1, nil)
+	require.NoError(t, ref.CommitHead(rs1, "abc", sum1, c1))
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs1))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1))
 
 	rd, cleanUp := createRepoDir(t)
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer cleanUp()
-	fs := rd.OpenFileStore()
-	sum2, c2 := factory.CommitRandom(t, db, fs, nil)
-	require.NoError(t, versioning.CommitHead(db, fs, "abc", sum2, c2))
+	rs := rd.OpenRefStore()
+	sum2, c2 := factory.CommitRandom(t, db, nil)
+	require.NoError(t, ref.CommitHead(rs, "abc", sum2, c2))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
@@ -339,14 +340,14 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 		"",
 	}, "\n"))
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetHead(db, "abc")
+	sum, err := ref.GetHead(rs, "abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	packtest.AssertCommitsPersisted(t, db, fs, [][]byte{sum1})
-	versioning.AssertLatestReflogEqual(t, fs, "heads/abc", &objects.Reflog{
+	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum1})
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/abc", &ref.Reflog{
 		OldOID:      sum2,
 		NewOID:      sum1,
 		AuthorName:  "John Doe",

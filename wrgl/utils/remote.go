@@ -7,10 +7,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/conf"
 )
 
-func MustGetRemote(cmd *cobra.Command, c *versioning.Config, name string) *versioning.ConfigRemote {
+func MustGetRemote(cmd *cobra.Command, c *conf.Config, name string) *conf.ConfigRemote {
 	v, ok := c.Remote[name]
 	if !ok {
 		cmd.PrintErrf("fatal: No such remote '%s'\n", name)

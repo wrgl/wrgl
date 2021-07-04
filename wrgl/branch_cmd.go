@@ -10,9 +10,10 @@ import (
 
 	"github.com/gobwas/glob"
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/slice"
-	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -40,17 +41,17 @@ func newBranchCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
 			wrglDir := utils.MustWRGLDir(cmd)
-			conf, err := versioning.AggregateConfig(wrglDir)
+			conf, err := utils.AggregateConfig(wrglDir)
 			if err != nil {
 				return err
 			}
 			quitIfRepoDirNotExist(cmd, rd)
-			kvStore, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
-			defer kvStore.Close()
-			fs := rd.OpenFileStore()
+			defer db.Close()
+			rs := rd.OpenRefStore()
 
 			patterns, err := cmd.Flags().GetStringSlice("list")
 			if err != nil {
@@ -65,7 +66,7 @@ func newBranchCmd() *cobra.Command {
 				globs = append(globs, g)
 			}
 			if len(args) == 0 || len(patterns) > 0 {
-				return listBranch(cmd, kvStore, globs)
+				return listBranch(cmd, rs, globs)
 			}
 
 			newBranch, err := cmd.Flags().GetString("copy")
@@ -73,7 +74,7 @@ func newBranchCmd() *cobra.Command {
 				return err
 			}
 			if newBranch != "" {
-				return copyBranch(cmd, conf.User, kvStore, fs, args[0], newBranch)
+				return copyBranch(cmd, conf.User, rs, args[0], newBranch)
 			}
 
 			newBranch, err = cmd.Flags().GetString("move")
@@ -81,7 +82,7 @@ func newBranchCmd() *cobra.Command {
 				return err
 			}
 			if newBranch != "" {
-				return moveBranch(cmd, kvStore, fs, args[0], newBranch)
+				return moveBranch(cmd, rs, args[0], newBranch)
 			}
 
 			del, err := cmd.Flags().GetBool("delete")
@@ -89,10 +90,10 @@ func newBranchCmd() *cobra.Command {
 				return err
 			}
 			if del {
-				return deleteBranch(cmd, kvStore, fs, args)
+				return deleteBranch(cmd, rs, args)
 			}
 
-			return createBranch(cmd, conf.User, kvStore, fs, args)
+			return createBranch(cmd, conf.User, db, rs, args)
 		},
 	}
 	cmd.Flags().StringSliceP("list", "l", nil, "list branches that match wildcard patterns")
@@ -102,8 +103,8 @@ func newBranchCmd() *cobra.Command {
 	return cmd
 }
 
-func listBranch(cmd *cobra.Command, kvStore kv.Store, globs []glob.Glob) error {
-	branchMap, err := versioning.ListHeads(kvStore)
+func listBranch(cmd *cobra.Command, rs ref.Store, globs []glob.Glob) error {
+	branchMap, err := ref.ListHeads(rs)
 	if err != nil {
 		return err
 	}
@@ -126,27 +127,27 @@ func listBranch(cmd *cobra.Command, kvStore kv.Store, globs []glob.Glob) error {
 	return nil
 }
 
-func validateNewBranch(db kv.DB, newBranch string) error {
-	if !versioning.HeadPattern.MatchString(newBranch) {
+func validateNewBranch(rs ref.Store, newBranch string) error {
+	if !ref.HeadPattern.MatchString(newBranch) {
 		return fmt.Errorf(`branch name "%s" is invalid`, newBranch)
 	}
-	_, err := versioning.GetHead(db, newBranch)
+	_, err := ref.GetHead(rs, newBranch)
 	if err == nil {
 		return fmt.Errorf(`branch "%s" already exist`, newBranch)
 	}
 	return nil
 }
 
-func copyBranch(cmd *cobra.Command, u *versioning.ConfigUser, db kv.DB, fs kv.FileStore, oldBranch, newBranch string) error {
-	err := validateNewBranch(db, newBranch)
+func copyBranch(cmd *cobra.Command, u *conf.ConfigUser, rs ref.Store, oldBranch, newBranch string) error {
+	err := validateNewBranch(rs, newBranch)
 	if err != nil {
 		return err
 	}
-	b, err := versioning.GetHead(db, oldBranch)
+	b, err := ref.GetHead(rs, oldBranch)
 	if err != nil {
 		return fmt.Errorf(`branch %q does not exist`, oldBranch)
 	}
-	_, err = versioning.CopyRef(db, fs, "heads/"+oldBranch, "heads/"+newBranch)
+	_, err = ref.CopyRef(rs, "heads/"+oldBranch, "heads/"+newBranch)
 	if err != nil {
 		return err
 	}
@@ -154,16 +155,16 @@ func copyBranch(cmd *cobra.Command, u *versioning.ConfigUser, db kv.DB, fs kv.Fi
 	return nil
 }
 
-func moveBranch(cmd *cobra.Command, db kv.DB, fs kv.FileStore, oldBranch, newBranch string) error {
-	err := validateNewBranch(db, newBranch)
+func moveBranch(cmd *cobra.Command, rs ref.Store, oldBranch, newBranch string) error {
+	err := validateNewBranch(rs, newBranch)
 	if err != nil {
 		return err
 	}
-	_, err = versioning.GetHead(db, oldBranch)
+	_, err = ref.GetHead(rs, oldBranch)
 	if err != nil {
 		return fmt.Errorf(`branch %q does not exist`, oldBranch)
 	}
-	sum, err := versioning.RenameRef(db, fs, "heads/"+oldBranch, "heads/"+newBranch)
+	sum, err := ref.RenameRef(rs, "heads/"+oldBranch, "heads/"+newBranch)
 	if err != nil {
 		return err
 	}
@@ -171,12 +172,12 @@ func moveBranch(cmd *cobra.Command, db kv.DB, fs kv.FileStore, oldBranch, newBra
 	return nil
 }
 
-func deleteBranch(cmd *cobra.Command, db kv.DB, fs kv.FileStore, args []string) error {
-	_, err := versioning.GetHead(db, args[0])
+func deleteBranch(cmd *cobra.Command, rs ref.Store, args []string) error {
+	_, err := ref.GetHead(rs, args[0])
 	if err != nil {
 		return fmt.Errorf(`branch %q does not exist`, args[0])
 	}
-	err = versioning.DeleteHead(db, fs, args[0])
+	err = ref.DeleteHead(rs, args[0])
 	if err != nil {
 		return err
 	}
@@ -184,15 +185,15 @@ func deleteBranch(cmd *cobra.Command, db kv.DB, fs kv.FileStore, args []string) 
 	return nil
 }
 
-func createBranch(cmd *cobra.Command, u *versioning.ConfigUser, db kv.DB, fs kv.FileStore, args []string) error {
+func createBranch(cmd *cobra.Command, u *conf.ConfigUser, db objects.Store, rs ref.Store, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("please specify both branch name and start point (could be branch name, commit hash)")
 	}
-	err := validateNewBranch(db, args[0])
+	err := validateNewBranch(rs, args[0])
 	if err != nil {
 		return err
 	}
-	name, hash, commit, err := versioning.InterpretCommitName(db, args[1], false)
+	name, hash, commit, err := ref.InterpretCommitName(db, rs, args[1], false)
 	if err != nil {
 		return err
 	}
@@ -200,7 +201,7 @@ func createBranch(cmd *cobra.Command, u *versioning.ConfigUser, db kv.DB, fs kv.
 		return fmt.Errorf(`commit "%s" not found`, args[1])
 	}
 	name = strings.TrimPrefix(name, "refs/heads/")
-	err = versioning.SaveRef(db, fs, "heads/"+args[0], hash, u.Name, u.Email, "branch", "created from "+name)
+	err = ref.SaveRef(rs, "heads/"+args[0], hash, u.Name, u.Email, "branch", "created from "+name)
 	if err != nil {
 		return err
 	}

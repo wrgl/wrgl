@@ -51,16 +51,16 @@ func CollectUnresolvedMerges(t *testing.T, merger *merge.Merger) []*merge.Merge 
 	return merges
 }
 
-func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) []*sorter.Block {
+func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) ([]*sorter.Block, uint32) {
 	t.Helper()
 	rows := []*sorter.Block{}
-	ch, err := merger.SortedBlocks(removedCols)
+	ch, rowsCount, err := merger.SortedBlocks(removedCols)
 	require.NoError(t, err)
 	for blk := range ch {
 		rows = append(rows, blk)
 	}
 	require.NoError(t, merger.Error())
-	return rows
+	return rows, rowsCount
 }
 
 func CreateMerger(t *testing.T, db objects.Store, commits ...[]byte) (*merge.Merger, *diff.BlockBuffer) {

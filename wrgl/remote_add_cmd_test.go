@@ -10,7 +10,9 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
 func TestRemoteAddCmd(t *testing.T) {
@@ -54,39 +56,39 @@ func TestRemoteAddCmd(t *testing.T) {
 	}, "\n"))
 
 	// test config
-	c, err := versioning.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
+	c, err := utils.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
-	assert.Equal(t, map[string]*versioning.ConfigRemote{
+	assert.Equal(t, map[string]*conf.ConfigRemote{
 		"acme": {
 			URL: "https://acme.com",
-			Fetch: []*versioning.Refspec{
+			Fetch: []*conf.Refspec{
 				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/acme/*"),
 				versioning.MustParseRefspec("tag *"),
 			},
 		},
 		"beta": {
 			URL: "https://beta.com",
-			Fetch: []*versioning.Refspec{
+			Fetch: []*conf.Refspec{
 				versioning.MustParseRefspec("+refs/heads/main:refs/remotes/beta/main"),
 				versioning.MustParseRefspec("+refs/heads/tickets:refs/remotes/beta/tickets"),
 			},
 		},
 		"gamma": {
 			URL: "https://gamma.com",
-			Fetch: []*versioning.Refspec{
+			Fetch: []*conf.Refspec{
 				versioning.MustParseRefspec("+refs/*:refs/*"),
 			},
 		},
 		"theta": {
 			URL: "https://theta.com",
-			Fetch: []*versioning.Refspec{
+			Fetch: []*conf.Refspec{
 				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/theta/*"),
 			},
 			Mirror: true,
 		},
 		"origin": {
 			URL: "https://my-repo.com",
-			Fetch: []*versioning.Refspec{
+			Fetch: []*conf.Refspec{
 				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
 			},
 		},

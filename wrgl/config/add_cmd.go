@@ -24,7 +24,7 @@ func addCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return c.Save()
+			return utils.SaveConfig(c)
 		},
 	}
 	return cmd

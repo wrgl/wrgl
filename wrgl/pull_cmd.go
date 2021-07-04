@@ -7,8 +7,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -19,18 +20,18 @@ func pullCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := versioning.AggregateConfig(wrglDir)
+			c, err := utils.AggregateConfig(wrglDir)
 			if err != nil {
 				return err
 			}
 			ensureUserSet(cmd, c)
 			rd := getRepoDir(cmd)
-			db, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
 			defer db.Close()
-			fs := rd.OpenFileStore()
+			rs := rd.OpenRefStore()
 
 			force, err := cmd.Flags().GetBool("force")
 			if err != nil {
@@ -57,7 +58,7 @@ func pullCmd() *cobra.Command {
 				return err
 			}
 
-			name, _, _, err := versioning.InterpretCommitName(db, args[0], true)
+			name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
 			if err != nil {
 				return err
 			}
@@ -68,7 +69,7 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			err = fetch(cmd, db, fs, c.User, remote, rem, specs, force)
+			err = fetch(cmd, db, rs, c.User, remote, rem, specs, force)
 			if err != nil {
 				return err
 			}
@@ -79,7 +80,7 @@ func pullCmd() *cobra.Command {
 				}
 			}
 
-			mergeHeads, err := extractMergeHeads(db, c, name, args, specs)
+			mergeHeads, err := extractMergeHeads(db, rs, c, name, args, specs)
 			if err != nil {
 				return err
 			}
@@ -88,7 +89,7 @@ func pullCmd() *cobra.Command {
 				return nil
 			}
 
-			return runMerge(cmd, c, db, fs, append(args[:1], mergeHeads...), noCommit, noGUI, "", numWorkers, message, nil)
+			return runMerge(cmd, c, db, rs, append(args[:1], mergeHeads...), noCommit, noGUI, "", numWorkers, message, nil)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update local branch in certain conditions.")
@@ -100,34 +101,34 @@ func pullCmd() *cobra.Command {
 	return cmd
 }
 
-func extractMergeHeads(db kv.DB, c *versioning.Config, name string, args []string, specs []*versioning.Refspec) ([]string, error) {
-	oldSum, err := versioning.GetRef(db, name[5:])
+func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name string, args []string, specs []*conf.Refspec) ([]string, error) {
+	oldSum, err := ref.GetRef(rs, name[5:])
 	if err != nil {
 		return nil, err
 	}
 	mergeHeads := []string{}
 	if len(args) > 2 {
 		// refspecs are specified in arguments
-		for _, rs := range specs {
-			sum, _ := versioning.GetRef(db, rs.Dst()[5:])
+		for _, s := range specs {
+			sum, _ := ref.GetRef(rs, s.Dst()[5:])
 			if sum != nil && !bytes.Equal(sum, oldSum) {
-				mergeHeads = append(mergeHeads, rs.Dst())
+				mergeHeads = append(mergeHeads, s.Dst())
 			}
 		}
 	} else {
 		b, ok := c.Branch[args[0]]
 		if ok && b.Merge != "" {
-			for _, rs := range specs {
-				if rs.Src() == b.Merge {
-					sum, _ := versioning.GetRef(db, rs.Dst()[5:])
+			for _, s := range specs {
+				if s.Src() == b.Merge {
+					sum, _ := ref.GetRef(rs, s.Dst()[5:])
 					if sum != nil && !bytes.Equal(sum, oldSum) {
-						mergeHeads = append(mergeHeads, rs.Dst())
+						mergeHeads = append(mergeHeads, s.Dst())
 						break
 					}
 				}
 			}
 		} else if len(specs) > 0 && !specs[0].IsGlob() {
-			sum, _ := versioning.GetRef(db, specs[0].Dst()[5:])
+			sum, _ := ref.GetRef(rs, specs[0].Dst()[5:])
 			if sum != nil && !bytes.Equal(sum, oldSum) {
 				mergeHeads = append(mergeHeads, specs[0].Dst())
 			}

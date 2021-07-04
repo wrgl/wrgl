@@ -34,18 +34,17 @@ func NewRowResolver(db objects.Store, cd *objects.ColDiff, buf *diff.BlockBuffer
 }
 
 func (r *RowResolver) getRow(m *Merge, layer int) ([]string, error) {
-	blkOffset := m.BaseBlockOffset
-	offset := m.BaseRowOffset
+	rowOff := m.BaseOffset
 	sum := m.Base
 	if layer >= 0 {
-		blkOffset = m.BlockOffset[layer]
-		offset = m.RowOffset[layer]
+		rowOff = m.OtherOffsets[layer]
 		sum = m.Others[layer]
 	}
 	if sum == nil {
 		return nil, nil
 	}
-	row, err := r.buf.GetRow(byte(layer+1), blkOffset, offset)
+	blk, off := diff.RowToBlockAndOffset(rowOff)
+	row, err := r.buf.GetRow(byte(layer+1), blk, off)
 	if err != nil {
 		return nil, err
 	}

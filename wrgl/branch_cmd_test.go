@@ -17,16 +17,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
+	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
-func createRepoDir(t *testing.T) (rd *versioning.RepoDir, cleanup func()) {
+func createRepoDir(t *testing.T) (rd *utils.RepoDir, cleanup func()) {
 	t.Helper()
 	rootDir, err := ioutil.TempDir("", "test_wrgl_*")
 	require.NoError(t, err)
 	wrglDir := filepath.Join(rootDir, ".wrgl")
-	rd = versioning.NewRepoDir(wrglDir, false, false)
+	rd = utils.NewRepoDir(wrglDir, false, false)
 	err = rd.Init()
 	require.NoError(t, err)
 	viper.Set("wrgl_dir", wrglDir)
@@ -60,11 +61,11 @@ func TestBranchCmdList(t *testing.T) {
 	defer cleanUp()
 	cmd := newRootCmd()
 
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	factory.CommitHead(t, db, fs, "alpha", nil, nil)
-	factory.CommitHead(t, db, fs, "beta", nil, nil)
+	rs := rd.OpenRefStore()
+	factory.CommitHead(t, db, rs, "alpha", nil, nil)
+	factory.CommitHead(t, db, rs, "beta", nil, nil)
 	require.NoError(t, db.Close())
 
 	// test list branch
@@ -85,11 +86,11 @@ func TestBranchCmdCopy(t *testing.T) {
 	defer cleanUp()
 	cmd := newRootCmd()
 
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	sum, c := factory.CommitHead(t, db, fs, "alpha", nil, nil)
-	factory.CommitHead(t, db, fs, "beta", nil, nil)
+	rs := rd.OpenRefStore()
+	sum, c := factory.CommitHead(t, db, rs, "alpha", nil, nil)
+	factory.CommitHead(t, db, rs, "beta", nil, nil)
 	require.NoError(t, db.Close())
 
 	cmd.SetArgs([]string{"branch", "gamma", "--copy", "delta"})
@@ -101,16 +102,16 @@ func TestBranchCmdCopy(t *testing.T) {
 	cmd.SetArgs([]string{"branch", "alpha", "--copy", "gamma"})
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", hex.EncodeToString(sum)))
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	b1, err := versioning.GetHead(db, "gamma")
+	b1, err := ref.GetHead(rs, "gamma")
 	require.NoError(t, err)
 	assert.Equal(t, sum, b1)
-	b2, err := versioning.GetHead(db, "alpha")
+	b2, err := ref.GetHead(rs, "alpha")
 	require.NoError(t, err)
 	assert.Equal(t, b1, b2)
-	versioning.AssertLatestReflogEqual(t, fs, "heads/gamma", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/gamma", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  c.AuthorName,
 		AuthorEmail: c.AuthorEmail,
@@ -124,11 +125,11 @@ func TestBranchCmdMove(t *testing.T) {
 	defer cleanUp()
 	cmd := newRootCmd()
 
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	sum, _ := factory.CommitHead(t, db, fs, "alpha", nil, nil)
-	factory.CommitHead(t, db, fs, "beta", nil, nil)
+	rs := rd.OpenRefStore()
+	sum, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
+	factory.CommitHead(t, db, rs, "beta", nil, nil)
 	require.NoError(t, db.Close())
 
 	cmd.SetArgs([]string{"branch", "gamma", "--move", "delta"})
@@ -140,13 +141,13 @@ func TestBranchCmdMove(t *testing.T) {
 	cmd.SetArgs([]string{"branch", "alpha", "--move", "gamma"})
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", hex.EncodeToString(sum)))
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	b1, err := versioning.GetHead(db, "gamma")
+	b1, err := ref.GetHead(rs, "gamma")
 	require.NoError(t, err)
 	assert.Equal(t, sum, b1)
-	_, err = versioning.GetHead(db, "alpha")
+	_, err = ref.GetHead(rs, "alpha")
 	assert.Error(t, err)
 }
 
@@ -155,10 +156,10 @@ func TestBranchCmdDelete(t *testing.T) {
 	defer cleanUp()
 	cmd := newRootCmd()
 
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	factory.CommitHead(t, db, fs, "alpha", nil, nil)
+	rs := rd.OpenRefStore()
+	factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	require.NoError(t, db.Close())
 
 	cmd.SetArgs([]string{"branch", "gamma", "--delete"})
@@ -167,10 +168,10 @@ func TestBranchCmdDelete(t *testing.T) {
 	cmd.SetArgs([]string{"branch", "alpha", "--delete"})
 	assertCmdOutput(t, cmd, "deleted branch alpha\n")
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	_, err = versioning.GetHead(db, "alpha")
+	_, err = ref.GetHead(rs, "alpha")
 	assert.Error(t, err)
 }
 
@@ -179,10 +180,10 @@ func TestBranchCmdCreate(t *testing.T) {
 	defer cleanUp()
 	cmd := newRootCmd()
 
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	sum, _ := factory.CommitHead(t, db, fs, "alpha", nil, nil)
+	rs := rd.OpenRefStore()
+	sum, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	require.NoError(t, db.Close())
 
 	cmd.SetArgs([]string{"branch", "delta"})
@@ -194,23 +195,23 @@ func TestBranchCmdCreate(t *testing.T) {
 	cmd.SetArgs([]string{"branch", "beta", hex.EncodeToString(sum)})
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch beta (%s)\n", hex.EncodeToString(sum)))
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	b1, err := versioning.GetHead(db, "delta")
+	b1, err := ref.GetHead(rs, "delta")
 	require.NoError(t, err)
 	assert.Equal(t, sum, b1)
-	b2, err := versioning.GetHead(db, "beta")
+	b2, err := ref.GetHead(rs, "beta")
 	require.NoError(t, err)
 	assert.Equal(t, b1, b2)
-	versioning.AssertLatestReflogEqual(t, fs, "heads/delta", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/delta", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
 		Action:      "branch",
 		Message:     "created from alpha",
 	})
-	versioning.AssertLatestReflogEqual(t, fs, "heads/beta", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/beta", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",

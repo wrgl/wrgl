@@ -11,43 +11,21 @@ import (
 	"reflect"
 
 	"github.com/imdario/mergo"
+	"github.com/wrgl/core/pkg/conf"
 	"gopkg.in/yaml.v3"
 )
 
 var systemConfigPath = "/usr/local/etc/wrgl/config.yaml"
 
-type ConfigUser struct {
-	Email string `yaml:"email,omitempty" json:"email,omitempty"`
-	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
-}
-
-type ConfigReceive struct {
-	DenyNonFastForwards *bool `yaml:"denyNonFastForwards,omitempty" json:"denyNonFastForwards,omitempty"`
-	DenyDeletes         *bool `yaml:"denyDeletes,omitempty" json:"denyDeletes,omitempty"`
-}
-
-type ConfigBranch struct {
-	Remote string `yaml:"remote,omitempty" json:"remote,omitempty"`
-	Merge  string `yaml:"merge,omitempty" json:"merge,omitempty"`
-}
-
-type Config struct {
-	User    *ConfigUser              `yaml:"user,omitempty" json:"user,omitempty"`
-	Remote  map[string]*ConfigRemote `yaml:"remote,omitempty" json:"remote,omitempty"`
-	Receive *ConfigReceive           `yaml:"receive,omitempty" json:"receive,omitempty"`
-	Branch  map[string]*ConfigBranch `yaml:"branch,omitempty" json:"branch,omitempty"`
-	path    string                   `yaml:"-" json:"-"`
-}
-
-func (c *Config) Save() error {
-	if c.path == "" {
+func SaveConfig(c *conf.Config) error {
+	if c.Path == "" {
 		return fmt.Errorf("empty config path")
 	}
-	err := os.MkdirAll(filepath.Dir(c.path), 0755)
+	err := os.MkdirAll(filepath.Dir(c.Path), 0755)
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(c.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	f, err := os.OpenFile(c.Path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -87,8 +65,8 @@ func findGlobalConfigFile() (string, error) {
 	return filepath.Join(configDir, "wrgl", "config.yaml"), nil
 }
 
-func readConfig(fp string) (*Config, error) {
-	c := &Config{}
+func readConfig(fp string) (*conf.Config, error) {
+	c := &conf.Config{}
 	if fp == "" {
 		return c, nil
 	}
@@ -106,11 +84,11 @@ func readConfig(fp string) (*Config, error) {
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
-	c.path = fp
+	c.Path = fp
 	return c, nil
 }
 
-func OpenConfig(system, global bool, rootDir, file string) (c *Config, err error) {
+func OpenConfig(system, global bool, rootDir, file string) (c *conf.Config, err error) {
 	var fp string
 	if file != "" {
 		fp = file
@@ -142,7 +120,7 @@ func (t *ptrTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Val
 	return nil
 }
 
-func AggregateConfig(rootDir string) (*Config, error) {
+func AggregateConfig(rootDir string) (*conf.Config, error) {
 	localConfig, err := readConfig(filepath.Join(rootDir, "config.yaml"))
 	if err != nil {
 		return nil, err
@@ -168,6 +146,6 @@ func AggregateConfig(rootDir string) (*Config, error) {
 		return nil, err
 	}
 	// disable save
-	sysConfig.path = ""
+	sysConfig.Path = ""
 	return sysConfig, nil
 }

@@ -106,22 +106,18 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, 
 		pkSum := string(d.PK)
 		if m, ok := merges[pkSum]; !ok {
 			merges[pkSum] = &Merge{
-				PK:              d.PK,
-				Base:            d.OldSum,
-				BaseBlockOffset: d.OldBlock,
-				BaseRowOffset:   d.OldRow,
-				Others:          make([][]byte, n),
-				BlockOffset:     make([]uint32, n),
-				RowOffset:       make([]byte, n),
+				PK:           d.PK,
+				Base:         d.OldSum,
+				BaseOffset:   d.OldRow,
+				Others:       make([][]byte, n),
+				OtherOffsets: make([]uint32, n),
 			}
 			merges[pkSum].Others[chosen] = d.Sum
-			merges[pkSum].BlockOffset[chosen] = d.Block
-			merges[pkSum].RowOffset[chosen] = d.Row
+			merges[pkSum].OtherOffsets[chosen] = d.Row
 			counter[pkSum] = 1
 		} else {
 			m.Others[chosen] = d.Sum
-			m.BlockOffset[chosen] = d.Block
-			m.RowOffset[chosen] = d.Row
+			m.OtherOffsets[chosen] = d.Row
 			counter[pkSum]++
 		}
 	}
@@ -170,7 +166,7 @@ func (m *Merger) Start() (ch <-chan *Merge, err error) {
 		if err != nil {
 			return nil, err
 		}
-		diffChan, progTracker := diff.DiffTables(m.db, t, m.baseT, idx, baseIdx, m.progressPeriod*time.Duration(n), m.errChan, true)
+		diffChan, progTracker := diff.DiffTables(m.db, m.db, t, m.baseT, idx, baseIdx, m.progressPeriod*time.Duration(n), m.errChan, true)
 		diffs[i] = diffChan
 		progs[i] = progTracker
 		cols[i] = [2][]string{t.Columns, t.PrimaryKey()}
@@ -185,7 +181,7 @@ func (m *Merger) SaveResolvedRow(pk []byte, row []string) error {
 	return m.collector.SaveResolvedRow(pk, row)
 }
 
-func (m *Merger) SortedBlocks(removedCols map[int]struct{}) (<-chan *sorter.Block, error) {
+func (m *Merger) SortedBlocks(removedCols map[int]struct{}) (<-chan *sorter.Block, uint32, error) {
 	m.errChan = make(chan error, 1)
 	return m.collector.SortedBlocks(removedCols, m.errChan)
 }

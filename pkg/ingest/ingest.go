@@ -42,25 +42,12 @@ func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Ta
 	}
 }
 
-func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
-	s, err := sorter.NewSorter(sortRunSize, out)
-	if err != nil {
-		return nil, err
-	}
-	defer s.Close()
-	numWorkers -= 2
-	if numWorkers <= 0 {
-		numWorkers = 1
-	}
-	errChan := make(chan error, numWorkers+1)
-	blocks, err := s.SortFile(f, name, pk, errChan)
-	if err != nil {
-		return nil, err
-	}
+func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rowsCount uint32, blocks <-chan *sorter.Block, numWorkers int, out io.Writer) ([]byte, error) {
 	bar := pbar(-1, "saving blocks", out)
-	tbl := objects.NewTable(s.Columns, s.PK, s.RowsCount)
-	tblIdx := make([][]string, objects.BlocksCount(s.RowsCount))
+	tbl := objects.NewTable(columns, pk, rowsCount)
+	tblIdx := make([][]string, objects.BlocksCount(rowsCount))
 	wg := &sync.WaitGroup{}
+	errChan := make(chan error, numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go insertBlock(db, bar, tbl, tblIdx, blocks, wg, errChan)
@@ -99,4 +86,27 @@ func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, so
 	}
 
 	return sum, nil
+}
+
+func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
+	s, err := sorter.NewSorter(sortRunSize, out)
+	if err != nil {
+		return nil, err
+	}
+	defer s.Close()
+	numWorkers -= 2
+	if numWorkers <= 0 {
+		numWorkers = 1
+	}
+	errChan := make(chan error, numWorkers)
+	blocks, err := s.SortFile(f, name, pk, errChan)
+	if err != nil {
+		return nil, err
+	}
+	close(errChan)
+	err, ok := <-errChan
+	if ok {
+		return nil, err
+	}
+	return IngestTableFromBlocks(db, s.Columns, s.PK, s.RowsCount, blocks, numWorkers, out)
 }

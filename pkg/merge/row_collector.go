@@ -114,12 +114,12 @@ func (c *RowCollector) collectRowsThatStayedTheSame() error {
 	return nil
 }
 
-func (c *RowCollector) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error) (<-chan *sorter.Block, error) {
+func (c *RowCollector) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error) (<-chan *sorter.Block, uint32, error) {
 	err := c.collectRowsThatStayedTheSame()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return c.resolvedRows.SortedBlocks(removedCols, errChan), nil
+	return c.resolvedRows.SortedBlocks(removedCols, errChan), c.resolvedRows.RowsCount, nil
 }
 
 func (c *RowCollector) Close() error {

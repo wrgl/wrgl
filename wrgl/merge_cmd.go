@@ -19,22 +19,27 @@ import (
 	"github.com/rivo/tview"
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/slice"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/pkg/widgets"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
-func getTable(db kv.DB, fs kv.FileStore, sum []byte) (table.Store, error) {
-	com, err := versioning.GetCommit(db, sum)
+func getTable(db objects.Store, comSum []byte) (sum []byte, tbl *objects.Table, err error) {
+	com, err := objects.GetCommit(db, comSum)
 	if err != nil {
-		return nil, err
+		return
 	}
-	return table.ReadTable(db, fs, com.Table)
+	tbl, err = objects.GetTable(db, com.Table)
+	if err != nil {
+		return
+	}
+	return com.Table, tbl, nil
 }
 
 func mergeCmd() *cobra.Command {
@@ -44,18 +49,18 @@ func mergeCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
-			c, err := versioning.AggregateConfig(rd.FullPath)
+			c, err := utils.AggregateConfig(rd.FullPath)
 			if err != nil {
 				return err
 			}
 			ensureUserSet(cmd, c)
 			defer setupDebug(cmd)()
-			kvStore, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
-			defer kvStore.Close()
-			fs := rd.OpenFileStore()
+			defer db.Close()
+			rs := rd.OpenRefStore()
 			noCommit, err := cmd.Flags().GetBool("no-commit")
 			if err != nil {
 				return err
@@ -80,7 +85,7 @@ func mergeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runMerge(cmd, c, kvStore, fs, args, noCommit, noGUI, commitCSV, numWorkers, message, pk)
+			return runMerge(cmd, c, db, rs, args, noCommit, noGUI, commitCSV, numWorkers, message, pk)
 		},
 	}
 	cmd.Flags().Bool("no-commit", false, "perform the merge but don't create a merge commit, instead output merge result to file MERGE_SUM1_SUM2_..._SUMn.csv")
@@ -92,8 +97,8 @@ func mergeCmd() *cobra.Command {
 	return cmd
 }
 
-func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.FileStore, args []string, noCommit, noGUI bool, commitCSV string, numWorkers int, message string, pk []string) error {
-	name, sum, _, err := versioning.InterpretCommitName(kvStore, args[0], true)
+func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, noCommit, noGUI bool, commitCSV string, numWorkers int, message string, pk []string) error {
+	name, sum, _, err := ref.InterpretCommitName(db, rs, args[0], true)
 	if err != nil {
 		return err
 	}
@@ -103,14 +108,14 @@ func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.
 	commits := [][]byte{sum}
 	commitNames := []string{trimRefPrefix(name)}
 	for _, s := range args[1:] {
-		name, sum, _, err := versioning.InterpretCommitName(kvStore, s, true)
+		name, sum, _, err := ref.InterpretCommitName(db, rs, s, true)
 		if err != nil {
 			return err
 		}
 		commits = append(commits, sum)
 		commitNames = append(commitNames, trimRefPrefix(name))
 	}
-	baseCommit, err := versioning.SeekCommonAncestor(kvStore, commits...)
+	baseCommit, err := ref.SeekCommonAncestor(db, commits...)
 	if err != nil {
 		return err
 	}
@@ -125,7 +130,7 @@ func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.
 		cmd.Println("All commits are identical, nothing to merge")
 		return nil
 	} else if len(commits) == 1 {
-		err = versioning.SaveRef(kvStore, fs, name[5:], commits[0], c.User.Name, c.User.Email, "merge", "fast-forward")
+		err = ref.SaveRef(rs, name[5:], commits[0], c.User.Name, c.User.Email, "merge", "fast-forward")
 		if err != nil {
 			return err
 		}
@@ -133,13 +138,14 @@ func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.
 		return nil
 	}
 
-	baseT, err := getTable(kvStore, fs, baseCommit)
+	baseSum, baseT, err := getTable(db, baseCommit)
 	if err != nil {
 		return err
 	}
-	otherTs := make([]table.Store, len(commits))
+	otherTs := make([]*objects.Table, len(commits))
+	otherSums := make([][]byte, len(commits))
 	for i, sum := range commits {
-		otherTs[i], err = getTable(kvStore, fs, sum)
+		otherSums[i], otherTs[i], err = getTable(db, sum)
 		if err != nil {
 			return err
 		}
@@ -154,27 +160,30 @@ func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.
 		if err != nil {
 			return err
 		}
-		defer file.Close()
-		sum, err := ingestTable(cmd, kvStore, fs, numWorkers, file, pk)
+		sum, err := ingest.IngestTable(db, file, file.Name(), pk, 0, numWorkers, cmd.OutOrStdout())
 		if err != nil {
 			return err
 		}
-		return createMergeCommit(cmd, kvStore, fs, commitNames, sum, commits, message, c)
+		return createMergeCommit(cmd, db, rs, commitNames, sum, commits, message, c)
 	}
 
-	rowCollector, cleanup, err := merge.CreateRowCollector(kvStore, baseT)
+	buf, err := diff.BlockBufferWithSingleStore(db, append([]*objects.Table{baseT}, otherTs...))
+	if err != nil {
+		return err
+	}
+	rowCollector, cleanup, err := merge.CreateRowCollector(db, baseT)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
-	merger, err := merge.NewMerger(kvStore, fs, rowCollector, 65*time.Millisecond, baseT, otherTs...)
+	merger, err := merge.NewMerger(db, rowCollector, buf, 65*time.Millisecond, baseT, otherTs, baseSum, otherSums)
 	if err != nil {
 		return err
 	}
 	defer merger.Close()
 
 	if noGUI {
-		return outputConflicts(cmd, kvStore, merger, commitNames, baseCommit, commits)
+		return outputConflicts(cmd, db, buf, merger, commitNames, baseCommit, commits)
 	} else {
 		cd, merges, err := collectMergeConflicts(cmd, merger)
 		if err != nil {
@@ -189,7 +198,7 @@ func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.
 				}
 			}
 		} else {
-			removedCols, err = displayMergeApp(cmd, kvStore, fs, merger, commitNames, commits, baseCommit, cd, merges)
+			removedCols, err = displayMergeApp(cmd, buf, merger, commitNames, commits, baseCommit, cd, merges)
 			if err != nil {
 				return err
 			}
@@ -197,12 +206,12 @@ func runMerge(cmd *cobra.Command, c *versioning.Config, kvStore kv.Store, fs kv.
 		if noCommit {
 			return saveMergeResultToCSV(cmd, merger, removedCols, commits)
 		} else {
-			return commitMergeResult(cmd, kvStore, fs, merger, removedCols, numWorkers, commitNames, commits, message, c)
+			return commitMergeResult(cmd, db, rs, merger, removedCols, numWorkers, commitNames, commits, message, c)
 		}
 	}
 }
 
-func outputConflicts(cmd *cobra.Command, db kv.DB, merger *merge.Merger, commitNames []string, baseSum []byte, commits [][]byte) error {
+func outputConflicts(cmd *cobra.Command, db objects.Store, buf *diff.BlockBuffer, merger *merge.Merger, commitNames []string, baseSum []byte, commits [][]byte) error {
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -246,14 +255,14 @@ func outputConflicts(cmd *cobra.Command, db kv.DB, merger *merge.Merger, commitN
 			return err
 		}
 	}
-	dec := objects.NewStrListDecoder(false)
 	for m := range mc {
 		if m.Base != nil {
-			rowB, err := table.GetRow(db, m.Base)
+			blk, off := diff.RowToBlockAndOffset(m.BaseOffset)
+			row, err := buf.GetRow(0, blk, off)
 			if err != nil {
 				return err
 			}
-			row := append([]string{baseName}, cd.RearrangeBaseRow(dec.Decode(rowB))...)
+			row = append([]string{baseName}, cd.RearrangeBaseRow(row)...)
 			err = w.Write(row)
 			if err != nil {
 				return err
@@ -272,11 +281,9 @@ func outputConflicts(cmd *cobra.Command, db kv.DB, merger *merge.Merger, commitN
 					return err
 				}
 			} else if sum != nil {
-				rowB, err := table.GetRow(db, sum)
-				if err != nil {
-					return err
-				}
-				row := cd.RearrangeBaseRow(dec.Decode(rowB))
+				blk, off := diff.RowToBlockAndOffset(m.OtherOffsets[i])
+				row, err := buf.GetRow(byte(i+1), blk, off)
+				row = cd.RearrangeBaseRow(row)
 				row = append([]string{names[i]}, row...)
 				err = w.Write(row)
 				if err != nil {
@@ -299,15 +306,17 @@ func outputConflicts(cmd *cobra.Command, db kv.DB, merger *merge.Merger, commitN
 	if err = merger.Error(); err != nil {
 		return err
 	}
-	rc, err := merger.SortedRows(nil)
+	rc, _, err := merger.SortedBlocks(nil)
 	if err != nil {
 		return err
 	}
-	for row := range rc {
-		row = append([]string{""}, row...)
-		err = w.Write(row)
-		if err != nil {
-			return err
+	for blk := range rc {
+		for _, row := range blk.Block {
+			row = append([]string{""}, row...)
+			err = w.Write(row)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	err = merger.Error()
@@ -349,19 +358,21 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	if err != nil {
 		return err
 	}
-	rows, err := merger.SortedRows(removedCols)
+	blocks, _, err := merger.SortedBlocks(removedCols)
 	if err != nil {
 		return err
 	}
 	bar := pbar(-1, fmt.Sprintf("saving merge result to %s", name), cmd.OutOrStdout(), cmd.ErrOrStderr())
-	for row := range rows {
-		err = w.Write(row)
-		if err != nil {
-			return err
-		}
-		err = bar.Add(1)
-		if err != nil {
-			return err
+	for blk := range blocks {
+		for _, row := range blk.Block {
+			err = w.Write(row)
+			if err != nil {
+				return err
+			}
+			err = bar.Add(1)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return bar.Finish()
@@ -369,53 +380,33 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 
 func commitMergeResult(
 	cmd *cobra.Command,
-	db kv.DB,
-	fs kv.FileStore,
+	db objects.Store,
+	rs ref.Store,
 	merger *merge.Merger,
 	removedCols map[int]struct{},
 	numWorkers int,
 	commitNames []string,
 	commits [][]byte,
 	message string,
-	c *versioning.Config,
+	c *conf.Config,
 ) error {
 	columns := merger.Columns(removedCols)
 	pk, err := slice.KeyIndices(columns, merger.PK())
 	if err != nil {
 		return err
 	}
-	rows, err := getRowsFromMerger(merger, removedCols)
+	blocks, rowsCount, err := merger.SortedBlocks(removedCols)
 	if err != nil {
 		return err
 	}
-	tb := table.NewBuilder(db, fs, columns, pk, seed, 0)
-	sum, err := ingest.NewIngestor(tb, seed, pk, numWorkers, cmd.OutOrStdout()).
-		SetRowsChan(rows).
-		Ingest()
+	sum, err := ingest.IngestTableFromBlocks(db, columns, pk, rowsCount, blocks, numWorkers, cmd.OutOrStdout())
 	if err != nil {
 		return err
 	}
-	return createMergeCommit(cmd, db, fs, commitNames, sum, commits, message, c)
+	return createMergeCommit(cmd, db, rs, commitNames, sum, commits, message, c)
 }
 
-func getRowsFromMerger(m *merge.Merger, removedCols map[int]struct{}) (chan ingest.Row, error) {
-	rows := make(chan ingest.Row, 1000)
-	ch, err := m.SortedRows(removedCols)
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		defer close(rows)
-		n := 0
-		for sl := range ch {
-			rows <- ingest.Row{Record: sl, Index: n}
-			n++
-		}
-	}()
-	return rows, nil
-}
-
-func createMergeCommit(cmd *cobra.Command, db kv.DB, fs kv.FileStore, commitNames []string, sum []byte, parents [][]byte, message string, c *versioning.Config) error {
+func createMergeCommit(cmd *cobra.Command, db objects.Store, rs ref.Store, commitNames []string, sum []byte, parents [][]byte, message string, c *conf.Config) error {
 	if message == "" {
 		quotedNames := []string{}
 		for _, name := range commitNames[1:] {
@@ -431,11 +422,16 @@ func createMergeCommit(cmd *cobra.Command, db kv.DB, fs kv.FileStore, commitName
 		AuthorName:  c.User.Name,
 		Parents:     parents,
 	}
-	commitSum, err := versioning.SaveCommit(db, seed, commit)
+	buf := bytes.NewBuffer(nil)
+	_, err := commit.WriteTo(buf)
 	if err != nil {
 		return err
 	}
-	err = versioning.CommitMerge(db, fs, commitNames[0], commitSum, commit)
+	commitSum, err := objects.SaveCommit(db, buf.Bytes())
+	if err != nil {
+		return err
+	}
+	err = ref.CommitMerge(rs, commitNames[0], commitSum, commit)
 	if err != nil {
 		return err
 	}
@@ -495,9 +491,9 @@ mainLoop:
 	return merges[0].ColDiff, merges[1:], nil
 }
 
-func displayMergeApp(cmd *cobra.Command, db kv.DB, fs kv.FileStore, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte, cd *objects.ColDiff, merges []*merge.Merge) (map[int]struct{}, error) {
+func displayMergeApp(cmd *cobra.Command, buf *diff.BlockBuffer, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte, cd *objects.ColDiff, merges []*merge.Merge) (map[int]struct{}, error) {
 	app := tview.NewApplication()
-	mergeApp := widgets.NewMergeApp(db, fs, merger, app, commitNames, commitSums, baseSum)
+	mergeApp := widgets.NewMergeApp(buf, merger, app, commitNames, commitSums, baseSum)
 	mergeApp.InitializeTable(cd, merges)
 	app.SetRoot(mergeApp.Flex, true).
 		SetFocus(mergeApp.Table).

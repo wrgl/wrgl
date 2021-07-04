@@ -15,13 +15,13 @@ import (
 func TestRemoteShowCmd(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
+	rs := rd.OpenRefStore()
 	remote := "origin"
-	err = versioning.SaveRemoteRef(db, fs, remote, "my-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
+	err = versioning.SaveRemoteRef(db, rs, remote, "my-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
 	require.NoError(t, err)
-	err = versioning.SaveRemoteRef(db, fs, remote, "another-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
+	err = versioning.SaveRemoteRef(db, rs, remote, "another-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 

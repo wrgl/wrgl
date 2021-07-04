@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -12,11 +13,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -39,7 +39,7 @@ func newCommitCmd() *cobra.Command {
 			}
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
-			c, err := versioning.AggregateConfig(rd.FullPath)
+			c, err := utils.AggregateConfig(rd.FullPath)
 			if err != nil {
 				return err
 			}
@@ -52,7 +52,7 @@ func newCommitCmd() *cobra.Command {
 	return cmd
 }
 
-func getRepoDir(cmd *cobra.Command) *versioning.RepoDir {
+func getRepoDir(cmd *cobra.Command) *utils.RepoDir {
 	wrglDir := utils.MustWRGLDir(cmd)
 	badgerLogInfo, err := cmd.Flags().GetBool("badger-log-info")
 	if err != nil {
@@ -64,11 +64,11 @@ func getRepoDir(cmd *cobra.Command) *versioning.RepoDir {
 		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
-	rd := versioning.NewRepoDir(wrglDir, badgerLogInfo, badgerLogDebug)
+	rd := utils.NewRepoDir(wrglDir, badgerLogInfo, badgerLogDebug)
 	return rd
 }
 
-func quitIfRepoDirNotExist(cmd *cobra.Command, rd *versioning.RepoDir) {
+func quitIfRepoDirNotExist(cmd *cobra.Command, rd *utils.RepoDir) {
 	if !rd.Exist() {
 		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rd.FullPath)
 		cmd.PrintErrln("  wrgl init")
@@ -76,7 +76,7 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *versioning.RepoDir) {
 	}
 }
 
-func ensureUserSet(cmd *cobra.Command, c *versioning.Config) {
+func ensureUserSet(cmd *cobra.Command, c *conf.Config) {
 	out := cmd.ErrOrStderr()
 	if c.User == nil || c.User.Email == "" {
 		fmt.Fprintln(out, "User config not set. Set your user config with like this:")
@@ -87,33 +87,24 @@ func ensureUserSet(cmd *cobra.Command, c *versioning.Config) {
 	}
 }
 
-func ingestTable(cmd *cobra.Command, db kv.DB, fs kv.FileStore, numWorkers int, f io.Reader, primaryKey []string) ([]byte, error) {
-	csvReader, columns, primaryKeyIndices, err := ingest.ReadColumns(f, primaryKey)
-	if err != nil {
-		return nil, err
-	}
-	tb := table.NewBuilder(db, fs, columns, primaryKeyIndices, seed, 0)
-	return ingest.NewIngestor(tb, seed, primaryKeyIndices, numWorkers, cmd.OutOrStdout()).
-		ReadRowsFromCSVReader(csvReader).
-		Ingest()
-}
-
-func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, rd *versioning.RepoDir, c *versioning.Config) error {
-	if !versioning.HeadPattern.MatchString(branchName) {
+func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, rd *utils.RepoDir, c *conf.Config) error {
+	if !ref.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
-	kvStore, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	if err != nil {
 		return err
 	}
-	defer kvStore.Close()
-	fs := rd.OpenFileStore()
+	defer db.Close()
+	rs := rd.OpenRefStore()
 
-	parent, _ := versioning.GetHead(kvStore, branchName)
+	parent, _ := ref.GetHead(rs, branchName)
 
-	var f io.Reader
+	var f io.ReadCloser
+	var name string
 	if csvFilePath == "-" {
-		f = cmd.InOrStdin()
+		f = io.NopCloser(cmd.InOrStdin())
+		name = "stdin"
 	} else {
 		file, err := os.Open(csvFilePath)
 		if err != nil {
@@ -121,9 +112,10 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		}
 		defer file.Close()
 		f = file
+		name = file.Name()
 	}
 
-	sum, err := ingestTable(cmd, kvStore, fs, numWorkers, f, primaryKey)
+	sum, err := ingest.IngestTable(db, f, name, primaryKey, 0, numWorkers, cmd.OutOrStdout())
 	if err != nil {
 		return err
 	}
@@ -138,11 +130,16 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	if parent != nil {
 		commit.Parents = [][]byte{parent}
 	}
-	commitSum, err := versioning.SaveCommit(kvStore, seed, commit)
+	buf := bytes.NewBuffer(nil)
+	_, err = commit.WriteTo(buf)
 	if err != nil {
 		return err
 	}
-	err = versioning.CommitHead(kvStore, fs, branchName, commitSum, commit)
+	commitSum, err := objects.SaveCommit(db, buf.Bytes())
+	if err != nil {
+		return err
+	}
+	err = ref.CommitHead(rs, branchName, commitSum, commit)
 	if err != nil {
 		return err
 	}

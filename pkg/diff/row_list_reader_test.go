@@ -4,44 +4,30 @@
 package diff
 
 import (
-	"encoding/csv"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/sorter"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func ingestRows(t *testing.T, db objects.Store, rows [][]string) *objects.Table {
-	t.Helper()
-	f, err := ioutil.TempFile("", "*.csv")
-	require.NoError(t, err)
-	w := csv.NewWriter(f)
-	require.NoError(t, w.WriteAll(rows))
-	w.Flush()
-	_, err = f.Seek(0, io.SeekStart)
-	require.NoError(t, err)
-	sum, err := ingest.IngestTable(db, f, f.Name(), rows[0][:1], 0, 1, io.Discard)
-	require.NoError(t, err)
-	tbl, err := objects.GetTable(db, sum)
-	require.NoError(t, err)
-	return tbl
-}
-
-func TestRowReader(t *testing.T) {
+func TestRowListReader(t *testing.T) {
 	db := objmock.NewStore()
 	rows := testutils.BuildRawCSV(4, 700)
 	sorter.SortBlock(rows, []uint32{0})
 	tbl := ingestRows(t, db, rows)
 
-	r, err := NewRowReader(db, tbl)
+	r, err := NewRowListReader(db, tbl)
 	require.NoError(t, err)
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 50; j++ {
+			r.Add(uint32(i*255 + j))
+		}
+	}
+	assert.Equal(t, r.Len(), 150)
 
 	for i := 0; i < 10; i++ {
 		row, err := r.Read()
@@ -49,12 +35,12 @@ func TestRowReader(t *testing.T) {
 		assert.Equal(t, rows[i+1], row)
 	}
 
-	_, err = r.Seek(250, io.SeekStart)
+	_, err = r.Seek(50, io.SeekStart)
 	require.NoError(t, err)
 	for i := 0; i < 10; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
-		assert.Equal(t, rows[i+251], row)
+		assert.Equal(t, rows[i+256], row)
 	}
 
 	_, err = r.Seek(20, io.SeekCurrent)
@@ -62,7 +48,7 @@ func TestRowReader(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
-		assert.Equal(t, rows[i+281], row)
+		assert.Equal(t, rows[i+286], row)
 	}
 
 	_, err = r.Seek(-20, io.SeekEnd)
@@ -70,6 +56,6 @@ func TestRowReader(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		row, err := r.Read()
 		require.NoError(t, err)
-		assert.Equal(t, rows[i+681], row)
+		assert.Equal(t, rows[i+541], row)
 	}
 }

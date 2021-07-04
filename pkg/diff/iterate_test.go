@@ -198,14 +198,13 @@ func TestIterateAndMatch(t *testing.T) {
 		},
 	})
 	type row struct {
-		pk, row1, row2   []byte
-		blkOff1, blkOff2 uint32
-		rowOff1, rowOff2 byte
+		pk, row1, row2 []byte
+		off1, off2     uint32
 	}
 	rows := []*row{}
-	err := iterateAndMatch(db, tbl1, tbl2, tblIdx1, tblIdx2, func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte) {
+	err := iterateAndMatch(db, db, tbl1, tbl2, tblIdx1, tblIdx2, func(pk, row1, row2 []byte, off1, off2 uint32) {
 		rows = append(rows, &row{
-			pk, row1, row2, blkOff1, blkOff2, rowOff1, rowOff2,
+			pk, row1, row2, off1, off2,
 		})
 	})
 	require.NoError(t, err)
@@ -215,48 +214,43 @@ func TestIterateAndMatch(t *testing.T) {
 			row1: hexToBytes(t, "eb88cfa1940c985495ee43bd80678b59"),
 		},
 		{
-			pk:      hexToBytes(t, "5c8a428becc36c58e262b7a7b6f262cb"),
-			row1:    hexToBytes(t, "ab9f4d3e508b7e889233e31b7565e335"),
-			rowOff1: 1,
+			pk:   hexToBytes(t, "5c8a428becc36c58e262b7a7b6f262cb"),
+			row1: hexToBytes(t, "ab9f4d3e508b7e889233e31b7565e335"),
+			off1: 1,
 		},
 		{
-			pk:      hexToBytes(t, "6fec011086808a2717703219894d2092"),
-			row1:    hexToBytes(t, "2dd2f57a2b7a4f3c9d40b3beb680bf70"),
-			row2:    hexToBytes(t, "2d6792228e34229f729fa524f64b7035"),
-			blkOff1: 1,
-			blkOff2: 1,
+			pk:   hexToBytes(t, "6fec011086808a2717703219894d2092"),
+			row1: hexToBytes(t, "2dd2f57a2b7a4f3c9d40b3beb680bf70"),
+			row2: hexToBytes(t, "2d6792228e34229f729fa524f64b7035"),
+			off1: 255,
+			off2: 255,
 		},
 		{
-			pk:      hexToBytes(t, "e10d9c0c56fd44d2a840b35c59de5146"),
-			row1:    hexToBytes(t, "56c67649f8c5962465c0e4c1f0f51d34"),
-			blkOff1: 1,
-			rowOff1: 1,
+			pk:   hexToBytes(t, "e10d9c0c56fd44d2a840b35c59de5146"),
+			row1: hexToBytes(t, "56c67649f8c5962465c0e4c1f0f51d34"),
+			off1: 256,
 		},
 		{
-			pk:      hexToBytes(t, "89fabb8585b03215264fe5482367a9f4"),
-			row1:    hexToBytes(t, "bd85083827c141fbcfbbf9e2a26186d3"),
-			row2:    hexToBytes(t, "4aaeb7a6ba9e9b6ac650d8f7bddab8e3"),
-			blkOff1: 1,
-			blkOff2: 1,
-			rowOff1: 2,
-			rowOff2: 1,
+			pk:   hexToBytes(t, "89fabb8585b03215264fe5482367a9f4"),
+			row1: hexToBytes(t, "bd85083827c141fbcfbbf9e2a26186d3"),
+			row2: hexToBytes(t, "4aaeb7a6ba9e9b6ac650d8f7bddab8e3"),
+			off1: 257,
+			off2: 256,
 		},
 		{
-			pk:      hexToBytes(t, "13cb49e3ae9d636e1540cbfe919c27aa"),
-			row1:    hexToBytes(t, "084a3c6660b3fc92933933619d760698"),
-			blkOff1: 1,
-			rowOff1: 3,
+			pk:   hexToBytes(t, "13cb49e3ae9d636e1540cbfe919c27aa"),
+			row1: hexToBytes(t, "084a3c6660b3fc92933933619d760698"),
+			off1: 258,
 		},
 		{
-			pk:      hexToBytes(t, "1ac42db50c18a6838392053c781da0e9"),
-			row1:    hexToBytes(t, "66f0fefd52586006827ac03bff10dda4"),
-			blkOff1: 2,
+			pk:   hexToBytes(t, "1ac42db50c18a6838392053c781da0e9"),
+			row1: hexToBytes(t, "66f0fefd52586006827ac03bff10dda4"),
+			off1: 510,
 		},
 		{
-			pk:      hexToBytes(t, "28ff73b200861617c8eb0947f7a44f89"),
-			row1:    hexToBytes(t, "5cb09a378634818b4489250edf1714ee"),
-			blkOff1: 2,
-			rowOff1: 1,
+			pk:   hexToBytes(t, "28ff73b200861617c8eb0947f7a44f89"),
+			row1: hexToBytes(t, "5cb09a378634818b4489250edf1714ee"),
+			off1: 511,
 		},
 	}, rows)
 }

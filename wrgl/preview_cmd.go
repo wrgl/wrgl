@@ -11,9 +11,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/widgets"
 )
 
@@ -33,40 +33,42 @@ func newPreviewCmd() *cobra.Command {
 			cStr := args[0]
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
-			kvStore, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
-			fs := rd.OpenFileStore()
-			defer kvStore.Close()
-			_, hash, commit, err := versioning.InterpretCommitName(kvStore, cStr, false)
+			rs := rd.OpenRefStore()
+			defer db.Close()
+			_, hash, commit, err := ref.InterpretCommitName(db, rs, cStr, false)
 			if err != nil {
 				return err
 			}
 			if commit == nil {
 				return fmt.Errorf("commit \"%s\" not found", cStr)
 			}
-			ts, err := table.ReadTable(kvStore, fs, commit.Table)
+			tbl, err := objects.GetTable(db, commit.Table)
 			if err != nil {
 				return fmt.Errorf("GetTable: %v", err)
 			}
-			return previewTable(cmd, hex.EncodeToString(hash), commit, ts)
+			return previewTable(cmd, db, hex.EncodeToString(hash), commit, tbl)
 		},
 	}
 	return cmd
 }
 
-func previewTable(cmd *cobra.Command, hash string, commit *objects.Commit, ts table.Store) error {
+func previewTable(cmd *cobra.Command, db objects.Store, hash string, commit *objects.Commit, tbl *objects.Table) error {
 	app := tview.NewApplication().EnableMouse(true)
 
 	// create title bar
 	titleBar := tview.NewTextView().SetDynamicColors(true)
-	nRows := ts.NumRows()
-	fmt.Fprintf(titleBar, "[yellow]%s[white]  ([teal]%d[white] x [teal]%d[white])", hash, nRows, len(ts.Columns()))
+	fmt.Fprintf(titleBar, "[yellow]%s[white]  ([teal]%d[white] x [teal]%d[white])", hash, tbl.RowsCount, len(tbl.Columns))
 
 	// create table
-	rowReader := ts.NewRowReader()
-	tv := widgets.NewPreviewTable(rowReader, nRows, ts.Columns(), ts.PrimaryKeyIndices())
+	rowReader, err := diff.NewTableReader(db, tbl)
+	if err != nil {
+		return err
+	}
+	tv := widgets.NewPreviewTable(rowReader, int(tbl.RowsCount), tbl.Columns, tbl.PK)
 
 	usageBar := widgets.DataTableUsage()
 

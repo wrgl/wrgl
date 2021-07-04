@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -22,7 +21,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, err := versioning.OpenConfig(false, false, wrglDir, "")
+			c, err := utils.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}

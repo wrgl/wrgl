@@ -18,11 +18,11 @@ func TestReflogCmd(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
 
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	sum1, c1 := factory.CommitHead(t, db, fs, "alpha", nil, nil)
-	sum2, c2 := factory.CommitHead(t, db, fs, "alpha", nil, nil)
+	rs := rd.OpenRefStore()
+	sum1, c1 := factory.CommitHead(t, db, rs, "alpha", nil, nil)
+	sum2, c2 := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()

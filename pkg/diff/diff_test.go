@@ -169,7 +169,7 @@ func TestDiffTables(t *testing.T) {
 		errChan := make(chan error, 10)
 		tbl1, tblIdx1 := getTable(t, db, c.Sum1)
 		tbl2, tblIdx2 := getTable(t, db, c.Sum2)
-		diffChan, _ := DiffTables(db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan, false)
+		diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan, false)
 		close(errChan)
 		_, ok := <-errChan
 		assert.False(t, ok)
@@ -198,7 +198,7 @@ func TestDiffEmitUnchangedRow(t *testing.T) {
 	errChan := make(chan error, 10)
 	tbl1, tblIdx1 := getTable(t, db, sum1)
 	tbl2, tblIdx2 := getTable(t, db, sum2)
-	diffChan, _ := DiffTables(db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan, true)
+	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan, true)
 	close(errChan)
 	_, ok := <-errChan
 	assert.False(t, ok)
@@ -246,7 +246,7 @@ func BenchmarkDiffRows(b *testing.B) {
 	tbl2, tblIdx2 := ingestRawCSV(b, db, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
-	diffChan, _ := DiffTables(db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan, false)
+	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errChan, false)
 	for d := range diffChan {
 		assert.NotNil(b, d)
 	}

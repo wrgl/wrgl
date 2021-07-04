@@ -4,13 +4,11 @@
 package objects
 
 type Diff struct {
-	PK       []byte
-	Sum      []byte
-	OldSum   []byte
-	Block    uint32
-	OldBlock uint32
-	Row      byte
-	OldRow   byte
+	PK     []byte
+	Sum    []byte
+	OldSum []byte
+	Row    uint32
+	OldRow uint32
 }
 
 // type DiffWriter struct {

@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -21,25 +21,25 @@ func newResetCmd() *cobra.Command {
 			branch := args[0]
 			rd := getRepoDir(cmd)
 			wrglDir := utils.MustWRGLDir(cmd)
-			conf, err := versioning.AggregateConfig(wrglDir)
+			conf, err := utils.AggregateConfig(wrglDir)
 			if err != nil {
 				return err
 			}
 			quitIfRepoDirNotExist(cmd, rd)
-			kvStore, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
-			defer kvStore.Close()
-			fs := rd.OpenFileStore()
-			_, hash, _, err := versioning.InterpretCommitName(kvStore, args[1], false)
+			defer db.Close()
+			rs := rd.OpenRefStore()
+			_, hash, _, err := ref.InterpretCommitName(db, rs, args[1], false)
 			if err != nil {
 				return err
 			}
 			if len(hash) == 0 {
 				return fmt.Errorf("commit \"%s\" not found", args[1])
 			}
-			return versioning.SaveRef(kvStore, fs, "heads/"+branch, hash, conf.User.Name, conf.User.Email, "reset", "to commit "+hex.EncodeToString(hash))
+			return ref.SaveRef(rs, "heads/"+branch, hash, conf.User.Name, conf.User.Email, "reset", "to commit "+hex.EncodeToString(hash))
 		},
 	}
 	return cmd

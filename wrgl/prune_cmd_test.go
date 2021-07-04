@@ -11,28 +11,28 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/table"
+	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/versioning"
 )
 
-func assertCommitsCount(t *testing.T, db kv.Store, num int) {
+func assertCommitsCount(t *testing.T, db objects.Store, num int) {
 	t.Helper()
 	sl, err := versioning.GetAllCommitHashes(db)
 	require.NoError(t, err)
 	assert.Len(t, sl, num)
 }
 
-func assertTablesCount(t *testing.T, db kv.Store, fs kv.FileStore, num int) {
+func assertTablesCount(t *testing.T, db objects.Store, num int) {
 	t.Helper()
-	sl, err := table.GetAllTableHashes(db, fs)
+	sl, err := objects.GetAllTableKeys(db)
 	require.NoError(t, err)
 	assert.Len(t, sl, num)
 }
 
-func assertRowsCount(t *testing.T, db kv.Store, num int) {
+func assertBlocksCount(t *testing.T, db objects.Store, num int) {
 	t.Helper()
-	sl, err := table.GetAllRowKeys(db)
+	sl, err := objects.GetAllBlockKeys(db)
 	require.NoError(t, err)
 	if len(sl) != num {
 		t.Errorf("rows length is %d not %d", len(sl), num)
@@ -48,20 +48,20 @@ func assertSetEqual(t *testing.T, sl1, sl2 [][]byte) {
 func TestFindAllCommitsToRemove(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	fs := rd.OpenFileStore()
-	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", nil, nil)
-	sum2, _ := factory.CommitHead(t, db, fs, "branch-1", nil, nil)
-	sum3, _ := factory.CommitHead(t, db, fs, "branch-1", nil, nil)
-	sum4, _ := factory.CommitHead(t, db, fs, "branch-2", nil, nil)
-	require.NoError(t, versioning.DeleteHead(db, fs, "branch-2"))
-	require.NoError(t, versioning.SaveRef(db, fs, "heads/branch-1", sum2, "test", "test@domain.com", "test", "test pruning"))
+	rs := rd.OpenRefStore()
+	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
+	sum2, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
+	sum3, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
+	sum4, _ := factory.CommitHead(t, db, rs, "branch-2", nil, nil)
+	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
+	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum2, "test", "test@domain.com", "test", "test pruning"))
 
 	cmd := newRootCmd()
 	cmd.SetOut(io.Discard)
-	commitsToRemove, survivingCommits, err := findCommitsToRemove(cmd, db)
+	commitsToRemove, survivingCommits, err := findCommitsToRemove(cmd, db, rs)
 	require.NoError(t, err)
 	assertSetEqual(t, [][]byte{sum1, sum2}, survivingCommits)
 	assertSetEqual(t, [][]byte{sum3, sum4}, commitsToRemove)
@@ -70,44 +70,44 @@ func TestFindAllCommitsToRemove(t *testing.T) {
 func TestPruneCmdSmallCommits(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
-	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	rs := rd.OpenRefStore()
+	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"3,z,x",
 	}, []uint32{0})
-	factory.CommitHead(t, db, fs, "branch-1", []string{
+	factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"4,x,c",
 	}, []uint32{0})
-	factory.CommitHead(t, db, fs, "branch-2", []string{
+	factory.CommitHead(t, db, rs, "branch-2", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"6,z,x",
 	}, []uint32{0})
-	factory.CommitHead(t, db, fs, "branch-2", []string{
+	factory.CommitHead(t, db, rs, "branch-2", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"7,r,t",
 	}, []uint32{0})
-	sum2, _ := factory.CommitHead(t, db, fs, "branch-3", []string{
+	sum2, _ := factory.CommitHead(t, db, rs, "branch-3", []string{
 		"a,b,c",
 		"4,q,w",
 		"5,a,s",
 		"6,z,x",
 	}, []uint32{0})
 	assertCommitsCount(t, db, 5)
-	assertTablesCount(t, db, fs, 4)
-	assertRowsCount(t, db, 8)
-	require.NoError(t, versioning.DeleteHead(db, fs, "branch-2"))
-	require.NoError(t, versioning.SaveRef(db, fs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning"))
+	assertTablesCount(t, db, 4)
+	assertBlocksCount(t, db, 8)
+	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
+	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning"))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
@@ -115,13 +115,13 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	cmd.SetArgs([]string{"prune"})
 	require.NoError(t, cmd.Execute())
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
 	assertCommitsCount(t, db, 2)
-	assertTablesCount(t, db, fs, 2)
-	assertRowsCount(t, db, 6)
-	m, err := versioning.ListHeads(db)
+	assertTablesCount(t, db, 2)
+	assertBlocksCount(t, db, 6)
+	m, err := ref.ListHeads(rs)
 	require.NoError(t, err)
 	assert.Len(t, m, 2)
 	assert.Equal(t, sum1, m["branch-1"])

@@ -162,12 +162,12 @@ func CommitExist(s Store, sum []byte) bool {
 	return s.Exist(commitKey(sum))
 }
 
-func GetAllCommits(s Store) ([][]byte, error) {
-	sl, err := s.FilterKey(comPrefix)
+func getAllKeys(s Store, prefix []byte) ([][]byte, error) {
+	sl, err := s.FilterKey(prefix)
 	if err != nil {
 		return nil, err
 	}
-	l := len(comPrefix)
+	l := len(prefix)
 	result := make([][]byte, len(sl))
 	for i, h := range sl {
 		result[i] = h[l:]
@@ -176,6 +176,18 @@ func GetAllCommits(s Store) ([][]byte, error) {
 		return string(result[i]) < string(result[j])
 	})
 	return result, nil
+}
+
+func GetAllBlockKeys(s Store) ([][]byte, error) {
+	return getAllKeys(s, blkPrefix)
+}
+
+func GetAllTableKeys(s Store) ([][]byte, error) {
+	return getAllKeys(s, tblPrefix)
+}
+
+func GetAllCommitKeys(s Store) ([][]byte, error) {
+	return getAllKeys(s, comPrefix)
 }
 
 func DeleteAllCommit(s Store) error {

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -27,7 +27,7 @@ func addCmd() *cobra.Command {
 				return err
 			}
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := versioning.OpenConfig(false, false, wrglDir, "")
+			c, err := utils.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}
@@ -44,34 +44,34 @@ func addCmd() *cobra.Command {
 				return err
 			}
 			if c.Remote == nil {
-				c.Remote = map[string]*versioning.ConfigRemote{}
+				c.Remote = map[string]*conf.ConfigRemote{}
 			}
-			c.Remote[name] = &versioning.ConfigRemote{
+			c.Remote[name] = &conf.ConfigRemote{
 				URL: u,
 			}
 			remote := c.Remote[name]
 			if mirror == "fetch" {
-				remote.Fetch = append(remote.Fetch, versioning.MustParseRefspec("+refs/*:refs/*"))
+				remote.Fetch = append(remote.Fetch, conf.MustParseRefspec("+refs/*:refs/*"))
 			} else {
 				if len(track) != 0 {
 					for _, t := range track {
-						remote.Fetch = append(remote.Fetch, versioning.MustParseRefspec(
+						remote.Fetch = append(remote.Fetch, conf.MustParseRefspec(
 							fmt.Sprintf("+refs/heads/%s:refs/remotes/%s/%s", t, name, t),
 						))
 					}
 				} else {
-					remote.Fetch = append(remote.Fetch, versioning.MustParseRefspec(
+					remote.Fetch = append(remote.Fetch, conf.MustParseRefspec(
 						fmt.Sprintf("+refs/heads/*:refs/remotes/%s/*", name),
 					))
 				}
 				if tags {
-					remote.Fetch = append(remote.Fetch, versioning.MustParseRefspec("tag *"))
+					remote.Fetch = append(remote.Fetch, conf.MustParseRefspec("tag *"))
 				}
 			}
 			if mirror == "push" {
 				remote.Mirror = true
 			}
-			return c.Save()
+			return utils.SaveConfig(c)
 		},
 	}
 	cmd.Flags().Bool("tags", false, "wrgl fetch NAME imports every tag from the remote repository")

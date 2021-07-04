@@ -55,7 +55,7 @@ func unsetAllCmd() *cobra.Command {
 					return err
 				}
 			}
-			return c.Save()
+			return utils.SaveConfig(c)
 		},
 	}
 	return cmd

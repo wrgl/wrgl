@@ -37,7 +37,8 @@ func TestRowResolverSimpleCases(t *testing.T) {
 	merges := mergehelpers.CollectUnresolvedMerges(t, m)
 	assert.Len(t, merges, 1)
 	assert.NotEmpty(t, merges[0].ColDiff)
-	blocks := mergehelpers.CollectSortedRows(t, m, nil)
+	blocks, rowsCount := mergehelpers.CollectSortedRows(t, m, nil)
+	assert.Equal(t, uint32(3), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -81,33 +82,32 @@ func TestRowResolverComplexCases(t *testing.T) {
 	merges := mergehelpers.CollectUnresolvedMerges(t, m)
 	assert.Equal(t, []*merge.Merge{
 		{
-			PK:            hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
-			Base:          hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
-			BaseRowOffset: 2,
+			PK:         hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			Base:       hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
+			BaseOffset: 2,
 			Others: [][]byte{
 				hexToBytes(t, "c0862c2d8d7f0bf7bc7bbb0890497f6a"),
 				hexToBytes(t, "776beabc377528a964029835c5387e86"),
 			},
-			BlockOffset:    []uint32{0, 0},
-			RowOffset:      []uint8{2, 2},
+			OtherOffsets:   []uint32{2, 2},
 			ResolvedRow:    []string{"3", "z", "x", "c"},
 			UnresolvedCols: map[uint32]struct{}{2: {}},
 		},
 		{
-			PK:            hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
-			Base:          hexToBytes(t, "9896effbd1a3352e214a496218523c12"),
-			BaseRowOffset: 3,
+			PK:         hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Base:       hexToBytes(t, "9896effbd1a3352e214a496218523c12"),
+			BaseOffset: 3,
 			Others: [][]byte{
 				hexToBytes(t, "da8e1ab26a4ee16559d154a16b380648"),
 				hexToBytes(t, "85785beedceb27a5a18d7facd8ab23be"),
 			},
-			BlockOffset:    []uint32{0, 0},
-			RowOffset:      []uint8{3, 3},
+			OtherOffsets:   []uint32{3, 3},
 			ResolvedRow:    []string{"4", "t", "", "u"},
 			UnresolvedCols: map[uint32]struct{}{1: {}},
 		},
 	}, merges[1:])
-	blocks := mergehelpers.CollectSortedRows(t, m, nil)
+	blocks, rowsCount := mergehelpers.CollectSortedRows(t, m, nil)
+	assert.Equal(t, uint32(5), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -125,33 +125,32 @@ func TestRowResolverComplexCases(t *testing.T) {
 	merges = mergehelpers.CollectUnresolvedMerges(t, m)
 	assert.Equal(t, []*merge.Merge{
 		{
-			PK:            hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
-			Base:          hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
-			BaseRowOffset: 2,
+			PK:         hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			Base:       hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
+			BaseOffset: 2,
 			Others: [][]byte{
 				hexToBytes(t, "776beabc377528a964029835c5387e86"),
 				hexToBytes(t, "c0862c2d8d7f0bf7bc7bbb0890497f6a"),
 			},
-			BlockOffset:    []uint32{0, 0},
-			RowOffset:      []uint8{2, 2},
+			OtherOffsets:   []uint32{2, 2},
 			ResolvedRow:    []string{"3", "z", "x", "c"},
 			UnresolvedCols: map[uint32]struct{}{2: {}},
 		},
 		{
-			PK:            hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
-			Base:          hexToBytes(t, "9896effbd1a3352e214a496218523c12"),
-			BaseRowOffset: 3,
+			PK:         hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Base:       hexToBytes(t, "9896effbd1a3352e214a496218523c12"),
+			BaseOffset: 3,
 			Others: [][]byte{
 				hexToBytes(t, "85785beedceb27a5a18d7facd8ab23be"),
 				hexToBytes(t, "da8e1ab26a4ee16559d154a16b380648"),
 			},
-			BlockOffset:    []uint32{0, 0},
-			RowOffset:      []uint8{3, 3},
+			OtherOffsets:   []uint32{3, 3},
 			ResolvedRow:    []string{"4", "t", "", "u"},
 			UnresolvedCols: map[uint32]struct{}{1: {}},
 		},
 	}, merges[1:])
-	blocks = mergehelpers.CollectSortedRows(t, m, nil)
+	blocks, rowsCount = mergehelpers.CollectSortedRows(t, m, nil)
+	assert.Equal(t, uint32(5), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -191,22 +190,20 @@ func TestRowResolverComplexCases(t *testing.T) {
 				hexToBytes(t, "16cf50d440fc0422278abb626446d3e9"),
 				hexToBytes(t, "4740760d0aaeecd7cac6ee3eb423ecea"),
 			},
-			BlockOffset:    []uint32{0, 0},
-			RowOffset:      []byte{1, 1},
+			OtherOffsets:   []uint32{1, 1},
 			ResolvedRow:    []string{"2", "a", "s", ""},
 			UnresolvedCols: map[uint32]struct{}{3: {}},
 		},
 		{
-			PK:            hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
-			Base:          hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
-			BaseRowOffset: 1,
+			PK:         hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			Base:       hexToBytes(t, "1c51f6044190122c554cc6794585e654"),
+			BaseOffset: 1,
 			Others: [][]byte{
 				nil,
 				hexToBytes(t, "28c710dac52b757b8626ecb45fd5cf8b"),
 			},
-			BlockOffset: []uint32{0, 0},
-			RowOffset:   []byte{0, 2},
-			ResolvedRow: []string{"3", "v", "x", "c"},
+			OtherOffsets: []uint32{0, 2},
+			ResolvedRow:  []string{"3", "v", "x", "c"},
 		},
 		{
 			PK:   hexToBytes(t, "fd1c9513cc47feaf59fa9b76008f2521"),
@@ -215,13 +212,13 @@ func TestRowResolverComplexCases(t *testing.T) {
 				hexToBytes(t, "3ae9ce5c2ac6dce8c1e92dc4a6ab7b2c"),
 				hexToBytes(t, "114ee66177b00886476ebe85b13973a9"),
 			},
-			BlockOffset:    []uint32{0, 0},
-			RowOffset:      []byte{0, 0},
+			OtherOffsets:   []uint32{0, 0},
 			ResolvedRow:    []string{"1", "y", "w", ""},
 			UnresolvedCols: map[uint32]struct{}{3: {}},
 		},
 	}, merges[1:])
-	blocks = mergehelpers.CollectSortedRows(t, m, nil)
+	blocks, rowsCount = mergehelpers.CollectSortedRows(t, m, nil)
+	assert.Equal(t, uint32(2), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{

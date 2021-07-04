@@ -11,11 +11,12 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
 func TestConfigAddCmd(t *testing.T) {
-	cleanup := versioning.MockGlobalConf(t, true)
+	cleanup := utils.MockGlobalConf(t, true)
 	defer cleanup()
 	wrglDir, err := ioutil.TempDir("", ".wrgl*")
 	require.NoError(t, err)

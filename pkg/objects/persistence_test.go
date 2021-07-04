@@ -121,7 +121,7 @@ func TestSaveCommit(t *testing.T) {
 	sum2, err := objects.SaveCommit(s, buf.Bytes())
 	require.NoError(t, err)
 
-	sl, err := objects.GetAllCommits(s)
+	sl, err := objects.GetAllCommitKeys(s)
 	require.NoError(t, err)
 	orig := [][]byte{sum1, sum2}
 	sort.Slice(orig, func(i, j int) bool {

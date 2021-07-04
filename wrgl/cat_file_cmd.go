@@ -4,14 +4,13 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/hex"
 	"fmt"
 
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/pkg/widgets"
 )
 
@@ -27,23 +26,22 @@ func newCatFileCmd() *cobra.Command {
 			}
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
-			kvStore, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
-			defer kvStore.Close()
-			fs := rd.OpenFileStore()
-			commit, err := versioning.GetCommit(kvStore, hash)
+			defer db.Close()
+			commit, err := objects.GetCommit(db, hash)
 			if err == nil {
 				return catCommit(cmd, commit)
 			}
-			ts, err := table.ReadTable(kvStore, fs, hash)
+			tbl, err := objects.GetTable(db, hash)
 			if err == nil {
-				return catTable(cmd, ts)
+				return catTable(cmd, tbl)
 			}
-			row, err := table.GetRow(kvStore, hash)
+			blk, err := objects.GetBlock(db, hash)
 			if err == nil {
-				return catRow(cmd, row)
+				return catBlock(cmd, blk)
 			}
 			return fmt.Errorf("unrecognized hash")
 		},
@@ -62,24 +60,12 @@ func catCommit(cmd *cobra.Command, commit *objects.Commit) error {
 	return app.SetRoot(textView, true).SetFocus(textView).Run()
 }
 
-func catTable(cmd *cobra.Command, ts table.Store) error {
-	cols := ts.Columns()
-	pk := ts.PrimaryKey()
-	reader := ts.NewRowHashReader(0, 0)
-	n := ts.NumRows()
+func catTable(cmd *cobra.Command, tbl *objects.Table) error {
+	cols := tbl.Columns
+	pk := tbl.PrimaryKey()
 	app := tview.NewApplication()
 	textView := widgets.NewPaginatedTextView().
-		SetPullText(func() ([]byte, error) {
-			pkh, rh, err := reader.Read()
-			if err != nil {
-				return nil, err
-			}
-			return []byte(fmt.Sprintf("[aquaMarine]%s[white] : %s\n", hex.EncodeToString(pkh), hex.EncodeToString(rh))), nil
-		}).
-		SetDynamicColors(true).
-		SetChangedFunc(func() {
-			app.Draw()
-		})
+		SetDynamicColors(true)
 	fmt.Fprintf(textView, "[yellow]columns[white] ([cyan]%d[white])\n\n", len(cols))
 	for _, col := range cols {
 		fmt.Fprintf(textView, "%s\n", col)
@@ -90,23 +76,18 @@ func catTable(cmd *cobra.Command, ts table.Store) error {
 			fmt.Fprintf(textView, "%s\n", col)
 		}
 	}
-	fmt.Fprintf(textView, "\n[yellow]rows[white] ([cyan]%d[white])\n\n", n)
+	fmt.Fprintf(textView, "\n[yellow]rows[white] ([cyan]%d[white])\n\n", tbl.RowsCount)
 	err := textView.PullText()
 	if err != nil {
 		return err
 	}
+	for _, blk := range tbl.Blocks {
+		fmt.Fprintf(textView, "[aquaMarine]%x[white]\n", blk)
+	}
 	return app.SetRoot(textView, true).SetFocus(textView).Run()
 }
 
-func catRow(cmd *cobra.Command, row []byte) error {
-	dec := objects.NewStrListDecoder(false)
-	cells := dec.Decode(row)
-	app := tview.NewApplication()
-	textView := tview.NewTextView().
-		SetDynamicColors(true)
-	fmt.Fprintf(textView, "[yellow]cells[white] ([cyan]%d[white])\n\n", len(cells))
-	for _, cell := range cells {
-		fmt.Fprintf(textView, "%s\n", cell)
-	}
-	return app.SetRoot(textView, true).SetFocus(textView).Run()
+func catBlock(cmd *cobra.Command, block [][]string) error {
+	w := csv.NewWriter(cmd.OutOrStdout())
+	return w.WriteAll(block)
 }

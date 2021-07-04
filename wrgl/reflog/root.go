@@ -10,8 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -21,39 +20,34 @@ func RootCmd() *cobra.Command {
 		Short: "show the logs of the REFERENCE",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ref := args[0]
 			wrglDir := utils.MustWRGLDir(cmd)
-			rd := versioning.NewRepoDir(wrglDir, false, false)
-			db, err := rd.OpenKVStore()
+			rd := utils.NewRepoDir(wrglDir, false, false)
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
 			defer db.Close()
-			fs := rd.OpenFileStore()
-			name, _, _, err := versioning.InterpretCommitName(db, ref, true)
+			rs := rd.OpenRefStore()
+			name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
 			if err != nil {
 				return err
 			}
-			if !strings.HasPrefix(name, "refs/heads/") && !strings.HasPrefix(name, "refs/remotes") {
+			if !strings.HasPrefix(name, "heads/") && !strings.HasPrefix(name, "remotes") {
 				return fmt.Errorf("unknown ref %q", name)
 			}
-			r, err := fs.Reader([]byte("logs/" + name))
+			r, err := rs.LogReader(name)
 			if err != nil {
 				return err
 			}
 			defer r.Close()
-			reader, err := objects.NewReflogReader(r)
-			if err != nil {
-				return err
-			}
 			out, cleanOut, err := utils.PagerOrOut(cmd)
 			if err != nil {
 				return err
 			}
 			defer cleanOut()
-			name = strings.TrimPrefix(name, "refs/heads/")
+			name = strings.TrimPrefix(name, "heads/")
 			for i := 0; ; i++ {
-				rec, err := reader.Read()
+				rec, err := r.Read()
 				if err == io.EOF {
 					break
 				}

@@ -8,6 +8,8 @@ import (
 	"io"
 )
 
+const BlockSize = 255
+
 func WriteBlockTo(w io.Writer, blk [][]string) (int64, error) {
 	enc := NewStrListEncoder(false)
 	n := len(blk)

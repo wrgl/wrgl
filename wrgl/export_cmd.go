@@ -5,13 +5,11 @@ package main
 
 import (
 	"encoding/csv"
-	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 )
 
 func newExportCmd() *cobra.Command {
@@ -37,39 +35,36 @@ func newExportCmd() *cobra.Command {
 func exportCommit(cmd *cobra.Command, cStr string) error {
 	rd := getRepoDir(cmd)
 	quitIfRepoDirNotExist(cmd, rd)
-	kvStore, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	if err != nil {
 		return err
 	}
-	defer kvStore.Close()
-	fs := rd.OpenFileStore()
+	defer db.Close()
+	rs := rd.OpenRefStore()
 
-	_, _, commit, err := versioning.InterpretCommitName(kvStore, cStr, false)
+	_, _, commit, err := ref.InterpretCommitName(db, rs, cStr, false)
 	if err != nil {
 		return err
 	}
-	ts, err := table.ReadTable(kvStore, fs, commit.Table)
+	tbl, err := objects.GetTable(db, commit.Table)
 	if err != nil {
 		return err
 	}
-	reader := ts.NewRowReader()
 	writer := csv.NewWriter(cmd.OutOrStdout())
-	err = writer.Write(ts.Columns())
+	err = writer.Write(tbl.Columns)
 	if err != nil {
 		return err
 	}
-	dec := objects.NewStrListDecoder(true)
-	for {
-		_, rowContent, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
+	for _, sum := range tbl.Blocks {
+		blk, err := objects.GetBlock(db, sum)
 		if err != nil {
 			return err
 		}
-		err = writer.Write(dec.Decode(rowContent))
-		if err != nil {
-			return err
+		for _, row := range blk {
+			err = writer.Write(row)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	writer.Flush()

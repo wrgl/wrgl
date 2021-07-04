@@ -15,9 +15,9 @@ import (
 func TestRemoteRemoveCmd(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
+	rs := rd.OpenRefStore()
 
 	// add remote
 	cmd := newRootCmd()
@@ -31,7 +31,7 @@ func TestRemoteRemoveCmd(t *testing.T) {
 		testutils.SecureRandomBytes(16),
 	}
 	for i, name := range names {
-		err := versioning.SaveRemoteRef(db, fs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote remove")
+		err := versioning.SaveRemoteRef(db, rs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote remove")
 		require.NoError(t, err)
 	}
 	require.NoError(t, db.Close())
@@ -43,7 +43,7 @@ func TestRemoteRemoveCmd(t *testing.T) {
 	assertCmdOutput(t, cmd, "")
 
 	// assert refs are updated
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
 	m, err := versioning.ListRemoteRefs(db, "origin")

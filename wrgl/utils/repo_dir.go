@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 
 	"github.com/dgraph-io/badger/v3"
-	kvbadger "github.com/wrgl/core/pkg/kv/badger"
-	kvcommon "github.com/wrgl/core/pkg/kv/common"
-	kvfs "github.com/wrgl/core/pkg/kv/fs"
+	"github.com/wrgl/core/pkg/objects"
+	objbadger "github.com/wrgl/core/pkg/objects/badger"
+	"github.com/wrgl/core/pkg/ref"
+	reffs "github.com/wrgl/core/pkg/ref/fs"
 )
 
 type RepoDir struct {
@@ -35,7 +36,7 @@ func (d *RepoDir) KVPath() string {
 	return filepath.Join(d.FullPath, "kv")
 }
 
-func (d *RepoDir) OpenKVStore() (kvcommon.Store, error) {
+func (d *RepoDir) openBadger() (*badger.DB, error) {
 	opts := badger.DefaultOptions(d.KVPath()).
 		WithLoggingLevel(badger.ERROR)
 	if d.badgerLogDebug {
@@ -43,15 +44,27 @@ func (d *RepoDir) OpenKVStore() (kvcommon.Store, error) {
 	} else if d.badgerLogInfo {
 		opts = opts.WithLoggingLevel(badger.INFO)
 	}
-	badgerDB, err := badger.Open(opts)
+	return badger.Open(opts)
+}
+
+func (d *RepoDir) OpenObjectsStore() (objects.Store, error) {
+	badgerDB, err := d.openBadger()
 	if err != nil {
 		return nil, err
 	}
-	return kvbadger.NewBadgerStore(badgerDB), nil
+	return objbadger.NewStore(badgerDB), nil
 }
 
-func (d *RepoDir) OpenFileStore() kvfs.FileStore {
-	return kvfs.NewFileStore(d.FilesPath())
+func (d *RepoDir) OpenObjectsTransaction() (objects.Store, error) {
+	badgerDB, err := d.openBadger()
+	if err != nil {
+		return nil, err
+	}
+	return objbadger.NewTxn(badgerDB), nil
+}
+
+func (d *RepoDir) OpenRefStore() ref.Store {
+	return reffs.NewStore(d.FilesPath())
 }
 
 func (d *RepoDir) Init() error {

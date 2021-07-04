@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -26,9 +27,38 @@ func MockSystemConf(t *testing.T) func() {
 	}
 }
 
-func randomConfig() *Config {
-	return &Config{
-		User: &ConfigUser{
+func MockEnv(t *testing.T, key, val string) func() {
+	t.Helper()
+	orig := os.Getenv(key)
+	require.NoError(t, os.Setenv(key, val))
+	return func() {
+		require.NoError(t, os.Setenv(key, orig))
+	}
+}
+
+func MockGlobalConf(t *testing.T, setXDGConfigHome bool) func() {
+	t.Helper()
+	name, err := ioutil.TempDir("", "test_wrgl_config")
+	require.NoError(t, err)
+	var cleanup1, cleanup2 func()
+	if setXDGConfigHome {
+		cleanup1 = MockEnv(t, "XDG_CONFIG_HOME", name)
+	} else {
+		cleanup1 = MockEnv(t, "XDG_CONFIG_HOME", "")
+		cleanup2 = MockEnv(t, "HOME", name)
+	}
+	return func() {
+		require.NoError(t, os.RemoveAll(name))
+		cleanup1()
+		if cleanup2 != nil {
+			cleanup2()
+		}
+	}
+}
+
+func randomConfig() *conf.Config {
+	return &conf.Config{
+		User: &conf.ConfigUser{
 			Name:  testutils.BrokenRandomAlphaNumericString(8),
 			Email: testutils.BrokenRandomAlphaNumericString(10),
 		},
@@ -40,8 +70,8 @@ func TestOpenSystemConfig(t *testing.T) {
 	defer cleanup()
 
 	c1 := randomConfig()
-	c1.path = systemConfigPath
-	require.NoError(t, c1.Save())
+	c1.Path = systemConfigPath
+	require.NoError(t, SaveConfig(c1))
 
 	c2, err := OpenConfig(true, false, "", "")
 	require.NoError(t, err)
@@ -55,11 +85,11 @@ func TestOpenGlobalConfig(t *testing.T) {
 
 		c1, err := OpenConfig(false, true, "", "")
 		require.NoError(t, err)
-		c1.User = &ConfigUser{
+		c1.User = &conf.ConfigUser{
 			Name:  "John Doe",
 			Email: "john@domain.com",
 		}
-		require.NoError(t, c1.Save())
+		require.NoError(t, SaveConfig(c1))
 
 		c2, err := OpenConfig(false, true, "", "")
 		require.NoError(t, err)
@@ -74,11 +104,11 @@ func TestOpenLocalConfig(t *testing.T) {
 
 	c1, err := OpenConfig(false, false, rd, "")
 	require.NoError(t, err)
-	c1.User = &ConfigUser{
+	c1.User = &conf.ConfigUser{
 		Name:  "John Doe",
 		Email: "john@domain.com",
 	}
-	require.NoError(t, c1.Save())
+	require.NoError(t, SaveConfig(c1))
 
 	c2, err := OpenConfig(false, false, rd, "")
 	require.NoError(t, err)
@@ -92,8 +122,8 @@ func TestOpenFileConfig(t *testing.T) {
 	defer os.Remove(f.Name())
 
 	c1 := randomConfig()
-	c1.path = f.Name()
-	require.NoError(t, c1.Save())
+	c1.Path = f.Name()
+	require.NoError(t, SaveConfig(c1))
 
 	c2, err := OpenConfig(false, false, "", f.Name())
 	require.NoError(t, err)
@@ -114,61 +144,61 @@ func TestAggregateConfig(t *testing.T) {
 	require.NoError(t, err)
 	yes := true
 	no := false
-	c.Receive = &ConfigReceive{
+	c.Receive = &conf.ConfigReceive{
 		DenyNonFastForwards: &yes,
 		DenyDeletes:         &yes,
 	}
-	require.NoError(t, c.Save())
+	require.NoError(t, SaveConfig(c))
 
 	// write global config
 	c, err = OpenConfig(false, true, rd, "")
 	require.NoError(t, err)
-	c.User = &ConfigUser{
+	c.User = &conf.ConfigUser{
 		Name:  "Jane Lane",
 		Email: "jane@domain.com",
 	}
-	require.NoError(t, c.Save())
+	require.NoError(t, SaveConfig(c))
 
 	// write local config
 	c, err = OpenConfig(false, false, rd, "")
 	require.NoError(t, err)
-	c.Remote = map[string]*ConfigRemote{
+	c.Remote = map[string]*conf.ConfigRemote{
 		"origin": {
-			Fetch: []*Refspec{
-				MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
+			Fetch: []*conf.Refspec{
+				conf.MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
 			},
-			Push: []*Refspec{
-				MustParseRefspec("refs/heads/main:refs/heads/main"),
+			Push: []*conf.Refspec{
+				conf.MustParseRefspec("refs/heads/main:refs/heads/main"),
 			},
 		},
 	}
-	c.Receive = &ConfigReceive{
+	c.Receive = &conf.ConfigReceive{
 		DenyDeletes: &no,
 	}
-	require.NoError(t, c.Save())
+	require.NoError(t, SaveConfig(c))
 
 	// aggregate
 	c, err = AggregateConfig(rd)
 	require.NoError(t, err)
-	assert.Equal(t, &Config{
-		User: &ConfigUser{
+	assert.Equal(t, &conf.Config{
+		User: &conf.ConfigUser{
 			Name:  "Jane Lane",
 			Email: "jane@domain.com",
 		},
-		Remote: map[string]*ConfigRemote{
+		Remote: map[string]*conf.ConfigRemote{
 			"origin": {
-				Fetch: []*Refspec{
-					MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
+				Fetch: []*conf.Refspec{
+					conf.MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
 				},
-				Push: []*Refspec{
-					MustParseRefspec("refs/heads/main:refs/heads/main"),
+				Push: []*conf.Refspec{
+					conf.MustParseRefspec("refs/heads/main:refs/heads/main"),
 				},
 			},
 		},
-		Receive: &ConfigReceive{
+		Receive: &conf.ConfigReceive{
 			DenyNonFastForwards: &yes,
 			DenyDeletes:         &no,
 		},
 	}, c)
-	assert.Error(t, c.Save())
+	assert.Error(t, SaveConfig(c))
 }

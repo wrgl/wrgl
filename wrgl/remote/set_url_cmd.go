@@ -7,7 +7,6 @@ import (
 	"net/url"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -24,13 +23,13 @@ func setURLCmd() *cobra.Command {
 				return err
 			}
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := versioning.OpenConfig(false, false, wrglDir, "")
+			c, err := utils.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}
 			rem := utils.MustGetRemote(cmd, c, name)
 			rem.URL = u
-			return c.Save()
+			return utils.SaveConfig(c)
 		},
 	}
 	return cmd

@@ -12,15 +12,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mmcloughlin/meow"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/kv"
 	"github.com/wrgl/core/pkg/objects"
 	packclient "github.com/wrgl/core/pkg/pack/client"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -31,18 +29,18 @@ func newFetchCmd() *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := versioning.AggregateConfig(wrglDir)
+			c, err := utils.AggregateConfig(wrglDir)
 			if err != nil {
 				return err
 			}
 			ensureUserSet(cmd, c)
 			rd := getRepoDir(cmd)
-			db, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
 			defer db.Close()
-			fs := rd.OpenFileStore()
+			rs := rd.OpenRefStore()
 			all, err := cmd.Flags().GetBool("all")
 			if err != nil {
 				return err
@@ -53,7 +51,7 @@ func newFetchCmd() *cobra.Command {
 			}
 			if all {
 				for k, v := range c.Remote {
-					err := fetch(cmd, db, fs, c.User, k, v, v.Fetch, force)
+					err := fetch(cmd, db, rs, c.User, k, v, v.Fetch, force)
 					if err != nil {
 						return err
 					}
@@ -64,7 +62,7 @@ func newFetchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return fetch(cmd, db, fs, c.User, remote, rem, specs, force)
+			return fetch(cmd, db, rs, c.User, remote, rem, specs, force)
 		},
 	}
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
@@ -72,7 +70,7 @@ func newFetchCmd() *cobra.Command {
 	return cmd
 }
 
-func parseRemoteAndRefspec(cmd *cobra.Command, c *versioning.Config, args []string) (string, *versioning.ConfigRemote, []*versioning.Refspec, error) {
+func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, args []string) (string, *conf.ConfigRemote, []*conf.Refspec, error) {
 	var remote = "origin"
 	if len(args) > 0 {
 		remote = args[0]
@@ -80,9 +78,9 @@ func parseRemoteAndRefspec(cmd *cobra.Command, c *versioning.Config, args []stri
 	rem := utils.MustGetRemote(cmd, c, remote)
 	specs := rem.Fetch
 	if len(args) > 1 {
-		specs = make([]*versioning.Refspec, len(args)-1)
+		specs = make([]*conf.Refspec, len(args)-1)
 		for i, s := range args[1:] {
-			rs, err := versioning.ParseRefspec(s)
+			rs, err := conf.ParseRefspec(s)
 			if err != nil {
 				return "", nil, nil, err
 			}
@@ -92,34 +90,27 @@ func parseRemoteAndRefspec(cmd *cobra.Command, c *versioning.Config, args []stri
 	return remote, rem, specs, nil
 }
 
-func saveObjects(db kv.Store, fs kv.FileStore, wg *sync.WaitGroup, seed uint64, oc <-chan *packutils.Object, ec chan<- error) (commitsChan chan []byte) {
+func saveObjects(db objects.Store, rs ref.Store, wg *sync.WaitGroup, oc <-chan *packutils.Object, ec chan<- error) (commitsChan chan []byte) {
 	commitsChan = make(chan []byte)
 	go func() {
 		defer close(commitsChan)
 		for o := range oc {
 			switch o.Type {
 			case encoding.ObjectCommit:
-				sum, err := versioning.SaveCommitBytes(db, seed, o.Content)
+				sum, err := objects.SaveCommit(db, o.Content)
 				if err != nil {
 					ec <- err
 					return
 				}
 				commitsChan <- sum
 			case encoding.ObjectTable:
-				tr, err := objects.NewTableReader(objects.NopCloser(bytes.NewReader(o.Content)))
+				_, err := objects.SaveTable(db, o.Content)
 				if err != nil {
 					ec <- err
 					return
 				}
-				b := table.NewBuilder(db, fs, tr.Columns, tr.PK, seed, 0)
-				_, err = b.SaveTableBytes(o.Content, tr.RowsCount())
-				if err != nil {
-					ec <- err
-					return
-				}
-			case encoding.ObjectRow:
-				sum := meow.Checksum(seed, o.Content)
-				err := table.SaveRow(db, sum[:], o.Content)
+			case encoding.ObjectBlock:
+				_, err := objects.SaveBlock(db, o.Content)
 				if err != nil {
 					ec <- err
 					return
@@ -147,7 +138,7 @@ type Ref struct {
 	Force bool
 }
 
-func identifyRefsToFetch(client *packclient.Client, specs []*versioning.Refspec) (refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
+func identifyRefsToFetch(client *packclient.Client, specs []*conf.Refspec) (refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
 	m, err := client.GetRefsInfo()
 	if err != nil {
 		return
@@ -210,18 +201,18 @@ func quickref(oldSum, sum []byte, fastForward bool) string {
 }
 
 func saveFetchedRefs(
-	cmd *cobra.Command, u *versioning.ConfigUser, db kv.Store, fs kv.FileStore, remoteURL string,
+	cmd *cobra.Command, u *conf.ConfigUser, db objects.Store, rs ref.Store, remoteURL string,
 	fetchedCommits [][]byte, refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, force bool,
 ) ([]*Ref, error) {
 	someFailed := false
 	// if a remote tag point to an existing object then save that tag
 	cm := bytesSliceToMap(fetchedCommits)
-	for ref, sum := range maybeSaveTags {
-		if _, ok := cm[string(sum)]; ok || versioning.CommitExist(db, sum) {
-			_, err := versioning.GetRef(db, ref[5:])
+	for r, sum := range maybeSaveTags {
+		if _, ok := cm[string(sum)]; ok || objects.CommitExist(db, sum) {
+			_, err := ref.GetRef(rs, r[5:])
 			if err != nil {
-				refs = append(refs, &Ref{ref, ref, false})
-				dstRefs[ref] = sum
+				refs = append(refs, &Ref{r, r, false})
+				dstRefs[r] = sum
 			}
 		}
 	}
@@ -236,9 +227,9 @@ func saveFetchedRefs(
 	})
 	savedRefs := []*Ref{}
 	remoteDisplayed := false
-	for _, ref := range refs {
-		oldSum, _ := versioning.GetRef(db, ref.Dst[5:])
-		sum := dstRefs[ref.Dst]
+	for _, r := range refs {
+		oldSum, _ := ref.GetRef(rs, r.Dst[5:])
+		sum := dstRefs[r.Dst]
 		if bytes.Equal(oldSum, sum) {
 			continue
 		}
@@ -246,70 +237,70 @@ func saveFetchedRefs(
 			cmd.Printf("From %s\n", remoteURL)
 			remoteDisplayed = true
 		}
-		if oldSum != nil && strings.HasPrefix(ref.Dst, "refs/tags/") {
-			if force || ref.Force {
-				err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "updating tag")
+		if oldSum != nil && strings.HasPrefix(r.Dst, "refs/tags/") {
+			if force || r.Force {
+				err := ref.SaveRef(rs, r.Dst[5:], sum, u.Name, u.Email, "fetch", "updating tag")
 				if err != nil {
-					displayRefUpdate(cmd, '!', "[tag update]", "unable to update local ref", ref.Src, ref.Dst)
+					displayRefUpdate(cmd, '!', "[tag update]", "unable to update local ref", r.Src, r.Dst)
 					someFailed = true
 				} else {
-					displayRefUpdate(cmd, 't', "[tag update]", "", ref.Src, ref.Dst)
-					savedRefs = append(savedRefs, ref)
+					displayRefUpdate(cmd, 't', "[tag update]", "", r.Src, r.Dst)
+					savedRefs = append(savedRefs, r)
 				}
 			} else {
-				displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", ref.Src, ref.Dst)
+				displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", r.Src, r.Dst)
 				someFailed = true
 			}
 			continue
 		}
 		if oldSum == nil {
 			var msg, what string
-			if strings.HasPrefix(ref.Src, "refs/tags/") {
+			if strings.HasPrefix(r.Src, "refs/tags/") {
 				msg = "storing tag"
 				what = "[new tag]"
-			} else if strings.HasPrefix(ref.Src, "refs/heads") {
+			} else if strings.HasPrefix(r.Src, "refs/heads") {
 				msg = "storing head"
 				what = "[new branch]"
 			} else {
 				msg = "storing ref"
 				what = "[new ref]"
 			}
-			err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", msg)
+			err := ref.SaveRef(rs, r.Dst[5:], sum, u.Name, u.Email, "fetch", msg)
 			if err != nil {
-				displayRefUpdate(cmd, '!', what, "unable to update local ref", ref.Src, ref.Dst)
+				displayRefUpdate(cmd, '!', what, "unable to update local ref", r.Src, r.Dst)
 				someFailed = true
 			} else {
-				displayRefUpdate(cmd, '*', what, "", ref.Src, ref.Dst)
-				savedRefs = append(savedRefs, ref)
+				displayRefUpdate(cmd, '*', what, "", r.Src, r.Dst)
+				savedRefs = append(savedRefs, r)
 			}
 			continue
 		}
-		fastForward, err := versioning.IsAncestorOf(db, oldSum, sum)
+		fastForward, err := ref.IsAncestorOf(db, oldSum, sum)
 		if err != nil {
 			return nil, err
 		}
 		if fastForward {
-			err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "fast-forward")
+			err := ref.SaveRef(rs, r.Dst[5:], sum, u.Name, u.Email, "fetch", "fast-forward")
 			qr := quickref(oldSum, sum, true)
 			if err != nil {
-				displayRefUpdate(cmd, '!', qr, "unable to update local ref", ref.Src, ref.Dst)
+				displayRefUpdate(cmd, '!', qr, "unable to update local ref", r.Src, r.Dst)
 				someFailed = true
 			} else {
-				displayRefUpdate(cmd, ' ', qr, "", ref.Src, ref.Dst)
-				savedRefs = append(savedRefs, ref)
+				displayRefUpdate(cmd, ' ', qr, "", r.Src, r.Dst)
+				savedRefs = append(savedRefs, r)
 			}
-		} else if force || ref.Force {
-			err := versioning.SaveRef(db, fs, ref.Dst[5:], sum, u.Name, u.Email, "fetch", "forced-update")
+		} else if force || r.Force {
+			err := ref.SaveRef(rs, r.Dst[5:], sum, u.Name, u.Email, "fetch", "forced-update")
 			qr := quickref(oldSum, sum, false)
 			if err != nil {
-				displayRefUpdate(cmd, '!', qr, "unable to update local ref", ref.Src, ref.Dst)
+				displayRefUpdate(cmd, '!', qr, "unable to update local ref", r.Src, r.Dst)
 				someFailed = true
 			} else {
-				displayRefUpdate(cmd, '+', qr, "forced update", ref.Src, ref.Dst)
-				savedRefs = append(savedRefs, ref)
+				displayRefUpdate(cmd, '+', qr, "forced update", r.Src, r.Dst)
+				savedRefs = append(savedRefs, r)
 			}
 		} else {
-			displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", ref.Src, ref.Dst)
+			displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", r.Src, r.Dst)
 			someFailed = true
 		}
 	}
@@ -332,9 +323,9 @@ func collectCommitSums(commitsChan <-chan []byte) (commits *[][]byte, done chan 
 	return
 }
 
-func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *packclient.Client, advertised [][]byte) (fetchedCommits [][]byte, err error) {
+func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *packclient.Client, advertised [][]byte) (fetchedCommits [][]byte, err error) {
 	var wg sync.WaitGroup
-	neg, err := packclient.NewNegotiator(db, fs, &wg, client, advertised, 0)
+	neg, err := packclient.NewNegotiator(db, rs, &wg, client, advertised, 0)
 	if err != nil {
 		if err.Error() == "nothing wanted" {
 			err = nil
@@ -345,7 +336,7 @@ func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *pack
 	done := make(chan bool)
 	ec := make(chan error)
 	go exitOnError(cmd, done, ec)
-	cc := saveObjects(db, fs, &wg, 0, neg.ObjectChan, ec)
+	cc := saveObjects(db, rs, &wg, neg.ObjectChan, ec)
 	sums, collectDone := collectCommitSums(cc)
 	err = neg.Start()
 	if err != nil {
@@ -357,8 +348,8 @@ func fetchObjects(cmd *cobra.Command, db kv.Store, fs kv.FileStore, client *pack
 	return *sums, nil
 }
 
-func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.ConfigUser, remote string, cr *versioning.ConfigRemote, specs []*versioning.Refspec, force bool) error {
-	client, err := packclient.NewClient(db, fs, cr.URL)
+func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.ConfigUser, remote string, cr *conf.ConfigRemote, specs []*conf.Refspec, force bool) error {
+	client, err := packclient.NewClient(db, cr.URL)
 	if err != nil {
 		return err
 	}
@@ -366,10 +357,10 @@ func fetch(cmd *cobra.Command, db kv.Store, fs kv.FileStore, u *versioning.Confi
 	if err != nil {
 		return err
 	}
-	fetchedCommits, err := fetchObjects(cmd, db, fs, client, advertised)
+	fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised)
 	if err != nil {
 		return err
 	}
-	_, err = saveFetchedRefs(cmd, u, db, fs, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
+	_, err = saveFetchedRefs(cmd, u, db, rs, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
 	return err
 }

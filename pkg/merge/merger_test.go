@@ -65,7 +65,8 @@ func TestMergerAutoResolve(t *testing.T) {
 	}, merges)
 	require.NoError(t, merger.Error())
 
-	rows := mergehelpers.CollectSortedRows(t, merger, nil)
+	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, nil)
+	assert.Equal(t, uint32(3), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -130,33 +131,30 @@ func TestMergerManualResolve(t *testing.T) {
 				hexToBytes(t, "924ab57f34c108531fa13fd94516b938"),
 				hexToBytes(t, "d791f3fd29cfa068e41bc9c35e99cde9"),
 			},
-			BlockOffset:    []uint32{0, 0},
-			RowOffset:      []byte{3, 2},
+			OtherOffsets:   []uint32{3, 2},
 			ResolvedRow:    []string{"4", "", ""},
 			UnresolvedCols: map[uint32]struct{}{1: {}, 2: {}},
 		},
 		{
-			PK:            hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
-			Base:          hexToBytes(t, "a07911e53273daff2622013f7d1d0ec9"),
-			BaseRowOffset: 2,
+			PK:         hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
+			Base:       hexToBytes(t, "a07911e53273daff2622013f7d1d0ec9"),
+			BaseOffset: 2,
 			Others: [][]byte{
 				hexToBytes(t, "5df6d1d1e8caf8fd5d67b5d264caace1"),
 				nil,
 			},
-			BlockOffset: []uint32{0, 0},
-			RowOffset:   []byte{2, 0},
-			ResolvedRow: []string{"3", "x", "d"},
+			OtherOffsets: []uint32{2, 0},
+			ResolvedRow:  []string{"3", "x", "d"},
 		},
 		{
-			PK:            hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"),
-			Base:          hexToBytes(t, "e4f37424a61671456b0be328e4f3719c"),
-			BaseRowOffset: 1,
+			PK:         hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"),
+			Base:       hexToBytes(t, "e4f37424a61671456b0be328e4f3719c"),
+			BaseOffset: 1,
 			Others: [][]byte{
 				hexToBytes(t, "fb93f68df361ea942678be1731936e32"),
 				hexToBytes(t, "b573142d4d736d82e123239dc399cff1"),
 			},
-			BlockOffset:    []uint32{0, 0},
-			RowOffset:      []byte{1, 1},
+			OtherOffsets:   []uint32{1, 1},
 			ResolvedRow:    []string{"2", "a", "s"},
 			UnresolvedCols: map[uint32]struct{}{2: {}},
 		},
@@ -173,7 +171,8 @@ func TestMergerManualResolve(t *testing.T) {
 		hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"), []string{"4", "n", "m"},
 	))
 
-	rows := mergehelpers.CollectSortedRows(t, merger, nil)
+	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, nil)
+	assert.Equal(t, uint32(4), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -231,7 +230,8 @@ func TestMergerRemoveCols(t *testing.T) {
 		},
 	}, merges)
 
-	rows := mergehelpers.CollectSortedRows(t, merger, map[int]struct{}{2: {}})
+	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, map[int]struct{}{2: {}})
+	assert.Equal(t, uint32(3), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{

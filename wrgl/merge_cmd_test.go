@@ -15,34 +15,34 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/table"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
+	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
 )
 
 func TestMergeCmdCommitCSV(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	fs := rd.OpenFileStore()
-	base, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	rs := rd.OpenRefStore()
+	base, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 	}, []uint32{0})
-	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,e",
 		"2,a,d",
 	}, []uint32{0})
-	sum2, com2 := factory.Commit(t, db, fs, []string{
+	sum2, com2 := factory.Commit(t, db, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"3,z,x",
 	}, []uint32{0}, [][]byte{base})
-	require.NoError(t, versioning.CommitHead(db, fs, "branch-2", sum2, com2))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
 	require.NoError(t, db.Close())
 
 	fp := createCSVFile(t, []string{
@@ -63,12 +63,12 @@ func TestMergeCmdCommitCSV(t *testing.T) {
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetHead(db, "branch-1")
+	sum, err := ref.GetHead(rs, "branch-1")
 	require.NoError(t, err)
-	versioning.AssertLatestReflogEqual(t, fs, "heads/branch-1", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/branch-1", &ref.Reflog{
 		OldOID:      sum1,
 		NewOID:      sum,
 		AuthorName:  "John Doe",
@@ -76,11 +76,11 @@ func TestMergeCmdCommitCSV(t *testing.T) {
 		Action:      "merge",
 		Message:     fmt.Sprintf("merge %s, %s", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7]),
 	})
-	com, err := versioning.GetCommit(db, sum)
+	com, err := objects.GetCommit(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1, sum2}, com.Parents)
 	assert.Equal(t, "Merge \"branch-2\" into \"branch-1\"", com.Message)
-	ts, err := table.ReadTable(db, fs, com.Table)
+	ts, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a"}, ts.PrimaryKey())
 }
@@ -88,27 +88,27 @@ func TestMergeCmdCommitCSV(t *testing.T) {
 func TestMergeCmdCommitCSVCustomMessage(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	fs := rd.OpenFileStore()
-	base, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	rs := rd.OpenRefStore()
+	base, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 	}, []uint32{0})
-	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,e",
 		"2,a,d",
 	}, []uint32{0})
-	sum2, com2 := factory.Commit(t, db, fs, []string{
+	sum2, com2 := factory.Commit(t, db, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"3,z,x",
 	}, []uint32{0}, [][]byte{base})
-	require.NoError(t, versioning.CommitHead(db, fs, "branch-2", sum2, com2))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
 	require.NoError(t, db.Close())
 
 	fp := createCSVFile(t, []string{
@@ -129,12 +129,12 @@ func TestMergeCmdCommitCSVCustomMessage(t *testing.T) {
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetHead(db, "branch-1")
+	sum, err := ref.GetHead(rs, "branch-1")
 	require.NoError(t, err)
-	versioning.AssertLatestReflogEqual(t, fs, "heads/branch-1", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/branch-1", &ref.Reflog{
 		OldOID:      sum1,
 		NewOID:      sum,
 		AuthorName:  "John Doe",
@@ -142,11 +142,11 @@ func TestMergeCmdCommitCSVCustomMessage(t *testing.T) {
 		Action:      "merge",
 		Message:     fmt.Sprintf("merge %s, %s", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7]),
 	})
-	com, err := versioning.GetCommit(db, sum)
+	com, err := objects.GetCommit(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1, sum2}, com.Parents)
 	assert.Equal(t, "my merge message", com.Message)
-	ts, err := table.ReadTable(db, fs, com.Table)
+	ts, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"b"}, ts.PrimaryKey())
 }
@@ -154,27 +154,27 @@ func TestMergeCmdCommitCSVCustomMessage(t *testing.T) {
 func TestMergeCmdNoGUI(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	fs := rd.OpenFileStore()
-	base, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	rs := rd.OpenRefStore()
+	base, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"4,v,b",
 	}, []uint32{0})
-	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,d",
 		"1,g,e",
 		"2,h,d",
 	}, []uint32{0})
-	sum2, com2 := factory.Commit(t, db, fs, []string{
+	sum2, com2 := factory.Commit(t, db, []string{
 		"a,c,e",
 		"1,q,w",
 		"3,z,x",
 	}, []uint32{0}, [][]byte{base})
-	require.NoError(t, versioning.CommitHead(db, fs, "branch-2", sum2, com2))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
@@ -229,27 +229,27 @@ func readCSV(t *testing.T, filename string) ([]byte, [][]string) {
 func TestMergeCmdAutoResolve(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	fs := rd.OpenFileStore()
-	base, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	rs := rd.OpenRefStore()
+	base, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c,d",
 		"1,q,w,o",
 		"2,a,s,k",
 	}, []uint32{0})
-	sum1, _ := factory.CommitHead(t, db, fs, "branch-1", []string{
+	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,e",
 		"2,a,d",
 	}, []uint32{0})
-	sum2, com2 := factory.Commit(t, db, fs, []string{
+	sum2, com2 := factory.Commit(t, db, []string{
 		"a,b,c,d",
 		"1,q,w,o",
 		"2,a,s,k",
 		"3,z,x,l",
 	}, []uint32{0}, [][]byte{base})
-	require.NoError(t, versioning.CommitHead(db, fs, "branch-2", sum2, com2))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
@@ -276,12 +276,12 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 	cmd.SetArgs([]string{"export", "branch-1"})
 	assertCmdOutput(t, cmd, string(b))
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetHead(db, "branch-1")
+	sum, err := ref.GetHead(rs, "branch-1")
 	require.NoError(t, err)
-	versioning.AssertLatestReflogEqual(t, fs, "heads/branch-1", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/branch-1", &ref.Reflog{
 		OldOID:      sum1,
 		NewOID:      sum,
 		AuthorName:  "John Doe",
@@ -289,11 +289,11 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 		Action:      "merge",
 		Message:     fmt.Sprintf("merge %s, %s", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7]),
 	})
-	com, err := versioning.GetCommit(db, sum)
+	com, err := objects.GetCommit(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1, sum2}, com.Parents)
 	assert.Equal(t, "Merge \"branch-2\" into \"branch-1\"", com.Message)
-	ts, err := table.ReadTable(db, fs, com.Table)
+	ts, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a"}, ts.PrimaryKey())
 }
@@ -301,27 +301,27 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 func TestMergeCmdFastForward(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	fs := rd.OpenFileStore()
-	base, baseCom := factory.CommitRandom(t, db, fs, nil)
-	sum1, com1 := factory.CommitRandom(t, db, fs, [][]byte{base})
-	require.NoError(t, versioning.CommitHead(db, fs, "branch-1", base, baseCom))
-	require.NoError(t, versioning.CommitHead(db, fs, "branch-2", sum1, com1))
+	rs := rd.OpenRefStore()
+	base, baseCom := factory.CommitRandom(t, db, nil)
+	sum1, com1 := factory.CommitRandom(t, db, [][]byte{base})
+	require.NoError(t, ref.CommitHead(rs, "branch-1", base, baseCom))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum1, com1))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2"})
 	assertCmdOutput(t, cmd, fmt.Sprintf("Fast forward to %s\n", hex.EncodeToString(sum1)[:7]))
 
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetHead(db, "branch-1")
+	sum, err := ref.GetHead(rs, "branch-1")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	versioning.AssertLatestReflogEqual(t, fs, "heads/branch-1", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/branch-1", &ref.Reflog{
 		OldOID:      base,
 		NewOID:      sum1,
 		AuthorName:  "John Doe",

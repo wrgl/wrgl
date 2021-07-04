@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/kv"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
 	packclient "github.com/wrgl/core/pkg/pack/client"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -23,17 +23,17 @@ func newPushCmd() *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := versioning.AggregateConfig(wrglDir)
+			c, err := utils.AggregateConfig(wrglDir)
 			if err != nil {
 				return err
 			}
 			rd := getRepoDir(cmd)
-			db, err := rd.OpenKVStore()
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
 			defer db.Close()
-			fs := rd.OpenFileStore()
+			rs := rd.OpenRefStore()
 			force, err := cmd.Flags().GetBool("force")
 			if err != nil {
 				return err
@@ -51,7 +51,7 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, err := packclient.NewClient(db, fs, cr.URL)
+			client, err := packclient.NewClient(db, cr.URL)
 			if err != nil {
 				return err
 			}
@@ -60,7 +60,7 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("To %s\n", cr.URL)
-			upToDateRefspecs, updates, commits, err := identifyUpdates(cmd, db, refspecs, remoteRefs, force)
+			upToDateRefspecs, updates, commits, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
 			if err != nil {
 				return err
 			}
@@ -89,26 +89,26 @@ func newPushCmd() *cobra.Command {
 }
 
 func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) error {
-	c, err := versioning.OpenConfig(false, false, wrglDir, "")
+	c, err := utils.OpenConfig(false, false, wrglDir, "")
 	if err != nil {
 		return err
 	}
 	if c.Branch == nil {
-		c.Branch = map[string]*versioning.ConfigBranch{}
+		c.Branch = map[string]*conf.ConfigBranch{}
 	}
 	for _, ref := range refs {
 		if strings.HasPrefix(ref.Src, "refs/heads/") && strings.HasPrefix(ref.Dst, "refs/heads/") {
-			c.Branch[ref.Src[11:]] = &versioning.ConfigBranch{
+			c.Branch[ref.Src[11:]] = &conf.ConfigBranch{
 				Remote: remote,
 				Merge:  ref.Dst,
 			}
 			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src[11:], ref.Dst[11:], remote)
 		}
 	}
-	return c.Save()
+	return utils.SaveConfig(c)
 }
 
-func identifyCommonCommits(db kv.DB, remoteRefs map[string][]byte) [][]byte {
+func identifyCommonCommits(db objects.Store, remoteRefs map[string][]byte) [][]byte {
 	m := map[string]struct{}{}
 	sums := [][]byte{}
 	for _, v := range remoteRefs {
@@ -117,14 +117,14 @@ func identifyCommonCommits(db kv.DB, remoteRefs map[string][]byte) [][]byte {
 		} else {
 			m[string(v)] = struct{}{}
 		}
-		if versioning.CommitExist(db, v) {
+		if objects.CommitExist(db, v) {
 			sums = append(sums, v)
 		}
 	}
 	return sums
 }
 
-func getRepoToPush(c *versioning.Config, args []string) (remote string, cr *versioning.ConfigRemote, rem []string, err error) {
+func getRepoToPush(c *conf.Config, args []string) (remote string, cr *conf.ConfigRemote, rem []string, err error) {
 	if len(args) > 0 {
 		if v, ok := c.Remote[args[0]]; ok {
 			return args[0], v, args[1:], nil
@@ -139,10 +139,10 @@ func getRepoToPush(c *versioning.Config, args []string) (remote string, cr *vers
 	return "", nil, nil, fmt.Errorf("repository name not specified")
 }
 
-func getRefspecsToPush(cr *versioning.ConfigRemote, args []string) (refspecs []*versioning.Refspec, err error) {
+func getRefspecsToPush(cr *conf.ConfigRemote, args []string) (refspecs []*conf.Refspec, err error) {
 	if len(args) > 0 {
 		for _, s := range args {
-			rs, err := versioning.ParseRefspec(s)
+			rs, err := conf.ParseRefspec(s)
 			if err != nil {
 				return nil, err
 			}
@@ -156,7 +156,7 @@ func getRefspecsToPush(cr *versioning.ConfigRemote, args []string) (refspecs []*
 					}
 				}
 				if !found {
-					rs, err = versioning.NewRefspec(rs.Src(), rs.Src(), false, rs.Force)
+					rs, err = conf.NewRefspec(rs.Src(), rs.Src(), false, rs.Force)
 					if err != nil {
 						return nil, err
 					}
@@ -202,15 +202,15 @@ func interpretDestination(remoteRefs map[string][]byte, src, dst string) (string
 }
 
 func identifyUpdates(
-	cmd *cobra.Command, db kv.DB, refspecs []*versioning.Refspec, remoteRefs map[string][]byte, force bool,
-) (upToDateRefspecs []*versioning.Refspec, updates []*packutils.Update, commitsToSend []*objects.Commit, err error) {
-	for _, rs := range refspecs {
-		src := rs.Src()
-		dst := rs.Dst()
+	cmd *cobra.Command, db objects.Store, rs ref.Store, refspecs []*conf.Refspec, remoteRefs map[string][]byte, force bool,
+) (upToDateRefspecs []*conf.Refspec, updates []*packutils.Update, commitsToSend []*objects.Commit, err error) {
+	for _, s := range refspecs {
+		src := s.Src()
+		dst := s.Dst()
 		var sum []byte
 		var commit *objects.Commit
 		if src != "" {
-			_, sum, commit, err = versioning.InterpretCommitName(db, src, false)
+			_, sum, commit, err = ref.InterpretCommitName(db, rs, src, false)
 			if err != nil {
 				err = fmt.Errorf("unrecognized ref %q", src)
 				return
@@ -223,7 +223,7 @@ func identifyUpdates(
 		if v, ok := remoteRefs[dst]; ok {
 			if string(v) == string(sum) {
 				displayRefUpdate(cmd, '=', "[up to date]", "", src, dst)
-				upToDateRefspecs = append(upToDateRefspecs, rs)
+				upToDateRefspecs = append(upToDateRefspecs, s)
 			} else if sum == nil {
 				// delete ref
 				updates = append(updates, &packutils.Update{
@@ -233,7 +233,7 @@ func identifyUpdates(
 					Dst:    dst,
 				})
 			} else if strings.HasPrefix(dst, "refs/tags/") {
-				if force || rs.Force {
+				if force || s.Force {
 					updates = append(updates, &packutils.Update{
 						OldSum: v,
 						Sum:    sum,
@@ -245,7 +245,7 @@ func identifyUpdates(
 				} else {
 					displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", src, dst)
 				}
-			} else if fastForward, err := versioning.IsAncestorOf(db, v, sum); err != nil {
+			} else if fastForward, err := ref.IsAncestorOf(db, v, sum); err != nil {
 				return nil, nil, nil, err
 			} else if fastForward {
 				updates = append(updates, &packutils.Update{
@@ -255,7 +255,7 @@ func identifyUpdates(
 					Dst:    dst,
 				})
 				commitsToSend = append(commitsToSend, commit)
-			} else if force || rs.Force {
+			} else if force || s.Force {
 				updates = append(updates, &packutils.Update{
 					OldSum: v,
 					Sum:    sum,

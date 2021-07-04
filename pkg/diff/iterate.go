@@ -78,16 +78,16 @@ func getBlockIndices(db objects.Store, tbl *objects.Table, start, end int, prevS
 }
 
 // iterateAndMatch iterates through a single table while trying to match its rows with another table
-func iterateAndMatch(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, cb func(pk, row1, row2 []byte, blkOff1, blkOff2 uint32, rowOff1, rowOff2 byte)) error {
+func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, cb func(pk, row1, row2 []byte, off1, off2 uint32)) error {
 	var prevStart, prevEnd int
 	var indices2 []*objects.BlockIndex
 	for i, sum := range tbl1.Blocks {
-		idx1, err := objects.GetBlockIndex(db, sum)
+		idx1, err := objects.GetBlockIndex(db1, sum)
 		if err != nil {
 			return err
 		}
 		start, end := findOverlappingBlocks(tblIdx1, tblIdx2, i, prevEnd)
-		indices2, err = getBlockIndices(db, tbl2, start, end, indices2, prevStart, prevEnd)
+		indices2, err = getBlockIndices(db2, tbl2, start, end, indices2, prevStart, prevEnd)
 		if err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func iterateAndMatch(db objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblId
 					break
 				}
 			}
-			cb(b[:16], b[16:], row2, uint32(i), blkOff2, byte(rowOff1), rowOff2)
+			cb(b[:16], b[16:], row2, uint32(i*objects.BlockSize+rowOff1), blkOff2*objects.BlockSize+uint32(rowOff2))
 		}
 	}
 	return nil

@@ -11,7 +11,7 @@ import (
 
 type PreviewTable struct {
 	*DataTable
-	rowReader        *diff.RowReader
+	rowReader        diff.RowReader
 	headerRow        []*TableCell
 	buf              [][]*TableCell
 	pkMap            map[uint32]struct{}
@@ -19,7 +19,7 @@ type PreviewTable struct {
 	bufStart, bufEnd int
 }
 
-func NewPreviewTable(rowReader *diff.RowReader, rowCount int, columns []string, primaryKeyIndices []uint32) *PreviewTable {
+func NewPreviewTable(rowReader diff.RowReader, rowCount int, columns []string, primaryKeyIndices []uint32) *PreviewTable {
 	headerRow := []*TableCell{}
 	for _, text := range columns {
 		headerRow = append(headerRow, NewTableCell(text).SetStyle(columnStyle))

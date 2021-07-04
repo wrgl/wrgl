@@ -11,7 +11,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/core/wrgl/utils"
 )
 
 func RootCmd() *cobra.Command {
@@ -65,32 +66,32 @@ func fileOptions(cmd *cobra.Command) (file string, system, global, local bool) {
 	return
 }
 
-func openConfigToRead(cmd *cobra.Command, rootDir string) (c *versioning.Config) {
+func openConfigToRead(cmd *cobra.Command, rootDir string) (c *conf.Config) {
 	file, system, global, local := fileOptions(cmd)
 	var err error
 	if local {
-		c, err = versioning.OpenConfig(false, false, rootDir, "")
+		c, err = utils.OpenConfig(false, false, rootDir, "")
 		if err != nil {
 			fatal(cmd, err)
 		}
 		return
 	} else if file == "" && !system && !global {
-		c, err = versioning.AggregateConfig(rootDir)
+		c, err = utils.AggregateConfig(rootDir)
 		if err != nil {
 			fatal(cmd, err)
 		}
 		return
 	}
-	c, err = versioning.OpenConfig(system, global, rootDir, file)
+	c, err = utils.OpenConfig(system, global, rootDir, file)
 	if err != nil {
 		fatal(cmd, err)
 	}
 	return
 }
 
-func openConfigToWrite(cmd *cobra.Command, rootDir string) (c *versioning.Config) {
+func openConfigToWrite(cmd *cobra.Command, rootDir string) (c *conf.Config) {
 	file, system, global, _ := fileOptions(cmd)
-	c, err := versioning.OpenConfig(system, global, rootDir, file)
+	c, err := utils.OpenConfig(system, global, rootDir, file)
 	if err != nil {
 		fatal(cmd, err)
 	}

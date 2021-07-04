@@ -15,9 +15,9 @@ import (
 func TestRemoteRenameCmd(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	db, err := rd.OpenKVStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	fs := rd.OpenFileStore()
+	rs := rd.OpenRefStore()
 
 	// add remote
 	cmd := newRootCmd()
@@ -31,7 +31,7 @@ func TestRemoteRenameCmd(t *testing.T) {
 		testutils.SecureRandomBytes(16),
 	}
 	for i, name := range names {
-		err := versioning.SaveRemoteRef(db, fs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote rename")
+		err := versioning.SaveRemoteRef(db, rs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote rename")
 		require.NoError(t, err)
 	}
 	require.NoError(t, db.Close())
@@ -43,7 +43,7 @@ func TestRemoteRenameCmd(t *testing.T) {
 	assertCmdOutput(t, cmd, "acme https://my-repo.com\n")
 
 	// assert refs are updated
-	db, err = rd.OpenKVStore()
+	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
 	m, err := versioning.ListRemoteRefs(db, "origin")

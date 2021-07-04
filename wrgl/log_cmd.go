@@ -9,16 +9,10 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/kv"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
-
-func getKVStore(cmd *cobra.Command) (kv.Store, error) {
-	rd := getRepoDir(cmd)
-	quitIfRepoDirNotExist(cmd, rd)
-	return rd.OpenKVStore()
-}
 
 func newLogCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -32,25 +26,29 @@ func newLogCmd() *cobra.Command {
 				return err
 			}
 			defer cleanOut()
-			kvStore, err := getKVStore(cmd)
+			rd := getRepoDir(cmd)
+			quitIfRepoDirNotExist(cmd, rd)
+			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
 			}
-			return writeCommitLog(cmd, kvStore, branchName, out)
+			defer db.Close()
+			rs := rd.OpenRefStore()
+			return writeCommitLog(cmd, db, rs, branchName, out)
 		},
 	}
 	cmd.Flags().BoolP("no-pager", "P", false, "don't use PAGER")
 	return cmd
 }
 
-func writeCommitLog(cmd *cobra.Command, kvStore kv.Store, branchName string, out io.Writer) error {
-	commitSum, err := versioning.GetHead(kvStore, branchName)
+func writeCommitLog(cmd *cobra.Command, db objects.Store, rs ref.Store, branchName string, out io.Writer) error {
+	commitSum, err := ref.GetHead(rs, branchName)
 	if err != nil {
 		return err
 	}
 	hash := commitSum
 	for {
-		c, err := versioning.GetCommit(kvStore, hash)
+		c, err := objects.GetCommit(db, hash)
 		if err != nil {
 			return err
 		}

@@ -43,7 +43,8 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 	baseInd := len(c.Cells) - 1
 	if m.Base != nil {
 		c.baseRow = make([]string, c.cd.Len())
-		row, err := c.buf.GetRow(0, m.BaseBlockOffset, m.BaseRowOffset)
+		blk, off := diff.RowToBlockAndOffset(m.BaseOffset)
+		row, err := c.buf.GetRow(0, blk, off)
 		if err != nil {
 			return err
 		}
@@ -77,7 +78,8 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 			cell.SetStyle(boldYellowStyle)
 		}
 
-		row, err := c.buf.GetRow(byte(i+1), m.BlockOffset[i], m.RowOffset[i])
+		blk, off := diff.RowToBlockAndOffset(m.OtherOffsets[i])
+		row, err := c.buf.GetRow(byte(i+1), blk, off)
 		if err != nil {
 			return err
 		}

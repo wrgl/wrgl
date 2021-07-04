@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/ref"
+	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
 	"github.com/wrgl/core/pkg/testutils"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 func createRandomCSVFile(t *testing.T) (filePath string) {
@@ -49,13 +49,13 @@ func TestCommitCmd(t *testing.T) {
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
 
-	fs := rd.OpenFileStore()
-	db, err := rd.OpenKVStore()
+	rs := rd.OpenRefStore()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	sum, err := versioning.GetHead(db, "my-branch")
+	sum, err := ref.GetHead(rs, "my-branch")
 	require.NoError(t, err)
-	versioning.AssertLatestReflogEqual(t, fs, "heads/my-branch", &objects.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/my-branch", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",

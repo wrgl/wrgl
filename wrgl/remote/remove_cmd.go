@@ -5,7 +5,7 @@ package remote
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/versioning"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -18,23 +18,18 @@ func removeCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := versioning.OpenConfig(false, false, wrglDir, "")
+			c, err := utils.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}
-			rd := versioning.NewRepoDir(wrglDir, false, false)
-			db, err := rd.OpenKVStore()
-			if err != nil {
-				return err
-			}
-			defer db.Close()
-			fs := rd.OpenFileStore()
-			err = versioning.DeleteAllRemoteRefs(db, fs, args[0])
+			rd := utils.NewRepoDir(wrglDir, false, false)
+			rs := rd.OpenRefStore()
+			err = ref.DeleteAllRemoteRefs(rs, args[0])
 			if err != nil {
 				return err
 			}
 			delete(c.Remote, args[0])
-			return c.Save()
+			return utils.SaveConfig(c)
 		},
 	}
 	return cmd
