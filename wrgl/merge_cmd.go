@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -102,18 +103,18 @@ func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store
 	if err != nil {
 		return err
 	}
-	if !strings.HasPrefix(name, "refs/heads/") {
+	if !strings.HasPrefix(name, "heads/") {
 		return fmt.Errorf("%q is not a branch name", args[0])
 	}
 	commits := [][]byte{sum}
-	commitNames := []string{trimRefPrefix(name)}
+	commitNames := []string{strings.TrimPrefix(name, "heads/")}
 	for _, s := range args[1:] {
 		name, sum, _, err := ref.InterpretCommitName(db, rs, s, true)
 		if err != nil {
 			return err
 		}
 		commits = append(commits, sum)
-		commitNames = append(commitNames, trimRefPrefix(name))
+		commitNames = append(commitNames, strings.TrimPrefix(name, "heads/"))
 	}
 	baseCommit, err := ref.SeekCommonAncestor(db, commits...)
 	if err != nil {
@@ -130,7 +131,7 @@ func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store
 		cmd.Println("All commits are identical, nothing to merge")
 		return nil
 	} else if len(commits) == 1 {
-		err = ref.SaveRef(rs, name[5:], commits[0], c.User.Name, c.User.Email, "merge", "fast-forward")
+		err = ref.SaveRef(rs, name, commits[0], c.User.Name, c.User.Email, "merge", "fast-forward")
 		if err != nil {
 			return err
 		}
@@ -255,7 +256,21 @@ func outputConflicts(cmd *cobra.Command, db objects.Store, buf *diff.BlockBuffer
 			return err
 		}
 	}
+	merges := []*merge.Merge{}
 	for m := range mc {
+		merges = append(merges, m)
+	}
+	// sort to make test stable
+	sort.SliceStable(merges, func(i, j int) bool {
+		if merges[i].Base == nil && merges[j].Base != nil {
+			return true
+		}
+		if merges[j].Base == nil && merges[i].Base != nil {
+			return false
+		}
+		return string(merges[i].Base) < string(merges[j].Base)
+	})
+	for _, m := range merges {
 		if m.Base != nil {
 			blk, off := diff.RowToBlockAndOffset(m.BaseOffset)
 			row, err := buf.GetRow(0, blk, off)

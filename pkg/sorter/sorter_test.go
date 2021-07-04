@@ -7,7 +7,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/objects"
@@ -93,8 +92,6 @@ func TestSorterSortFile(t *testing.T) {
 	s, err = NewSorter(0, io.Discard)
 	require.NoError(t, err)
 	blocks2 := sortedBlocks(t, s, f, f.Name(), rows[0][:1], 700)
-	// spew.Dump(blocks[0].Block[:4])
-	spew.Dump(blocks2[0].Block[:20])
 	assert.Equal(t, blocks, blocks2)
 	require.NoError(t, s.Close())
 }

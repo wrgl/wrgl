@@ -85,7 +85,7 @@ func TestStore(t *testing.T) {
 	_, err = s.LogReader("heads/beta")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
 
-	// test Filter & FilterKey
+	// test FilterKey
 	sum4 := testutils.SecureRandomBytes(16)
 	l4 := refhelpers.RandomReflog()
 	require.NoError(t, s.SetWithLog("heads/gamma", sum4, l4))
@@ -96,11 +96,31 @@ func TestStore(t *testing.T) {
 		"heads/gamma",
 		"heads/theta",
 	}, sl)
+
+	sum5 := testutils.SecureRandomBytes(16)
+	require.NoError(t, s.Set("tags/def", sum5))
+	sl, err = s.FilterKey("")
+	require.NoError(t, err)
+	sort.Slice(sl, func(i, j int) bool { return sl[i] < sl[j] })
+	assert.Equal(t, []string{
+		"heads/gamma",
+		"heads/theta",
+		"tags/def",
+	}, sl)
+
+	// test Filter
 	m, err := s.Filter("heads/")
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/gamma": sum4,
 		"heads/theta": sum3,
+	}, m)
+	m, err = s.Filter("")
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]byte{
+		"heads/gamma": sum4,
+		"heads/theta": sum3,
+		"tags/def":    sum5,
 	}, m)
 
 	// Filter non-existent keys

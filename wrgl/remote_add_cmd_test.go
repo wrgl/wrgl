@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -62,34 +61,34 @@ func TestRemoteAddCmd(t *testing.T) {
 		"acme": {
 			URL: "https://acme.com",
 			Fetch: []*conf.Refspec{
-				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/acme/*"),
-				versioning.MustParseRefspec("tag *"),
+				conf.MustParseRefspec("+refs/heads/*:refs/remotes/acme/*"),
+				conf.MustParseRefspec("tag *"),
 			},
 		},
 		"beta": {
 			URL: "https://beta.com",
 			Fetch: []*conf.Refspec{
-				versioning.MustParseRefspec("+refs/heads/main:refs/remotes/beta/main"),
-				versioning.MustParseRefspec("+refs/heads/tickets:refs/remotes/beta/tickets"),
+				conf.MustParseRefspec("+refs/heads/main:refs/remotes/beta/main"),
+				conf.MustParseRefspec("+refs/heads/tickets:refs/remotes/beta/tickets"),
 			},
 		},
 		"gamma": {
 			URL: "https://gamma.com",
 			Fetch: []*conf.Refspec{
-				versioning.MustParseRefspec("+refs/*:refs/*"),
+				conf.MustParseRefspec("+refs/*:refs/*"),
 			},
 		},
 		"theta": {
 			URL: "https://theta.com",
 			Fetch: []*conf.Refspec{
-				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/theta/*"),
+				conf.MustParseRefspec("+refs/heads/*:refs/remotes/theta/*"),
 			},
 			Mirror: true,
 		},
 		"origin": {
 			URL: "https://my-repo.com",
 			Fetch: []*conf.Refspec{
-				versioning.MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
+				conf.MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
 			},
 		},
 	}, c.Remote)

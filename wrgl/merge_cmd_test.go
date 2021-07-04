@@ -125,9 +125,7 @@ func TestMergeCmdCommitCSVCustomMessage(t *testing.T) {
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"export", "branch-1"})
-	b, err := ioutil.ReadFile(fp)
-	require.NoError(t, err)
-	assertCmdOutput(t, cmd, string(b))
+	assertCmdOutput(t, cmd, "a,b,c\n2,a,d\n1,q,e\n3,z,x\n")
 
 	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)

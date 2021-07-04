@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/testutils"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 func TestRemoteRemoveCmd(t *testing.T) {
@@ -31,7 +31,7 @@ func TestRemoteRemoveCmd(t *testing.T) {
 		testutils.SecureRandomBytes(16),
 	}
 	for i, name := range names {
-		err := versioning.SaveRemoteRef(db, rs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote remove")
+		err := ref.SaveRemoteRef(rs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote remove")
 		require.NoError(t, err)
 	}
 	require.NoError(t, db.Close())
@@ -46,7 +46,7 @@ func TestRemoteRemoveCmd(t *testing.T) {
 	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	m, err := versioning.ListRemoteRefs(db, "origin")
+	m, err := ref.ListRemoteRefs(rs, "origin")
 	require.NoError(t, err)
 	assert.Len(t, m, 0)
 }

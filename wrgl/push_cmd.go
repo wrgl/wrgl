@@ -73,10 +73,16 @@ func newPushCmd() *cobra.Command {
 			if setUpstream {
 				refs := []*Ref{}
 				for _, rs := range upToDateRefspecs {
-					refs = append(refs, &Ref{Src: rs.Src(), Dst: rs.Dst()})
+					refs = append(refs, &Ref{
+						Src: strings.TrimPrefix(rs.Src(), "refs/"),
+						Dst: strings.TrimPrefix(rs.Dst(), "refs/"),
+					})
 				}
 				for _, u := range updates {
-					refs = append(refs, &Ref{Src: u.Src, Dst: u.Dst})
+					refs = append(refs, &Ref{
+						Src: strings.TrimPrefix(u.Src, "refs/"),
+						Dst: strings.TrimPrefix(u.Dst, "refs/"),
+					})
 				}
 				return setBranchUpstream(cmd, wrglDir, remote, refs)
 			}
@@ -97,12 +103,12 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) 
 		c.Branch = map[string]*conf.ConfigBranch{}
 	}
 	for _, ref := range refs {
-		if strings.HasPrefix(ref.Src, "refs/heads/") && strings.HasPrefix(ref.Dst, "refs/heads/") {
-			c.Branch[ref.Src[11:]] = &conf.ConfigBranch{
+		if strings.HasPrefix(ref.Src, "heads/") && strings.HasPrefix(ref.Dst, "heads/") {
+			c.Branch[ref.Src[6:]] = &conf.ConfigBranch{
 				Remote: remote,
-				Merge:  ref.Dst,
+				Merge:  "refs/" + ref.Dst,
 			}
-			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src[11:], ref.Dst[11:], remote)
+			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src[6:], ref.Dst[6:], remote)
 		}
 	}
 	return utils.SaveConfig(c)
@@ -175,7 +181,7 @@ func getRefspecsToPush(cr *conf.ConfigRemote, args []string) (refspecs []*conf.R
 
 func interpretDestination(remoteRefs map[string][]byte, src, dst string) (string, error) {
 	if strings.HasPrefix(dst, "refs/") {
-		return dst, nil
+		return strings.TrimPrefix(dst, "refs/"), nil
 	}
 	matchedRefs := []string{}
 	for ref := range remoteRefs {
@@ -187,15 +193,15 @@ func interpretDestination(remoteRefs map[string][]byte, src, dst string) (string
 		return matchedRefs[0], nil
 	} else if strings.HasPrefix(src, "refs/heads/") {
 		if strings.HasPrefix(dst, "heads/") {
-			return "refs/" + dst, nil
+			return dst, nil
 		} else {
-			return "refs/heads/" + dst, nil
+			return "heads/" + dst, nil
 		}
 	} else if strings.HasPrefix(src, "refs/tags/") {
 		if strings.HasPrefix(dst, "tags/") {
-			return "refs/" + dst, nil
+			return dst, nil
 		} else {
-			return "refs/tags/" + dst, nil
+			return "tags/" + dst, nil
 		}
 	}
 	return "", fmt.Errorf("ambiguous push destination %q", dst)
@@ -232,7 +238,7 @@ func identifyUpdates(
 					Src:    src,
 					Dst:    dst,
 				})
-			} else if strings.HasPrefix(dst, "refs/tags/") {
+			} else if strings.HasPrefix(dst, "tags/") {
 				if force || s.Force {
 					updates = append(updates, &packutils.Update{
 						OldSum: v,
@@ -287,9 +293,9 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*packutils.Update) {
 				displayRefUpdate(cmd, '-', "[deleted]", "", "", u.Dst)
 			} else if u.OldSum == nil {
 				var summary string
-				if strings.HasPrefix(u.Dst, "refs/heads/") {
+				if strings.HasPrefix(u.Dst, "heads/") {
 					summary = "[new branch]"
-				} else if strings.HasPrefix(u.Dst, "refs/tags/") {
+				} else if strings.HasPrefix(u.Dst, "tags/") {
 					summary = "[new tag]"
 				} else {
 					summary = "[new reference]"

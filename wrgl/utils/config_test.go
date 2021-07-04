@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/testutils"
+	wrglhelpers "github.com/wrgl/core/wrgl/helpers"
 )
 
 func MockSystemConf(t *testing.T) func() {
@@ -24,35 +25,6 @@ func MockSystemConf(t *testing.T) func() {
 	return func() {
 		require.NoError(t, os.RemoveAll(dir))
 		systemConfigPath = orig
-	}
-}
-
-func MockEnv(t *testing.T, key, val string) func() {
-	t.Helper()
-	orig := os.Getenv(key)
-	require.NoError(t, os.Setenv(key, val))
-	return func() {
-		require.NoError(t, os.Setenv(key, orig))
-	}
-}
-
-func MockGlobalConf(t *testing.T, setXDGConfigHome bool) func() {
-	t.Helper()
-	name, err := ioutil.TempDir("", "test_wrgl_config")
-	require.NoError(t, err)
-	var cleanup1, cleanup2 func()
-	if setXDGConfigHome {
-		cleanup1 = MockEnv(t, "XDG_CONFIG_HOME", name)
-	} else {
-		cleanup1 = MockEnv(t, "XDG_CONFIG_HOME", "")
-		cleanup2 = MockEnv(t, "HOME", name)
-	}
-	return func() {
-		require.NoError(t, os.RemoveAll(name))
-		cleanup1()
-		if cleanup2 != nil {
-			cleanup2()
-		}
 	}
 }
 
@@ -80,7 +52,7 @@ func TestOpenSystemConfig(t *testing.T) {
 
 func TestOpenGlobalConfig(t *testing.T) {
 	for _, b := range []bool{true, false} {
-		cleanup := MockGlobalConf(t, b)
+		cleanup := wrglhelpers.MockGlobalConf(t, b)
 		defer cleanup()
 
 		c1, err := OpenConfig(false, true, "", "")
@@ -133,7 +105,7 @@ func TestOpenFileConfig(t *testing.T) {
 func TestAggregateConfig(t *testing.T) {
 	cleanup := MockSystemConf(t)
 	defer cleanup()
-	cleanup = MockGlobalConf(t, true)
+	cleanup = wrglhelpers.MockGlobalConf(t, true)
 	defer cleanup()
 	rd, err := ioutil.TempDir("", "test_wrgl_config")
 	require.NoError(t, err)

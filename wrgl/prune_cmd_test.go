@@ -13,12 +13,11 @@ import (
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 func assertCommitsCount(t *testing.T, db objects.Store, num int) {
 	t.Helper()
-	sl, err := versioning.GetAllCommitHashes(db)
+	sl, err := objects.GetAllCommitKeys(db)
 	require.NoError(t, err)
 	assert.Len(t, sl, num)
 }
@@ -35,7 +34,7 @@ func assertBlocksCount(t *testing.T, db objects.Store, num int) {
 	sl, err := objects.GetAllBlockKeys(db)
 	require.NoError(t, err)
 	if len(sl) != num {
-		t.Errorf("rows length is %d not %d", len(sl), num)
+		t.Errorf("blocks count is %d not %d", len(sl), num)
 	}
 }
 
@@ -105,7 +104,7 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	}, []uint32{0})
 	assertCommitsCount(t, db, 5)
 	assertTablesCount(t, db, 4)
-	assertBlocksCount(t, db, 8)
+	assertBlocksCount(t, db, 4)
 	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
 	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning"))
 	require.NoError(t, db.Close())
@@ -120,7 +119,7 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	defer db.Close()
 	assertCommitsCount(t, db, 2)
 	assertTablesCount(t, db, 2)
-	assertBlocksCount(t, db, 6)
+	assertBlocksCount(t, db, 2)
 	m, err := ref.ListHeads(rs)
 	require.NoError(t, err)
 	assert.Len(t, m, 2)

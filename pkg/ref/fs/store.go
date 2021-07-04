@@ -4,6 +4,7 @@
 package reffs
 
 import (
+	"container/list"
 	"io"
 	"os"
 	"path"
@@ -110,27 +111,46 @@ func (s *Store) Filter(prefix string) (m map[string][]byte, err error) {
 }
 
 func (s *Store) FilterKey(prefix string) (keys []string, err error) {
-	files, err := os.ReadDir(s.refPath(prefix))
-	if err != nil {
-		if _, ok := err.(*os.PathError); ok {
-			return nil, nil
+	paths := list.New()
+	paths.PushBack(prefix)
+	for e := paths.Front(); e != nil; e = e.Next() {
+		p := e.Value.(string)
+		entries, err := os.ReadDir(s.refPath(p))
+		if err != nil {
+			if _, ok := err.(*os.PathError); ok {
+				continue
+			}
+			return nil, err
 		}
-		return
-	}
-	for _, f := range files {
-		keys = append(keys, path.Join(prefix, f.Name()))
+		for _, f := range entries {
+			if f.IsDir() {
+				paths.PushBack(path.Join(p, f.Name()))
+			} else {
+				keys = append(keys, path.Join(p, f.Name()))
+			}
+		}
 	}
 	return
 }
 
 func (s *Store) Rename(oldKey, newKey string) (err error) {
-	err = os.Rename(s.refPath(oldKey), s.refPath(newKey))
+	p := s.refPath(newKey)
+	err = s.createParentDir(p)
 	if err != nil {
 		return
 	}
-	p := s.logPath(oldKey)
+	err = os.Rename(s.refPath(oldKey), p)
+	if err != nil {
+		return
+	}
+	p = s.logPath(oldKey)
 	if _, err := os.Stat(p); err == nil {
-		return os.Rename(p, s.logPath(newKey))
+		q := s.logPath(newKey)
+		err = s.createParentDir(q)
+		if err != nil {
+			return err
+		}
+		return os.Rename(p, q)
 	}
 	return
 }

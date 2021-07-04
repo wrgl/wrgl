@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/testutils"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 func TestRemoteRenameCmd(t *testing.T) {
@@ -31,7 +31,7 @@ func TestRemoteRenameCmd(t *testing.T) {
 		testutils.SecureRandomBytes(16),
 	}
 	for i, name := range names {
-		err := versioning.SaveRemoteRef(db, rs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote rename")
+		err := ref.SaveRemoteRef(rs, "origin", name, sums[i], "test", "test@domain.com", "test", "test remote rename")
 		require.NoError(t, err)
 	}
 	require.NoError(t, db.Close())
@@ -43,13 +43,10 @@ func TestRemoteRenameCmd(t *testing.T) {
 	assertCmdOutput(t, cmd, "acme https://my-repo.com\n")
 
 	// assert refs are updated
-	db, err = rd.OpenObjectsStore()
-	require.NoError(t, err)
-	defer db.Close()
-	m, err := versioning.ListRemoteRefs(db, "origin")
+	m, err := ref.ListRemoteRefs(rs, "origin")
 	require.NoError(t, err)
 	assert.Len(t, m, 0)
-	m, err = versioning.ListRemoteRefs(db, "acme")
+	m, err = ref.ListRemoteRefs(rs, "acme")
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		names[0]: sums[0],

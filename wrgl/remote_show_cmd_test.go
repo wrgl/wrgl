@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/testutils"
-	"github.com/wrgl/core/pkg/versioning"
 )
 
 func TestRemoteShowCmd(t *testing.T) {
@@ -19,9 +19,9 @@ func TestRemoteShowCmd(t *testing.T) {
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
 	remote := "origin"
-	err = versioning.SaveRemoteRef(db, rs, remote, "my-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
+	err = ref.SaveRemoteRef(rs, remote, "my-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
 	require.NoError(t, err)
-	err = versioning.SaveRemoteRef(db, rs, remote, "another-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
+	err = ref.SaveRemoteRef(rs, remote, "another-branch", testutils.SecureRandomBytes(16), "test", "test@domain.com", "test", "test remote show")
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
 

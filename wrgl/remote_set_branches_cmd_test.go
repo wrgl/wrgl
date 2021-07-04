@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/versioning"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -30,7 +29,7 @@ func TestRemoteSetBranches(t *testing.T) {
 	c, err := utils.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
 	assert.Equal(t, []*conf.Refspec{
-		versioning.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
+		conf.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
 	}, c.Remote["origin"].Fetch)
 
 	// set branches --add
@@ -40,7 +39,7 @@ func TestRemoteSetBranches(t *testing.T) {
 	c, err = utils.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
 	assert.Equal(t, []*conf.Refspec{
-		versioning.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
-		versioning.MustParseRefspec("+refs/heads/data:refs/remotes/origin/data"),
+		conf.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
+		conf.MustParseRefspec("+refs/heads/data:refs/remotes/origin/data"),
 	}, c.Remote["origin"].Fetch)
 }

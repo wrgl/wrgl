@@ -12,11 +12,11 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/versioning"
+	wrglhelpers "github.com/wrgl/core/wrgl/helpers"
 )
 
 func TestConfigRenameSectionCmd(t *testing.T) {
-	cleanup := versioning.MockGlobalConf(t, true)
+	cleanup := wrglhelpers.MockGlobalConf(t, true)
 	defer cleanup()
 	wrglDir, err := ioutil.TempDir("", ".wrgl*")
 	require.NoError(t, err)
@@ -34,7 +34,7 @@ func TestConfigRenameSectionCmd(t *testing.T) {
 
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"config", "rename-section", "remote.origin.push", "receive"})
-	assertCmdFailed(t, cmd, "", fmt.Errorf(`types are different: []*conf.Refspec != *versioning.ConfigReceive`))
+	assertCmdFailed(t, cmd, "", fmt.Errorf(`types are different: []*conf.Refspec != *conf.ConfigReceive`))
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"config", "rename-section", "remote.origin.push", "remote.acme.fetch"})

@@ -62,7 +62,7 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !strings.HasPrefix(name, "refs/heads/") {
+			if !strings.HasPrefix(name, "heads/") {
 				return fmt.Errorf("%q is not a branch name", args[0])
 			}
 			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, args[1:])
@@ -74,7 +74,9 @@ func pullCmd() *cobra.Command {
 				return err
 			}
 			if setUpstream && len(args) > 2 {
-				err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{{Src: name, Dst: specs[0].Src()}})
+				err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{
+					{Src: name, Dst: strings.TrimPrefix(specs[0].Src(), "refs/")},
+				})
 				if err != nil {
 					return err
 				}
@@ -88,7 +90,6 @@ func pullCmd() *cobra.Command {
 				cmd.Println("Already up to date.")
 				return nil
 			}
-
 			return runMerge(cmd, c, db, rs, append(args[:1], mergeHeads...), noCommit, noGUI, "", numWorkers, message, nil)
 		},
 	}
@@ -102,7 +103,7 @@ func pullCmd() *cobra.Command {
 }
 
 func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name string, args []string, specs []*conf.Refspec) ([]string, error) {
-	oldSum, err := ref.GetRef(rs, name[5:])
+	oldSum, err := ref.GetRef(rs, name)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +111,7 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 	if len(args) > 2 {
 		// refspecs are specified in arguments
 		for _, s := range specs {
-			sum, _ := ref.GetRef(rs, s.Dst()[5:])
+			sum, _ := ref.GetRef(rs, strings.TrimPrefix(s.Dst(), "refs/"))
 			if sum != nil && !bytes.Equal(sum, oldSum) {
 				mergeHeads = append(mergeHeads, s.Dst())
 			}
@@ -120,7 +121,7 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 		if ok && b.Merge != "" {
 			for _, s := range specs {
 				if s.Src() == b.Merge {
-					sum, _ := ref.GetRef(rs, s.Dst()[5:])
+					sum, _ := ref.GetRef(rs, strings.TrimPrefix(s.Dst(), "refs/"))
 					if sum != nil && !bytes.Equal(sum, oldSum) {
 						mergeHeads = append(mergeHeads, s.Dst())
 						break
@@ -128,7 +129,7 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 				}
 			}
 		} else if len(specs) > 0 && !specs[0].IsGlob() {
-			sum, _ := ref.GetRef(rs, specs[0].Dst()[5:])
+			sum, _ := ref.GetRef(rs, strings.TrimPrefix(specs[0].Dst(), "refs/"))
 			if sum != nil && !bytes.Equal(sum, oldSum) {
 				mergeHeads = append(mergeHeads, specs[0].Dst())
 			}

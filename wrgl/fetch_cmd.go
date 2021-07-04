@@ -145,33 +145,39 @@ func identifyRefsToFetch(client *packclient.Client, specs []*conf.Refspec) (refs
 	}
 	dstRefs = map[string][]byte{}
 	maybeSaveTags = map[string][]byte{}
-	for ref, sum := range m {
+	for r, sum := range m {
 		covered := false
 		for _, spec := range specs {
-			dst := spec.DstForRef(ref)
+			dst := spec.DstForRef("refs/" + r)
 			if dst != "" {
+				dst = strings.TrimPrefix(dst, "refs/")
 				dstRefs[dst] = sum
 				advertised = append(advertised, sum)
 				refs = append(refs, &Ref{
-					ref, dst, spec.Force,
+					r, dst, spec.Force,
 				})
 				covered = true
 			}
 		}
-		if !covered && strings.HasPrefix(ref, "refs/tags/") {
-			maybeSaveTags[ref] = sum
+		if !covered && strings.HasPrefix(r, "tags/") {
+			maybeSaveTags[r] = sum
 		}
 	}
 	return
 }
 
-func trimRefPrefix(ref string) string {
-	for _, prefix := range []string{
-		"refs/heads/", "refs/tags/", "refs/remotes/",
-	} {
-		ref = strings.TrimPrefix(ref, prefix)
+func trimRefPrefix(r string) string {
+	if strings.Contains(r, "/") && !strings.HasPrefix(r, "refs/") && !strings.HasPrefix(r, "heads/") &&
+		!strings.HasPrefix(r, "tags/") && !strings.HasPrefix(r, "remotes/") {
+		// preserve "refs/" prefix for custom ref
+		return "refs/" + r
 	}
-	return ref
+	for _, prefix := range []string{
+		"refs/heads/", "refs/tags/", "refs/remotes/", "heads/", "tags/", "remotes/",
+	} {
+		r = strings.TrimPrefix(r, prefix)
+	}
+	return r
 }
 
 func displayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, from, to string) {
@@ -209,7 +215,7 @@ func saveFetchedRefs(
 	cm := bytesSliceToMap(fetchedCommits)
 	for r, sum := range maybeSaveTags {
 		if _, ok := cm[string(sum)]; ok || objects.CommitExist(db, sum) {
-			_, err := ref.GetRef(rs, r[5:])
+			_, err := ref.GetRef(rs, r)
 			if err != nil {
 				refs = append(refs, &Ref{r, r, false})
 				dstRefs[r] = sum
@@ -228,7 +234,7 @@ func saveFetchedRefs(
 	savedRefs := []*Ref{}
 	remoteDisplayed := false
 	for _, r := range refs {
-		oldSum, _ := ref.GetRef(rs, r.Dst[5:])
+		oldSum, _ := ref.GetRef(rs, r.Dst)
 		sum := dstRefs[r.Dst]
 		if bytes.Equal(oldSum, sum) {
 			continue
@@ -237,9 +243,9 @@ func saveFetchedRefs(
 			cmd.Printf("From %s\n", remoteURL)
 			remoteDisplayed = true
 		}
-		if oldSum != nil && strings.HasPrefix(r.Dst, "refs/tags/") {
+		if oldSum != nil && strings.HasPrefix(r.Dst, "tags/") {
 			if force || r.Force {
-				err := ref.SaveRef(rs, r.Dst[5:], sum, u.Name, u.Email, "fetch", "updating tag")
+				err := ref.SaveRef(rs, r.Dst, sum, u.Name, u.Email, "fetch", "updating tag")
 				if err != nil {
 					displayRefUpdate(cmd, '!', "[tag update]", "unable to update local ref", r.Src, r.Dst)
 					someFailed = true
@@ -255,17 +261,17 @@ func saveFetchedRefs(
 		}
 		if oldSum == nil {
 			var msg, what string
-			if strings.HasPrefix(r.Src, "refs/tags/") {
+			if strings.HasPrefix(r.Src, "tags/") {
 				msg = "storing tag"
 				what = "[new tag]"
-			} else if strings.HasPrefix(r.Src, "refs/heads") {
+			} else if strings.HasPrefix(r.Src, "heads/") {
 				msg = "storing head"
 				what = "[new branch]"
 			} else {
 				msg = "storing ref"
 				what = "[new ref]"
 			}
-			err := ref.SaveRef(rs, r.Dst[5:], sum, u.Name, u.Email, "fetch", msg)
+			err := ref.SaveRef(rs, r.Dst, sum, u.Name, u.Email, "fetch", msg)
 			if err != nil {
 				displayRefUpdate(cmd, '!', what, "unable to update local ref", r.Src, r.Dst)
 				someFailed = true
@@ -280,7 +286,7 @@ func saveFetchedRefs(
 			return nil, err
 		}
 		if fastForward {
-			err := ref.SaveRef(rs, r.Dst[5:], sum, u.Name, u.Email, "fetch", "fast-forward")
+			err := ref.SaveRef(rs, r.Dst, sum, u.Name, u.Email, "fetch", "fast-forward")
 			qr := quickref(oldSum, sum, true)
 			if err != nil {
 				displayRefUpdate(cmd, '!', qr, "unable to update local ref", r.Src, r.Dst)
@@ -290,7 +296,7 @@ func saveFetchedRefs(
 				savedRefs = append(savedRefs, r)
 			}
 		} else if force || r.Force {
-			err := ref.SaveRef(rs, r.Dst[5:], sum, u.Name, u.Email, "fetch", "forced-update")
+			err := ref.SaveRef(rs, r.Dst, sum, u.Name, u.Email, "fetch", "forced-update")
 			qr := quickref(oldSum, sum, false)
 			if err != nil {
 				displayRefUpdate(cmd, '!', qr, "unable to update local ref", r.Src, r.Dst)
