@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"sort"
 
 	"github.com/schollz/progressbar/v3"
@@ -111,7 +110,7 @@ func (s *Sorter) AddRow(row []string) error {
 	return nil
 }
 
-func (s *Sorter) SortFile(f io.ReadCloser, name string, pk []string, errChan chan<- error) (blocks chan *Block, err error) {
+func (s *Sorter) SortFile(f io.ReadCloser, pk []string, errChan chan<- error) (blocks chan *Block, err error) {
 	r := csv.NewReader(f)
 	s.Columns, err = r.Read()
 	if err != nil {
@@ -122,7 +121,7 @@ func (s *Sorter) SortFile(f io.ReadCloser, name string, pk []string, errChan cha
 		return
 	}
 	var row []string
-	s.bar = pbar(-1, "reading "+path.Base(name), s.out)
+	s.bar = pbar(-1, "sorting", s.out)
 	s.size = 0
 	for {
 		row, err = r.Read()

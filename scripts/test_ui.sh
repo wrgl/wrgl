@@ -11,4 +11,4 @@ wrgl diff test-diff-col-rename test-base
 wrgl diff test-diff-col-change test-no-pk
 wrgl diff test-diff-no-stat test-base
 wrgl diff test-diff-stat test-base
-# wrgl merge test-merge-1 test-merge-2
+wrgl merge test-merge-1 test-merge-2

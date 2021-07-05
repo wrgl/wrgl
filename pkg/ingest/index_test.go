@@ -18,7 +18,7 @@ func TestIndexTable(t *testing.T) {
 	defer os.Remove(f.Name())
 	db := objmock.NewStore()
 
-	sum, err := IngestTable(db, f, "test.csv", rows[0][:1], 0, 1, io.Discard)
+	sum, err := IngestTable(db, f, rows[0][:1], 0, 1, io.Discard)
 	require.NoError(t, err)
 	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)

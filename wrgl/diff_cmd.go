@@ -145,7 +145,7 @@ func getSecondCommit(
 
 func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File) (hash string, commit *objects.Commit, err error) {
 	out := cmd.OutOrStdout()
-	sum, err := ingest.IngestTable(db, file, file.Name(), pk, 0, 1, out)
+	sum, err := ingest.IngestTable(db, file, pk, 0, 1, out)
 	if err != nil {
 		return
 	}
@@ -459,20 +459,13 @@ func outputDiffToTerminal(
 
 	tabPages := widgets.NewTabPages(app)
 
-	usageBar := widgets.DataTableUsage()
-
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(titleBar, 1, 1, false).
-		AddItem(tabPages, 0, 1, true).
-		AddItem(usageBar, 1, 1, false)
+		AddItem(tabPages, 0, 1, true)
 	app.SetRoot(flex, true).
 		SetFocus(flex).
 		EnableMouse(true).
-		SetInputCapture(tabPages.ProcessInput).
-		SetBeforeDrawFunc(func(screen tcell.Screen) bool {
-			usageBar.BeforeDraw(screen, flex)
-			return false
-		})
+		SetInputCapture(tabPages.ProcessInput)
 
 	if !uintSliceEqual(colDiff.BasePK, colDiff.OtherPK[0]) {
 		// primary key has changed, we can only show column changes at this point
@@ -526,45 +519,16 @@ func outputDiffToTerminal(
 	}
 
 	if addedRowReader == nil && removedRowReader == nil && rowChangeReader == nil {
-		if len(tbl1.Columns) > 0 && !slice.StringSliceEqual(tbl1.Columns, tbl2.Columns) {
-			if len(tbl1.Columns) == len(tbl2.Columns) && len(tbl1.PrimaryKey()) > 0 {
-				renamedCols := [][2]string{}
-				for i, col := range tbl1.Columns {
-					if col != tbl2.Columns[i] {
-						renamedCols = append(renamedCols, [2]string{tbl2.Columns[i], col})
-					}
-				}
-				renamedColumns := tview.NewTextView().
-					SetDynamicColors(true)
-				for _, names := range renamedCols {
-					fmt.Fprintf(renamedColumns, "[red]%s[white] → [green]%s[white]\n", names[0], names[1])
-				}
-				tabPages.AddTab(
-					fmt.Sprintf("%d renamed columns", len(renamedCols)),
-					renamedColumns,
-				)
-			} else {
-				_, addedCols, removedCols := slice.CompareStringSlices(tbl1.Columns, tbl2.Columns)
-				if len(addedCols) > 0 {
-					tabPages.AddTab(
-						fmt.Sprintf("+%d columns", len(addedCols)),
-						widgets.CreateColumnsList(nil, addedCols, nil),
-					)
-				}
-				if len(removedCols) > 0 {
-					tabPages.AddTab(
-						fmt.Sprintf("-%d columns", len(removedCols)),
-						widgets.CreateColumnsList(nil, nil, removedCols),
-					)
-				}
-			}
-		} else {
-			cmd.Println("There are no changes!")
-			return nil
-		}
+		cmd.Println("There are no changes!")
+		return nil
 	}
 
-	app.SetFocus(tabPages.LastTab())
+	usageBar := widgets.DataTableUsage()
+	flex.AddItem(usageBar, 1, 1, false)
+	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		usageBar.BeforeDraw(screen, flex)
+		return false
+	}).SetFocus(tabPages.LastTab())
 
 	cancel := redrawEvery(app, 65*time.Millisecond)
 	defer cancel()

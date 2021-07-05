@@ -161,7 +161,7 @@ func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store
 		if err != nil {
 			return err
 		}
-		sum, err := ingest.IngestTable(db, file, file.Name(), pk, 0, numWorkers, cmd.OutOrStdout())
+		sum, err := ingest.IngestTable(db, file, pk, 0, numWorkers, cmd.OutOrStdout())
 		if err != nil {
 			return err
 		}

@@ -40,10 +40,10 @@ func collectBlocks(t *testing.T, s *Sorter, rowsCount uint32, remCols map[int]st
 	return blocks
 }
 
-func sortedBlocks(t *testing.T, s *Sorter, f io.ReadCloser, name string, pk []string, rowsCount uint32) []*Block {
+func sortedBlocks(t *testing.T, s *Sorter, f io.ReadCloser, pk []string, rowsCount uint32) []*Block {
 	t.Helper()
 	errCh := make(chan error, 1)
-	blkCh, err := s.SortFile(f, name, pk, errCh)
+	blkCh, err := s.SortFile(f, pk, errCh)
 	require.NoError(t, err)
 	blocks := make([]*Block, objects.BlocksCount(rowsCount))
 	for blk := range blkCh {
@@ -63,7 +63,7 @@ func TestSorterSortFile(t *testing.T) {
 
 	s, err := NewSorter(4096, io.Discard)
 	require.NoError(t, err)
-	blocks := sortedBlocks(t, s, f, f.Name(), rows[0][:1], 700)
+	blocks := sortedBlocks(t, s, f, rows[0][:1], 700)
 	assert.Equal(t, rows[0], s.Columns)
 	assert.Equal(t, []uint32{0}, s.PK)
 	assert.Len(t, blocks, 3)
@@ -91,7 +91,7 @@ func TestSorterSortFile(t *testing.T) {
 	require.NoError(t, err)
 	s, err = NewSorter(0, io.Discard)
 	require.NoError(t, err)
-	blocks2 := sortedBlocks(t, s, f, f.Name(), rows[0][:1], 700)
+	blocks2 := sortedBlocks(t, s, f, rows[0][:1], 700)
 	assert.Equal(t, blocks, blocks2)
 	require.NoError(t, s.Close())
 }

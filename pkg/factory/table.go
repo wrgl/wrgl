@@ -45,7 +45,7 @@ func BuildTable(t *testing.T, db objects.Store, rows []string, pk []uint32) []by
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
 	require.NoError(t, w.WriteAll(records))
-	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), "test.csv", slice.IndicesToValues(records[0], pk), 0, 1, io.Discard)
+	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), slice.IndicesToValues(records[0], pk), 0, 1, io.Discard)
 	require.NoError(t, err)
 	return sum
 }

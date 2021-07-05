@@ -88,7 +88,7 @@ func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rows
 	return sum, nil
 }
 
-func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
+func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
 	s, err := sorter.NewSorter(sortRunSize, out)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func IngestTable(db objects.Store, f io.ReadCloser, name string, pk []string, so
 		numWorkers = 1
 	}
 	errChan := make(chan error, numWorkers)
-	blocks, err := s.SortFile(f, name, pk, errChan)
+	blocks, err := s.SortFile(f, pk, errChan)
 	if err != nil {
 		return nil, err
 	}

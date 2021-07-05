@@ -202,8 +202,9 @@ func TestRowResolverComplexCases(t *testing.T) {
 				nil,
 				hexToBytes(t, "28c710dac52b757b8626ecb45fd5cf8b"),
 			},
-			OtherOffsets: []uint32{0, 2},
-			ResolvedRow:  []string{"3", "v", "x", "c"},
+			OtherOffsets:   []uint32{0, 2},
+			ResolvedRow:    []string{"3", "v", "x", "c"},
+			UnresolvedCols: map[uint32]struct{}{1: {}, 3: {}},
 		},
 		{
 			PK:   hexToBytes(t, "fd1c9513cc47feaf59fa9b76008f2521"),

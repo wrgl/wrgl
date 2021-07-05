@@ -56,10 +56,12 @@ func (r *RowResolver) getRow(m *Merge, layer int) ([]string, error) {
 	return row, nil
 }
 
-func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool, err error) {
+func (r *RowResolver) tryResolve(m *Merge) (err error) {
 	uniqSums := map[string]int{}
+	nonNils := 0
 	for i, sum := range m.Others {
 		if sum != nil {
+			nonNils++
 			uniqSums[string(sum)] = i
 		}
 	}
@@ -67,29 +69,40 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 	for _, layer := range uniqSums {
 		row, err := r.getRow(m, layer)
 		if err != nil {
-			return nil, false, err
+			return err
 		}
 		r.rows.Append(layer, row)
 	}
-	if r.rows.Len() == 1 {
-		resolvedRow = r.rows.Values[0]
-		resolved = true
-		return
-	}
-	sort.Sort(r.rows)
 	baseRow, err := r.getRow(m, -1)
 	if err != nil {
 		return
 	}
-	resolvedRow = make([]string, r.nCols)
-	copy(resolvedRow, baseRow)
-	var i uint32
 	m.UnresolvedCols = map[uint32]struct{}{}
+	if r.rows.Len() == 1 {
+		m.ResolvedRow = r.rows.Values[0]
+		m.Resolved = true
+		if baseRow != nil && nonNils < len(m.Others) {
+			// some modified, some removed, not resolvable
+			for i, s := range baseRow {
+				if s != m.ResolvedRow[i] {
+					m.UnresolvedCols[uint32(i)] = struct{}{}
+				}
+			}
+			m.Resolved = false
+		} else {
+			m.UnresolvedCols = nil
+		}
+		return
+	}
+	sort.Sort(r.rows)
+	m.ResolvedRow = make([]string, r.nCols)
+	copy(m.ResolvedRow, baseRow)
+	var i uint32
 	unresolveCol := func(i uint32) {
 		if baseRow != nil {
-			resolvedRow[i] = baseRow[i]
+			m.ResolvedRow[i] = baseRow[i]
 		} else {
-			resolvedRow[i] = ""
+			m.ResolvedRow[i] = ""
 		}
 		m.UnresolvedCols[i] = struct{}{}
 	}
@@ -135,12 +148,22 @@ func (r *RowResolver) TryResolve(m *Merge) (resolvedRow []string, resolved bool,
 			} else if rem || mod != nil {
 				continue
 			}
-			resolvedRow[i] = row[i]
+			m.ResolvedRow[i] = row[i]
 		}
 	}
-	resolved = len(m.UnresolvedCols) == 0
-	if resolved {
-		m.UnresolvedCols = nil
+	if baseRow != nil && nonNils < len(m.Others) {
+		// some modified, some removed, not resolvable
+		for i, s := range baseRow {
+			if s != m.ResolvedRow[i] {
+				m.UnresolvedCols[uint32(i)] = struct{}{}
+			}
+		}
+		m.Resolved = false
+	} else {
+		m.Resolved = len(m.UnresolvedCols) == 0
+		if m.Resolved {
+			m.UnresolvedCols = nil
+		}
 	}
 	return
 }
@@ -161,15 +184,5 @@ func (r *RowResolver) Resolve(m *Merge) (err error) {
 		m.Resolved = true
 		return
 	}
-	resolvedRow, resolved, err := r.TryResolve(m)
-	if err != nil {
-		return err
-	}
-	m.ResolvedRow = resolvedRow
-	m.Resolved = resolved
-	if m.Base != nil && nonNils != r.nLayers {
-		// some modified, some removed, not resolvable
-		m.Resolved = false
-	}
-	return
+	return r.tryResolve(m)
 }

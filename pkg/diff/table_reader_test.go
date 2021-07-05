@@ -27,7 +27,7 @@ func ingestRows(t *testing.T, db objects.Store, rows [][]string) *objects.Table 
 	w.Flush()
 	_, err = f.Seek(0, io.SeekStart)
 	require.NoError(t, err)
-	sum, err := ingest.IngestTable(db, f, f.Name(), rows[0][:1], 0, 1, io.Discard)
+	sum, err := ingest.IngestTable(db, f, rows[0][:1], 0, 1, io.Discard)
 	require.NoError(t, err)
 	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)

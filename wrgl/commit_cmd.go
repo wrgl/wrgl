@@ -91,7 +91,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	if !ref.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
-	db, err := rd.OpenObjectsTransaction()
+	db, err := rd.OpenObjectsStore()
 	if err != nil {
 		return err
 	}
@@ -101,10 +101,8 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	parent, _ := ref.GetHead(rs, branchName)
 
 	var f io.ReadCloser
-	var name string
 	if csvFilePath == "-" {
 		f = io.NopCloser(cmd.InOrStdin())
-		name = "stdin"
 	} else {
 		file, err := os.Open(csvFilePath)
 		if err != nil {
@@ -112,10 +110,9 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		}
 		defer file.Close()
 		f = file
-		name = file.Name()
 	}
 
-	sum, err := ingest.IngestTable(db, f, name, primaryKey, 0, numWorkers, cmd.OutOrStdout())
+	sum, err := ingest.IngestTable(db, f, primaryKey, 0, numWorkers, cmd.OutOrStdout())
 	if err != nil {
 		return err
 	}
@@ -136,10 +133,6 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		return err
 	}
 	commitSum, err := objects.SaveCommit(db, buf.Bytes())
-	if err != nil {
-		return err
-	}
-	err = db.Commit()
 	if err != nil {
 		return err
 	}
