@@ -122,5 +122,6 @@ func (t *Txn) Clear([]byte) error {
 }
 
 func (t *Txn) Close() error {
+	t.txn.Discard()
 	return t.db.Close()
 }

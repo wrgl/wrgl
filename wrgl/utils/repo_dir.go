@@ -55,7 +55,7 @@ func (d *RepoDir) OpenObjectsStore() (objects.Store, error) {
 	return objbadger.NewStore(badgerDB), nil
 }
 
-func (d *RepoDir) OpenObjectsTransaction() (objects.Store, error) {
+func (d *RepoDir) OpenObjectsTransaction() (*objbadger.Txn, error) {
 	badgerDB, err := d.openBadger()
 	if err != nil {
 		return nil, err

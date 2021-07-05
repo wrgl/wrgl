@@ -38,9 +38,15 @@ func commitKey(sum []byte) []byte {
 	return append(comPrefix, sum...)
 }
 
+func saveObj(s Store, k, v []byte) (err error) {
+	b := make([]byte, len(v))
+	copy(b, v)
+	return s.Set(k, b)
+}
+
 func SaveBlock(s Store, content []byte) (sum []byte, err error) {
 	arr := meow.Checksum(0, content)
-	err = s.Set(blockKey(arr[:]), content)
+	err = saveObj(s, blockKey(arr[:]), content)
 	if err != nil {
 		return
 	}
@@ -48,12 +54,12 @@ func SaveBlock(s Store, content []byte) (sum []byte, err error) {
 }
 
 func SaveBlockIndex(s Store, sum, content []byte) (err error) {
-	return s.Set(blockIndexKey(sum), content)
+	return saveObj(s, blockIndexKey(sum), content)
 }
 
 func SaveTable(s Store, content []byte) (sum []byte, err error) {
 	arr := meow.Checksum(0, content)
-	err = s.Set(tableKey(arr[:]), content)
+	err = saveObj(s, tableKey(arr[:]), content)
 	if err != nil {
 		return
 	}
@@ -61,12 +67,12 @@ func SaveTable(s Store, content []byte) (sum []byte, err error) {
 }
 
 func SaveTableIndex(s Store, sum, content []byte) (err error) {
-	return s.Set(tableIndexKey(sum), content)
+	return saveObj(s, tableIndexKey(sum), content)
 }
 
 func SaveCommit(s Store, content []byte) (sum []byte, err error) {
 	arr := meow.Checksum(0, content)
-	err = s.Set(commitKey(arr[:]), content)
+	err = saveObj(s, commitKey(arr[:]), content)
 	if err != nil {
 		return
 	}

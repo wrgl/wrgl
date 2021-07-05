@@ -91,7 +91,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	if !ref.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
-	db, err := rd.OpenObjectsStore()
+	db, err := rd.OpenObjectsTransaction()
 	if err != nil {
 		return err
 	}
@@ -136,6 +136,10 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		return err
 	}
 	commitSum, err := objects.SaveCommit(db, buf.Bytes())
+	if err != nil {
+		return err
+	}
+	err = db.Commit()
 	if err != nil {
 		return err
 	}
