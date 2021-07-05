@@ -197,8 +197,8 @@ func TestMergeCmdNoGUI(t *testing.T) {
 	remInCom2 := strings.Repeat(fmt.Sprintf(",REMOVED IN %s", hex.EncodeToString(sum2)[:7]), 5)
 	assert.Equal(t, []string{
 		",a,c,e,b,d",
-		fmt.Sprintf("COLUMNS: branch-1 (%s),,REMOVED,,,NEW", hex.EncodeToString(sum1)[:7]),
-		fmt.Sprintf("COLUMNS: branch-2 (%s),,,NEW,REMOVED,", hex.EncodeToString(sum2)[:7]),
+		fmt.Sprintf("COLUMNS IN branch-1 (%s),,REMOVED,,,NEW", hex.EncodeToString(sum1)[:7]),
+		fmt.Sprintf("COLUMNS IN branch-2 (%s),,,NEW,REMOVED,", hex.EncodeToString(sum2)[:7]),
 		fmt.Sprintf("BASE %s,1,w,,q,", hex.EncodeToString(base)[:7]),
 		fmt.Sprintf("branch-1 (%s),1,e,,g,", hex.EncodeToString(sum1)[:7]),
 		fmt.Sprintf("branch-2 (%s),1,w,,q,", hex.EncodeToString(sum2)[:7]),

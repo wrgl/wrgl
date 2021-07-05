@@ -4,13 +4,17 @@
 package main
 
 import (
-	"encoding/hex"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
+	"regexp"
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,31 +36,6 @@ func commitFile(t *testing.T, branchName, filePath, primaryKey string, args ...s
 	cmd.SetOut(io.Discard)
 	cmd.SetArgs(append([]string{"commit", branchName, filePath, "commit message", "--primary-key", primaryKey, "-n", "1"}, args...))
 	require.NoError(t, cmd.Execute())
-}
-
-// func assertDiffOutput(t *testing.T, cmd *cobra.Command, diffs []*objects.Diff) {
-// 	t.Helper()
-// 	buf := bytes.NewBuffer(nil)
-// 	cmd.SetOut(buf)
-// 	require.NoError(t, cmd.Execute())
-// 	reader := objects.NewDiffReader(bytes.NewReader(buf.Bytes()))
-// 	objs := []*objects.Diff{}
-// 	for {
-// 		obj, err := reader.Read()
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 		require.NoError(t, err)
-// 		objs = append(objs, obj)
-// 	}
-// 	assert.Equal(t, diffs, objs)
-// }
-
-func mustDecodeHex(t *testing.T, s string) []byte {
-	t.Helper()
-	b, err := hex.DecodeString(s)
-	require.NoError(t, err)
-	return b
 }
 
 func TestDiffCmd(t *testing.T) {
@@ -82,40 +61,47 @@ func TestDiffCmd(t *testing.T) {
 	commitFile(t, "my-branch", fp2, "a")
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"diff", "my-branch", "my-branch^", "--raw"})
-	// assertDiffOutput(t, cmd, []*objects.Diff{
-	// 	{
-	// 		PK:     mustDecodeHex(t, "fd1c9513cc47feaf59fa9b76008f2521"),
-	// 		Sum:    mustDecodeHex(t, "472dc02a63f3a555b9b39cf6c953a3ea"),
-	// 		OldSum: mustDecodeHex(t, "60f1c744d65482e468bfac458a7131fe"),
-	// 	},
-	// 	{
-	// 		PK:  mustDecodeHex(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
-	// 		Sum: mustDecodeHex(t, "2e57aba9da65dfa5a185c4cb72ead76f"),
-	// 	},
-	// 	{
-	// 		PK:     mustDecodeHex(t, "e3c37d3bfd03aef8fac2794539e39160"),
-	// 		OldSum: mustDecodeHex(t, "1c51f6044190122c554cc6794585e654"),
-	// 	},
-	// })
+	cmd.SetArgs([]string{"diff", "my-branch", "my-branch^", "--no-gui"})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	pat := regexp.MustCompile(`DIFF_(.+)_(.+)\.csv`)
+	submatch := pat.FindStringSubmatch(buf.String())
+	defer os.Remove(submatch[0])
+	b, err := ioutil.ReadFile(submatch[0])
+	require.NoError(t, err)
+	assert.Equal(t, strings.Join([]string{
+		fmt.Sprintf("COLUMNS IN my-branch^ (%s),a,b,c", submatch[2]),
+		fmt.Sprintf("COLUMNS IN my-branch (%s),a,b,c", submatch[1]),
+		fmt.Sprintf("PRIMARY KEY IN my-branch^ (%s),true,,", submatch[2]),
+		fmt.Sprintf("PRIMARY KEY IN my-branch (%s),true,,", submatch[1]),
+		fmt.Sprintf("BASE ROW IN my-branch^ (%s),1,q,w", submatch[2]),
+		fmt.Sprintf("MODIFIED IN my-branch (%s),1,q,e", submatch[1]),
+		fmt.Sprintf("ADDED IN my-branch (%s),4,s,d", submatch[1]),
+		fmt.Sprintf("REMOVED IN my-branch (%s),3,z,x", submatch[1]),
+		"",
+	}, "\n"), string(b))
 
 	cmd = newRootCmd()
-	cmd.SetArgs([]string{"diff", "my-branch", "--raw"})
-	// assertDiffOutput(t, cmd, []*objects.Diff{
-	// 	{
-	// 		PK:     mustDecodeHex(t, "fd1c9513cc47feaf59fa9b76008f2521"),
-	// 		Sum:    mustDecodeHex(t, "472dc02a63f3a555b9b39cf6c953a3ea"),
-	// 		OldSum: mustDecodeHex(t, "60f1c744d65482e468bfac458a7131fe"),
-	// 	},
-	// 	{
-	// 		PK:  mustDecodeHex(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
-	// 		Sum: mustDecodeHex(t, "2e57aba9da65dfa5a185c4cb72ead76f"),
-	// 	},
-	// 	{
-	// 		PK:     mustDecodeHex(t, "e3c37d3bfd03aef8fac2794539e39160"),
-	// 		OldSum: mustDecodeHex(t, "1c51f6044190122c554cc6794585e654"),
-	// 	},
-	// })
+	cmd.SetArgs([]string{"diff", "my-branch", "--no-gui"})
+	buf.Reset()
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	submatch = pat.FindStringSubmatch(buf.String())
+	defer os.Remove(submatch[0])
+	b, err = ioutil.ReadFile(submatch[0])
+	require.NoError(t, err)
+	assert.Equal(t, strings.Join([]string{
+		fmt.Sprintf("COLUMNS IN (%s),a,b,c", submatch[2]),
+		fmt.Sprintf("COLUMNS IN my-branch (%s),a,b,c", submatch[1]),
+		fmt.Sprintf("PRIMARY KEY IN (%s),true,,", submatch[2]),
+		fmt.Sprintf("PRIMARY KEY IN my-branch (%s),true,,", submatch[1]),
+		fmt.Sprintf("BASE ROW IN (%s),1,q,w", submatch[2]),
+		fmt.Sprintf("MODIFIED IN my-branch (%s),1,q,e", submatch[1]),
+		fmt.Sprintf("ADDED IN my-branch (%s),4,s,d", submatch[1]),
+		fmt.Sprintf("REMOVED IN my-branch (%s),3,z,x", submatch[1]),
+		"",
+	}, "\n"), string(b))
 }
 
 func TestDiffCmdNoRepoDir(t *testing.T) {
@@ -136,25 +122,28 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 	defer os.Remove(fp2)
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"diff", fp2, fp1, "--raw", "--primary-key", "a"})
-	// assertDiffOutput(t, cmd, []*objects.Diff{
-	// 	{
-	// 		PK:     mustDecodeHex(t, "fd1c9513cc47feaf59fa9b76008f2521"),
-	// 		Sum:    mustDecodeHex(t, "de435956a13f72b660e50db3320a2ede"),
-	// 		OldSum: mustDecodeHex(t, "60f1c744d65482e468bfac458a7131fe"),
-	// 	},
-	// 	{
-	// 		PK:     mustDecodeHex(t, "00259da5fe4e202b974d64009944ccfe"),
-	// 		Sum:    mustDecodeHex(t, "13e5d3f474b88126a348e29ba12b4032"),
-	// 		OldSum: mustDecodeHex(t, "e4f37424a61671456b0be328e4f3719c"),
-	// 	},
-	// 	{
-	// 		PK:  mustDecodeHex(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
-	// 		Sum: mustDecodeHex(t, "9937fd84049c00606a1b36ccf152168f"),
-	// 	},
-	// 	{
-	// 		PK:     mustDecodeHex(t, "e3c37d3bfd03aef8fac2794539e39160"),
-	// 		OldSum: mustDecodeHex(t, "1c51f6044190122c554cc6794585e654"),
-	// 	},
-	// })
+	cmd.SetArgs([]string{"diff", fp2, fp1, "--no-gui", "--primary-key", "a"})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	pat := regexp.MustCompile(`DIFF_(.+)_(.+)\.csv`)
+	submatch := pat.FindStringSubmatch(buf.String())
+	defer os.Remove(submatch[0])
+	b, err := ioutil.ReadFile(submatch[0])
+	require.NoError(t, err)
+	com1 := fmt.Sprintf("%s (%s)", path.Base(fp2), submatch[1])
+	com2 := fmt.Sprintf("%s (%s)", path.Base(fp1), submatch[2])
+	assert.Equal(t, strings.Join([]string{
+		fmt.Sprintf("COLUMNS IN %s,a,b,c", com2),
+		fmt.Sprintf("COLUMNS IN %s,a,c,b", com1),
+		fmt.Sprintf("PRIMARY KEY IN %s,true,,", com2),
+		fmt.Sprintf("PRIMARY KEY IN %s,true,,", com1),
+		fmt.Sprintf("BASE ROW IN %s,1,w,q", com2),
+		fmt.Sprintf("MODIFIED IN %s,1,e,q", com1),
+		fmt.Sprintf("BASE ROW IN %s,2,s,a", com2),
+		fmt.Sprintf("MODIFIED IN %s,2,s,a", com1),
+		fmt.Sprintf("ADDED IN %s,4,d,s", com1),
+		fmt.Sprintf("REMOVED IN %s,3,x,z", com1),
+		"",
+	}, "\n"), string(b))
 }

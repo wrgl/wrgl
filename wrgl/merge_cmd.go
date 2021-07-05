@@ -107,14 +107,14 @@ func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store
 		return fmt.Errorf("%q is not a branch name", args[0])
 	}
 	commits := [][]byte{sum}
-	commitNames := []string{strings.TrimPrefix(name, "heads/")}
+	commitNames := []string{displayableCommitName(args[0], sum)}
 	for _, s := range args[1:] {
-		name, sum, _, err := ref.InterpretCommitName(db, rs, s, true)
+		_, sum, _, err := ref.InterpretCommitName(db, rs, s, true)
 		if err != nil {
 			return err
 		}
 		commits = append(commits, sum)
-		commitNames = append(commitNames, strings.TrimPrefix(name, "heads/"))
+		commitNames = append(commitNames, displayableCommitName(s, sum))
 	}
 	baseCommit, err := ref.SeekCommonAncestor(db, commits...)
 	if err != nil {
@@ -243,7 +243,7 @@ func outputConflicts(cmd *cobra.Command, db objects.Store, buf *diff.BlockBuffer
 	}
 	for i, name := range names {
 		row := make([]string, cd.Len()+1)
-		row[0] = "COLUMNS: " + name
+		row[0] = "COLUMNS IN " + name
 		for j := 1; j < len(row); j++ {
 			if _, ok := cd.Added[i][uint32(j-1)]; ok {
 				row[j] = "NEW"
@@ -298,6 +298,9 @@ func outputConflicts(cmd *cobra.Command, db objects.Store, buf *diff.BlockBuffer
 			} else if sum != nil {
 				blk, off := diff.RowToBlockAndOffset(m.OtherOffsets[i])
 				row, err := buf.GetRow(byte(i+1), blk, off)
+				if err != nil {
+					return err
+				}
 				row = cd.RearrangeBaseRow(row)
 				row = append([]string{names[i]}, row...)
 				err = w.Write(row)
