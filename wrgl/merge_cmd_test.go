@@ -206,7 +206,7 @@ func TestMergeCmdNoGUI(t *testing.T) {
 		fmt.Sprintf("BASE %s,2,s,,a,", hex.EncodeToString(base)[:7]),
 		fmt.Sprintf("branch-1 (%s),2,,,h,d", hex.EncodeToString(sum1)[:7]),
 		fmt.Sprintf("branch-2 (%s)%s", hex.EncodeToString(sum2)[:7], remInCom2),
-		"RESOLUTION,2,,,h,d",
+		"RESOLUTION,2,,,a,d",
 		",3,z,x,,",
 	}, rows)
 }

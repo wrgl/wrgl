@@ -41,7 +41,7 @@ func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblI
 	go func() {
 		defer close(diffChan)
 
-		pkEqual := uintSliceEqual(tbl1.PK, tbl2.PK)
+		pkEqual := strSliceEqual(tbl1.PrimaryKey(), tbl2.PrimaryKey())
 		colsEqual := strSliceEqual(tbl1.Columns, tbl2.Columns)
 
 		if pkEqual && (len(tbl1.PK) > 0 || colsEqual) {

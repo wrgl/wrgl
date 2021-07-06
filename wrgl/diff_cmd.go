@@ -100,29 +100,32 @@ func newDiffCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			errChan := make(chan error, 10)
-			defer close(errChan)
-			go func() {
-				for err := range errChan {
-					cmd.PrintErrln(err.Error())
-					os.Exit(1)
-				}
-			}()
 			cd := objects.CompareColumns(
 				[2][]string{tbl2.Columns, tbl2.PrimaryKey()},
 				[2][]string{tbl1.Columns, tbl1.PrimaryKey()},
 			)
+			errChan := make(chan error, 10)
 			diffChan, pt := diff.DiffTables(db1, db2, tbl1, tbl2, tblIdx1, tblIdx2, 65*time.Millisecond, errChan, false)
 			if noGUI {
-				return outputDiffToCSV(
+				err = outputDiffToCSV(
+					cmd, db1, db2, name1, name2, commitHash1, commitHash2,
+					tbl1, tbl2, diffChan, pt, cd,
+				)
+			} else {
+				err = outputDiffToTerminal(
 					cmd, db1, db2, name1, name2, commitHash1, commitHash2,
 					tbl1, tbl2, diffChan, pt, cd,
 				)
 			}
-			return outputDiffToTerminal(
-				cmd, db1, db2, name1, name2, commitHash1, commitHash2,
-				tbl1, tbl2, diffChan, pt, cd,
-			)
+			if err != nil {
+				return err
+			}
+			close(errChan)
+			err, ok := <-errChan
+			if ok {
+				return err
+			}
+			return nil
 		},
 	}
 	cmd.Flags().Bool("no-gui", false, "don't show diff table, instead output changes to file DIFF_SUM1_SUM2.csv")
