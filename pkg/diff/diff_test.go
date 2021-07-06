@@ -137,6 +137,44 @@ func TestDiffTables(t *testing.T) {
 				"3,z",
 			}, []uint32{0}),
 			factory.BuildTable(t, db, []string{
+				"b,a",
+				"q,1",
+				"s,2",
+				"x,4",
+			}, []uint32{1}),
+			[]*objects.Diff{
+				{
+					PK:     hexToBytes(t, "fd1c9513cc47feaf59fa9b76008f2521"),
+					Sum:    hexToBytes(t, "259e90d5aea433ef8a93efd180cd7676"),
+					OldSum: hexToBytes(t, "e0bd96c0a6f16b8c2bd2556f926c60d4"),
+				},
+				{
+					PK:     hexToBytes(t, "00259da5fe4e202b974d64009944ccfe"),
+					Sum:    hexToBytes(t, "d5a84d255207bd4bce4a29ca5c82458f"),
+					OldSum: hexToBytes(t, "20cf02720343c9aa3bbf2492e0ce3d45"),
+					Row:    1,
+					OldRow: 1,
+				},
+				{
+					PK:  hexToBytes(t, "e3c37d3bfd03aef8fac2794539e39160"),
+					Sum: hexToBytes(t, "776beabc377528a964029835c5387e86"),
+					Row: 2,
+				},
+				{
+					PK:     hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+					OldSum: hexToBytes(t, "89016437c4c697ede0a6a34dba1993b4"),
+					OldRow: 2,
+				},
+			},
+		},
+		{
+			factory.BuildTable(t, db, []string{
+				"a,b",
+				"1,q",
+				"2,a",
+				"3,z",
+			}, []uint32{0}),
+			factory.BuildTable(t, db, []string{
 				"a,c",
 				"1,q",
 				"2,a",
