@@ -6,6 +6,7 @@ package main
 import (
 	"log"
 	"os"
+	"runtime/pprof"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,6 +20,21 @@ func newRootCmd() *cobra.Command {
 		Use:   "wrgl",
 		Short: "Git-like data versioning",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			cpuprofile, err := cmd.Flags().GetString("cpuprofile")
+			if err != nil {
+				return err
+			}
+			if cpuprofile != "" {
+				f, err := os.Create(cpuprofile)
+				if err != nil {
+					return err
+				}
+				pprof.StartCPUProfile(f)
+			}
+			return nil
+		},
+		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			pprof.StopCPUProfile()
 			return nil
 		},
 		SilenceUsage:  true,
@@ -34,6 +50,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().Bool("badger-log-info", false, "set Badger log level to INFO")
 	rootCmd.PersistentFlags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
 	rootCmd.PersistentFlags().String("debug-file", "", "name of file to print debug logs to")
+	rootCmd.PersistentFlags().String("cpuprofile", "", "write cpu profile to file")
 	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newCommitCmd())
 	rootCmd.AddCommand(newVersionCmd())

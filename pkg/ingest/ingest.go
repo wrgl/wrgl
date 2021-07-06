@@ -2,7 +2,10 @@ package ingest
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"sync"
 
 	"github.com/schollz/progressbar/v3"
@@ -94,6 +97,16 @@ func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uin
 		return nil, err
 	}
 	defer s.Close()
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		if err := s.Close(); err != nil {
+			fmt.Fprint(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}()
 	numWorkers -= 2
 	if numWorkers <= 0 {
 		numWorkers = 1

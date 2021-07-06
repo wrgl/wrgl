@@ -15,7 +15,7 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func writeCSV(t *testing.T, rows [][]string) *os.File {
+func writeCSV(t testing.TB, rows [][]string) *os.File {
 	t.Helper()
 	f, err := ioutil.TempFile("", "*.csv")
 	require.NoError(t, err)
@@ -62,4 +62,14 @@ func TestIngestTable(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, blkIdx.Rows, len(blk))
 	}
+}
+
+func BenchmarkIngestTable(b *testing.B) {
+	rows := testutils.BuildRawCSV(100, b.N)
+	f := writeCSV(b, rows)
+	defer os.Remove(f.Name())
+	db := objmock.NewStore()
+	b.ResetTimer()
+	_, err := IngestTable(db, f, rows[0][:1], 0, 1, io.Discard)
+	require.NoError(b, err)
 }
