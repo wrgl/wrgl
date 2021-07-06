@@ -301,7 +301,7 @@ func outputConflicts(cmd *cobra.Command, db objects.Store, buf *diff.BlockBuffer
 				if err != nil {
 					return err
 				}
-				row = cd.RearrangeBaseRow(row)
+				row = cd.RearrangeRow(i, row)
 				row = append([]string{names[i]}, row...)
 				err = w.Write(row)
 				if err != nil {

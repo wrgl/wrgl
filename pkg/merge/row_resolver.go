@@ -58,12 +58,16 @@ func (r *RowResolver) getRow(m *Merge, layer int) ([]string, error) {
 
 func (r *RowResolver) tryResolve(m *Merge) (err error) {
 	uniqSums := map[string]int{}
-	nonNils := 0
+	layersWhereRowIsRemoved := []int{}
 	for i, sum := range m.Others {
 		if sum != nil {
-			nonNils++
 			uniqSums[string(sum)] = i
+		} else {
+			layersWhereRowIsRemoved = append(layersWhereRowIsRemoved, i)
 		}
+	}
+	if m.Base == nil {
+		layersWhereRowIsRemoved = nil
 	}
 	r.rows.Reset()
 	for _, layer := range uniqSums {
@@ -78,22 +82,6 @@ func (r *RowResolver) tryResolve(m *Merge) (err error) {
 		return
 	}
 	m.UnresolvedCols = map[uint32]struct{}{}
-	if r.rows.Len() == 1 {
-		m.ResolvedRow = r.rows.Values[0]
-		m.Resolved = true
-		if baseRow != nil && nonNils < len(m.Others) {
-			// some modified, some removed, not resolvable
-			for i, s := range baseRow {
-				if s != m.ResolvedRow[i] {
-					m.UnresolvedCols[uint32(i)] = struct{}{}
-				}
-			}
-			m.Resolved = false
-		} else {
-			m.UnresolvedCols = nil
-		}
-		return
-	}
 	sort.Sort(r.rows)
 	m.ResolvedRow = make([]string, r.nCols)
 	copy(m.ResolvedRow, baseRow)
@@ -110,6 +98,11 @@ func (r *RowResolver) tryResolve(m *Merge) (err error) {
 		var add *string
 		var mod *string
 		var rem bool
+		for _, layer := range layersWhereRowIsRemoved {
+			if _, ok := r.cd.Removed[layer][i]; !ok {
+				rem = true
+			}
+		}
 		for j, row := range r.rows.Values {
 			layer := r.rows.Layers[j]
 			if _, ok := r.cd.Added[layer][i]; ok {
@@ -117,7 +110,7 @@ func (r *RowResolver) tryResolve(m *Merge) (err error) {
 				if add == nil {
 					add = &row[i]
 				} else if *add != row[i] {
-					// other layer add a different value
+					// another layer added a different value
 					unresolveCol(i)
 					continue
 				}
@@ -128,7 +121,7 @@ func (r *RowResolver) tryResolve(m *Merge) (err error) {
 				if mod == nil {
 					rem = true
 				} else {
-					// other layer modify this column
+					// another layer modified this column
 					unresolveCol(i)
 					continue
 				}
@@ -141,7 +134,7 @@ func (r *RowResolver) tryResolve(m *Merge) (err error) {
 				} else if mod == nil {
 					mod = &row[i]
 				} else if *mod != row[i] {
-					// other layer modified this column differently
+					// another layer modified this column differently
 					unresolveCol(i)
 					continue
 				}
@@ -151,19 +144,14 @@ func (r *RowResolver) tryResolve(m *Merge) (err error) {
 			m.ResolvedRow[i] = row[i]
 		}
 	}
-	if baseRow != nil && nonNils < len(m.Others) {
-		// some modified, some removed, not resolvable
-		for i, s := range baseRow {
-			if s != m.ResolvedRow[i] {
-				m.UnresolvedCols[uint32(i)] = struct{}{}
-			}
-		}
+	if len(layersWhereRowIsRemoved) > 0 {
+		// it isn't clear whether this row should be removed or modified so not resolved
 		m.Resolved = false
 	} else {
 		m.Resolved = len(m.UnresolvedCols) == 0
-		if m.Resolved {
-			m.UnresolvedCols = nil
-		}
+	}
+	if len(m.UnresolvedCols) == 0 {
+		m.UnresolvedCols = nil
 	}
 	return
 }

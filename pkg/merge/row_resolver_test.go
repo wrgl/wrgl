@@ -168,6 +168,7 @@ func TestRowResolverComplexCases(t *testing.T) {
 		"a,b,c",
 		"1,q,w",
 		"3,z,x",
+		"4,r,t",
 	}, []uint32{0}, nil)
 	sum1, _ = factory.Commit(t, db, []string{
 		"a,b,c,d",
@@ -179,6 +180,7 @@ func TestRowResolverComplexCases(t *testing.T) {
 		"1,y,w,t",
 		"2,a,s,d",
 		"3,v,x,c",
+		"4,r,t,y",
 	}, []uint32{0}, [][]byte{base})
 
 	m, _ = mergehelpers.CreateMerger(t, db, sum1, sum2)
@@ -203,8 +205,8 @@ func TestRowResolverComplexCases(t *testing.T) {
 				hexToBytes(t, "28c710dac52b757b8626ecb45fd5cf8b"),
 			},
 			OtherOffsets:   []uint32{0, 2},
-			ResolvedRow:    []string{"3", "v", "x", "c"},
-			UnresolvedCols: map[uint32]struct{}{1: {}, 3: {}},
+			ResolvedRow:    []string{"3", "z", "x", "c"},
+			UnresolvedCols: map[uint32]struct{}{1: {}},
 		},
 		{
 			PK:   hexToBytes(t, "fd1c9513cc47feaf59fa9b76008f2521"),
@@ -217,14 +219,26 @@ func TestRowResolverComplexCases(t *testing.T) {
 			ResolvedRow:    []string{"1", "y", "w", ""},
 			UnresolvedCols: map[uint32]struct{}{3: {}},
 		},
+		{
+			PK:         hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"),
+			Base:       hexToBytes(t, "ba2ba1572859a3a224ad5d611cdc3528"),
+			BaseOffset: 2,
+			Others: [][]byte{
+				nil,
+				hexToBytes(t, "bc6f5a2ee80c7a0efa18fe22ee76a491"),
+			},
+			OtherOffsets: []uint32{0, 3},
+			ResolvedRow:  []string{"4", "r", "t", "y"},
+		},
 	}, merges[1:])
 	blocks, rowsCount = mergehelpers.CollectSortedRows(t, m, nil)
-	assert.Equal(t, uint32(2), rowsCount)
+	assert.Equal(t, uint32(3), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
 				{"1", "q", "w"},
 				{"3", "z", "x"},
+				{"4", "r", "t"},
 			},
 			PK: []string{"1"},
 		},

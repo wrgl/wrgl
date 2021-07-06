@@ -17,6 +17,8 @@ const (
 	editSet int = iota
 	editRemoveCol
 	editRemoveRow
+	editResolveRow
+	editUnresolveRow
 )
 
 type editOp struct {
@@ -89,7 +91,42 @@ func (a *MergeApp) updateStatus() {
 	n := len(a.merges)
 	resolved := len(a.resolvedRows)
 	pct := float32(resolved) / float32(n) * 100
-	fmt.Fprintf(a.statusBar, "Resolved %d / %d rows (%.1f%%)", resolved, n, pct)
+	statText := fmt.Sprintf("Resolved %d / %d rows (%.1f%%) - ", resolved, n, pct)
+
+	colStats := []string{}
+	names := []string{}
+	_, _, column := a.Table.GetSelection()
+	for i, m := range a.cd.Added {
+		if _, ok := m[uint32(column)]; ok {
+			names = append(names, fmt.Sprintf(
+				"[yellow]%s[white]",
+				hex.EncodeToString(a.commitSums[i])[:7],
+			))
+		}
+	}
+	if len(names) == 1 {
+		colStats = append(colStats, fmt.Sprintf("added in %s", names[0]))
+	} else if len(names) > 1 {
+		colStats = append(colStats, fmt.Sprintf("added in %s", strings.Join(names, ", ")))
+	}
+	names = names[:0]
+	for i, m := range a.cd.Removed {
+		if _, ok := m[uint32(column)]; ok {
+			names = append(names, fmt.Sprintf(
+				"[yellow]%s[white]",
+				hex.EncodeToString(a.commitSums[i])[:7],
+			))
+		}
+	}
+	if len(names) == 1 {
+		colStats = append(colStats, fmt.Sprintf("removed in %s", names[0]))
+	} else if len(names) > 1 {
+		colStats = append(colStats, fmt.Sprintf("removed in %s", strings.Join(names, ", ")))
+	}
+	if len(colStats) > 0 {
+		statText = fmt.Sprintf("%scolumn %s", statText, strings.Join(colStats, ", "))
+	}
+	fmt.Fprint(a.statusBar, statText)
 }
 
 func (a *MergeApp) InitializeTable(cd *objects.ColDiff, merges []*merge.Merge) {
@@ -98,6 +135,8 @@ func (a *MergeApp) InitializeTable(cd *objects.ColDiff, merges []*merge.Merge) {
 	a.Table = NewMergeTable(a.buf, a.commitNames, a.commitSums, a.cd, a.merges, a.RemovedCols, a.removedRows).
 		SetUndoHandler(a.undo).
 		SetRedoHandler(a.redo).
+		SetResolveHandler(a.resolveRow).
+		SetUnresolveHandler(a.unresolveRow).
 		SetSetCellHandler(a.setCellFromLayer).
 		SetDeleteColumnHandler(a.deleteColumn).
 		SetDeleteRowHandler(a.deleteRow).
@@ -105,6 +144,7 @@ func (a *MergeApp) InitializeTable(cd *objects.ColDiff, merges []*merge.Merge) {
 		SetShowInputHandler(a.showInput).
 		SetAbortHandler(a.abort).
 		SetFinishHandler(a.finish)
+	a.Table.SetSelectionChangedFunc(a.updateStatus)
 	a.statusBar = tview.NewTextView().SetDynamicColors(true)
 	a.updateStatus()
 	a.inputField = tview.NewInputField().
@@ -113,6 +153,8 @@ func (a *MergeApp) InitializeTable(cd *objects.ColDiff, merges []*merge.Merge) {
 	a.inputField.SetBorderPadding(1, 1, 0, 0)
 	a.usageBar = NewUsageBar([][2]string{
 		{"n", "Next conflict"},
+		{"r", "Mark row as resolved"},
+		{"R", "Mark row as unresolved"},
 		{"u", "Undo"},
 		{"U", "Redo"},
 		{"d", "Delete row"},
@@ -143,15 +185,20 @@ func (a *MergeApp) execOp(op *editOp) {
 	case editRemoveCol:
 		a.RemovedCols[op.Column] = struct{}{}
 		for _, i := range op.AffectedRows {
-			cols := a.merges[i].UnresolvedCols
+			m := a.merges[i]
+			cols := m.UnresolvedCols
 			delete(cols, uint32(op.Column))
 			if len(cols) == 0 {
 				a.resolvedRows[i] = struct{}{}
+				m.Resolved = true
+				a.Table.RefreshRow(i)
 			}
 		}
 	case editRemoveRow:
 		a.removedRows[op.Row] = struct{}{}
 		a.resolvedRows[op.Row] = struct{}{}
+		a.merges[op.Row].Resolved = true
+		a.Table.RefreshRow(op.Row)
 	case editSet:
 		delete(a.RemovedCols, op.Column)
 		delete(a.removedRows, op.Row)
@@ -162,9 +209,19 @@ func (a *MergeApp) execOp(op *editOp) {
 			delete(unresolvedCols, uint32(op.Column))
 			if len(unresolvedCols) == 0 {
 				a.resolvedRows[op.Row] = struct{}{}
+				a.merges[op.Row].Resolved = true
+				a.Table.RefreshRow(op.Row)
 			}
 		}
 		a.Table.SetCell(op.Row, op.Column, m.ResolvedRow[op.Column], false)
+	case editResolveRow:
+		a.resolvedRows[op.Row] = struct{}{}
+		a.merges[op.Row].Resolved = true
+		a.Table.RefreshRow(op.Row)
+	case editUnresolveRow:
+		delete(a.resolvedRows, op.Row)
+		a.merges[op.Row].Resolved = false
+		a.Table.RefreshRow(op.Row)
 	}
 	a.undoStack.PushFront(op)
 	a.updateStatus()
@@ -184,11 +241,15 @@ func (a *MergeApp) undo() {
 			cols := a.merges[i].UnresolvedCols
 			cols[uint32(op.Column)] = struct{}{}
 			delete(a.resolvedRows, i)
+			a.merges[i].Resolved = false
+			a.Table.RefreshRow(i)
 		}
 	case editRemoveRow:
 		delete(a.removedRows, op.Row)
 		if op.RowWasResolved {
 			delete(a.resolvedRows, op.Row)
+			a.merges[op.Row].Resolved = false
+			a.Table.RefreshRow(op.Row)
 		}
 	case editSet:
 		if op.ColWasRemoved {
@@ -205,9 +266,19 @@ func (a *MergeApp) undo() {
 			unresolved = true
 			if op.RowWasResolved {
 				delete(a.resolvedRows, op.Row)
+				a.merges[op.Row].Resolved = false
+				a.Table.RefreshRow(op.Row)
 			}
 		}
 		a.Table.SetCell(op.Row, op.Column, op.OldVal, unresolved)
+	case editResolveRow:
+		delete(a.resolvedRows, op.Row)
+		a.merges[op.Row].Resolved = false
+		a.Table.RefreshRow(op.Row)
+	case editUnresolveRow:
+		a.resolvedRows[op.Row] = struct{}{}
+		a.merges[op.Row].Resolved = true
+		a.Table.RefreshRow(op.Row)
 	}
 	a.Table.Select(op.Row, op.Column)
 	a.redoStack.PushFront(op)
@@ -255,7 +326,7 @@ func (a *MergeApp) setCell(op *editOp) {
 	if unresolvedCols != nil {
 		if _, ok := unresolvedCols[uint32(op.Column)]; ok {
 			op.CellWasResolved = true
-			if len(unresolvedCols) == 1 {
+			if _, ok := a.resolvedRows[op.Row]; !ok && len(unresolvedCols) == 1 {
 				op.RowWasResolved = true
 			}
 		}
@@ -287,16 +358,42 @@ func (a *MergeApp) deleteRow(row int) {
 	a.edit(op)
 }
 
+func (a *MergeApp) resolveRow(row int) {
+	if _, ok := a.resolvedRows[row]; ok {
+		return
+	}
+	op := &editOp{
+		Type: editResolveRow,
+		Row:  row,
+	}
+	a.edit(op)
+}
+
+func (a *MergeApp) unresolveRow(row int) {
+	if _, ok := a.resolvedRows[row]; !ok {
+		return
+	}
+	op := &editOp{
+		Type: editUnresolveRow,
+		Row:  row,
+	}
+	a.edit(op)
+}
+
 func (a *MergeApp) selectNextConflict() {
+mainLoop:
 	for i, m := range a.merges {
 		if _, ok := a.resolvedRows[i]; ok {
 			continue
 		}
 		for j := range m.UnresolvedCols {
 			a.Table.Select(i, int(j))
-			return
+			break mainLoop
 		}
+		a.Table.Select(i, 0)
+		break
 	}
+	a.updateStatus()
 }
 
 func (a *MergeApp) handleInput(key tcell.Key) {

@@ -107,10 +107,11 @@ func (b *UsageBar) printRows(totalWidth int) {
 			col = 0
 			b.height += 2
 		}
-		if b.colWidths[col] < b.widths[i] {
-			panic(fmt.Sprintf("bad col widths col: %d i:%d (%d < %d)", col, i, b.colWidths[col], b.widths[i]))
+		spaces := b.colWidths[col] - b.widths[i]
+		if spaces < 0 {
+			spaces = 0
 		}
-		row = append(row, fmt.Sprintf("%s%s", s, strings.Repeat(" ", b.colWidths[col]-b.widths[i])))
+		row = append(row, fmt.Sprintf("%s%s", s, strings.Repeat(" ", spaces)))
 		col++
 	}
 	fmt.Fprint(b.TextView, strings.Join(

@@ -25,18 +25,22 @@ type SelectableTable struct {
 	// Likewise for entire columns.
 	selected func(row, column, subColumn int)
 
+	// An optional function which gets called when selection change
+	selectionChanged func()
+
 	inputHandler func(event *tcell.EventKey, setFocus func(p tview.Primitive)) bool
 }
 
 func NewSelectableTable() *SelectableTable {
 	t := &SelectableTable{
-		VirtualTable: NewVirtualTable(),
+		VirtualTable:     NewVirtualTable(),
+		selectionChanged: func() {},
 	}
 	t.VirtualTable.SetGetCellsFunc(t.getStyledCells)
 	return t
 }
 
-func (t *SelectableTable) GetSelection() (int, int, int) {
+func (t *SelectableTable) GetSelection() (row int, column int, subColumn int) {
 	return t.selectedRow, t.selectedColumn, t.selectedSubColumn
 }
 
@@ -52,6 +56,11 @@ func (t *SelectableTable) SetGetCellsFunc(getCells func(row, column int) []*Tabl
 // index is undefined. Likewise for entire columns.
 func (t *SelectableTable) SetSelectedFunc(handler func(row, column, subColumn int)) *SelectableTable {
 	t.selected = handler
+	return t
+}
+
+func (t *SelectableTable) SetSelectionChangedFunc(handler func()) *SelectableTable {
+	t.selectionChanged = handler
 	return t
 }
 
@@ -143,12 +152,14 @@ func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus fu
 				t.selectedRow = t.minSelectedRow
 				t.selectedColumn = t.minSelectedCol
 				t.selectedSubColumn = 0
+				t.selectionChanged()
 			}
 
 			end = func() {
 				t.selectedRow = rowCount - 1
 				t.selectedColumn = columnCount - 1
 				t.selectedSubColumn = 0
+				t.selectionChanged()
 			}
 
 			down = func() {
@@ -157,6 +168,7 @@ func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus fu
 					t.selectedRow = rowCount - 1
 				}
 				updateSubCol(t.selectedSubColumn)
+				t.selectionChanged()
 			}
 
 			up = func() {
@@ -165,6 +177,7 @@ func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus fu
 					t.selectedRow = t.minSelectedRow
 				}
 				updateSubCol(t.selectedSubColumn)
+				t.selectionChanged()
 			}
 
 			left = func() {
@@ -177,6 +190,7 @@ func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus fu
 					}
 					updateSubCol(1)
 				}
+				t.selectionChanged()
 			}
 
 			right = func() {
@@ -190,6 +204,7 @@ func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus fu
 						t.selectedColumn = columnCount - 1
 					}
 				}
+				t.selectionChanged()
 			}
 
 			pageDown = func() {
@@ -203,6 +218,7 @@ func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus fu
 					t.selectedRow = rowCount - 1
 				}
 				updateSubCol(t.selectedSubColumn)
+				t.selectionChanged()
 			}
 
 			pageUp = func() {
@@ -216,6 +232,7 @@ func (t *SelectableTable) InputHandler() func(event *tcell.EventKey, setFocus fu
 					t.selectedRow = t.minSelectedRow
 				}
 				updateSubCol(t.selectedSubColumn)
+				t.selectionChanged()
 			}
 		)
 

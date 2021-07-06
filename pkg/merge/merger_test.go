@@ -144,7 +144,7 @@ func TestMergerManualResolve(t *testing.T) {
 				nil,
 			},
 			OtherOffsets:   []uint32{2, 0},
-			ResolvedRow:    []string{"3", "x", "d"},
+			ResolvedRow:    []string{"3", "s", "d"},
 			UnresolvedCols: map[uint32]struct{}{1: {}},
 		},
 		{

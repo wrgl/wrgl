@@ -7,6 +7,11 @@ import (
 	"github.com/wrgl/core/pkg/objects"
 )
 
+var (
+	resolvedCell   = NewTableCell("resolved").SetStyle(boldGreenStyle)
+	unresolvedCell = NewTableCell("unresolved").SetStyle(boldStyle)
+)
+
 type MergeRow struct {
 	cd      *objects.ColDiff
 	Cells   [][]*TableCell
@@ -27,7 +32,7 @@ func NewMergeRow(buf *diff.BlockBuffer, cd *objects.ColDiff, names []string) *Me
 		c.Cells[i] = make([]*TableCell, n)
 		for j := 0; j < n; j++ {
 			c.Cells[i][j] = NewTableCell("")
-			if j == 0 {
+			if j == 0 && i < l-1 {
 				c.Cells[i][j].SetText(names[i]).SetStyle(boldStyle)
 			} else if j < numPK+1 {
 				c.Cells[i][j].SetStyle(primaryKeyStyle)
@@ -41,6 +46,11 @@ func NewMergeRow(buf *diff.BlockBuffer, cd *objects.ColDiff, names []string) *Me
 
 func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 	baseInd := len(c.Cells) - 1
+	if m.Resolved {
+		c.Cells[baseInd][0] = resolvedCell
+	} else {
+		c.Cells[baseInd][0] = unresolvedCell
+	}
 	if m.Base != nil {
 		c.baseRow = make([]string, c.cd.Len())
 		blk, off := diff.RowToBlockAndOffset(m.BaseOffset)
@@ -52,10 +62,8 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 		for i, s := range row {
 			c.baseRow[i] = s
 		}
-		c.Cells[baseInd][0].SetStyle(boldStyle)
 	} else {
 		c.baseRow = nil
-		c.Cells[baseInd][0].SetStyle(boldRedStyle)
 	}
 	numPK := len(c.cd.OtherPK[0])
 	for i, sum := range m.Others {
@@ -108,11 +116,14 @@ func (c *MergeRow) DisplayMerge(m *merge.Merge) error {
 	if m.ResolvedRow != nil {
 		for i, s := range m.ResolvedRow {
 			_, ok := m.UnresolvedCols[uint32(i)]
+			if m.Resolved {
+				ok = false
+			}
 			c.SetCell(i, s, ok)
 		}
 	} else if c.baseRow != nil {
 		for i, s := range c.baseRow {
-			c.SetCell(i, s, true)
+			c.SetCell(i, s, !m.Resolved)
 		}
 	}
 	return nil
@@ -226,4 +237,12 @@ func (p *MergeRowPool) GetCell(row, col, subrow int) *TableCell {
 		panic(err)
 	}
 	return r.Cells[subrow][col]
+}
+
+func (p *MergeRowPool) RefreshRow(row int) {
+	r, err := p.getRow(row)
+	if err != nil {
+		return
+	}
+	r.DisplayMerge(p.merges[row])
 }

@@ -40,6 +40,8 @@ type MergeTable struct {
 	showInputHandler          func(row, column int)
 	abortHandler              func()
 	finishHandler             func()
+	resolveHandler            func(row int)
+	unresolveHandler          func(row int)
 }
 
 func NewMergeTable(buf *diff.BlockBuffer, commitNames []string, commitSums [][]byte, cd *objects.ColDiff, merges []*merge.Merge, removedCols map[int]struct{}, removedRows map[int]struct{}) *MergeTable {
@@ -50,11 +52,10 @@ func NewMergeTable(buf *diff.BlockBuffer, commitNames []string, commitSums [][]b
 		removedCols:     removedCols,
 		removedRows:     removedRows,
 	}
-	names := make([]string, cd.Layers()+1)
+	names := make([]string, cd.Layers())
 	for i, name := range commitNames {
 		names[i] = fmt.Sprintf("%s (%s)", name, hex.EncodeToString(commitSums[i])[:7])
 	}
-	names[cd.Layers()] = "resolution"
 	t.rowPool = NewMergeRowPool(buf, cd, names, merges)
 	t.SelectableTable.SetGetCellsFunc(t.getMergeCells).
 		SetSelectedFunc(t.selectCell).
@@ -69,6 +70,16 @@ func NewMergeTable(buf *diff.BlockBuffer, commitNames []string, commitSums [][]b
 			SetFixed(1, numPK+1)
 	}
 	t.createCells()
+	return t
+}
+
+func (t *MergeTable) SetResolveHandler(f func(row int)) *MergeTable {
+	t.resolveHandler = f
+	return t
+}
+
+func (t *MergeTable) SetUnresolveHandler(f func(row int)) *MergeTable {
+	t.unresolveHandler = f
 	return t
 }
 
@@ -114,6 +125,11 @@ func (t *MergeTable) SetDeleteRowHandler(f func(row int)) *MergeTable {
 
 func (t *MergeTable) SetShowInputHandler(f func(row, column int)) *MergeTable {
 	t.showInputHandler = f
+	return t
+}
+
+func (t *MergeTable) RefreshRow(row int) *MergeTable {
+	t.rowPool.RefreshRow(row)
 	return t
 }
 
@@ -176,6 +192,13 @@ func (t *MergeTable) Select(row, column int) {
 	t.SelectableTable.Select((row+1)*(t.cd.Layers()+1), column+1, 0)
 }
 
+func (t *MergeTable) GetSelection() (row, subRow, column int) {
+	row, column, _ = t.SelectableTable.GetSelection()
+	column -= 1
+	row, subRow = t.mergeRowAtRow(row)
+	return
+}
+
 func (t *MergeTable) selectCell(row, column, subCol int) {
 	nLayers := t.cd.Layers()
 	rowCount, colCount := t.SelectableTable.GetShape()
@@ -200,14 +223,14 @@ func (t *MergeTable) deleteColumn() {
 	t.deleteColumnHandler(selectedCol - 1)
 }
 
-func (t *MergeTable) deleteRow() {
+func (t *MergeTable) invokeRowFunc(f func(row int)) {
 	selectedRow, _, _ := t.SelectableTable.GetSelection()
 	rowCount, _ := t.GetShape()
 	if selectedRow <= 0 || selectedRow >= rowCount {
 		return
 	}
 	mergeInd, _ := t.mergeRowAtRow(selectedRow)
-	t.deleteRowHandler(mergeInd)
+	f(mergeInd)
 }
 
 func (t *MergeTable) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
@@ -220,8 +243,12 @@ func (t *MergeTable) InputHandler() func(event *tcell.EventKey, setFocus func(p 
 				t.undoHandler()
 			case 'U':
 				t.redoHandler()
+			case 'r':
+				t.invokeRowFunc(t.resolveHandler)
+			case 'R':
+				t.invokeRowFunc(t.unresolveHandler)
 			case 'd':
-				t.deleteRow()
+				t.invokeRowFunc(t.deleteRowHandler)
 			case 'D':
 				t.deleteColumn()
 			case 'n':
