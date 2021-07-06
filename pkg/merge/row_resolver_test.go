@@ -60,6 +60,7 @@ func TestRowResolverComplexCases(t *testing.T) {
 		"3,z,x",
 		"4,t,y",
 		"5,g,h",
+		"6,b,n",
 	}, []uint32{0}, nil)
 	sum1, _ := factory.Commit(t, db, []string{
 		"a,b,c,d",
@@ -68,6 +69,7 @@ func TestRowResolverComplexCases(t *testing.T) {
 		"3,z,v,c",
 		"4,q,y,u",
 		"5,g,h,j",
+		"6,m,n,k",
 	}, []uint32{0}, [][]byte{base})
 	sum2, _ := factory.Commit(t, db, []string{
 		"a,b",
@@ -105,9 +107,21 @@ func TestRowResolverComplexCases(t *testing.T) {
 			ResolvedRow:    []string{"4", "t", "", "u"},
 			UnresolvedCols: map[uint32]struct{}{1: {}},
 		},
+		{
+			PK:         hexToBytes(t, "6a9a95a94e30ba3442e56419c04c259e"),
+			Base:       hexToBytes(t, "b36317b30e927db6160d5fc158c509f8"),
+			BaseOffset: 5,
+			Others: [][]byte{
+				hexToBytes(t, "00a35d4d1ffc6af8c8f8832555ae7ebb"),
+				nil,
+			},
+			OtherOffsets:   []uint32{5, 0},
+			ResolvedRow:    []string{"6", "b", "n", "k"},
+			UnresolvedCols: map[uint32]struct{}{1: {}},
+		},
 	}, merges[1:])
 	blocks, rowsCount := mergehelpers.CollectSortedRows(t, m, nil)
-	assert.Equal(t, uint32(5), rowsCount)
+	assert.Equal(t, uint32(6), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -116,6 +130,7 @@ func TestRowResolverComplexCases(t *testing.T) {
 				{"3", "z", "x"},
 				{"4", "t", "y"},
 				{"5", "s", "", "j"},
+				{"6", "b", "n"},
 			},
 			PK: []string{"1"},
 		},
@@ -148,9 +163,21 @@ func TestRowResolverComplexCases(t *testing.T) {
 			ResolvedRow:    []string{"4", "t", "", "u"},
 			UnresolvedCols: map[uint32]struct{}{1: {}},
 		},
+		{
+			PK:         hexToBytes(t, "6a9a95a94e30ba3442e56419c04c259e"),
+			Base:       hexToBytes(t, "b36317b30e927db6160d5fc158c509f8"),
+			BaseOffset: 5,
+			Others: [][]byte{
+				nil,
+				hexToBytes(t, "00a35d4d1ffc6af8c8f8832555ae7ebb"),
+			},
+			OtherOffsets:   []uint32{0, 5},
+			ResolvedRow:    []string{"6", "b", "n", "k"},
+			UnresolvedCols: map[uint32]struct{}{1: {}},
+		},
 	}, merges[1:])
 	blocks, rowsCount = mergehelpers.CollectSortedRows(t, m, nil)
-	assert.Equal(t, uint32(5), rowsCount)
+	assert.Equal(t, uint32(6), rowsCount)
 	assert.Equal(t, []*sorter.Block{
 		{
 			Block: [][]string{
@@ -159,6 +186,7 @@ func TestRowResolverComplexCases(t *testing.T) {
 				{"3", "z", "x"},
 				{"4", "t", "y"},
 				{"5", "s", "", "j"},
+				{"6", "b", "n"},
 			},
 			PK: []string{"1"},
 		},

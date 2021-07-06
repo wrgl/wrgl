@@ -113,6 +113,22 @@ func TestMergeApp(t *testing.T) {
 	ma.undo()
 	assert.Equal(t, []string{"3", "s", ""}, ma.merges[1].ResolvedRow)
 	assert.Len(t, ma.merges[1].UnresolvedCols, 0)
-	assert.Contains(t, ma.resolvedRows, 1)
+	assert.Equal(t, map[int]struct{}{1: {}, 2: {}}, ma.resolvedRows)
 	assert.Contains(t, ma.RemovedCols, 2)
+
+	ma.unresolveRow(2)
+	assert.False(t, ma.merges[2].Resolved)
+	assert.NotContains(t, ma.resolvedRows, 2)
+
+	ma.resolveRow(2)
+	assert.True(t, ma.merges[2].Resolved)
+	assert.Contains(t, ma.resolvedRows, 2)
+
+	ma.undo()
+	assert.False(t, ma.merges[2].Resolved)
+	assert.NotContains(t, ma.resolvedRows, 2)
+
+	ma.undo()
+	assert.True(t, ma.merges[2].Resolved)
+	assert.Contains(t, ma.resolvedRows, 2)
 }

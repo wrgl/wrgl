@@ -99,7 +99,7 @@ func (r *RowResolver) tryResolve(m *Merge) (err error) {
 		var mod *string
 		var rem bool
 		for _, layer := range layersWhereRowIsRemoved {
-			if _, ok := r.cd.Removed[layer][i]; !ok {
+			if _, ok := r.cd.Added[layer][i]; !ok {
 				rem = true
 			}
 		}
