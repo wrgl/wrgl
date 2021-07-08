@@ -10,13 +10,14 @@ import (
 func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table) error {
 	tblIdx := make([][]string, len(tbl.Blocks))
 	buf := bytes.NewBuffer(nil)
+	enc := objects.NewStrListEncoder(true)
 	for i, sum := range tbl.Blocks {
 		blk, err := objects.GetBlock(db, sum)
 		if err != nil {
 			return err
 		}
 		tblIdx[i] = slice.IndicesToValues(blk[0], tbl.PK)
-		idx := objects.IndexBlock(blk, tbl.PK)
+		idx := objects.IndexBlock(enc, blk, tbl.PK)
 		_, err = idx.WriteTo(buf)
 		if err != nil {
 			return err
@@ -27,7 +28,7 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table) error {
 		}
 		buf.Reset()
 	}
-	_, err := objects.WriteBlockTo(buf, tblIdx)
+	_, err := objects.WriteBlockTo(enc, buf, tblIdx)
 	if err != nil {
 		return err
 	}

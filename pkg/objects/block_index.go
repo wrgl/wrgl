@@ -22,13 +22,12 @@ func PKCheckSum(enc *StrListEncoder, row []string, pk []uint32) []byte {
 	return sum[:]
 }
 
-func IndexBlock(blk [][]string, pk []uint32) *BlockIndex {
+func IndexBlock(enc *StrListEncoder, blk [][]string, pk []uint32) *BlockIndex {
 	n := len(blk)
 	idx := &BlockIndex{
 		sortedOff: make([]uint8, n),
 		Rows:      make([][]byte, n),
 	}
-	enc := NewStrListEncoder(true)
 	for i, row := range blk {
 		rowSum := meow.Checksum(0, enc.Encode(row))
 		pkSum := rowSum[:]

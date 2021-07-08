@@ -96,7 +96,16 @@ func (s *Sorter) AddRow(row []string) error {
 		s.bar.Add(1)
 	}
 	s.RowsCount++
-	s.current = append(s.current, row)
+	l := len(s.current)
+	if l == cap(s.current) {
+		s.current = append(s.current, nil)
+	} else {
+		s.current = s.current[:l+1]
+	}
+	if s.current[l] == nil {
+		s.current[l] = make([]string, len(row))
+	}
+	copy(s.current[l], row)
 	if s.size >= s.runSize {
 		s.size = 0
 		SortBlock(s.current, s.PK)
@@ -112,15 +121,17 @@ func (s *Sorter) AddRow(row []string) error {
 
 func (s *Sorter) SortFile(f io.ReadCloser, pk []string, errChan chan<- error) (blocks chan *Block, err error) {
 	r := csv.NewReader(f)
-	s.Columns, err = r.Read()
+	r.ReuseRecord = true
+	row, err := r.Read()
 	if err != nil {
 		return
 	}
+	s.Columns = make([]string, len(row))
+	copy(s.Columns, row)
 	s.PK, err = slice.KeyIndices(s.Columns, pk)
 	if err != nil {
 		return
 	}
-	var row []string
 	s.bar = pbar(-1, "sorting", s.out)
 	s.size = 0
 	for {

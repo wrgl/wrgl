@@ -10,8 +10,7 @@ import (
 
 const BlockSize = 255
 
-func WriteBlockTo(w io.Writer, blk [][]string) (int64, error) {
-	enc := NewStrListEncoder(false)
+func WriteBlockTo(enc *StrListEncoder, w io.Writer, blk [][]string) (int64, error) {
 	n := len(blk)
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, uint32(n))

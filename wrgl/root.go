@@ -35,6 +35,21 @@ func newRootCmd() *cobra.Command {
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 			pprof.StopCPUProfile()
+			heapprofile, err := cmd.Flags().GetString("heapprofile")
+			if err != nil {
+				return err
+			}
+			if heapprofile != "" {
+				f, err := os.Create(heapprofile)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				err = pprof.WriteHeapProfile(f)
+				if err != nil {
+					return err
+				}
+			}
 			return nil
 		},
 		SilenceUsage:  true,
@@ -51,6 +66,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
 	rootCmd.PersistentFlags().String("debug-file", "", "name of file to print debug logs to")
 	rootCmd.PersistentFlags().String("cpuprofile", "", "write cpu profile to file")
+	rootCmd.PersistentFlags().String("heapprofile", "", "write heap profile to file")
 	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newCommitCmd())
 	rootCmd.AddCommand(newVersionCmd())

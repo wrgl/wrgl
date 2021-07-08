@@ -26,7 +26,8 @@ func randomBlock() [][]string {
 func TestBlockWriter(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	blk := randomBlock()
-	n, err := WriteBlockTo(buf, blk)
+	enc := NewStrListEncoder(true)
+	n, err := WriteBlockTo(enc, buf, blk)
 	require.NoError(t, err)
 	b := buf.Bytes()
 	assert.Len(t, b, int(n))

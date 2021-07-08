@@ -157,6 +157,7 @@ func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, advertised [][]b
 
 func CopyCommitsToNewStore(t *testing.T, dba, dbb objects.Store, commits [][]byte) {
 	t.Helper()
+	enc := objects.NewStrListEncoder(true)
 	for _, sum := range commits {
 		c, err := objects.GetCommit(dba, sum)
 		require.NoError(t, err)
@@ -167,7 +168,7 @@ func CopyCommitsToNewStore(t *testing.T, dba, dbb objects.Store, commits [][]byt
 			blk, err := objects.GetBlock(dba, sum)
 			require.NoError(t, err)
 			buf.Reset()
-			_, err = objects.WriteBlockTo(buf, blk)
+			_, err = objects.WriteBlockTo(enc, buf, blk)
 			require.NoError(t, err)
 			_, err = objects.SaveBlock(dbb, buf.Bytes())
 			require.NoError(t, err)

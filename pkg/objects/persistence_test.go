@@ -21,7 +21,8 @@ func TestSaveBlock(t *testing.T) {
 
 	blk := testutils.BuildRawCSV(5, 10)
 	buf := bytes.NewBuffer(nil)
-	_, err := objects.WriteBlockTo(buf, blk)
+	enc := objects.NewStrListEncoder(true)
+	_, err := objects.WriteBlockTo(enc, buf, blk)
 	require.NoError(t, err)
 	sum, err := objects.SaveBlock(s, buf.Bytes())
 	require.NoError(t, err)
@@ -38,7 +39,8 @@ func TestSaveBlock(t *testing.T) {
 func TestSaveBlockIndex(t *testing.T) {
 	s := objmock.NewStore()
 
-	idx := objects.IndexBlock(testutils.BuildRawCSV(5, 10), []uint32{0})
+	enc := objects.NewStrListEncoder(true)
+	idx := objects.IndexBlock(enc, testutils.BuildRawCSV(5, 10), []uint32{0})
 	buf := bytes.NewBuffer(nil)
 	_, err := idx.WriteTo(buf)
 	require.NoError(t, err)
@@ -84,10 +86,11 @@ func TestSaveTable(t *testing.T) {
 
 func TestSaveTableIndex(t *testing.T) {
 	s := objmock.NewStore()
+	enc := objects.NewStrListEncoder(true)
 
 	idx := testutils.BuildRawCSV(2, 10)[1:]
 	buf := bytes.NewBuffer(nil)
-	_, err := objects.WriteBlockTo(buf, idx)
+	_, err := objects.WriteBlockTo(enc, buf, idx)
 	require.NoError(t, err)
 	sum := testutils.SecureRandomBytes(16)
 	require.NoError(t, objects.SaveTableIndex(s, sum, buf.Bytes()))

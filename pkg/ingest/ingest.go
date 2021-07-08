@@ -16,10 +16,11 @@ import (
 func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *sorter.Block, wg *sync.WaitGroup, errChan chan<- error) {
 	buf := bytes.NewBuffer(nil)
 	defer wg.Done()
+	enc := objects.NewStrListEncoder(true)
 	for blk := range blocks {
 		// write block and add block to table
 		buf.Reset()
-		_, err := objects.WriteBlockTo(buf, blk.Block)
+		_, err := objects.WriteBlockTo(enc, buf, blk.Block)
 		if err != nil {
 			errChan <- err
 			return
@@ -32,7 +33,7 @@ func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Ta
 		tbl.Blocks[blk.Offset] = sum
 
 		// write block index and add pk sums to table index
-		idx := objects.IndexBlock(blk.Block, tbl.PK)
+		idx := objects.IndexBlock(enc, blk.Block, tbl.PK)
 		buf.Reset()
 		idx.WriteTo(buf)
 		err = objects.SaveBlockIndex(db, sum, buf.Bytes())
@@ -79,7 +80,8 @@ func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rows
 
 	// write and save table index
 	buf.Reset()
-	_, err = objects.WriteBlockTo(buf, tblIdx)
+	enc := objects.NewStrListEncoder(true)
+	_, err = objects.WriteBlockTo(enc, buf, tblIdx)
 	if err != nil {
 		return nil, err
 	}

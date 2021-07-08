@@ -21,7 +21,8 @@ func fromHex(t *testing.T, s string) []byte {
 }
 
 func TestBlockIndex(t *testing.T) {
-	idx := IndexBlock([][]string{
+	enc := NewStrListEncoder(true)
+	idx := IndexBlock(enc, [][]string{
 		{"a", "b", "c"},
 		{"d", "e", "f"},
 		{"g", "h", "k"},
