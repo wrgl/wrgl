@@ -87,3 +87,15 @@ func TestStrListDecoderReadColumn(t *testing.T) {
 	_, err := dec.ReadColumn(bytes.NewReader(b), 3)
 	assert.Error(t, err)
 }
+
+func BenchmarkStrListDecoder(b *testing.B) {
+	enc := NewStrListEncoder(true)
+	dec := NewStrListDecoder(true)
+	rows := testutils.BuildRawCSV(10, b.N)
+	b.ResetTimer()
+	var sl []byte
+	for _, row := range rows {
+		sl = enc.Encode(row)
+		dec.Decode(sl)
+	}
+}
