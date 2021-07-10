@@ -107,18 +107,16 @@ func (d *StrListDecoder) ensureBufSize(n int) {
 }
 
 func (d *StrListDecoder) readUint16(r io.Reader) (uint16, error) {
+	d.buf[0], d.buf[1] = 0, 0
 	b := d.buf[:2]
-	n, err := r.Read(b)
-	if err != nil {
-		return 0, err
-	}
+	n, err := io.ReadFull(r, b)
 	d.pos += n
-	return binary.BigEndian.Uint16(b), nil
+	return binary.BigEndian.Uint16(b), err
 }
 
 func (d *StrListDecoder) readUint32(r io.Reader) (uint32, error) {
 	b := d.buf[:4]
-	n, err := r.Read(b)
+	n, err := io.ReadFull(r, b)
 	if err != nil {
 		return 0, err
 	}
@@ -144,18 +142,21 @@ func (d *StrListDecoder) Read(r io.Reader) (int, []string, error) {
 			continue
 		}
 		d.ensureBufSize(int(l))
-		n, err := r.Read(d.buf[:l])
+		n, err := io.ReadFull(r, d.buf[:l])
+		d.pos += n
+		sl = append(sl, string(d.buf[:n]))
+		if err == io.EOF && i == count-1 {
+			break
+		}
 		if err != nil {
 			return d.pos, nil, err
 		}
-		d.pos += n
-		sl = append(sl, string(d.buf[:l]))
 	}
 	return d.pos, sl, nil
 }
 
 func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
-	_, err = r.Read(d.buf[:4])
+	_, err = io.ReadFull(r, d.buf[:4])
 	if err != nil {
 		return
 	}
@@ -165,14 +166,14 @@ func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
 	var m int
 	for i = 0; i < count; i++ {
 		d.ensureBufSize(n + 2)
-		_, err = r.Read(d.buf[n : n+2])
+		_, err = io.ReadFull(r, d.buf[n:n+2])
 		if err != nil {
 			return
 		}
 		l := binary.BigEndian.Uint16(d.buf[n:])
 		n += 2
 		d.ensureBufSize(n + int(l))
-		m, err = r.Read(d.buf[n : n+int(l)])
+		m, err = io.ReadFull(r, d.buf[n:n+int(l)])
 		n += m
 		if err == io.EOF && i == count-1 {
 			break

@@ -1,6 +1,7 @@
 package sorter
 
 import (
+	"bufio"
 	"encoding/csv"
 	"io"
 	"io/ioutil"
@@ -56,9 +57,10 @@ type Sorter struct {
 	bar       *progressbar.ProgressBar
 	size      uint64
 	out       io.Writer
-	chunks    []*os.File
+	chunks    []io.Reader
 	current   [][]string
 	Columns   []string
+	cleanups  []func() error
 	RowsCount uint32
 }
 
@@ -108,8 +110,15 @@ func (s *Sorter) AddRow(row []string) error {
 		if err != nil {
 			return err
 		}
-		s.chunks = append(s.chunks, chunk)
+		s.chunks = append(s.chunks, bufio.NewReader(chunk))
 		s.current = s.current[:0]
+		s.cleanups = append(s.cleanups, func() error {
+			err := chunk.Close()
+			if err != nil {
+				return err
+			}
+			return os.Remove(chunk.Name())
+		})
 	}
 	return nil
 }
@@ -196,18 +205,15 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 					_, b, err := dec.ReadBytes(chunk)
 					if err == io.EOF {
 						chunkEOF[i] = true
-						err = s.chunks[i].Close()
-						if err != nil {
-							errChan <- err
-							return
-						}
-						continue
-					}
-					if err != nil {
+					} else if err != nil {
 						errChan <- err
 						return
 					}
-					chunkRows[i] = b
+					if len(b) > 0 {
+						chunkRows[i] = b
+					} else {
+						continue
+					}
 				}
 				if minRow == nil || chunkRows[i].LessThan(s.PK, minRow) {
 					minRow = chunkRows[i]
@@ -280,6 +286,7 @@ func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) 
 		chunkEOF := make([]bool, n)
 		dec := objects.NewStrListDecoder(false)
 		SortRows(s.current, s.PK)
+		chunkIdx := make([]int, n)
 		for {
 			minInd := 0
 			var minRow []string
@@ -291,18 +298,16 @@ func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) 
 					_, row, err := dec.Read(chunk)
 					if err == io.EOF {
 						chunkEOF[i] = true
-						err = s.chunks[i].Close()
-						if err != nil {
-							errChan <- err
-							return
-						}
-						continue
-					}
-					if err != nil {
+					} else if err != nil {
 						errChan <- err
 						return
 					}
-					chunkRows[i] = row
+					if len(row) > 0 {
+						chunkRows[i] = row
+						chunkIdx[i]++
+					} else {
+						continue
+					}
 				}
 				if minRow == nil {
 					minRow = chunkRows[i]
@@ -360,9 +365,8 @@ func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) 
 }
 
 func (s *Sorter) Close() error {
-	for _, f := range s.chunks {
-		f.Close()
-		if err := os.Remove(f.Name()); err != nil {
+	for _, f := range s.cleanups {
+		if err := f(); err != nil {
 			return err
 		}
 	}
