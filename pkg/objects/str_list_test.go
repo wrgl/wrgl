@@ -5,6 +5,8 @@ package objects
 
 import (
 	"bytes"
+	"io"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,11 +49,24 @@ func TestEncodeStrList(t *testing.T) {
 		_, err := buf.Write(e.Encode(sl))
 		require.NoError(t, err)
 	}
+	r := bytes.NewReader(buf.Bytes())
 	for i := 0; i < len(slices); i++ {
-		n, sl, err := d.Read(buf)
+		n, sl, err := d.Read(r)
 		require.NoError(t, err)
 		assert.Equal(t, slices[i], sl)
 		assert.NotEmpty(t, n)
+	}
+
+	// test ReadBytes
+	r = bytes.NewReader(buf.Bytes())
+	for i := 0; ; i++ {
+		n, b, err := d.ReadBytes(r)
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		assert.Len(t, b, int(n))
+		assert.Equal(t, slices[i], d.Decode(b))
 	}
 }
 
@@ -73,20 +88,71 @@ func TestStrListDecoderReuseRecords(t *testing.T) {
 	assert.Equal(t, []string{"c", "d", "e"}, sl2)
 }
 
-func TestStrListDecoderReadColumn(t *testing.T) {
+func TestReadColumnsFromStrListBytes(t *testing.T) {
 	enc := NewStrListEncoder(true)
-	dec := NewStrListDecoder(false)
-	sl := []string{"a", "bc", "def"}
-	b := enc.Encode(sl)
-
-	for i, s1 := range sl {
-		s2, err := dec.ReadColumn(bytes.NewReader(b), uint32(i))
-		require.NoError(t, err)
-		assert.Equal(t, s1, s2)
+	row := make([]string, 10)
+	for i := range row {
+		row[i] = testutils.BrokenRandomAlphaNumericString(10)
 	}
+	b := StrList(enc.Encode(row))
 
-	_, err := dec.ReadColumn(bytes.NewReader(b), 3)
-	assert.Error(t, err)
+	assert.Equal(t, []string{row[0]}, b.ReadColumns([]uint32{0}))
+	assert.Equal(t, []string{row[1], row[2]}, b.ReadColumns([]uint32{1, 2}))
+	assert.Equal(t, []string{row[5], row[3]}, b.ReadColumns([]uint32{5, 3}))
+}
+
+func TestStrListBytesLess(t *testing.T) {
+	rows := testutils.BuildRawCSV(10, 100)
+	rowBytes := make([][]byte, len(rows))
+	enc := NewStrListEncoder(false)
+	for i, row := range rows {
+		rowBytes[i] = enc.Encode(row)
+	}
+	dec := NewStrListDecoder(true)
+	for _, cols := range [][]uint32{{1}, {2, 3}, {5, 4}} {
+		sort.Slice(rows, func(i, j int) bool {
+			for _, u := range cols {
+				if rows[i][u] < rows[j][u] {
+					return true
+				} else if rows[i][u] > rows[j][u] {
+					return false
+				}
+			}
+			return false
+		})
+		sort.Slice(rowBytes, func(i, j int) bool {
+			return StrList(rowBytes[i]).LessThan(cols, rowBytes[j])
+		})
+		for i, b := range rowBytes {
+			assert.Equal(t, rows[i], dec.Decode(b))
+		}
+	}
+}
+
+func TestRemoveColumnsFromStrList(t *testing.T) {
+	row := make([]string, 10)
+	for i := range row {
+		row[i] = testutils.BrokenRandomAlphaNumericString(10)
+	}
+	b := NewStrListEncoder(true).Encode(row)
+	dec := NewStrListDecoder(true)
+
+	row = append(row[:1], row[2:]...)
+	r := NewColumnRemover(map[int]struct{}{1: {}})
+	b = r.RemoveFrom(b)
+	assert.Equal(t, row, dec.Decode(b))
+
+	row = append(row[:3], row[4:]...)
+	row = append(row[:2], row[3:]...)
+	r = NewColumnRemover(map[int]struct{}{2: {}, 3: {}})
+	b = r.RemoveFrom(b)
+	assert.Equal(t, row, dec.Decode(b))
+
+	row = append(row[:5], row[6:]...)
+	row = append(row[:4], row[5:]...)
+	r = NewColumnRemover(map[int]struct{}{5: {}, 4: {}})
+	b = r.RemoveFrom(b)
+	assert.Equal(t, row, dec.Decode(b))
 }
 
 func BenchmarkStrListDecoder(b *testing.B) {

@@ -324,12 +324,12 @@ func outputConflicts(cmd *cobra.Command, db objects.Store, buf *diff.BlockBuffer
 	if err = merger.Error(); err != nil {
 		return err
 	}
-	rc, _, err := merger.SortedBlocks(nil)
+	rc, _, err := merger.SortedRows(nil)
 	if err != nil {
 		return err
 	}
 	for blk := range rc {
-		for _, row := range blk.Block {
+		for _, row := range blk.Rows {
 			row = append([]string{""}, row...)
 			err = w.Write(row)
 			if err != nil {
@@ -376,13 +376,13 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	if err != nil {
 		return err
 	}
-	blocks, _, err := merger.SortedBlocks(removedCols)
+	blocks, _, err := merger.SortedRows(removedCols)
 	if err != nil {
 		return err
 	}
 	bar := pbar(-1, fmt.Sprintf("saving merge result to %s", name), cmd.OutOrStdout(), cmd.ErrOrStderr())
 	for blk := range blocks {
-		for _, row := range blk.Block {
+		for _, row := range blk.Rows {
 			err = w.Write(row)
 			if err != nil {
 				return err

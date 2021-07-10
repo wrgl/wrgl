@@ -1,6 +1,7 @@
 package sorter
 
 import (
+	"bytes"
 	"encoding/csv"
 	"io"
 	"io/ioutil"
@@ -25,13 +26,28 @@ func writeCSV(t *testing.T, rows [][]string) *os.File {
 	return f
 }
 
-func collectBlocks(t *testing.T, s *Sorter, rowsCount uint32, remCols map[int]struct{}) []*Block {
+func sortedRows(t *testing.T, s *Sorter, rowsCount uint32, removeCols map[int]struct{}) []*Rows {
 	t.Helper()
 	errCh := make(chan error, 1)
-	blkCh := s.SortedBlocks(remCols, errCh)
+	rowsCh := s.SortedRows(removeCols, errCh)
+	rowBlocks := make([]*Rows, objects.BlocksCount(rowsCount))
+	for obj := range rowsCh {
+		rowBlocks[obj.Offset] = obj
+	}
+	close(errCh)
+	err, ok := <-errCh
+	assert.False(t, ok)
+	require.NoError(t, err)
+	return rowBlocks
+}
+
+func sortedBlocks(t *testing.T, s *Sorter, rowsCount uint32) []*Block {
+	t.Helper()
+	errCh := make(chan error, 1)
+	blockCh := s.SortedBlocks(nil, errCh)
 	blocks := make([]*Block, objects.BlocksCount(rowsCount))
-	for blk := range blkCh {
-		blocks[blk.Offset] = blk
+	for obj := range blockCh {
+		blocks[obj.Offset] = obj
 	}
 	close(errCh)
 	err, ok := <-errCh
@@ -40,47 +56,76 @@ func collectBlocks(t *testing.T, s *Sorter, rowsCount uint32, remCols map[int]st
 	return blocks
 }
 
-func sortedBlocks(t *testing.T, s *Sorter, f io.ReadCloser, pk []string, rowsCount uint32) []*Block {
-	t.Helper()
-	errCh := make(chan error, 1)
-	blkCh, err := s.SortFile(f, pk, errCh)
-	require.NoError(t, err)
-	blocks := make([]*Block, objects.BlocksCount(rowsCount))
-	for blk := range blkCh {
-		blocks[blk.Offset] = blk
-	}
-	close(errCh)
-	err, ok := <-errCh
-	assert.False(t, ok)
-	require.NoError(t, err)
-	return blocks
-}
-
-func TestSorterSortFile(t *testing.T) {
+func TestSorterSortedRows(t *testing.T) {
 	rows := testutils.BuildRawCSV(4, 700)
 	f := writeCSV(t, rows)
 	defer os.Remove(f.Name())
 
 	s, err := NewSorter(4096, io.Discard)
 	require.NoError(t, err)
-	blocks := sortedBlocks(t, s, f, rows[0][:1], 700)
+	err = s.SortFile(f, rows[0][:1])
+	require.NoError(t, err)
+	rowBlocks := sortedRows(t, s, 700, nil)
+	assert.Equal(t, rows[0], s.Columns)
+	assert.Equal(t, []uint32{0}, s.PK)
+	assert.Len(t, rowBlocks, 3)
+	SortRows(rows[1:], s.PK)
+	for i, obj := range rowBlocks {
+		require.Equal(t, i, obj.Offset)
+		if i < len(rowBlocks)-1 {
+			require.Len(t, obj.Rows, 255)
+		} else {
+			require.Len(t, obj.Rows, 190)
+		}
+		for j, row := range obj.Rows {
+			require.Equal(t, rows[i*255+j+1], row, "i:%d j:%d", i, j)
+		}
+	}
+	require.NoError(t, s.Close())
+
+	// sorter run entirely in memory
+	f, err = os.Open(f.Name())
+	require.NoError(t, err)
+	s, err = NewSorter(0, io.Discard)
+	require.NoError(t, err)
+	require.NoError(t, s.SortFile(f, rows[0][:1]))
+	rowBlocks2 := sortedRows(t, s, 700, nil)
+	assert.Equal(t, rowBlocks, rowBlocks2)
+	require.NoError(t, s.Close())
+}
+
+func TestSorterSortedBlocks(t *testing.T) {
+	rows := testutils.BuildRawCSV(4, 700)
+	f := writeCSV(t, rows)
+	defer os.Remove(f.Name())
+
+	s, err := NewSorter(4096, io.Discard)
+	require.NoError(t, err)
+	err = s.SortFile(f, rows[0][:1])
+	require.NoError(t, err)
+	blocks := sortedBlocks(t, s, 700)
 	assert.Equal(t, rows[0], s.Columns)
 	assert.Equal(t, []uint32{0}, s.PK)
 	assert.Len(t, blocks, 3)
-	SortBlock(rows[1:], s.PK)
-	for i, blk := range blocks {
-		require.Equal(t, i, blk.Offset)
+	SortRows(rows[1:], s.PK)
+	for i, obj := range blocks {
+		require.Equal(t, i, obj.Offset)
+		_, blk, err := objects.ReadBlockFrom(bytes.NewReader(obj.Block))
+		require.NoError(t, err)
 		if i < len(blocks)-1 {
-			require.Len(t, blk.Block, 255)
+			require.Len(t, blk, 255)
 		} else {
-			require.Len(t, blk.Block, 190)
+			require.Len(t, blk, 190)
 		}
-		for j, row := range blk.Block {
+		for j, row := range blk {
+			require.Equal(t, rows[i*255+j+1], row, "i:%d j:%d", i, j)
+		}
+		for j, row := range blk {
 			require.Equal(t, rows[i*255+j+1], row, "i:%d j:%d", i, j)
 			if j == 0 {
-				require.Equal(t, blk.PK, row[:1])
+				require.Equal(t, obj.PK, row[:1])
 			} else {
-				require.LessOrEqual(t, blk.PK[0], row[0])
+				require.LessOrEqual(t, obj.PK[0], row[0])
 			}
 		}
 	}
@@ -91,7 +136,8 @@ func TestSorterSortFile(t *testing.T) {
 	require.NoError(t, err)
 	s, err = NewSorter(0, io.Discard)
 	require.NoError(t, err)
-	blocks2 := sortedBlocks(t, s, f, rows[0][:1], 700)
+	require.NoError(t, s.SortFile(f, rows[0][:1]))
+	blocks2 := sortedBlocks(t, s, 700)
 	assert.Equal(t, blocks, blocks2)
 	require.NoError(t, s.Close())
 }
@@ -103,16 +149,15 @@ func TestSorterAddRow(t *testing.T) {
 	require.NoError(t, s.AddRow([]string{"1", "a", "q"}))
 	require.NoError(t, s.AddRow([]string{"2", "c", "w"}))
 	require.NoError(t, s.AddRow([]string{"3", "b", "e"}))
-	blocks := collectBlocks(t, s, 3, map[int]struct{}{2: {}})
-	assert.Equal(t, []*Block{
+	rowBlocks := sortedRows(t, s, 3, map[int]struct{}{2: {}})
+	assert.Equal(t, []*Rows{
 		{
-			Block: [][]string{
+			Rows: [][]string{
 				{"1", "a"},
 				{"3", "b"},
 				{"2", "c"},
 			},
-			PK: []string{"a"},
 		},
-	}, blocks)
+	}, rowBlocks)
 	require.NoError(t, s.Close())
 }

@@ -4,9 +4,11 @@
 package objects
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sort"
 )
 
 // StrListEncoder encodes string slice. Max bytes size for each string is 65536 bytes
@@ -76,36 +78,6 @@ func (d *StrListDecoder) strSlice(n uint32) []string {
 	return make([]string, 0, n)
 }
 
-func (d *StrListDecoder) ReadColumn(r io.ReadSeeker, col uint32) (value string, err error) {
-	count, err := d.readUint32(r)
-	if err != nil {
-		return
-	}
-	if col >= count {
-		return "", fmt.Errorf("column %d out of bound, max column count is %d", col, count)
-	}
-	for {
-		l, err := d.readUint16(r)
-		if err != nil {
-			return "", err
-		}
-		if col == 0 {
-			b := make([]byte, l)
-			_, err := r.Read(b)
-			if err != nil {
-				return "", err
-			}
-			return string(b), nil
-		} else {
-			_, err = r.Seek(int64(l), io.SeekCurrent)
-			if err != nil {
-				return "", err
-			}
-			col--
-		}
-	}
-}
-
 func (d *StrListDecoder) Decode(b []byte) []string {
 	count := binary.BigEndian.Uint32(b)
 	sl := d.strSlice(count)
@@ -118,12 +90,18 @@ func (d *StrListDecoder) Decode(b []byte) []string {
 			sl = append(sl, "")
 			continue
 		}
-		s := make([]byte, l)
-		copy(s, b[offset:])
+		d.ensureBufSize(int(l))
+		copy(d.buf[:l], b[offset:])
 		offset += l
-		sl = append(sl, string(s))
+		sl = append(sl, string(d.buf[:l]))
 	}
 	return sl
+}
+
+func (d *StrListDecoder) ensureBufSize(n int) {
+	for n > cap(d.buf) {
+		d.buf = make([]byte, cap(d.buf)*2)
+	}
 }
 
 func (d *StrListDecoder) readUint16(r io.Reader) (uint16, error) {
@@ -163,13 +141,153 @@ func (d *StrListDecoder) Read(r io.Reader) (int, []string, error) {
 			sl = append(sl, "")
 			continue
 		}
-		s := make([]byte, l)
-		n, err := r.Read(s)
+		d.ensureBufSize(int(l))
+		n, err := r.Read(d.buf[:l])
 		if err != nil {
 			return d.pos, nil, err
 		}
 		d.pos += n
-		sl = append(sl, string(s))
+		sl = append(sl, string(d.buf[:l]))
 	}
 	return d.pos, sl, nil
+}
+
+func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
+	_, err = r.Read(d.buf[:4])
+	if err != nil {
+		return
+	}
+	b = append(b, d.buf[:4]...)
+	count := binary.BigEndian.Uint32(d.buf)
+	n = 4
+	var i uint32
+	for i = 0; i < count; i++ {
+		_, err = r.Read(d.buf[:2])
+		if err != nil {
+			return
+		}
+		n += 2
+		b = append(b, d.buf[:2]...)
+		l := binary.BigEndian.Uint16(d.buf)
+		d.ensureBufSize(int(l))
+		_, err = r.Read(d.buf[:l])
+		if err != nil {
+			return
+		}
+		n += int(l)
+		b = append(b, d.buf[:l]...)
+	}
+	return
+}
+
+type StrList []byte
+
+func (b StrList) seekColumnOffset(u uint32) (off, n int) {
+	var i uint32
+	l := len(b)
+	c := binary.BigEndian.Uint32(b)
+	if u >= c {
+		panic(fmt.Errorf("column out of bound: %d >= %d", u, c))
+	}
+	off = 4
+	for i = 0; off < l; i++ {
+		n = int(binary.BigEndian.Uint16(b[off : off+2]))
+		off += 2
+		if i == u {
+			return
+		}
+		off += n
+	}
+	panic(fmt.Errorf("corrupted strList bytes"))
+}
+
+func (b StrList) seekColumn(u uint32) []byte {
+	off, n := b.seekColumnOffset(u)
+	return b[off : off+n]
+}
+
+func (b StrList) ReadColumns(columns []uint32) []string {
+	sl := make([]string, len(columns))
+	for i, u := range columns {
+		sl[i] = string(b.seekColumn(u))
+	}
+	return sl
+}
+
+// LessThan returns true if a is less than b based on given column indices
+func (b StrList) LessThan(columns []uint32, c StrList) bool {
+	for _, u := range columns {
+		if v := bytes.Compare(b.seekColumn(u), c.seekColumn(u)); v == 1 {
+			return false
+		} else if v == -1 {
+			return true
+		}
+	}
+	return false
+}
+
+func (b StrList) Pick(columns []uint32) StrList {
+	c := make([]byte, 4)
+	binary.BigEndian.PutUint32(c, uint32(len(columns)))
+	for _, u := range columns {
+		off, n := b.seekColumnOffset(u)
+		c = append(c, b[off-2:off+n]...)
+	}
+	return c
+}
+
+// ColumnRemover removes columns from StrList encoded bytes
+// while minimizing allocations
+type ColumnRemover struct {
+	columns []int
+	offsets []int
+	lens    []int
+}
+
+func NewColumnRemover(columns map[int]struct{}) *ColumnRemover {
+	n := len(columns)
+	r := &ColumnRemover{
+		columns: make([]int, 0, n),
+		offsets: make([]int, n),
+		lens:    make([]int, n),
+	}
+	for i := range columns {
+		r.columns = append(r.columns, i)
+	}
+	sort.Slice(r.columns, func(i, j int) bool {
+		return r.columns[i] < r.columns[j]
+	})
+	return r
+}
+
+func (r *ColumnRemover) RemoveFrom(b StrList) []byte {
+	var j int
+	l := len(b)
+	c := int(binary.BigEndian.Uint32(b))
+	off := 4
+	var n int
+mainLoop:
+	for i, u := range r.columns {
+		if u >= c {
+			panic(fmt.Errorf("column out of bound: %d >= %d", u, c))
+		}
+		for off < l {
+			n = int(binary.BigEndian.Uint16(b[off:]))
+			if j == u {
+				r.offsets[i] = off
+				r.lens[i] = n + 2
+			}
+			off += 2 + n
+			j++
+			if j-1 == u {
+				continue mainLoop
+			}
+		}
+		panic(fmt.Errorf("corrupted strList bytes"))
+	}
+	for i := len(r.offsets) - 1; i >= 0; i-- {
+		b = append(b[:r.offsets[i]], b[r.offsets[i]+r.lens[i]:]...)
+	}
+	binary.BigEndian.PutUint32(b, uint32(c-len(r.offsets)))
+	return b
 }

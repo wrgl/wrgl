@@ -16,16 +16,10 @@ import (
 func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *sorter.Block, wg *sync.WaitGroup, errChan chan<- error) {
 	buf := bytes.NewBuffer(nil)
 	defer wg.Done()
-	enc := objects.NewStrListEncoder(true)
+	dec := objects.NewStrListDecoder(true)
 	for blk := range blocks {
 		// write block and add block to table
-		buf.Reset()
-		_, err := objects.WriteBlockTo(enc, buf, blk.Block)
-		if err != nil {
-			errChan <- err
-			return
-		}
-		sum, err := objects.SaveBlock(db, buf.Bytes())
+		sum, err := objects.SaveBlock(db, blk.Block)
 		if err != nil {
 			errChan <- err
 			return
@@ -33,7 +27,11 @@ func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Ta
 		tbl.Blocks[blk.Offset] = sum
 
 		// write block index and add pk sums to table index
-		idx := objects.IndexBlock(enc, blk.Block, tbl.PK)
+		idx, err := objects.IndexBlockFromBytes(dec, blk.Block, tbl.PK)
+		if err != nil {
+			errChan <- err
+			return
+		}
 		buf.Reset()
 		idx.WriteTo(buf)
 		err = objects.SaveBlockIndex(db, sum, buf.Bytes())
@@ -113,8 +111,13 @@ func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uin
 	if numWorkers <= 0 {
 		numWorkers = 1
 	}
+	err = s.SortFile(f, pk)
+	if err != nil {
+		return nil, err
+	}
 	errChan := make(chan error, numWorkers)
-	blocks, err := s.SortFile(f, pk, errChan)
+	blocks := s.SortedBlocks(nil, errChan)
+	sum, err := IngestTableFromBlocks(db, s.Columns, s.PK, s.RowsCount, blocks, numWorkers, out)
 	if err != nil {
 		return nil, err
 	}
@@ -123,5 +126,5 @@ func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uin
 	if ok {
 		return nil, err
 	}
-	return IngestTableFromBlocks(db, s.Columns, s.PK, s.RowsCount, blocks, numWorkers, out)
+	return sum, nil
 }

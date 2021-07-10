@@ -47,7 +47,7 @@ func TestIngestTable(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, tblIdx, 3)
 
-	sorter.SortBlock(rows[1:], []uint32{0})
+	sorter.SortRows(rows[1:], []uint32{0})
 	for i, sum := range tbl.Blocks {
 		blk, err := objects.GetBlock(db, sum)
 		require.NoError(t, err)

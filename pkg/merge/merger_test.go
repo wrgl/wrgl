@@ -67,14 +67,13 @@ func TestMergerAutoResolve(t *testing.T) {
 
 	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, uint32(3), rowsCount)
-	assert.Equal(t, []*sorter.Block{
+	assert.Equal(t, []*sorter.Rows{
 		{
-			Block: [][]string{
+			Rows: [][]string{
 				{"1", "e", "r"},
 				{"3", "s", "d"},
 				{"4", "r", "t"},
 			},
-			PK: []string{"1"},
 		},
 	}, rows)
 	assert.Equal(t, []string{"a", "b", "c"}, merger.Columns(nil))
@@ -174,15 +173,14 @@ func TestMergerManualResolve(t *testing.T) {
 
 	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, uint32(4), rowsCount)
-	assert.Equal(t, []*sorter.Block{
+	assert.Equal(t, []*sorter.Rows{
 		{
-			Block: [][]string{
+			Rows: [][]string{
 				{"1", "q", "w"},
 				{"2", "c", "v"},
 				{"4", "n", "m"},
 				{"5", "t", "u"},
 			},
-			PK: []string{"1"},
 		},
 	}, rows)
 	assert.Equal(t, []string{"a", "b", "c"}, merger.Columns(nil))
@@ -233,14 +231,13 @@ func TestMergerRemoveCols(t *testing.T) {
 
 	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, map[int]struct{}{2: {}})
 	assert.Equal(t, uint32(3), rowsCount)
-	assert.Equal(t, []*sorter.Block{
+	assert.Equal(t, []*sorter.Rows{
 		{
-			Block: [][]string{
+			Rows: [][]string{
 				{"1", "e"},
 				{"2", "x"},
 				{"4", "f"},
 			},
-			PK: []string{"1"},
 		},
 	}, rows)
 	assert.Equal(t, []string{"a", "b"}, merger.Columns(map[int]struct{}{2: {}}))

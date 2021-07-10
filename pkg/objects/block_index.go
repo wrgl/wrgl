@@ -5,6 +5,7 @@ package objects
 
 import (
 	"bytes"
+	"encoding/binary"
 	"io"
 	"sort"
 
@@ -39,6 +40,32 @@ func IndexBlock(enc *StrListEncoder, blk [][]string, pk []uint32) *BlockIndex {
 	}
 	sort.Sort(idx)
 	return idx
+}
+
+func IndexBlockFromBytes(dec *StrListDecoder, blk []byte, pk []uint32) (*BlockIndex, error) {
+	n := int(binary.BigEndian.Uint32(blk))
+	idx := &BlockIndex{
+		sortedOff: make([]uint8, n),
+		Rows:      make([][]byte, n),
+	}
+	r := bytes.NewReader(blk[4:])
+	for i := 0; i < n; i++ {
+		_, b, err := dec.ReadBytes(r)
+		if err != nil {
+			return nil, err
+		}
+		rowSum := meow.Checksum(0, b)
+		pkSum := rowSum[:]
+		if len(pk) > 0 {
+			b = StrList(b).Pick(pk)
+			arr := meow.Checksum(0, b)
+			pkSum = arr[:]
+		}
+		idx.sortedOff[i] = uint8(i)
+		idx.Rows[i] = append(pkSum, rowSum[:]...)
+	}
+	sort.Sort(idx)
+	return idx, nil
 }
 
 func (idx *BlockIndex) Len() int {

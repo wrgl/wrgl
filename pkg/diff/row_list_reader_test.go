@@ -17,7 +17,7 @@ import (
 func TestRowListReader(t *testing.T) {
 	db := objmock.NewStore()
 	rows := testutils.BuildRawCSV(4, 700)
-	sorter.SortBlock(rows, []uint32{0})
+	sorter.SortRows(rows, []uint32{0})
 	tbl := ingestRows(t, db, rows)
 
 	r, err := NewRowListReader(db, tbl)

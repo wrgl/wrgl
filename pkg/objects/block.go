@@ -10,6 +10,22 @@ import (
 
 const BlockSize = 255
 
+func CombineRowBytesIntoBlock(blk [][]byte) []byte {
+	m := 4
+	for _, b := range blk {
+		m += len(b)
+	}
+	b := make([]byte, m)
+	n := len(blk)
+	binary.BigEndian.PutUint32(b, uint32(n))
+	off := 4
+	for _, row := range blk {
+		copy(b[off:], row)
+		off += len(row)
+	}
+	return b
+}
+
 func WriteBlockTo(enc *StrListEncoder, w io.Writer, blk [][]string) (int64, error) {
 	n := len(blk)
 	b := make([]byte, 4)

@@ -12,7 +12,7 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func randomBlock() [][]string {
+func randomBlock(n int) [][]string {
 	blk := make([][]string, 255)
 	for i := 0; i < 255; i++ {
 		blk[i] = make([]string, 10)
@@ -23,9 +23,9 @@ func randomBlock() [][]string {
 	return blk
 }
 
-func TestBlockWriter(t *testing.T) {
+func TestWriteBlockTo(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
-	blk := randomBlock()
+	blk := randomBlock(255)
 	enc := NewStrListEncoder(true)
 	n, err := WriteBlockTo(enc, buf, blk)
 	require.NoError(t, err)
@@ -35,4 +35,21 @@ func TestBlockWriter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, b, int(m))
 	assert.Equal(t, blk, blk2)
+}
+
+func TestCombineRowBytesIntoBlock(t *testing.T) {
+	enc := NewStrListEncoder(false)
+	for _, n := range []int{255, 100} {
+		blk := randomBlock(n)
+		sl := make([][]byte, len(blk))
+		for i, row := range blk {
+			sl[i] = enc.Encode(row)
+		}
+		b := CombineRowBytesIntoBlock(sl)
+		m, blk2, err := ReadBlockFrom(bytes.NewReader(b))
+		require.NoError(t, err)
+		assert.Len(t, b, int(m))
+		assert.Equal(t, len(blk), len(blk2))
+		assert.Equal(t, blk, blk2)
+	}
 }

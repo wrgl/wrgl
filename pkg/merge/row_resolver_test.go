@@ -39,14 +39,13 @@ func TestRowResolverSimpleCases(t *testing.T) {
 	assert.NotEmpty(t, merges[0].ColDiff)
 	blocks, rowsCount := mergehelpers.CollectSortedRows(t, m, nil)
 	assert.Equal(t, uint32(3), rowsCount)
-	assert.Equal(t, []*sorter.Block{
+	assert.Equal(t, []*sorter.Rows{
 		{
-			Block: [][]string{
+			Rows: [][]string{
 				{"2", "a", "s"},
 				{"3", "z", "x"},
 				{"4", "e", "t"},
 			},
-			PK: []string{"2"},
 		},
 	}, blocks)
 }
@@ -122,9 +121,9 @@ func TestRowResolverComplexCases(t *testing.T) {
 	}, merges[1:])
 	blocks, rowsCount := mergehelpers.CollectSortedRows(t, m, nil)
 	assert.Equal(t, uint32(6), rowsCount)
-	assert.Equal(t, []*sorter.Block{
+	assert.Equal(t, []*sorter.Rows{
 		{
-			Block: [][]string{
+			Rows: [][]string{
 				{"1", "q", "", "e"},
 				{"2", "g", "", "d"},
 				{"3", "z", "x"},
@@ -132,7 +131,6 @@ func TestRowResolverComplexCases(t *testing.T) {
 				{"5", "s", "", "j"},
 				{"6", "b", "n"},
 			},
-			PK: []string{"1"},
 		},
 	}, blocks)
 
@@ -178,9 +176,9 @@ func TestRowResolverComplexCases(t *testing.T) {
 	}, merges[1:])
 	blocks, rowsCount = mergehelpers.CollectSortedRows(t, m, nil)
 	assert.Equal(t, uint32(6), rowsCount)
-	assert.Equal(t, []*sorter.Block{
+	assert.Equal(t, []*sorter.Rows{
 		{
-			Block: [][]string{
+			Rows: [][]string{
 				{"1", "q", "", "e"},
 				{"2", "g", "", "d"},
 				{"3", "z", "x"},
@@ -188,7 +186,6 @@ func TestRowResolverComplexCases(t *testing.T) {
 				{"5", "s", "", "j"},
 				{"6", "b", "n"},
 			},
-			PK: []string{"1"},
 		},
 	}, blocks)
 
@@ -261,14 +258,13 @@ func TestRowResolverComplexCases(t *testing.T) {
 	}, merges[1:])
 	blocks, rowsCount = mergehelpers.CollectSortedRows(t, m, nil)
 	assert.Equal(t, uint32(3), rowsCount)
-	assert.Equal(t, []*sorter.Block{
+	assert.Equal(t, []*sorter.Rows{
 		{
-			Block: [][]string{
+			Rows: [][]string{
 				{"1", "q", "w"},
 				{"3", "z", "x"},
 				{"4", "r", "t"},
 			},
-			PK: []string{"1"},
 		},
 	}, blocks)
 }

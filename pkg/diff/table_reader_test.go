@@ -37,7 +37,7 @@ func ingestRows(t *testing.T, db objects.Store, rows [][]string) *objects.Table 
 func TestRowReader(t *testing.T) {
 	db := objmock.NewStore()
 	rows := testutils.BuildRawCSV(4, 700)
-	sorter.SortBlock(rows, []uint32{0})
+	sorter.SortRows(rows, []uint32{0})
 	tbl := ingestRows(t, db, rows)
 
 	r, err := NewTableReader(db, tbl)

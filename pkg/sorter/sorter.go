@@ -62,14 +62,9 @@ type Sorter struct {
 	RowsCount uint32
 }
 
-func SortBlock(blk [][]string, pk []uint32) {
+func SortRows(blk [][]string, pk []uint32) {
 	sort.Slice(blk, func(i, j int) bool {
-		for _, u := range pk {
-			if blk[i][u] < blk[j][u] {
-				return true
-			}
-		}
-		return false
+		return rowIsLess(pk, blk[i], blk[j])
 	})
 }
 
@@ -108,7 +103,7 @@ func (s *Sorter) AddRow(row []string) error {
 	copy(s.current[l], row)
 	if s.size >= s.runSize {
 		s.size = 0
-		SortBlock(s.current, s.PK)
+		SortRows(s.current, s.PK)
 		chunk, err := writeChunk(s.current)
 		if err != nil {
 			return err
@@ -119,7 +114,7 @@ func (s *Sorter) AddRow(row []string) error {
 	return nil
 }
 
-func (s *Sorter) SortFile(f io.ReadCloser, pk []string, errChan chan<- error) (blocks chan *Block, err error) {
+func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 	r := csv.NewReader(f)
 	r.ReuseRecord = true
 	row, err := r.Read()
@@ -147,17 +142,18 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string, errChan chan<- error) (b
 	if err != nil {
 		return
 	}
-	err = f.Close()
-	if err != nil {
-		return
-	}
-	return s.SortedBlocks(nil, errChan), nil
+	return f.Close()
 }
 
 type Block struct {
 	Offset int
-	Block  [][]string
+	Block  []byte
 	PK     []string
+}
+
+type Rows struct {
+	Offset int
+	Rows   [][]string
 }
 
 func (s *Sorter) removeCols(row []string, removedCols map[int]struct{}) []string {
@@ -175,17 +171,115 @@ func (s *Sorter) removeCols(row []string, removedCols map[int]struct{}) []string
 }
 
 func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error) (blocks chan *Block) {
-	blocks = make(chan *Block, 1000)
-	dec := objects.NewStrListDecoder(false)
-	n := len(s.chunks)
-	chunkRows := make([][]string, n)
-	chunkEOF := make([]bool, n)
+	blocks = make(chan *Block, 10)
 	go func() {
 		defer close(blocks)
-		blk := make([][]string, 0, 255)
+		blk := make([][]byte, 0, 255)
 		offset := 0
 		var pk []string
-		SortBlock(s.current, s.PK)
+		n := len(s.chunks)
+		chunkRows := make([]objects.StrList, n)
+		chunkEOF := make([]bool, n)
+		dec := objects.NewStrListDecoder(true)
+		enc := objects.NewStrListEncoder(false)
+		SortRows(s.current, s.PK)
+		var currentBlock objects.StrList
+		r := objects.NewColumnRemover(removedCols)
+		for {
+			minInd := 0
+			var minRow []byte
+			for i, chunk := range s.chunks {
+				if chunkEOF[i] {
+					continue
+				}
+				if chunkRows[i] == nil {
+					_, b, err := dec.ReadBytes(chunk)
+					if err == io.EOF {
+						chunkEOF[i] = true
+						err = s.chunks[i].Close()
+						if err != nil {
+							errChan <- err
+							return
+						}
+						continue
+					}
+					if err != nil {
+						errChan <- err
+						return
+					}
+					chunkRows[i] = b
+				}
+				if minRow == nil || chunkRows[i].LessThan(s.PK, minRow) {
+					minRow = chunkRows[i]
+					minInd = i
+				}
+			}
+			if len(s.current) > 0 {
+				if currentBlock == nil {
+					currentBlock = enc.Encode(s.current[0])
+				}
+				if minRow == nil || currentBlock.LessThan(s.PK, minRow) {
+					minRow = currentBlock
+					minInd = n
+				}
+			}
+			if minRow == nil {
+				break
+			}
+			blk = append(blk, r.RemoveFrom(minRow))
+			minRow = nil
+			if len(blk) == 1 {
+				pk = objects.StrList(blk[0]).ReadColumns(s.PK)
+			}
+			if minInd < n {
+				chunkRows[minInd] = nil
+			} else {
+				s.current = s.current[1:]
+				currentBlock = nil
+			}
+			if len(blk) == 255 {
+				blocks <- &Block{
+					Offset: offset,
+					Block:  objects.CombineRowBytesIntoBlock(blk),
+					PK:     pk,
+				}
+				offset++
+				blk = blk[:0]
+			}
+		}
+		if len(blk) > 0 {
+			blocks <- &Block{
+				Offset: offset,
+				Block:  objects.CombineRowBytesIntoBlock(blk),
+				PK:     pk,
+			}
+		}
+	}()
+	return
+}
+
+func rowIsLess(pk []uint32, a, b []string) bool {
+	for _, u := range pk {
+		if a[u] < b[u] {
+			return true
+		} else if a[u] > b[u] {
+			return false
+		}
+	}
+	return false
+}
+
+func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) (rowsCh chan *Rows) {
+	rowsCh = make(chan *Rows, 10)
+	go func() {
+		defer close(rowsCh)
+		rows := make([][]string, 0, 255)
+		offset := 0
+		n := len(s.chunks)
+		chunkRows := make([][]string, n)
+		chunkEOF := make([]bool, n)
+		dec := objects.NewStrListDecoder(false)
+		SortRows(s.current, s.PK)
 		for {
 			minInd := 0
 			var minRow []string
@@ -240,34 +334,29 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 			if minRow == nil {
 				break
 			}
-			blk = append(blk, s.removeCols(minRow, removedCols))
-			if len(blk) == 1 {
-				pk = slice.IndicesToValues(blk[0], s.PK)
-			}
+			rows = append(rows, s.removeCols(minRow, removedCols))
 			if minInd < n {
 				chunkRows[minInd] = nil
 			} else {
 				s.current = s.current[1:]
 			}
-			if len(blk) == 255 {
-				blocks <- &Block{
+			if len(rows) == 255 {
+				rowsCh <- &Rows{
 					Offset: offset,
-					Block:  blk,
-					PK:     pk,
+					Rows:   rows,
 				}
 				offset++
-				blk = make([][]string, 0, 255)
+				rows = make([][]string, 0, 255)
 			}
 		}
-		if len(blk) > 0 {
-			blocks <- &Block{
+		if len(rows) > 0 {
+			rowsCh <- &Rows{
 				Offset: offset,
-				Block:  blk,
-				PK:     pk,
+				Rows:   rows,
 			}
 		}
 	}()
-	return blocks
+	return rowsCh
 }
 
 func (s *Sorter) Close() error {

@@ -186,6 +186,11 @@ func (m *Merger) SortedBlocks(removedCols map[int]struct{}) (<-chan *sorter.Bloc
 	return m.collector.SortedBlocks(removedCols, m.errChan)
 }
 
+func (m *Merger) SortedRows(removedCols map[int]struct{}) (<-chan *sorter.Rows, uint32, error) {
+	m.errChan = make(chan error, 1)
+	return m.collector.SortedRows(removedCols, m.errChan)
+}
+
 func (m *Merger) Columns(removedCols map[int]struct{}) []string {
 	return m.collector.Columns(removedCols)
 }
