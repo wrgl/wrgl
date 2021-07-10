@@ -28,8 +28,7 @@ func newPreviewCmd() *cobra.Command {
 		}, "\n"),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			closeDebugFile := setupDebug(cmd)
-			defer closeDebugFile()
+			defer setupDebug(cmd)()
 			cStr := args[0]
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)

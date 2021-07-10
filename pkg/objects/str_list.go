@@ -161,6 +161,7 @@ func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
 	count := binary.BigEndian.Uint32(d.buf)
 	n = 4
 	var i uint32
+	var m int
 	for i = 0; i < count; i++ {
 		_, err = r.Read(d.buf[:2])
 		if err != nil {
@@ -170,14 +171,14 @@ func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
 		b = append(b, d.buf[:2]...)
 		l := binary.BigEndian.Uint16(d.buf)
 		d.ensureBufSize(int(l))
-		_, err = r.Read(d.buf[:l])
+		m, err = r.Read(d.buf[:l])
+		n += m
+		b = append(b, d.buf[:m]...)
 		if err != nil {
 			return
 		}
-		n += int(l)
-		b = append(b, d.buf[:l]...)
 	}
-	return
+	return n, b, nil
 }
 
 type StrList []byte

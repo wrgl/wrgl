@@ -51,9 +51,6 @@ func IndexBlockFromBytes(dec *StrListDecoder, blk []byte, pk []uint32) (*BlockIn
 	r := bytes.NewReader(blk[4:])
 	for i := 0; i < n; i++ {
 		_, b, err := dec.ReadBytes(r)
-		if err != nil {
-			return nil, err
-		}
 		rowSum := meow.Checksum(0, b)
 		pkSum := rowSum[:]
 		if len(pk) > 0 {
@@ -63,6 +60,12 @@ func IndexBlockFromBytes(dec *StrListDecoder, blk []byte, pk []uint32) (*BlockIn
 		}
 		idx.sortedOff[i] = uint8(i)
 		idx.Rows[i] = append(pkSum, rowSum[:]...)
+		if err == io.EOF && i == n-1 {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	sort.Sort(idx)
 	return idx, nil

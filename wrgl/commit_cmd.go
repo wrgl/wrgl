@@ -26,6 +26,7 @@ func newCommitCmd() *cobra.Command {
 		Short: "Commit CSV file to a repo",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			defer setupDebug(cmd)()
 			branchName := args[0]
 			csvFilePath := args[1]
 			message := args[2]
@@ -37,6 +38,10 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			memLimit, err := cmd.Flags().GetUint64("mem-limit")
+			if err != nil {
+				return err
+			}
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
 			c, err := utils.AggregateConfig(rd.FullPath)
@@ -44,11 +49,12 @@ func newCommitCmd() *cobra.Command {
 				return err
 			}
 			ensureUserSet(cmd, c)
-			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers, rd, c)
+			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, rd, c)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
+	cmd.Flags().Uint64("mem-limit", 0, "limit memory consumption (in bytes). If this is not set then memory limit is automatically calculated.")
 	return cmd
 }
 
@@ -87,7 +93,7 @@ func ensureUserSet(cmd *cobra.Command, c *conf.Config) {
 	}
 }
 
-func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, rd *utils.RepoDir, c *conf.Config) error {
+func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, memLimit uint64, rd *utils.RepoDir, c *conf.Config) error {
 	if !ref.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
@@ -112,7 +118,7 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		f = file
 	}
 
-	sum, err := ingest.IngestTable(db, f, primaryKey, 0, numWorkers, cmd.OutOrStdout())
+	sum, err := ingest.IngestTable(db, f, primaryKey, memLimit, numWorkers, cmd.OutOrStdout())
 	if err != nil {
 		return err
 	}
