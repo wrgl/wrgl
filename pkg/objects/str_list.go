@@ -40,7 +40,7 @@ func (e *StrListEncoder) Encode(sl []string) []byte {
 		l := uint16(len(s))
 		binary.BigEndian.PutUint16(e.buf[offset:], l)
 		offset += 2
-		copy(e.buf[offset:], []byte(s))
+		copy(e.buf[offset:], s)
 		offset += l
 	}
 	b := e.buf
@@ -100,7 +100,9 @@ func (d *StrListDecoder) Decode(b []byte) []string {
 
 func (d *StrListDecoder) ensureBufSize(n int) {
 	for n > cap(d.buf) {
-		d.buf = make([]byte, cap(d.buf)*2)
+		b := make([]byte, cap(d.buf)*2)
+		copy(b, d.buf)
+		d.buf = b
 	}
 }
 
@@ -157,27 +159,30 @@ func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
 	if err != nil {
 		return
 	}
-	b = append(b, d.buf[:4]...)
 	count := binary.BigEndian.Uint32(d.buf)
 	n = 4
 	var i uint32
 	var m int
 	for i = 0; i < count; i++ {
-		_, err = r.Read(d.buf[:2])
+		d.ensureBufSize(n + 2)
+		_, err = r.Read(d.buf[n : n+2])
 		if err != nil {
 			return
 		}
+		l := binary.BigEndian.Uint16(d.buf[n:])
 		n += 2
-		b = append(b, d.buf[:2]...)
-		l := binary.BigEndian.Uint16(d.buf)
-		d.ensureBufSize(int(l))
-		m, err = r.Read(d.buf[:l])
+		d.ensureBufSize(n + int(l))
+		m, err = r.Read(d.buf[n : n+int(l)])
 		n += m
-		b = append(b, d.buf[:m]...)
+		if err == io.EOF && i == count-1 {
+			break
+		}
 		if err != nil {
 			return
 		}
 	}
+	b = make([]byte, n)
+	copy(b, d.buf[:n])
 	return n, b, nil
 }
 
