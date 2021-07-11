@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/objects"
@@ -16,11 +17,14 @@ import (
 func saveBlock(t *testing.T, db objects.Store, blk [][]string, pk []uint32) ([]byte, *objects.BlockIndex) {
 	t.Helper()
 	buf := bytes.NewBuffer(nil)
-	_, err := objects.WriteBlockTo(buf, blk)
+	enc := objects.NewStrListEncoder(true)
+	_, err := objects.WriteBlockTo(enc, buf, blk)
 	require.NoError(t, err)
 	sum, err := objects.SaveBlock(db, buf.Bytes())
 	require.NoError(t, err)
-	idx := objects.IndexBlock(blk, pk)
+	hash := meow.New(0)
+	idx, err := objects.IndexBlock(enc, hash, blk, pk)
+	require.NoError(t, err)
 	buf.Reset()
 	_, err = idx.WriteTo(buf)
 	require.NoError(t, err)

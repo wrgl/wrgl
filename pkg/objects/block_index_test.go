@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/testutils"
@@ -22,12 +23,14 @@ func fromHex(t *testing.T, s string) []byte {
 
 func TestBlockIndex(t *testing.T) {
 	enc := NewStrListEncoder(true)
-	idx := IndexBlock(enc, [][]string{
+	hash := meow.New(0)
+	idx, err := IndexBlock(enc, hash, [][]string{
 		{"a", "b", "c"},
 		{"d", "e", "f"},
 		{"g", "h", "k"},
 		{"l", "m", "n"},
 	}, []uint32{0})
+	require.NoError(t, err)
 	assert.Equal(t, &BlockIndex{
 		sortedOff: []uint8{3, 1, 2, 0},
 		Rows: [][]byte{
@@ -69,7 +72,8 @@ func TestIndexBlockFromBytes(t *testing.T) {
 		{"l", "m", "n"},
 	})
 	require.NoError(t, err)
-	idx, err := IndexBlockFromBytes(dec, buf.Bytes(), []uint32{0})
+	hash := meow.New(0)
+	idx, err := IndexBlockFromBytes(dec, hash, buf.Bytes(), []uint32{0})
 	require.NoError(t, err)
 	assert.Equal(t, &BlockIndex{
 		sortedOff: []uint8{3, 1, 2, 0},

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/objects"
@@ -40,9 +41,11 @@ func TestSaveBlockIndex(t *testing.T) {
 	s := objmock.NewStore()
 
 	enc := objects.NewStrListEncoder(true)
-	idx := objects.IndexBlock(enc, testutils.BuildRawCSV(5, 10), []uint32{0})
+	hash := meow.New(0)
+	idx, err := objects.IndexBlock(enc, hash, testutils.BuildRawCSV(5, 10), []uint32{0})
+	require.NoError(t, err)
 	buf := bytes.NewBuffer(nil)
-	_, err := idx.WriteTo(buf)
+	_, err = idx.WriteTo(buf)
 	require.NoError(t, err)
 	sum := testutils.SecureRandomBytes(16)
 	require.NoError(t, objects.SaveBlockIndex(s, sum, buf.Bytes()))

@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"sync"
 
+	"github.com/mmcloughlin/meow"
 	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/sorter"
@@ -17,6 +18,7 @@ func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Ta
 	buf := bytes.NewBuffer(nil)
 	defer wg.Done()
 	dec := objects.NewStrListDecoder(true)
+	hash := meow.New(0)
 	for blk := range blocks {
 		// write block and add block to table
 		sum, err := objects.SaveBlock(db, blk.Block)
@@ -27,7 +29,7 @@ func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Ta
 		tbl.Blocks[blk.Offset] = sum
 
 		// write block index and add pk sums to table index
-		idx, err := objects.IndexBlockFromBytes(dec, blk.Block, tbl.PK)
+		idx, err := objects.IndexBlockFromBytes(dec, hash, blk.Block, tbl.PK)
 		if err != nil {
 			errChan <- err
 			return

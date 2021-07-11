@@ -9,8 +9,10 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/mmcloughlin/meow"
 	"github.com/wrgl/core/pkg/index"
 	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/sorter"
 )
 
@@ -90,13 +92,20 @@ func (c *RowCollector) collectRowsThatStayedTheSame() error {
 		return err
 	}
 	enc := objects.NewStrListEncoder(true)
+	hash := meow.New(0)
+	pk := make([]byte, 16)
 	for _, sum := range c.baseT.Blocks {
 		blk, err := objects.GetBlock(c.db, sum)
 		if err != nil {
 			return err
 		}
 		for _, row := range blk {
-			pk := objects.PKCheckSum(enc, row, c.baseT.PK)
+			hash.Reset()
+			_, err := hash.Write(enc.Encode(slice.IndicesToValues(row, c.baseT.PK)))
+			if err != nil {
+				return err
+			}
+			copy(pk, hash.Sum(nil))
 			ok, err := c.discardedRows.Has(pk)
 			if err != nil {
 				return err

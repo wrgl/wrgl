@@ -6,10 +6,10 @@ package objects
 import (
 	"bytes"
 	"encoding/binary"
+	"hash"
 	"io"
 	"sort"
 
-	"github.com/mmcloughlin/meow"
 	"github.com/wrgl/core/pkg/slice"
 )
 
@@ -18,31 +18,36 @@ type BlockIndex struct {
 	Rows      [][]byte
 }
 
-func PKCheckSum(enc *StrListEncoder, row []string, pk []uint32) []byte {
-	sum := meow.Checksum(0, enc.Encode(slice.IndicesToValues(row, pk)))
-	return sum[:]
-}
-
-func IndexBlock(enc *StrListEncoder, blk [][]string, pk []uint32) *BlockIndex {
+func IndexBlock(enc *StrListEncoder, hash hash.Hash, blk [][]string, pk []uint32) (*BlockIndex, error) {
 	n := len(blk)
 	idx := &BlockIndex{
 		sortedOff: make([]uint8, n),
 		Rows:      make([][]byte, n),
 	}
 	for i, row := range blk {
-		rowSum := meow.Checksum(0, enc.Encode(row))
-		pkSum := rowSum[:]
+		idx.Rows[i] = make([]byte, 32)
+		hash.Reset()
+		_, err := hash.Write(enc.Encode(row))
+		if err != nil {
+			return nil, err
+		}
+		copy(idx.Rows[i][:16], hash.Sum(nil))
+		copy(idx.Rows[i][16:], idx.Rows[i][:16])
 		if len(pk) > 0 {
-			pkSum = PKCheckSum(enc, row, pk)
+			hash.Reset()
+			_, err = hash.Write(enc.Encode(slice.IndicesToValues(row, pk)))
+			if err != nil {
+				return nil, err
+			}
+			copy(idx.Rows[i][:16], hash.Sum(nil))
 		}
 		idx.sortedOff[i] = uint8(i)
-		idx.Rows[i] = append(pkSum, rowSum[:]...)
 	}
 	sort.Sort(idx)
-	return idx
+	return idx, nil
 }
 
-func IndexBlockFromBytes(dec *StrListDecoder, blk []byte, pk []uint32) (*BlockIndex, error) {
+func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, blk []byte, pk []uint32) (*BlockIndex, error) {
 	n := int(binary.BigEndian.Uint32(blk))
 	idx := &BlockIndex{
 		sortedOff: make([]uint8, n),
@@ -51,21 +56,29 @@ func IndexBlockFromBytes(dec *StrListDecoder, blk []byte, pk []uint32) (*BlockIn
 	r := bytes.NewReader(blk[4:])
 	for i := 0; i < n; i++ {
 		_, b, err := dec.ReadBytes(r)
-		rowSum := meow.Checksum(0, b)
-		pkSum := rowSum[:]
-		if len(pk) > 0 {
-			b = StrList(b).Pick(pk)
-			arr := meow.Checksum(0, b)
-			pkSum = arr[:]
+		if err != nil {
+			if err == io.EOF && i < n-1 {
+				return nil, io.ErrUnexpectedEOF
+			}
+			return nil, err
 		}
-		idx.sortedOff[i] = uint8(i)
-		idx.Rows[i] = append(pkSum, rowSum[:]...)
-		if err == io.EOF && i == n-1 {
-			break
-		}
+		idx.Rows[i] = make([]byte, 32)
+		hash.Reset()
+		_, err = hash.Write(b)
 		if err != nil {
 			return nil, err
 		}
+		copy(idx.Rows[i][:16], hash.Sum(nil))
+		copy(idx.Rows[i][16:], idx.Rows[i][:16])
+		if len(pk) > 0 {
+			hash.Reset()
+			_, err = hash.Write(StrList(b).Pick(pk))
+			if err != nil {
+				return nil, err
+			}
+			copy(idx.Rows[i][:16], hash.Sum(nil))
+		}
+		idx.sortedOff[i] = uint8(i)
 	}
 	sort.Sort(idx)
 	return idx, nil
