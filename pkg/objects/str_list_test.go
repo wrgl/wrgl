@@ -109,16 +109,9 @@ func TestStrListBytesLess(t *testing.T) {
 		rowBytes[i] = enc.Encode(row)
 	}
 	dec := NewStrListDecoder(true)
-	for _, cols := range [][]uint32{{1}, {2, 3}, {5, 4}} {
+	for _, cols := range [][]uint32{{}, {1}, {2, 3}, {5, 4}} {
 		sort.Slice(rows, func(i, j int) bool {
-			for _, u := range cols {
-				if rows[i][u] < rows[j][u] {
-					return true
-				} else if rows[i][u] > rows[j][u] {
-					return false
-				}
-			}
-			return false
+			return StringSliceIsLess(cols, rows[i], rows[j])
 		})
 		sort.Slice(rowBytes, func(i, j int) bool {
 			return StrList(rowBytes[i]).LessThan(cols, rowBytes[j])
@@ -137,20 +130,30 @@ func TestRemoveColumnsFromStrList(t *testing.T) {
 	b := NewStrListEncoder(true).Encode(row)
 	dec := NewStrListDecoder(true)
 
+	r := NewStrListEditor([]uint32{1})
+	pkRow := []string{row[1]}
+	var dst []byte
+	dst = r.PickFrom(dst, b)
+	assert.Equal(t, pkRow, dec.Decode(dst))
 	row = append(row[:1], row[2:]...)
-	r := NewColumnRemover(map[int]struct{}{1: {}})
 	b = r.RemoveFrom(b)
 	assert.Equal(t, row, dec.Decode(b))
 
+	r = NewStrListEditor([]uint32{2, 3})
+	pkRow = []string{row[2], row[3]}
+	dst = r.PickFrom(dst, b)
+	assert.Equal(t, pkRow, dec.Decode(dst))
 	row = append(row[:3], row[4:]...)
 	row = append(row[:2], row[3:]...)
-	r = NewColumnRemover(map[int]struct{}{2: {}, 3: {}})
 	b = r.RemoveFrom(b)
 	assert.Equal(t, row, dec.Decode(b))
 
+	r = NewStrListEditor([]uint32{5, 4})
+	pkRow = []string{row[5], row[4]}
+	dst = r.PickFrom(dst, b)
+	assert.Equal(t, pkRow, dec.Decode(dst))
 	row = append(row[:5], row[6:]...)
 	row = append(row[:4], row[5:]...)
-	r = NewColumnRemover(map[int]struct{}{5: {}, 4: {}})
 	b = r.RemoveFrom(b)
 	assert.Equal(t, row, dec.Decode(b))
 }

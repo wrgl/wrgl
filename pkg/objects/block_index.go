@@ -25,21 +25,21 @@ func IndexBlock(enc *StrListEncoder, hash hash.Hash, blk [][]string, pk []uint32
 		Rows:      make([][]byte, n),
 	}
 	for i, row := range blk {
-		idx.Rows[i] = make([]byte, 32)
 		hash.Reset()
 		_, err := hash.Write(enc.Encode(row))
 		if err != nil {
 			return nil, err
 		}
-		hash.Sum(idx.Rows[i][:0])
-		copy(idx.Rows[i][16:], idx.Rows[i][:16])
+		sum := hash.Sum(nil)
 		if len(pk) > 0 {
 			hash.Reset()
 			_, err = hash.Write(enc.Encode(slice.IndicesToValues(row, pk)))
 			if err != nil {
 				return nil, err
 			}
-			hash.Sum(idx.Rows[i][:0])
+			idx.Rows[i] = append(hash.Sum(nil), sum...)
+		} else {
+			idx.Rows[i] = append(sum, sum...)
 		}
 		idx.sortedOff[i] = uint8(i)
 	}
@@ -47,13 +47,14 @@ func IndexBlock(enc *StrListEncoder, hash hash.Hash, blk [][]string, pk []uint32
 	return idx, nil
 }
 
-func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, blk []byte, pk []uint32) (*BlockIndex, error) {
+func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, e *StrListEditor, blk []byte, pk []uint32) (*BlockIndex, error) {
 	n := int(binary.BigEndian.Uint32(blk))
 	idx := &BlockIndex{
 		sortedOff: make([]uint8, n),
 		Rows:      make([][]byte, n),
 	}
 	r := bytes.NewReader(blk[4:])
+	var pkb []byte
 	for i := 0; i < n; i++ {
 		_, b, err := dec.ReadBytes(r)
 		if err != nil {
@@ -62,21 +63,22 @@ func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, blk []byte, pk []u
 			}
 			return nil, err
 		}
-		idx.Rows[i] = make([]byte, 32)
 		hash.Reset()
 		_, err = hash.Write(b)
 		if err != nil {
 			return nil, err
 		}
-		hash.Sum(idx.Rows[i][:0])
-		copy(idx.Rows[i][16:], idx.Rows[i][:16])
+		sum := hash.Sum(nil)
 		if len(pk) > 0 {
+			pkb = e.PickFrom(pkb, b)
 			hash.Reset()
-			_, err = hash.Write(StrList(b).Pick(pk))
+			_, err = hash.Write(pkb)
 			if err != nil {
 				return nil, err
 			}
-			hash.Sum(idx.Rows[i][:0])
+			idx.Rows[i] = append(hash.Sum(nil), sum...)
+		} else {
+			idx.Rows[i] = append(sum, sum...)
 		}
 		idx.sortedOff[i] = uint8(i)
 	}

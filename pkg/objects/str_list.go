@@ -226,8 +226,41 @@ func (b StrList) ReadColumns(columns []uint32) []string {
 	return sl
 }
 
+func StringSliceIsLess(pk []uint32, a, b []string) bool {
+	if len(pk) == 0 {
+		for i, s := range a {
+			if s < b[i] {
+				return true
+			} else if s > b[i] {
+				return false
+			}
+		}
+		return false
+	}
+	for _, u := range pk {
+		if a[u] < b[u] {
+			return true
+		} else if a[u] > b[u] {
+			return false
+		}
+	}
+	return false
+}
+
 // LessThan returns true if a is less than b based on given column indices
 func (b StrList) LessThan(columns []uint32, c StrList) bool {
+	if len(columns) == 0 {
+		n := binary.BigEndian.Uint32(b)
+		var i uint32
+		for i = 0; i < n; i++ {
+			if v := bytes.Compare(b.seekColumn(i), c.seekColumn(i)); v == 1 {
+				return false
+			} else if v == -1 {
+				return true
+			}
+		}
+		return false
+	}
 	for _, u := range columns {
 		if v := bytes.Compare(b.seekColumn(u), c.seekColumn(u)); v == 1 {
 			return false
@@ -238,48 +271,46 @@ func (b StrList) LessThan(columns []uint32, c StrList) bool {
 	return false
 }
 
-func (b StrList) Pick(columns []uint32) StrList {
-	c := make([]byte, 4)
-	binary.BigEndian.PutUint32(c, uint32(len(columns)))
-	for _, u := range columns {
-		off, n := b.seekColumnOffset(u)
-		c = append(c, b[off-2:off+n]...)
-	}
-	return c
+// StrListEditor can either remove certain columns from StrList or
+// remove everything except certain columns. It is built to minimize
+// allocations so given StrList will always be edit in place.
+type StrListEditor struct {
+	sortedColumns []uint32
+	colIndices    []int
+	offsets       []int
+	lens          []int
 }
 
-// ColumnRemover removes columns from StrList encoded bytes
-// while minimizing allocations
-type ColumnRemover struct {
-	columns []int
-	offsets []int
-	lens    []int
-}
-
-func NewColumnRemover(columns map[int]struct{}) *ColumnRemover {
+func NewStrListEditor(columns []uint32) *StrListEditor {
 	n := len(columns)
-	r := &ColumnRemover{
-		columns: make([]int, 0, n),
-		offsets: make([]int, n),
-		lens:    make([]int, n),
+	r := &StrListEditor{
+		colIndices:    make([]int, n),
+		sortedColumns: make([]uint32, n),
+		offsets:       make([]int, n),
+		lens:          make([]int, n),
 	}
-	for i := range columns {
-		r.columns = append(r.columns, i)
-	}
-	sort.Slice(r.columns, func(i, j int) bool {
-		return r.columns[i] < r.columns[j]
+	copy(r.sortedColumns, columns)
+	sort.Slice(r.sortedColumns, func(i, j int) bool {
+		return r.sortedColumns[i] < r.sortedColumns[j]
 	})
+	m := map[uint32]int{}
+	for i, j := range r.sortedColumns {
+		m[j] = i
+	}
+	for i := range r.colIndices {
+		r.colIndices[i] = m[columns[i]]
+	}
 	return r
 }
 
-func (r *ColumnRemover) RemoveFrom(b StrList) []byte {
-	var j int
+func (r *StrListEditor) findOffsets(b []byte) (origLen uint32) {
+	var j uint32
 	l := len(b)
-	c := int(binary.BigEndian.Uint32(b))
+	c := binary.BigEndian.Uint32(b)
 	off := 4
 	var n int
 mainLoop:
-	for i, u := range r.columns {
+	for i, u := range r.sortedColumns {
 		if u >= c {
 			panic(fmt.Errorf("column out of bound: %d >= %d", u, c))
 		}
@@ -297,9 +328,41 @@ mainLoop:
 		}
 		panic(fmt.Errorf("corrupted strList bytes"))
 	}
+	return c
+}
+
+func (r *StrListEditor) RemoveFrom(b []byte) []byte {
+	l := r.findOffsets(b)
+	binary.BigEndian.PutUint32(b, l-uint32(len(r.offsets)))
 	for i := len(r.offsets) - 1; i >= 0; i-- {
 		b = append(b[:r.offsets[i]], b[r.offsets[i]+r.lens[i]:]...)
 	}
-	binary.BigEndian.PutUint32(b, uint32(c-len(r.offsets)))
 	return b
+}
+
+func (r *StrListEditor) ensureLength(b []byte, n int) []byte {
+	if n > cap(b) {
+		c := make([]byte, n)
+		copy(c, b)
+		b = c
+	} else {
+		b = b[:n]
+	}
+	return b
+}
+
+func (r *StrListEditor) PickFrom(dst, src []byte) []byte {
+	r.findOffsets(src)
+	total := 0
+	for _, n := range r.lens {
+		total += n
+	}
+	dst = r.ensureLength(dst, 4+total)
+	binary.BigEndian.PutUint32(dst, uint32(len(r.sortedColumns)))
+	off := 4
+	for _, i := range r.colIndices {
+		copy(dst[off:], src[r.offsets[i]:r.offsets[i]+r.lens[i]])
+		off += r.lens[i]
+	}
+	return dst
 }

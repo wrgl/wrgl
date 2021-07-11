@@ -61,6 +61,27 @@ func TestBlockIndex(t *testing.T) {
 	assert.Len(t, b, int(n))
 }
 
+func TestBlockIndexNoPK(t *testing.T) {
+	enc := NewStrListEncoder(true)
+	hash := meow.New(0)
+	idx, err := IndexBlock(enc, hash, [][]string{
+		{"a", "b", "c"},
+		{"d", "e", "f"},
+		{"g", "h", "k"},
+		{"l", "m", "n"},
+	}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, &BlockIndex{
+		sortedOff: []uint8{3, 2, 1, 0},
+		Rows: [][]byte{
+			fromHex(t, "eef20ff2a729c390fcac9f0fd26ffddaeef20ff2a729c390fcac9f0fd26ffdda"),
+			fromHex(t, "98afafdab4b3d3b689ccbed342fbad6198afafdab4b3d3b689ccbed342fbad61"),
+			fromHex(t, "79e081c585f5396378c6debd3b3a694479e081c585f5396378c6debd3b3a6944"),
+			fromHex(t, "6773cc7ad69cd3e78c6f08e7709a94496773cc7ad69cd3e78c6f08e7709a9449"),
+		},
+	}, idx)
+}
+
 func TestIndexBlockFromBytes(t *testing.T) {
 	enc := NewStrListEncoder(true)
 	dec := NewStrListDecoder(true)
@@ -73,7 +94,8 @@ func TestIndexBlockFromBytes(t *testing.T) {
 	})
 	require.NoError(t, err)
 	hash := meow.New(0)
-	idx, err := IndexBlockFromBytes(dec, hash, buf.Bytes(), []uint32{0})
+	e := NewStrListEditor([]uint32{0})
+	idx, err := IndexBlockFromBytes(dec, hash, e, buf.Bytes(), []uint32{0})
 	require.NoError(t, err)
 	assert.Equal(t, &BlockIndex{
 		sortedOff: []uint8{3, 1, 2, 0},
@@ -89,4 +111,30 @@ func TestIndexBlockFromBytes(t *testing.T) {
 		assert.Equal(t, row[16:], b)
 		assert.Equal(t, i, int(j))
 	}
+}
+
+func TestIndexBlockFromBytesNoPK(t *testing.T) {
+	enc := NewStrListEncoder(true)
+	dec := NewStrListDecoder(true)
+	buf := bytes.NewBuffer(nil)
+	_, err := WriteBlockTo(enc, buf, [][]string{
+		{"a", "b", "c"},
+		{"d", "e", "f"},
+		{"g", "h", "k"},
+		{"l", "m", "n"},
+	})
+	require.NoError(t, err)
+	hash := meow.New(0)
+	e := NewStrListEditor(nil)
+	idx, err := IndexBlockFromBytes(dec, hash, e, buf.Bytes(), nil)
+	require.NoError(t, err)
+	assert.Equal(t, &BlockIndex{
+		sortedOff: []uint8{3, 2, 1, 0},
+		Rows: [][]byte{
+			fromHex(t, "eef20ff2a729c390fcac9f0fd26ffddaeef20ff2a729c390fcac9f0fd26ffdda"),
+			fromHex(t, "98afafdab4b3d3b689ccbed342fbad6198afafdab4b3d3b689ccbed342fbad61"),
+			fromHex(t, "79e081c585f5396378c6debd3b3a694479e081c585f5396378c6debd3b3a6944"),
+			fromHex(t, "6773cc7ad69cd3e78c6f08e7709a94496773cc7ad69cd3e78c6f08e7709a9449"),
+		},
+	}, idx)
 }

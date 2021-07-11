@@ -27,7 +27,7 @@ func getRunSize() (uint64, error) {
 	if size < total/8 {
 		size = total / 8
 	}
-	return size / 2, nil
+	return size / 4, nil
 }
 
 func writeChunk(rows [][]string) (*os.File, error) {
@@ -66,7 +66,7 @@ type Sorter struct {
 
 func SortRows(blk [][]string, pk []uint32) {
 	sort.Slice(blk, func(i, j int) bool {
-		return rowIsLess(pk, blk[i], blk[j])
+		return objects.StringSliceIsLess(pk, blk[i], blk[j])
 	})
 }
 
@@ -193,7 +193,11 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 		enc := objects.NewStrListEncoder(false)
 		SortRows(s.current, s.PK)
 		var currentBlock objects.StrList
-		r := objects.NewColumnRemover(removedCols)
+		remSl := make([]uint32, 0, len(removedCols))
+		for i := range removedCols {
+			remSl = append(remSl, uint32(i))
+		}
+		r := objects.NewStrListEditor(remSl)
 		for {
 			minInd := 0
 			var minRow []byte
@@ -277,17 +281,6 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 		}
 	}()
 	return
-}
-
-func rowIsLess(pk []uint32, a, b []string) bool {
-	for _, u := range pk {
-		if a[u] < b[u] {
-			return true
-		} else if a[u] > b[u] {
-			return false
-		}
-	}
-	return false
 }
 
 func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) (rowsCh chan *Rows) {
