@@ -201,16 +201,20 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 				if chunkEOF[i] {
 					continue
 				}
-				if chunkRows[i] == nil {
-					_, b, err := dec.ReadBytes(chunk)
+				if len(chunkRows[i]) == 0 {
+					n, b, err := dec.ReadBytes(chunk)
 					if err == io.EOF {
 						chunkEOF[i] = true
 					} else if err != nil {
 						errChan <- err
 						return
 					}
-					if len(b) > 0 {
-						chunkRows[i] = b
+					if n > 0 {
+						if n > cap(chunkRows[i]) {
+							chunkRows[i] = make([]byte, n)
+						}
+						chunkRows[i] = chunkRows[i][:n]
+						copy(chunkRows[i], b)
 					} else {
 						continue
 					}
@@ -232,13 +236,24 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 			if minRow == nil {
 				break
 			}
-			blk = append(blk, r.RemoveFrom(minRow))
+
+			// append min row to block
+			m := len(blk)
+			blk = blk[:m+1]
+			minRow = r.RemoveFrom(minRow)
+			if k := len(minRow); k > cap(blk[m]) {
+				blk[m] = make([]byte, k)
+			} else {
+				blk[m] = blk[m][:k]
+			}
+			copy(blk[m], minRow)
 			minRow = nil
+
 			if len(blk) == 1 {
 				pk = objects.StrList(blk[0]).ReadColumns(s.PK)
 			}
 			if minInd < n {
-				chunkRows[minInd] = nil
+				chunkRows[minInd] = chunkRows[minInd][:0]
 			} else {
 				s.current = s.current[1:]
 				currentBlock = nil

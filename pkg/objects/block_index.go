@@ -31,7 +31,7 @@ func IndexBlock(enc *StrListEncoder, hash hash.Hash, blk [][]string, pk []uint32
 		if err != nil {
 			return nil, err
 		}
-		copy(idx.Rows[i][:16], hash.Sum(nil))
+		hash.Sum(idx.Rows[i][:0])
 		copy(idx.Rows[i][16:], idx.Rows[i][:16])
 		if len(pk) > 0 {
 			hash.Reset()
@@ -39,7 +39,7 @@ func IndexBlock(enc *StrListEncoder, hash hash.Hash, blk [][]string, pk []uint32
 			if err != nil {
 				return nil, err
 			}
-			copy(idx.Rows[i][:16], hash.Sum(nil))
+			hash.Sum(idx.Rows[i][:0])
 		}
 		idx.sortedOff[i] = uint8(i)
 	}
@@ -68,7 +68,7 @@ func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, blk []byte, pk []u
 		if err != nil {
 			return nil, err
 		}
-		copy(idx.Rows[i][:16], hash.Sum(nil))
+		hash.Sum(idx.Rows[i][:0])
 		copy(idx.Rows[i][16:], idx.Rows[i][:16])
 		if len(pk) > 0 {
 			hash.Reset()
@@ -76,7 +76,7 @@ func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, blk []byte, pk []u
 			if err != nil {
 				return nil, err
 			}
-			copy(idx.Rows[i][:16], hash.Sum(nil))
+			hash.Sum(idx.Rows[i][:0])
 		}
 		idx.sortedOff[i] = uint8(i)
 	}

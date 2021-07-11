@@ -53,14 +53,16 @@ func (e *StrListEncoder) Encode(sl []string) []byte {
 
 // StrListDecoder decodes string slice.
 type StrListDecoder struct {
-	strs []string
-	buf  []byte
-	pos  int
+	strs         []string
+	buf          []byte
+	reuseRecords bool
+	pos          int
 }
 
 func NewStrListDecoder(reuseRecords bool) *StrListDecoder {
 	d := &StrListDecoder{
-		buf: make([]byte, 4),
+		buf:          make([]byte, 4),
+		reuseRecords: reuseRecords,
 	}
 	if reuseRecords {
 		d.strs = make([]string, 0, 256)
@@ -135,7 +137,7 @@ func (d *StrListDecoder) Read(r io.Reader) (int, []string, error) {
 	for i = 0; i < count; i++ {
 		l, err := d.readUint16(r)
 		if err != nil {
-			return d.pos, nil, err
+			return 0, nil, err
 		}
 		if l == 0 {
 			sl = append(sl, "")
@@ -149,7 +151,7 @@ func (d *StrListDecoder) Read(r io.Reader) (int, []string, error) {
 			break
 		}
 		if err != nil {
-			return d.pos, nil, err
+			return 0, nil, err
 		}
 	}
 	return d.pos, sl, nil
@@ -182,9 +184,12 @@ func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
 			return
 		}
 	}
-	b = make([]byte, n)
-	copy(b, d.buf[:n])
-	return n, b, nil
+	if !d.reuseRecords {
+		b = make([]byte, n)
+		copy(b, d.buf[:n])
+		return n, b, nil
+	}
+	return n, d.buf[:n], nil
 }
 
 type StrList []byte
