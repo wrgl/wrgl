@@ -80,7 +80,12 @@ func TestCommitFromStdin(t *testing.T) {
 	_, cleanup := createRepoDir(t)
 	defer cleanup()
 
-	fp := createRandomCSVFile(t)
+	fp := createCSVFile(t, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
 	defer os.Remove(fp)
 
 	f, err := os.Open(fp)

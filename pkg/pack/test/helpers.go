@@ -191,11 +191,11 @@ func AssertCommitsPersisted(t *testing.T, db objects.Store, rs ref.Store, commit
 	t.Helper()
 	for _, sum := range commits {
 		c, err := objects.GetCommit(db, sum)
-		require.NoError(t, err)
+		require.NoError(t, err, "commit %x not found", sum)
 		tbl, err := objects.GetTable(db, c.Table)
-		require.NoError(t, err)
+		require.NoError(t, err, "table %x not found", c.Table)
 		for _, blk := range tbl.Blocks {
-			assert.True(t, objects.BlockExist(db, blk))
+			assert.True(t, objects.BlockExist(db, blk), "block %x not found", blk)
 		}
 	}
 }

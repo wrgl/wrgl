@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/pack"
 	packclient "github.com/wrgl/core/pkg/pack/client"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
@@ -60,11 +61,10 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("To %s\n", cr.URL)
-			upToDateRefspecs, updates, commits, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
+			upToDateRefspecs, updates, commits, commonCommits, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
 			if err != nil {
 				return err
 			}
-			commonCommits := identifyCommonCommits(db, remoteRefs)
 			err = client.PostReceivePack(updates, commits, commonCommits)
 			if err != nil {
 				return err
@@ -112,22 +112,6 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) 
 		}
 	}
 	return utils.SaveConfig(c)
-}
-
-func identifyCommonCommits(db objects.Store, remoteRefs map[string][]byte) [][]byte {
-	m := map[string]struct{}{}
-	sums := [][]byte{}
-	for _, v := range remoteRefs {
-		if _, ok := m[string(v)]; ok {
-			continue
-		} else {
-			m[string(v)] = struct{}{}
-		}
-		if objects.CommitExist(db, v) {
-			sums = append(sums, v)
-		}
-	}
-	return sums
 }
 
 func getRepoToPush(c *conf.Config, args []string) (remote string, cr *conf.ConfigRemote, rem []string, err error) {
@@ -209,14 +193,14 @@ func interpretDestination(remoteRefs map[string][]byte, src, dst string) (string
 
 func identifyUpdates(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, refspecs []*conf.Refspec, remoteRefs map[string][]byte, force bool,
-) (upToDateRefspecs []*conf.Refspec, updates []*packutils.Update, commitsToSend []*objects.Commit, err error) {
+) (upToDateRefspecs []*conf.Refspec, updates []*packutils.Update, commitsToSend []*objects.Commit, commonCommits [][]byte, err error) {
+	wants := [][]byte{}
 	for _, s := range refspecs {
 		src := s.Src()
 		dst := s.Dst()
 		var sum []byte
-		var commit *objects.Commit
 		if src != "" {
-			_, sum, commit, err = ref.InterpretCommitName(db, rs, src, false)
+			_, sum, _, err = ref.InterpretCommitName(db, rs, src, false)
 			if err != nil {
 				err = fmt.Errorf("unrecognized ref %q", src)
 				return
@@ -247,12 +231,12 @@ func identifyUpdates(
 						Dst:    dst,
 						Force:  true,
 					})
-					commitsToSend = append(commitsToSend, commit)
+					wants = append(wants, sum)
 				} else {
 					displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", src, dst)
 				}
 			} else if fastForward, err := ref.IsAncestorOf(db, v, sum); err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, nil, err
 			} else if fastForward {
 				updates = append(updates, &packutils.Update{
 					OldSum: v,
@@ -260,7 +244,7 @@ func identifyUpdates(
 					Src:    src,
 					Dst:    dst,
 				})
-				commitsToSend = append(commitsToSend, commit)
+				wants = append(wants, sum)
 			} else if force || s.Force {
 				updates = append(updates, &packutils.Update{
 					OldSum: v,
@@ -269,7 +253,7 @@ func identifyUpdates(
 					Dst:    dst,
 					Force:  true,
 				})
-				commitsToSend = append(commitsToSend, commit)
+				wants = append(wants, sum)
 			} else {
 				displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", src, dst)
 			}
@@ -280,9 +264,20 @@ func identifyUpdates(
 				Src:    src,
 				Dst:    dst,
 			})
-			commitsToSend = append(commitsToSend, commit)
+			wants = append(wants, sum)
 		}
 	}
+	haves := make([][]byte, 0, len(remoteRefs))
+	for _, b := range haves {
+		haves = append(haves, b)
+	}
+	neg := pack.NewNegotiator()
+	err = neg.ProcessWants(db, rs, wants, haves, true)
+	if err != nil {
+		return
+	}
+	commitsToSend = neg.CommitsToSend()
+	commonCommits = neg.CommonCommmits()
 	return
 }
 

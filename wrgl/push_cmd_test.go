@@ -232,3 +232,43 @@ func TestPushCmdSetUpstream(t *testing.T) {
 		},
 	}, c.Branch)
 }
+
+func TestPushCmdDepthGreaterThanOne(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.Deactivate()
+	dbs := objmock.NewStore()
+	rss := refmock.NewStore()
+	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rss))
+	packtest.RegisterHandler(
+		http.MethodPost, "/receive-pack/", pack.NewReceivePackHandler(dbs, rss, packtest.ReceivePackConfig(false, false)),
+	)
+
+	rd, cleanUp := createRepoDir(t)
+	defer cleanUp()
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	rs := rd.OpenRefStore()
+	sum1, _ := factory.CommitRandom(t, db, nil)
+	t.Logf("sum1: %x", sum1)
+	sum2, c2 := factory.CommitRandom(t, db, [][]byte{sum1})
+	t.Logf("sum2: %x", sum2)
+	require.NoError(t, ref.CommitHead(rs, "alpha", sum2, c2))
+	require.NoError(t, db.Close())
+
+	cmd := newRootCmd()
+	cmd.SetArgs([]string{"remote", "add", "my-repo", packtest.TestOrigin})
+	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{
+		"push", "my-repo", "refs/heads/alpha:",
+	})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		fmt.Sprintf("To %s", packtest.TestOrigin),
+		" * [new branch]      alpha       -> alpha",
+		"",
+	}, "\n"))
+
+	packtest.AssertCommitsPersisted(t, dbs, rss, [][]byte{sum1, sum2})
+	assertRefStore(t, rss, "heads/alpha", sum2)
+}

@@ -15,6 +15,7 @@ import (
 
 type Negotiator struct {
 	commons map[string]struct{}
+	acks    [][]byte
 	wants   map[string]struct{}
 	lists   []*list.List
 }
@@ -127,7 +128,7 @@ func (n *Negotiator) findCommons(db objects.Store, queue *ref.CommitsQueue, have
 	return commons, nil
 }
 
-func (n *Negotiator) findClosedSetOfObjects(db objects.Store) (err error) {
+func (n *Negotiator) findClosedSetOfObjects(db objects.Store, done bool) (err error) {
 	alreadySeenCommits := map[string]struct{}{}
 	wants := map[string]struct{}{}
 wantsLoop:
@@ -151,11 +152,11 @@ wantsLoop:
 			if err != nil {
 				return err
 			}
-			l.PushBack(c)
+			l.PushFront(c)
 			// reached a root commit but still haven't seen anything in common
 			if len(c.Parents) == 0 {
 				// if there's nothing in common then everything including the root should be sent
-				if len(n.commons) == 0 {
+				if len(n.commons) == 0 || done {
 					break
 				}
 				wants[string(want)] = struct{}{}
@@ -184,6 +185,17 @@ func (n *Negotiator) HandleUploadPackRequest(db objects.Store, rs ref.Store, wan
 			return nil, NewBadRequestError("empty wants list")
 		}
 	}
+	err = n.ProcessWants(db, rs, wants, haves, done)
+	if err != nil {
+		return
+	}
+	if len(n.wants) > 0 && !done {
+		acks = n.acks
+	}
+	return
+}
+
+func (n *Negotiator) ProcessWants(db objects.Store, rs ref.Store, wants, haves [][]byte, done bool) (err error) {
 	m, err := ref.ListLocalRefs(rs)
 	if err != nil {
 		return
@@ -209,18 +221,10 @@ func (n *Negotiator) HandleUploadPackRequest(db objects.Store, rs ref.Store, wan
 	if err != nil {
 		return
 	}
+	n.acks = n.acks[:0]
 	for _, b := range commons {
 		n.commons[string(b)] = struct{}{}
+		n.acks = append(n.acks, b)
 	}
-	err = n.findClosedSetOfObjects(db)
-	if err != nil {
-		return
-	}
-	if len(n.wants) > 0 && !done {
-		acks = make([][]byte, 0, len(n.commons))
-		for b := range n.commons {
-			acks = append(acks, []byte(b))
-		}
-	}
-	return
+	return n.findClosedSetOfObjects(db, done)
 }

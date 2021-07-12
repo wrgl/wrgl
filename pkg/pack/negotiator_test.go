@@ -52,28 +52,35 @@ func TestNegotiatorSendACKs(t *testing.T) {
 	rs := refmock.NewStore()
 	sum1, _ := refhelpers.SaveTestCommit(t, db, nil)
 	sum2, _ := refhelpers.SaveTestCommit(t, db, nil)
-	sum3, c3 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
-	sum4, c4 := refhelpers.SaveTestCommit(t, db, [][]byte{sum2})
-	sum5, c5 := refhelpers.SaveTestCommit(t, db, [][]byte{sum3})
+	sum3, _ := refhelpers.SaveTestCommit(t, db, nil)
+	sum4, c4 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
+	sum5, c5 := refhelpers.SaveTestCommit(t, db, [][]byte{sum2, sum3})
 	sum6, c6 := refhelpers.SaveTestCommit(t, db, [][]byte{sum4})
-	require.NoError(t, ref.CommitHead(rs, "main", sum5, c5))
-	require.NoError(t, ref.SaveTag(rs, "v1", sum6))
+	sum7, c7 := refhelpers.SaveTestCommit(t, db, [][]byte{sum5})
+	sum8, c8 := refhelpers.SaveTestCommit(t, db, nil)
+	sum9, c9 := refhelpers.SaveTestCommit(t, db, [][]byte{sum8})
+	require.NoError(t, ref.CommitHead(rs, "alpha", sum6, c6))
+	require.NoError(t, ref.SaveTag(rs, "v1", sum7))
+	require.NoError(t, ref.CommitHead(rs, "beta", sum9, c9))
 
 	neg := NewNegotiator()
-	acks, err := neg.HandleUploadPackRequest(db, rs, [][]byte{sum5, sum6}, [][]byte{sum1}, false)
+	acks, err := neg.HandleUploadPackRequest(db, rs, [][]byte{sum6, sum7, sum9}, [][]byte{sum1}, false)
 	require.NoError(t, err)
 	// ACK sum1
 	assert.Equal(t, [][]byte{sum1}, acks)
+
 	acks, err = neg.HandleUploadPackRequest(db, rs, nil, [][]byte{sum2}, false)
 	require.NoError(t, err)
-	// server has found closed set of objects, therefore acks is nil
+	// ACK sum2
+	assert.Equal(t, [][]byte{sum2}, acks)
+
+	acks, err = neg.HandleUploadPackRequest(db, rs, nil, [][]byte{sum3}, true)
+	require.NoError(t, err)
+	// done negotiating therefore no more ACKs
 	assert.Empty(t, acks)
+
 	commits := neg.CommitsToSend()
-	assert.Len(t, commits, 4)
-	objhelpers.AssertCommitEqual(t, c5, commits[0])
-	objhelpers.AssertCommitEqual(t, c3, commits[1])
-	objhelpers.AssertCommitEqual(t, c6, commits[2])
-	objhelpers.AssertCommitEqual(t, c4, commits[3])
+	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c4, c5, c6, c7, c8, c9}, commits, true)
 }
 
 func TestNegotiatorFoundUnrecognizedWants(t *testing.T) {

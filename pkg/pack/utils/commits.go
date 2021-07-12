@@ -99,6 +99,12 @@ func sendBlocks(db objects.Store, pw *encoding.PackfileWriter, blocks [][]byte) 
 }
 
 func WriteCommitsToPackfile(db objects.Store, commits []*objects.Commit, commonCommits [][]byte, w io.Writer) error {
+	// TODO: this function write everything into a single pack file.
+	// Replace this with something that can write objects over multiple requests.
+	// It should try to write 1 commit at a time, from oldest to latest, start
+	// by sending the blocks, then the table then the commit. The receiver
+	// should always validate the table (refers to blocks which already exist)
+	// and the commit (refers to table and parents which are already saved)
 	commonTables, err := getCommonTables(db, commonCommits)
 	if err != nil {
 		return err
