@@ -6,9 +6,7 @@ package packclient
 import (
 	"fmt"
 	"io"
-	"sync"
 
-	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/objects"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
@@ -16,30 +14,25 @@ import (
 
 const defaultHavesPerRoundTrip = 32
 
-type Negotiator struct {
+type UploadPackSession struct {
 	c                 *Client
 	db                objects.Store
+	receiver          *packutils.ObjectReceiver
 	rs                ref.Store
-	ObjectChan        chan *packutils.Object
 	wants             [][]byte
 	q                 *ref.CommitsQueue
-	done              bool
 	popCount          int
-	wg                *sync.WaitGroup
-	Advertised        map[string][]byte
 	havesPerRoundTrip int
 }
 
-func NewNegotiator(db objects.Store, rs ref.Store, wg *sync.WaitGroup, c *Client, advertised [][]byte, havesPerRoundTrip int) (*Negotiator, error) {
+func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised [][]byte, havesPerRoundTrip int) (*UploadPackSession, error) {
 	if havesPerRoundTrip == 0 {
 		havesPerRoundTrip = defaultHavesPerRoundTrip
 	}
-	neg := &Negotiator{
+	neg := &UploadPackSession{
 		c:                 c,
 		db:                db,
 		rs:                rs,
-		ObjectChan:        make(chan *packutils.Object, 100),
-		wg:                wg,
 		havesPerRoundTrip: havesPerRoundTrip,
 	}
 	for _, b := range advertised {
@@ -50,14 +43,15 @@ func NewNegotiator(db objects.Store, rs ref.Store, wg *sync.WaitGroup, c *Client
 	if len(neg.wants) == 0 {
 		return nil, fmt.Errorf("nothing wanted")
 	}
+	neg.receiver = packutils.NewObjectReceiver(db, neg.wants)
 	return neg, nil
 }
 
-func (n *Negotiator) popHaves() (haves [][]byte, err error) {
+func (n *UploadPackSession) popHaves() (haves [][]byte, done bool, err error) {
 	if n.q == nil {
 		m, err := ref.ListAllRefs(n.rs)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		sl := [][]byte{}
 		for _, v := range m {
@@ -65,66 +59,52 @@ func (n *Negotiator) popHaves() (haves [][]byte, err error) {
 		}
 		n.q, err = ref.NewCommitsQueue(n.db, sl)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 	for i := 0; i < n.havesPerRoundTrip; i++ {
 		sum, _, err := n.q.PopInsertParents()
 		if err == io.EOF {
-			n.done = true
+			done = true
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		haves = append(haves, sum)
 		n.popCount++
 	}
 	if n.popCount >= 256 {
-		n.done = true
+		done = true
 	}
 	return
 }
 
-func (n *Negotiator) emitObjects(pr *encoding.PackfileReader) error {
+func (n *UploadPackSession) Start() ([][]byte, error) {
 	for {
-		t, b, err := pr.ReadObject()
-		if err == io.EOF {
-			break
-		}
+		haves, done, err := n.popHaves()
 		if err != nil {
-			return err
+			return nil, err
 		}
-		n.wg.Add(1)
-		n.ObjectChan <- &packutils.Object{Type: t, Content: b}
-	}
-	close(n.ObjectChan)
-	return nil
-}
-
-func (n *Negotiator) Start() error {
-	for {
-		haves, err := n.popHaves()
+		acks, pr, err := n.c.PostUploadPack(n.wants, haves, done)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		acks, pr, err := n.c.PostUploadPack(n.wants, haves, n.done)
-		if err != nil {
-			return err
-		}
+		n.wants = nil
 		if acks == nil {
 			defer pr.Close()
-			err = n.emitObjects(pr)
+			doneReceiving, err := n.receiver.Receive(pr)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			break
+			if doneReceiving {
+				break
+			}
 		}
 		err = n.q.RemoveAncestors(acks)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		n.wants = nil
 	}
-	return nil
+	return n.receiver.ReceivedCommits, nil
 }

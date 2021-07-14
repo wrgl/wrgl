@@ -148,42 +148,42 @@ func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, advertised [][]b
 	c, err := packclient.NewClient(db, TestOrigin)
 	require.NoError(t, err)
 	wg := sync.WaitGroup{}
-	neg, err := packclient.NewNegotiator(db, rs, &wg, c, advertised, havesPerRoundTrip)
+	neg, err := packclient.NewUploadPackSession(db, rs, &wg, c, advertised, havesPerRoundTrip)
 	require.NoError(t, err)
 	err = neg.Start()
 	require.NoError(t, err)
 	return neg.ObjectChan
 }
 
-func CopyCommitsToNewStore(t *testing.T, dba, dbb objects.Store, commits [][]byte) {
+func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byte) {
 	t.Helper()
 	enc := objects.NewStrListEncoder(true)
 	for _, sum := range commits {
-		c, err := objects.GetCommit(dba, sum)
+		c, err := objects.GetCommit(src, sum)
 		require.NoError(t, err)
-		tbl, err := objects.GetTable(dba, c.Table)
+		tbl, err := objects.GetTable(src, c.Table)
 		require.NoError(t, err)
 		buf := bytes.NewBuffer(nil)
 		for _, sum := range tbl.Blocks {
-			blk, err := objects.GetBlock(dba, sum)
+			blk, err := objects.GetBlock(src, sum)
 			require.NoError(t, err)
 			buf.Reset()
 			_, err = objects.WriteBlockTo(enc, buf, blk)
 			require.NoError(t, err)
-			_, err = objects.SaveBlock(dbb, buf.Bytes())
+			_, err = objects.SaveBlock(dst, buf.Bytes())
 			require.NoError(t, err)
 		}
 		buf.Reset()
 		_, err = tbl.WriteTo(buf)
 		require.NoError(t, err)
-		_, err = objects.SaveTable(dbb, buf.Bytes())
+		_, err = objects.SaveTable(dst, buf.Bytes())
 		require.NoError(t, err)
 		buf.Reset()
 		_, err = c.WriteTo(buf)
 		require.NoError(t, err)
-		_, err = objects.SaveCommit(dbb, buf.Bytes())
+		_, err = objects.SaveCommit(dst, buf.Bytes())
 		require.NoError(t, err)
-		require.NoError(t, ingest.IndexTable(dbb, c.Table, tbl))
+		require.NoError(t, ingest.IndexTable(dst, c.Table, tbl))
 	}
 }
 

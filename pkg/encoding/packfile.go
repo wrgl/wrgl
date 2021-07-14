@@ -43,7 +43,7 @@ func (w *PackfileWriter) writeVersion() error {
 	return err
 }
 
-func (w *PackfileWriter) WriteObject(objType int, b []byte) error {
+func (w *PackfileWriter) WriteObject(objType int, b []byte) (int, error) {
 	n := len(b)
 	bits := int(math.Ceil(math.Log2(float64(n))))
 	numBytes := (bits-4)/7 + 1
@@ -62,15 +62,16 @@ func (w *PackfileWriter) WriteObject(objType int, b []byte) error {
 		bits += 7
 	}
 	buf[numBytes-1] &= 127
-	_, err := w.w.Write(buf)
+	total, err := w.w.Write(buf)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	_, err = w.w.Write(b)
+	m, err := w.w.Write(b)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	total += m
+	return total, nil
 }
 
 type PackfileReader struct {

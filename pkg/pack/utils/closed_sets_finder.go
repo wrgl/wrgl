@@ -1,42 +1,47 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package pack
+package packutils
 
 import (
 	"container/list"
-	"encoding/hex"
 	"io"
-	"strings"
 
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
 
-type Negotiator struct {
+// ClosedSetsFinder finds closed sets of commits to send.
+// A set of commits is closed if all ancestors already exist
+// in destination repository.
+type ClosedSetsFinder struct {
+	db      objects.Store
+	rs      ref.Store
 	commons map[string]struct{}
 	acks    [][]byte
-	wants   map[string]struct{}
+	Wants   map[string]struct{}
 	lists   []*list.List
 }
 
-func NewNegotiator() *Negotiator {
-	return &Negotiator{
+func NewClosedSetsFinder(db objects.Store, rs ref.Store) *ClosedSetsFinder {
+	return &ClosedSetsFinder{
+		db:      db,
+		rs:      rs,
 		commons: map[string]struct{}{},
-		wants:   map[string]struct{}{},
+		Wants:   map[string]struct{}{},
 	}
 }
 
-func (n *Negotiator) CommonCommmits() [][]byte {
+func (f *ClosedSetsFinder) CommonCommmits() [][]byte {
 	result := [][]byte{}
-	for sum := range n.commons {
+	for sum := range f.commons {
 		result = append(result, []byte(sum))
 	}
 	return result
 }
 
-func (n *Negotiator) CommitsToSend() (commits []*objects.Commit) {
-	for _, l := range n.lists {
+func (f *ClosedSetsFinder) CommitsToSend() (commits []*objects.Commit) {
+	for _, l := range f.lists {
 		e := l.Front()
 		for e != nil {
 			commits = append(commits, e.Value.(*objects.Commit))
@@ -46,7 +51,7 @@ func (n *Negotiator) CommitsToSend() (commits []*objects.Commit) {
 	return
 }
 
-func (n *Negotiator) ensureWantsAreReachable(queue *ref.CommitsQueue, wants [][]byte) error {
+func (f *ClosedSetsFinder) ensureWantsAreReachable(queue *ref.CommitsQueue, wants [][]byte) error {
 	confirmed := map[string]struct{}{}
 	for _, want := range wants {
 		if queue.Seen(want) {
@@ -65,17 +70,17 @@ func (n *Negotiator) ensureWantsAreReachable(queue *ref.CommitsQueue, wants [][]
 	if len(confirmed) == len(wants) {
 		return nil
 	}
-	sums := []string{}
+	sums := [][]byte{}
 	for _, want := range wants {
 		if _, ok := confirmed[string(want)]; ok {
 			continue
 		}
-		sums = append(sums, hex.EncodeToString(want))
+		sums = append(sums, want)
 	}
-	return NewBadRequestError("unrecognized wants: %s", strings.Join(sums, ", "))
+	return &UnrecognizedWantsError{sums: sums}
 }
 
-func (n *Negotiator) findCommons(db objects.Store, queue *ref.CommitsQueue, haves [][]byte) (commons [][]byte, err error) {
+func (f *ClosedSetsFinder) findCommons(queue *ref.CommitsQueue, haves [][]byte) (commons [][]byte, err error) {
 	ancestors := map[string]struct{}{}
 	addToCommons := func(b []byte) error {
 		if _, ok := ancestors[string(b)]; ok {
@@ -92,7 +97,7 @@ func (n *Negotiator) findCommons(db objects.Store, queue *ref.CommitsQueue, have
 				continue
 			}
 			ancestors[string(sum)] = struct{}{}
-			commit, err := objects.GetCommit(db, sum)
+			commit, err := objects.GetCommit(f.db, sum)
 			if err != nil {
 				return err
 			}
@@ -128,11 +133,11 @@ func (n *Negotiator) findCommons(db objects.Store, queue *ref.CommitsQueue, have
 	return commons, nil
 }
 
-func (n *Negotiator) findClosedSetOfObjects(db objects.Store, done bool) (err error) {
+func (f *ClosedSetsFinder) findClosedSetOfObjects(done bool) (err error) {
 	alreadySeenCommits := map[string]struct{}{}
 	wants := map[string]struct{}{}
 wantsLoop:
-	for want := range n.wants {
+	for want := range f.Wants {
 		l := list.New()
 		q := list.New()
 		q.PushBack([]byte(want))
@@ -145,10 +150,10 @@ wantsLoop:
 			if _, ok := alreadySeenCommits[string(sum)]; ok {
 				continue
 			}
-			if _, ok := n.commons[string(sum)]; ok {
+			if _, ok := f.commons[string(sum)]; ok {
 				continue
 			}
-			c, err := objects.GetCommit(db, sum)
+			c, err := objects.GetCommit(f.db, sum)
 			if err != nil {
 				return err
 			}
@@ -156,7 +161,7 @@ wantsLoop:
 			// reached a root commit but still haven't seen anything in common
 			if len(c.Parents) == 0 {
 				// if there's nothing in common then everything including the root should be sent
-				if len(n.commons) == 0 || done {
+				if len(f.commons) == 0 || done {
 					break
 				}
 				wants[string(want)] = struct{}{}
@@ -167,36 +172,17 @@ wantsLoop:
 			}
 		}
 		// queue is exhausted mean everything is reachable from commons
-		n.lists = append(n.lists, l)
+		f.lists = append(f.lists, l)
 		for _, sum := range sums {
 			alreadySeenCommits[string(sum)] = struct{}{}
 		}
 	}
-	n.wants = wants
+	f.Wants = wants
 	return nil
 }
 
-// HandleUploadPackRequest parse upload-pack request and returns non-nil acks if there are ACK to send to client.
-// Otherwise it returns nil acks to denote that the negotiation is done and a Packfile should be sent now.
-func (n *Negotiator) HandleUploadPackRequest(db objects.Store, rs ref.Store, wants, haves [][]byte, done bool) (acks [][]byte, err error) {
-	if len(n.wants) == 0 {
-		// first request must have non-empty want list
-		if len(wants) == 0 {
-			return nil, NewBadRequestError("empty wants list")
-		}
-	}
-	err = n.ProcessWants(db, rs, wants, haves, done)
-	if err != nil {
-		return
-	}
-	if len(n.wants) > 0 && !done {
-		acks = n.acks
-	}
-	return
-}
-
-func (n *Negotiator) ProcessWants(db objects.Store, rs ref.Store, wants, haves [][]byte, done bool) (err error) {
-	m, err := ref.ListLocalRefs(rs)
+func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]byte, err error) {
+	m, err := ref.ListLocalRefs(f.rs)
 	if err != nil {
 		return
 	}
@@ -204,27 +190,31 @@ func (n *Negotiator) ProcessWants(db objects.Store, rs ref.Store, wants, haves [
 	for _, v := range m {
 		sl = append(sl, v)
 	}
-	queue, err := ref.NewCommitsQueue(db, sl)
+	queue, err := ref.NewCommitsQueue(f.db, sl)
 	if err != nil {
 		return
 	}
 	if len(wants) > 0 {
-		err = n.ensureWantsAreReachable(queue, wants)
+		err = f.ensureWantsAreReachable(queue, wants)
 		if err != nil {
 			return
 		}
 		for _, b := range wants {
-			n.wants[string(b)] = struct{}{}
+			f.Wants[string(b)] = struct{}{}
 		}
 	}
-	commons, err := n.findCommons(db, queue, haves)
+	commons, err := f.findCommons(queue, haves)
 	if err != nil {
 		return
 	}
-	n.acks = n.acks[:0]
+	f.acks = f.acks[:0]
 	for _, b := range commons {
-		n.commons[string(b)] = struct{}{}
-		n.acks = append(n.acks, b)
+		f.commons[string(b)] = struct{}{}
+		f.acks = append(f.acks, b)
 	}
-	return n.findClosedSetOfObjects(db, done)
+	err = f.findClosedSetOfObjects(done)
+	if err != nil {
+		return
+	}
+	return f.acks, nil
 }
