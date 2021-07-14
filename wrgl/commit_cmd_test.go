@@ -4,7 +4,6 @@
 package main
 
 import (
-	"encoding/csv"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -14,31 +13,18 @@ import (
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
-	"github.com/wrgl/core/pkg/testutils"
 )
-
-func createRandomCSVFile(t *testing.T) (filePath string) {
-	t.Helper()
-	file, err := ioutil.TempFile("", "test_commit_*.csv")
-	require.NoError(t, err)
-	defer file.Close()
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-	for i := 0; i < 4; i++ {
-		record := []string{}
-		for j := 0; j < 3; j++ {
-			record = append(record, testutils.BrokenRandomLowerAlphaString(3))
-		}
-		require.NoError(t, writer.Write(record))
-	}
-	return file.Name()
-}
 
 func TestCommitCmd(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
 
-	fp := createRandomCSVFile(t)
+	fp := createCSVFile(t, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
 	defer os.Remove(fp)
 
 	cmd := newRootCmd()

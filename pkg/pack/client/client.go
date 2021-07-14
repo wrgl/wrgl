@@ -16,7 +16,6 @@ import (
 
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/misc"
-	"github.com/wrgl/core/pkg/objects"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"golang.org/x/net/publicsuffix"
 )
@@ -25,10 +24,9 @@ type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
 	origin string
-	db     objects.Store
 }
 
-func NewClient(db objects.Store, origin string) (*Client, error) {
+func NewClient(origin string) (*Client, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, err
@@ -38,7 +36,6 @@ func NewClient(db objects.Store, origin string) (*Client, error) {
 			Jar: jar,
 		},
 		origin: origin,
-		db:     db,
 	}, nil
 }
 
@@ -122,50 +119,6 @@ func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool) (resp *
 	})
 }
 
-func (c *Client) sendReceivePackRequest(updates []*packutils.Update, commits []*objects.Commit, commonCommits [][]byte) (resp *http.Response, err error) {
-	body := bytes.NewBuffer(nil)
-	gzw := gzip.NewWriter(body)
-	buf := misc.NewBuffer(nil)
-	strs := make([]string, 0, 3)
-	sendPackfile := false
-	for _, update := range updates {
-		strs = strs[:0]
-		for _, sum := range [][]byte{update.OldSum, update.Sum} {
-			if sum == nil {
-				strs = append(strs, strings.Repeat("0", 32))
-			} else {
-				strs = append(strs, hex.EncodeToString(sum))
-			}
-		}
-		if update.Sum != nil {
-			sendPackfile = true
-		}
-		strs = append(strs, update.Dst)
-		err = encoding.WritePktLine(gzw, buf, strings.Join(strs, " "))
-		if err != nil {
-			return
-		}
-	}
-	err = encoding.WritePktLine(gzw, buf, "")
-	if err != nil {
-		return
-	}
-	if sendPackfile {
-		err = packutils.WriteCommitsToPackfile(c.db, commits, commonCommits, gzw)
-		if err != nil {
-			return
-		}
-	}
-	err = gzw.Close()
-	if err != nil {
-		return
-	}
-	return c.request(http.MethodPost, "/receive-pack/", body, map[string]string{
-		"Content-Type":     "application/x-wrgl-receive-pack-request",
-		"Content-Encoding": "gzip",
-	})
-}
-
 func parseUploadPackResult(r io.ReadCloser) (acks [][]byte, err error) {
 	defer r.Close()
 	parser := encoding.NewParser(r)
@@ -205,61 +158,50 @@ func (c *Client) PostUploadPack(wants, haves [][]byte, done bool) (acks [][]byte
 	return
 }
 
-func (c *Client) parseReceivePackResult(r io.ReadCloser) (status map[string]string, err error) {
-	defer r.Close()
-	parser := encoding.NewParser(r)
-	s, err := encoding.ReadPktLine(parser)
-	if err != nil {
-		return
-	}
-	if !strings.HasPrefix(s, "unpack ") {
-		err = fmt.Errorf("unrecognized payload: %q", s)
-		return
-	}
-	if s[7:] != "ok" {
-		err = fmt.Errorf("unpack error: %s", s[7:])
-		return
-	}
-	status = map[string]string{}
-	for {
-		s, err = encoding.ReadPktLine(parser)
-		if err == io.EOF {
-			break
+func (c *Client) PostReceivePack(updates []*packutils.Update, writeObjects func(w io.Writer) error) (body io.ReadCloser, err error) {
+	reqBody := bytes.NewBuffer(nil)
+	gzw := gzip.NewWriter(reqBody)
+	buf := misc.NewBuffer(nil)
+	strs := make([]string, 0, 3)
+	sendPackfile := false
+	for _, update := range updates {
+		strs = strs[:0]
+		for _, sum := range [][]byte{update.OldSum, update.Sum} {
+			if sum == nil {
+				strs = append(strs, strings.Repeat("0", 32))
+			} else {
+				strs = append(strs, hex.EncodeToString(sum))
+			}
 		}
+		if update.Sum != nil {
+			sendPackfile = true
+		}
+		strs = append(strs, update.Dst)
+		err = encoding.WritePktLine(gzw, buf, strings.Join(strs, " "))
 		if err != nil {
 			return
 		}
-		if s == "" {
-			break
-		}
-		if strings.HasPrefix(s, "ok ") {
-			status[s[3:]] = ""
-		} else if strings.HasPrefix(s, "ng ") {
-			i := bytes.IndexByte([]byte(s[3:]), ' ') + 3
-			status[s[3:i]] = s[i+1:]
-		} else {
-			err = fmt.Errorf("unrecognized payload: %q", s)
+	}
+	err = encoding.WritePktLine(gzw, buf, "")
+	if err != nil {
+		return
+	}
+	if sendPackfile {
+		err = writeObjects(gzw)
+		if err != nil {
 			return
 		}
 	}
-	return
-}
-
-func (c *Client) PostReceivePack(updates []*packutils.Update, commits []*objects.Commit, commonCommits [][]byte) (err error) {
-	resp, err := c.sendReceivePackRequest(updates, commits, commonCommits)
+	err = gzw.Close()
 	if err != nil {
 		return
 	}
-	status, err := c.parseReceivePackResult(resp.Body)
+	resp, err := c.request(http.MethodPost, "/receive-pack/", reqBody, map[string]string{
+		"Content-Type":     "application/x-wrgl-receive-pack-request",
+		"Content-Encoding": "gzip",
+	})
 	if err != nil {
 		return
 	}
-	for _, u := range updates {
-		if s, ok := status[u.Dst]; ok {
-			u.ErrMsg = s
-		} else {
-			u.ErrMsg = "remote failed to report status"
-		}
-	}
-	return
+	return resp.Body, nil
 }

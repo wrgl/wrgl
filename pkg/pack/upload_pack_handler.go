@@ -12,18 +12,20 @@ import (
 )
 
 type UploadPackHandler struct {
-	db       objects.Store
-	rs       ref.Store
-	sessions map[string]*UploadPackSession
-	Path     string
+	db              objects.Store
+	rs              ref.Store
+	sessions        map[string]*UploadPackSession
+	maxPackfileSize uint64
+	Path            string
 }
 
-func NewUploadPackHandler(db objects.Store, rs ref.Store) *UploadPackHandler {
+func NewUploadPackHandler(db objects.Store, rs ref.Store, maxPackfileSize uint64) *UploadPackHandler {
 	return &UploadPackHandler{
-		db:       db,
-		rs:       rs,
-		Path:     "/upload-pack/",
-		sessions: map[string]*UploadPackSession{},
+		db:              db,
+		rs:              rs,
+		maxPackfileSize: maxPackfileSize,
+		Path:            "/upload-pack/",
+		sessions:        map[string]*UploadPackSession{},
 	}
 }
 
@@ -44,7 +46,7 @@ func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession,
 			return
 		}
 		sid = id.String()
-		ses = NewUploadPackSession(h.db, h.rs, h.Path, sid)
+		ses = NewUploadPackSession(h.db, h.rs, h.Path, sid, h.maxPackfileSize)
 		h.sessions[sid] = ses
 	}
 	return
@@ -55,11 +57,17 @@ func (h *UploadPackHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
 	}
-	ses, nid, err := h.getSession(r)
+	ses, sid, err := h.getSession(r)
 	if err != nil {
 		panic(err)
 	}
-	if done := ses.HandleUploadPackRequest(rw, r); done {
-		delete(h.sessions, nid)
+	defer func() {
+		if s := recover(); s != nil {
+			delete(h.sessions, sid)
+			panic(s)
+		}
+	}()
+	if done := ses.ServeHTTP(rw, r); done {
+		delete(h.sessions, sid)
 	}
 }

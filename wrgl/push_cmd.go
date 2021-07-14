@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/pack"
 	packclient "github.com/wrgl/core/pkg/pack/client"
 	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
@@ -52,7 +51,7 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, err := packclient.NewClient(db, cr.URL)
+			client, err := packclient.NewClient(cr.URL)
 			if err != nil {
 				return err
 			}
@@ -61,11 +60,15 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("To %s\n", cr.URL)
-			upToDateRefspecs, updates, commits, commonCommits, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
+			upToDateRefspecs, updates, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
 			if err != nil {
 				return err
 			}
-			err = client.PostReceivePack(updates, commits, commonCommits)
+			ses, err := packclient.NewReceivePackSession(db, rs, client, updates, remoteRefs, 0)
+			if err != nil {
+				return err
+			}
+			updates, err = ses.Start()
 			if err != nil {
 				return err
 			}
@@ -193,8 +196,7 @@ func interpretDestination(remoteRefs map[string][]byte, src, dst string) (string
 
 func identifyUpdates(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, refspecs []*conf.Refspec, remoteRefs map[string][]byte, force bool,
-) (upToDateRefspecs []*conf.Refspec, updates []*packutils.Update, commitsToSend []*objects.Commit, commonCommits [][]byte, err error) {
-	wants := [][]byte{}
+) (upToDateRefspecs []*conf.Refspec, updates []*packutils.Update, err error) {
 	for _, s := range refspecs {
 		src := s.Src()
 		dst := s.Dst()
@@ -231,12 +233,11 @@ func identifyUpdates(
 						Dst:    dst,
 						Force:  true,
 					})
-					wants = append(wants, sum)
 				} else {
 					displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", src, dst)
 				}
 			} else if fastForward, err := ref.IsAncestorOf(db, v, sum); err != nil {
-				return nil, nil, nil, nil, err
+				return nil, nil, err
 			} else if fastForward {
 				updates = append(updates, &packutils.Update{
 					OldSum: v,
@@ -244,7 +245,6 @@ func identifyUpdates(
 					Src:    src,
 					Dst:    dst,
 				})
-				wants = append(wants, sum)
 			} else if force || s.Force {
 				updates = append(updates, &packutils.Update{
 					OldSum: v,
@@ -253,7 +253,6 @@ func identifyUpdates(
 					Dst:    dst,
 					Force:  true,
 				})
-				wants = append(wants, sum)
 			} else {
 				displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", src, dst)
 			}
@@ -264,20 +263,8 @@ func identifyUpdates(
 				Src:    src,
 				Dst:    dst,
 			})
-			wants = append(wants, sum)
 		}
 	}
-	haves := make([][]byte, 0, len(remoteRefs))
-	for _, b := range haves {
-		haves = append(haves, b)
-	}
-	neg := pack.NewNegotiator()
-	err = neg.ProcessWants(db, rs, wants, haves, true)
-	if err != nil {
-		return
-	}
-	commitsToSend = neg.CommitsToSend()
-	commonCommits = neg.CommonCommmits()
 	return
 }
 

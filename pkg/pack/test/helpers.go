@@ -6,11 +6,11 @@ package packtest
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/csv"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
@@ -31,12 +31,6 @@ import (
 const (
 	TestOrigin = "https://wrgl.test"
 )
-
-var tg func() time.Time
-
-func init() {
-	tg = testutils.CreateTimeGen()
-}
 
 func RegisterHandler(method, path string, handler http.Handler) {
 	RegisterHandlerWithOrigin(TestOrigin, method, path, handler)
@@ -143,16 +137,26 @@ func AssertSentMissingCommits(t *testing.T, db objects.Store, oc <-chan *packuti
 	}
 }
 
-func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, advertised [][]byte, havesPerRoundTrip int) <-chan *packutils.Object {
+func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, advertised [][]byte, havesPerRoundTrip int) [][]byte {
 	t.Helper()
-	c, err := packclient.NewClient(db, TestOrigin)
+	c, err := packclient.NewClient(TestOrigin)
 	require.NoError(t, err)
-	wg := sync.WaitGroup{}
-	neg, err := packclient.NewUploadPackSession(db, rs, &wg, c, advertised, havesPerRoundTrip)
+	ses, err := packclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip)
 	require.NoError(t, err)
-	err = neg.Start()
+	commits, err := ses.Start()
 	require.NoError(t, err)
-	return neg.ObjectChan
+	return commits
+}
+
+func PushObjects(t *testing.T, db objects.Store, rs ref.Store, updates []*packutils.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) []*packutils.Update {
+	t.Helper()
+	c, err := packclient.NewClient(TestOrigin)
+	require.NoError(t, err)
+	ses, err := packclient.NewReceivePackSession(db, rs, c, updates, remoteRefs, maxPackfileSize)
+	require.NoError(t, err)
+	updates, err = ses.Start()
+	require.NoError(t, err)
+	return updates
 }
 
 func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byte) {
@@ -187,7 +191,7 @@ func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byt
 	}
 }
 
-func AssertCommitsPersisted(t *testing.T, db objects.Store, rs ref.Store, commits [][]byte) {
+func AssertCommitsPersisted(t *testing.T, db objects.Store, commits [][]byte) {
 	t.Helper()
 	for _, sum := range commits {
 		c, err := objects.GetCommit(db, sum)
@@ -211,4 +215,28 @@ func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *conf.Config {
 			DenyDeletes:         &denyDeletes,
 		},
 	}
+}
+
+func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, parents [][]byte) ([]byte, *objects.Commit) {
+	t.Helper()
+	rows := testutils.BuildRawCSV(numCols, numRows)
+	buf := bytes.NewBuffer(nil)
+	w := csv.NewWriter(buf)
+	require.NoError(t, w.WriteAll(rows))
+	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1], 0, 1, io.Discard)
+	require.NoError(t, err)
+	com := &objects.Commit{
+		Table:       sum,
+		Parents:     parents,
+		Time:        time.Now(),
+		AuthorName:  testutils.BrokenRandomLowerAlphaString(10),
+		AuthorEmail: testutils.BrokenRandomLowerAlphaString(10),
+		Message:     testutils.BrokenRandomAlphaNumericString(10),
+	}
+	buf.Reset()
+	_, err = com.WriteTo(buf)
+	require.NoError(t, err)
+	sum, err = objects.SaveCommit(db, buf.Bytes())
+	require.NoError(t, err)
+	return sum, com
 }

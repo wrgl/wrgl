@@ -4,6 +4,9 @@
 package packutils_test
 
 import (
+	"bytes"
+	"encoding/hex"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,9 +18,28 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
 	refmock "github.com/wrgl/core/pkg/ref/mock"
+	"github.com/wrgl/core/pkg/testutils"
 )
 
-func TestNegotiatorHandleUploadPackRequest(t *testing.T) {
+func assertSumsEqual(t *testing.T, a, b [][]byte, ignoreOrder bool) {
+	if ignoreOrder {
+		sl := make([][]byte, len(a))
+		copy(sl, a)
+		a = sl
+		sort.Slice(a, func(i, j int) bool {
+			return bytes.Compare(a[i], a[j]) == -1
+		})
+		sl = make([][]byte, len(b))
+		copy(sl, b)
+		b = sl
+		sort.Slice(b, func(i, j int) bool {
+			return bytes.Compare(b[i], b[j]) == -1
+		})
+	}
+	assert.Equal(t, a, b)
+}
+
+func TestClosedSetsFinder(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	sum1, c1 := refhelpers.SaveTestCommit(t, db, nil)
@@ -34,19 +56,21 @@ func TestNegotiatorHandleUploadPackRequest(t *testing.T) {
 	acks, err := finder.Process([][]byte{sum5, sum6}, nil, false)
 	require.NoError(t, err)
 	assert.Empty(t, acks)
+	assert.Equal(t, [][]byte{}, finder.CommonCommmits())
 	commits := finder.CommitsToSend()
-	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c1, c2, c3, c4, c5, c6}, commits, true)
+	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c2, c1, c3, c4, c5, c6}, commits, true)
 
+	// send only necessary commits
 	finder = packutils.NewClosedSetsFinder(db, rs)
 	acks, err = finder.Process([][]byte{sum3, sum4}, [][]byte{sum1, sum2}, false)
 	require.NoError(t, err)
-	// acks is nil mean no more negotiation needed
-	assert.Empty(t, acks)
+	assert.Equal(t, [][]byte{sum1, sum2}, acks)
+	assertSumsEqual(t, [][]byte{sum1, sum2}, finder.CommonCommmits(), true)
 	commits = finder.CommitsToSend()
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c3, c4}, commits, true)
 }
 
-func TestNegotiatorSendACKs(t *testing.T) {
+func TestClosedSetsFinderACKs(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	sum1, _ := refhelpers.SaveTestCommit(t, db, nil)
@@ -65,19 +89,28 @@ func TestNegotiatorSendACKs(t *testing.T) {
 	finder := packutils.NewClosedSetsFinder(db, rs)
 	acks, err := finder.Process([][]byte{sum6, sum7, sum9}, [][]byte{sum1}, false)
 	require.NoError(t, err)
-	// ACK sum1
 	assert.Equal(t, [][]byte{sum1}, acks)
 
 	acks, err = finder.Process(nil, [][]byte{sum2}, false)
 	require.NoError(t, err)
-	// ACK sum2
 	assert.Equal(t, [][]byte{sum2}, acks)
 
 	acks, err = finder.Process(nil, [][]byte{sum3}, true)
 	require.NoError(t, err)
-	// done negotiating therefore no more ACKs
-	assert.Empty(t, acks)
+	assert.Equal(t, [][]byte{sum3}, acks)
 
 	commits := finder.CommitsToSend()
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c4, c5, c6, c7, c8, c9}, commits, true)
+}
+
+func TestClosedSetsFinderUnrecognizedWants(t *testing.T) {
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	sum1, _ := refhelpers.SaveTestCommit(t, db, nil)
+	sum2, c2 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
+	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2))
+	sum3 := testutils.SecureRandomBytes(16)
+	finder := packutils.NewClosedSetsFinder(db, rs)
+	_, err := finder.Process([][]byte{sum3}, [][]byte{sum1}, false)
+	assert.Error(t, err, "unrecognized wants: "+hex.EncodeToString(sum3))
 }

@@ -65,20 +65,22 @@ reading:
 }
 
 type UploadPackSession struct {
-	db     objects.Store
-	id     string
-	finder *packutils.ClosedSetsFinder
-	sender *packutils.ObjectSender
-	path   string
-	state  stateFn
+	db              objects.Store
+	id              string
+	finder          *packutils.ClosedSetsFinder
+	sender          *packutils.ObjectSender
+	path            string
+	state           stateFn
+	maxPackfileSize uint64
 }
 
-func NewUploadPackSession(db objects.Store, rs ref.Store, path string, id string) *UploadPackSession {
+func NewUploadPackSession(db objects.Store, rs ref.Store, path string, id string, maxPackfileSize uint64) *UploadPackSession {
 	s := &UploadPackSession{
-		db:     db,
-		id:     id,
-		path:   path,
-		finder: packutils.NewClosedSetsFinder(db, rs),
+		db:              db,
+		id:              id,
+		path:            path,
+		finder:          packutils.NewClosedSetsFinder(db, rs),
+		maxPackfileSize: maxPackfileSize,
 	}
 	s.state = s.greet
 	return s
@@ -110,7 +112,7 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nex
 func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	var err error
 	if s.sender == nil {
-		s.sender, err = packutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.finder.CommonCommmits(), 0)
+		s.sender, err = packutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.finder.CommonCommmits(), s.maxPackfileSize)
 		if err != nil {
 			panic(err)
 		}
@@ -118,6 +120,13 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 
 	rw.Header().Set("Content-Type", CTPackfile)
 	rw.Header().Set("Content-Encoding", "gzip")
+	http.SetCookie(rw, &http.Cookie{
+		Name:     uploadPackSessionCookie,
+		Value:    s.id,
+		Path:     s.path,
+		HttpOnly: true,
+		MaxAge:   3600 * 24,
+	})
 
 	gzw := gzip.NewWriter(rw)
 	defer gzw.Close()
@@ -141,7 +150,7 @@ func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Reque
 		}
 		panic(err)
 	}
-	if len(s.finder.Wants) > 0 && !done {
+	if len(acks) > 0 && len(s.finder.Wants) > 0 && !done {
 		return s.sendACKs(rw, acks)
 	}
 	return s.sendPackfile(rw, r)
@@ -167,9 +176,9 @@ func (s *UploadPackSession) negotiate(rw http.ResponseWriter, r *http.Request) (
 	return s.findClosedSets(rw, r, wants, haves, done)
 }
 
-// HandleUploadPackRequest negotiates which commits to be sent and send them in one or more packfiles,
+// ServeHTTP negotiates which commits to be sent and send them in one or more packfiles,
 // returns true when this session is completed and should be removed.
-func (s *UploadPackSession) HandleUploadPackRequest(rw http.ResponseWriter, r *http.Request) bool {
+func (s *UploadPackSession) ServeHTTP(rw http.ResponseWriter, r *http.Request) bool {
 	s.state = s.state(rw, r)
 	return s.state == nil
 }

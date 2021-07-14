@@ -7,17 +7,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/objects"
 	packclient "github.com/wrgl/core/pkg/pack/client"
-	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -88,48 +84,6 @@ func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, args []string) (s
 		}
 	}
 	return remote, rem, specs, nil
-}
-
-func saveObjects(db objects.Store, rs ref.Store, wg *sync.WaitGroup, oc <-chan *packutils.Object, ec chan<- error) (commitsChan chan []byte) {
-	commitsChan = make(chan []byte)
-	go func() {
-		defer close(commitsChan)
-		for o := range oc {
-			switch o.Type {
-			case encoding.ObjectCommit:
-				sum, err := objects.SaveCommit(db, o.Content)
-				if err != nil {
-					ec <- err
-					return
-				}
-				commitsChan <- sum
-			case encoding.ObjectTable:
-				_, err := objects.SaveTable(db, o.Content)
-				if err != nil {
-					ec <- err
-					return
-				}
-			case encoding.ObjectBlock:
-				_, err := objects.SaveBlock(db, o.Content)
-				if err != nil {
-					ec <- err
-					return
-				}
-			}
-			wg.Done()
-		}
-	}()
-	return commitsChan
-}
-
-func exitOnError(cmd *cobra.Command, done <-chan bool, ec <-chan error) {
-	select {
-	case err := <-ec:
-		cmd.PrintErrln(err.Error())
-		os.Exit(1)
-	case <-done:
-		return
-	}
 }
 
 type Ref struct {
@@ -316,22 +270,8 @@ func saveFetchedRefs(
 	return savedRefs, nil
 }
 
-func collectCommitSums(commitsChan <-chan []byte) (commits *[][]byte, done chan bool) {
-	done = make(chan bool)
-	commits = &[][]byte{}
-	go func() {
-		defer close(done)
-		for commit := range commitsChan {
-			*commits = append(*commits, commit)
-		}
-		done <- true
-	}()
-	return
-}
-
 func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *packclient.Client, advertised [][]byte) (fetchedCommits [][]byte, err error) {
-	var wg sync.WaitGroup
-	neg, err := packclient.NewNegotiator(db, rs, &wg, client, advertised, 0)
+	ses, err := packclient.NewUploadPackSession(db, rs, client, advertised, 0)
 	if err != nil {
 		if err.Error() == "nothing wanted" {
 			err = nil
@@ -339,23 +279,11 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *pa
 		}
 		return
 	}
-	done := make(chan bool)
-	ec := make(chan error)
-	go exitOnError(cmd, done, ec)
-	cc := saveObjects(db, rs, &wg, neg.ObjectChan, ec)
-	sums, collectDone := collectCommitSums(cc)
-	err = neg.Start()
-	if err != nil {
-		return
-	}
-	wg.Wait()
-	<-collectDone
-	done <- true
-	return *sums, nil
+	return ses.Start()
 }
 
 func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.ConfigUser, remote string, cr *conf.ConfigRemote, specs []*conf.Refspec, force bool) error {
-	client, err := packclient.NewClient(db, cr.URL)
+	client, err := packclient.NewClient(cr.URL)
 	if err != nil {
 		return err
 	}

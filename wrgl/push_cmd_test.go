@@ -112,7 +112,7 @@ func TestPushCmd(t *testing.T) {
 		"",
 	}, "\n"))
 
-	packtest.AssertCommitsPersisted(t, dbs, rss, [][]byte{sum2, sum3, sum7, sum5, sum11, sum12, sum13, sum14, sum15})
+	packtest.AssertCommitsPersisted(t, dbs, [][]byte{sum2, sum3, sum7, sum5, sum11, sum12, sum13, sum14, sum15})
 	assertRefStore(t, rss, "heads/beta", sum2)
 	assertRefStore(t, rss, "tags/2018", sum7)
 	assertRefStore(t, rss, "heads/gamma", sum5)
@@ -173,7 +173,7 @@ func TestPushCmdForce(t *testing.T) {
 		"",
 	}, "\n"))
 
-	packtest.AssertCommitsPersisted(t, dbs, rss, [][]byte{sum3, sum4})
+	packtest.AssertCommitsPersisted(t, dbs, [][]byte{sum3, sum4})
 	assertRefStore(t, rss, "heads/alpha", sum3)
 	assertRefStore(t, rss, "tags/2017", sum4)
 	assertRefStore(t, rss, "heads/beta", sum5)
@@ -269,6 +269,6 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 		"",
 	}, "\n"))
 
-	packtest.AssertCommitsPersisted(t, dbs, rss, [][]byte{sum1, sum2})
+	packtest.AssertCommitsPersisted(t, dbs, [][]byte{sum1, sum2})
 	assertRefStore(t, rss, "heads/alpha", sum2)
 }

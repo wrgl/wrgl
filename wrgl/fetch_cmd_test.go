@@ -37,7 +37,7 @@ func TestFetchCmd(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rss, "tickets", sum4, c4))
 	require.NoError(t, ref.SaveTag(rss, "2020", sum1))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rss))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, rss))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, rss, 0))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -74,7 +74,7 @@ func TestFetchCmd(t *testing.T) {
 	sum, err = ref.GetTag(rs, "2020")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum2, sum4})
+	packtest.AssertCommitsPersisted(t, db, [][]byte{sum2, sum4})
 	refhelpers.AssertLatestReflogEqual(t, rs, "remotes/origin/main", &ref.Reflog{
 		NewOID:      sum2,
 		AuthorName:  "John Doe",
@@ -112,7 +112,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs1, "main", sum1, c1))
 	url1 := "https://origin.remote"
 	packtest.RegisterHandlerWithOrigin(url1, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs1))
-	packtest.RegisterHandlerWithOrigin(url1, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1))
+	packtest.RegisterHandlerWithOrigin(url1, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1, 0))
 
 	db2 := objmock.NewStore()
 	rs2 := refmock.NewStore()
@@ -120,7 +120,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs2, "main", sum2, c2))
 	url2 := "https://acme.remote"
 	packtest.RegisterHandlerWithOrigin(url2, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs2))
-	packtest.RegisterHandlerWithOrigin(url2, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db2, rs2))
+	packtest.RegisterHandlerWithOrigin(url2, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db2, rs2, 0))
 
 	db3 := objmock.NewStore()
 	rs3 := refmock.NewStore()
@@ -128,7 +128,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs3, "main", sum3, c3))
 	url3 := "https://home.remote"
 	packtest.RegisterHandlerWithOrigin(url3, http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs3))
-	packtest.RegisterHandlerWithOrigin(url3, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db3, rs3))
+	packtest.RegisterHandlerWithOrigin(url3, http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db3, rs3, 0))
 
 	rd, cleanUp := createRepoDir(t)
 	rs := rd.OpenRefStore()
@@ -156,7 +156,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	assert.Equal(t, ref.ErrKeyNotFound, err)
 	_, err = ref.GetRemoteRef(rs, "home", "main")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
-	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum2})
+	packtest.AssertCommitsPersisted(t, db, [][]byte{sum2})
 	require.NoError(t, db.Close())
 
 	cmd = newRootCmd()
@@ -170,7 +170,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	sum, err = ref.GetRemoteRef(rs, "home", "main")
 	require.NoError(t, err)
 	assert.Equal(t, sum3, sum)
-	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum1, sum3})
+	packtest.AssertCommitsPersisted(t, db, [][]byte{sum1, sum3})
 	require.NoError(t, db.Close())
 }
 
@@ -183,7 +183,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	sum1, _ := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.SaveRef(rs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom"))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs1))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1, 0))
 
 	rd, cleanUp := createRepoDir(t)
 	rs := rd.OpenRefStore()
@@ -206,7 +206,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	sum, err := ref.GetRef(rs, "custom/abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum1})
+	packtest.AssertCommitsPersisted(t, db, [][]byte{sum1})
 	refhelpers.AssertLatestReflogEqual(t, rs, "custom/abc", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
@@ -227,7 +227,7 @@ func TestFetchCmdTag(t *testing.T) {
 	sum2, _ := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.SaveTag(rs1, "2021-dec", sum2))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs1))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1, 0))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -265,7 +265,7 @@ func TestFetchCmdTag(t *testing.T) {
 	sum, err := ref.GetTag(rs, "2020-dec")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum1})
+	packtest.AssertCommitsPersisted(t, db, [][]byte{sum1})
 	refhelpers.AssertLatestReflogEqual(t, rs, "tags/2020-dec", &ref.Reflog{
 		OldOID:      sum3,
 		NewOID:      sum1,
@@ -288,7 +288,7 @@ func TestFetchCmdTag(t *testing.T) {
 	sum, err = ref.GetTag(rs, "2021-dec")
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum2})
+	packtest.AssertCommitsPersisted(t, db, [][]byte{sum2})
 	refhelpers.AssertLatestReflogEqual(t, rs, "tags/2021-dec", &ref.Reflog{
 		OldOID:      sum4,
 		NewOID:      sum2,
@@ -309,7 +309,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	sum1, c1 := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.CommitHead(rs1, "abc", sum1, c1))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rs1))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(db1, rs1, 0))
 
 	rd, cleanUp := createRepoDir(t)
 	db, err := rd.OpenObjectsStore()
@@ -346,7 +346,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	sum, err := ref.GetHead(rs, "abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	packtest.AssertCommitsPersisted(t, db, rs, [][]byte{sum1})
+	packtest.AssertCommitsPersisted(t, db, [][]byte{sum1})
 	refhelpers.AssertLatestReflogEqual(t, rs, "heads/abc", &ref.Reflog{
 		OldOID:      sum2,
 		NewOID:      sum1,

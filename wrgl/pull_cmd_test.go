@@ -28,7 +28,7 @@ func TestPullCmd(t *testing.T) {
 	sum5, c5 := factory.CommitRandom(t, dbs, [][]byte{sum4})
 	require.NoError(t, ref.CommitHead(rss, "beta", sum5, c5))
 	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rss))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, rss))
+	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, rss, 0))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
