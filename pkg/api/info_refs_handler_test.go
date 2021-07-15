@@ -43,7 +43,7 @@ func TestInfoRefs(t *testing.T) {
 		"from origin",
 	)
 	require.NoError(t, err)
-	apitest.RegisterHandler(http.MethodGet, "/info/refs/", NewInfoRefsHandler(rs))
+	apitest.RegisterHandler(http.MethodGet, PathInfoRefs, NewInfoRefsHandler(rs))
 
 	c, err := apiclient.NewClient(apitest.TestOrigin)
 	require.NoError(t, err)

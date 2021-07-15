@@ -14,6 +14,8 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 )
 
+const PathInfoRefs = "/info/refs/"
+
 type InfoRefsHandler struct {
 	rs ref.Store
 }

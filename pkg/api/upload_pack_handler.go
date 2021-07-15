@@ -11,12 +11,13 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 )
 
+const PathUploadPack = "/upload-pack/"
+
 type UploadPackHandler struct {
 	db              objects.Store
 	rs              ref.Store
 	sessions        map[string]*UploadPackSession
 	maxPackfileSize uint64
-	Path            string
 }
 
 func NewUploadPackHandler(db objects.Store, rs ref.Store, maxPackfileSize uint64) *UploadPackHandler {
@@ -24,7 +25,6 @@ func NewUploadPackHandler(db objects.Store, rs ref.Store, maxPackfileSize uint64
 		db:              db,
 		rs:              rs,
 		maxPackfileSize: maxPackfileSize,
-		Path:            "/upload-pack/",
 		sessions:        map[string]*UploadPackSession{},
 	}
 }
@@ -46,7 +46,7 @@ func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession,
 			return
 		}
 		sid = id.String()
-		ses = NewUploadPackSession(h.db, h.rs, h.Path, sid, h.maxPackfileSize)
+		ses = NewUploadPackSession(h.db, h.rs, sid, h.maxPackfileSize)
 		h.sessions[sid] = ses
 	}
 	return

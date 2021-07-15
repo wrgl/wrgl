@@ -69,16 +69,14 @@ type UploadPackSession struct {
 	id              string
 	finder          *apiutils.ClosedSetsFinder
 	sender          *apiutils.ObjectSender
-	path            string
 	state           stateFn
 	maxPackfileSize uint64
 }
 
-func NewUploadPackSession(db objects.Store, rs ref.Store, path string, id string, maxPackfileSize uint64) *UploadPackSession {
+func NewUploadPackSession(db objects.Store, rs ref.Store, id string, maxPackfileSize uint64) *UploadPackSession {
 	s := &UploadPackSession{
 		db:              db,
 		id:              id,
-		path:            path,
 		finder:          apiutils.NewClosedSetsFinder(db, rs),
 		maxPackfileSize: maxPackfileSize,
 	}
@@ -91,7 +89,7 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nex
 	http.SetCookie(rw, &http.Cookie{
 		Name:     uploadPackSessionCookie,
 		Value:    s.id,
-		Path:     s.path,
+		Path:     PathUploadPack,
 		HttpOnly: true,
 		MaxAge:   3600 * 24,
 	})
@@ -123,7 +121,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 	http.SetCookie(rw, &http.Cookie{
 		Name:     uploadPackSessionCookie,
 		Value:    s.id,
-		Path:     s.path,
+		Path:     PathUploadPack,
 		HttpOnly: true,
 		MaxAge:   3600 * 24,
 	})

@@ -15,11 +15,12 @@ import (
 
 var zeroOID = strings.Repeat("0", 32)
 
+const PathReceivePath = "/receive-pack/"
+
 type ReceivePackHandler struct {
 	db       objects.Store
 	rs       ref.Store
 	c        *conf.Config
-	Path     string
 	sessions map[string]*ReceivePackSession
 }
 
@@ -28,7 +29,6 @@ func NewReceivePackHandler(db objects.Store, rs ref.Store, c *conf.Config) *Rece
 		db:       db,
 		rs:       rs,
 		c:        c,
-		Path:     "/receive-pack/",
 		sessions: map[string]*ReceivePackSession{},
 	}
 }
@@ -50,7 +50,7 @@ func (h *ReceivePackHandler) getSession(r *http.Request) (ses *ReceivePackSessio
 			return
 		}
 		sid = id.String()
-		ses = NewReceivePackSession(h.db, h.rs, h.c, h.Path, sid)
+		ses = NewReceivePackSession(h.db, h.rs, h.c, sid)
 		h.sessions[sid] = ses
 	}
 	return

@@ -29,17 +29,17 @@ func TestCommitHandler(t *testing.T) {
 	rs := refmock.NewStore()
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
-	apitest.RegisterHandler(http.MethodPost, "/commit/", api.NewCommitHandler(db, rs))
+	apitest.RegisterHandler(http.MethodPost, api.PathCommit, api.NewCommitHandler(db, rs))
 
 	// missing branch
-	resp := apitest.PostMultipartForm(t, "/commit/", nil, nil)
+	resp := apitest.PostMultipartForm(t, api.PathCommit, nil, nil)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	b, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Equal(t, "missing branch name\n", string(b))
 
 	// invalid branch
-	resp = apitest.PostMultipartForm(t, "/commit/", map[string][]string{
+	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
 		"branch": {"123 kjl"},
 	}, nil)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -48,7 +48,7 @@ func TestCommitHandler(t *testing.T) {
 	assert.Equal(t, "invalid branch name\n", string(b))
 
 	// missing message
-	resp = apitest.PostMultipartForm(t, "/commit/", map[string][]string{
+	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
 		"branch": {"alpha"},
 	}, nil)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
@@ -57,7 +57,7 @@ func TestCommitHandler(t *testing.T) {
 	assert.Equal(t, "missing message\n", string(b))
 
 	// missing author email
-	resp = apitest.PostMultipartForm(t, "/commit/", map[string][]string{
+	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
 		"branch":  {"alpha"},
 		"message": {"initial commit"},
 	}, nil)
@@ -67,7 +67,7 @@ func TestCommitHandler(t *testing.T) {
 	assert.Equal(t, "missing author email\n", string(b))
 
 	// missing author email
-	resp = apitest.PostMultipartForm(t, "/commit/", map[string][]string{
+	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
 		"branch":      {"alpha"},
 		"message":     {"initial commit"},
 		"authorEmail": {"john@doe.com"},
@@ -78,7 +78,7 @@ func TestCommitHandler(t *testing.T) {
 	assert.Equal(t, "missing author name\n", string(b))
 
 	// missing file
-	resp = apitest.PostMultipartForm(t, "/commit/", map[string][]string{
+	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
 		"branch":      {"alpha"},
 		"message":     {"initial commit"},
 		"authorEmail": {"john@doe.com"},
@@ -99,7 +99,7 @@ func TestCommitHandler(t *testing.T) {
 		{"3", "z", "x"},
 	}))
 	w.Flush()
-	resp = apitest.PostMultipartForm(t, "/commit/", map[string][]string{
+	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
 		"branch":      {"alpha"},
 		"message":     {"initial commit"},
 		"authorName":  {"John Doe"},

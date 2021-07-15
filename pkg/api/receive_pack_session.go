@@ -76,16 +76,15 @@ type ReceivePackSession struct {
 	updates  []*apiutils.Update
 	state    stateFn
 	receiver *apiutils.ObjectReceiver
-	path, id string
+	id       string
 }
 
-func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, path, id string) *ReceivePackSession {
+func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, id string) *ReceivePackSession {
 	s := &ReceivePackSession{
-		db:   db,
-		rs:   rs,
-		c:    c,
-		path: path,
-		id:   id,
+		db: db,
+		rs: rs,
+		c:  c,
+		id: id,
 	}
 	s.state = s.greet
 	return s
@@ -180,7 +179,7 @@ func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request)
 	http.SetCookie(rw, &http.Cookie{
 		Name:     receivePackSessionCookie,
 		Value:    s.id,
-		Path:     s.path,
+		Path:     PathReceivePath,
 		HttpOnly: true,
 		MaxAge:   3600 * 24,
 	})
@@ -208,7 +207,7 @@ func (s *ReceivePackSession) reportStatus(rw http.ResponseWriter, r *http.Reques
 	http.SetCookie(rw, &http.Cookie{
 		Name:     receivePackSessionCookie,
 		Value:    s.id,
-		Path:     s.path,
+		Path:     PathReceivePath,
 		HttpOnly: true,
 		Expires:  time.Now().Add(time.Hour * -24),
 	})

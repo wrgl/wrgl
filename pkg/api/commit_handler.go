@@ -15,17 +15,17 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 )
 
+const PathCommit = "/commit/"
+
 type CommitHandler struct {
-	db   objects.Store
-	rs   ref.Store
-	Path string
+	db objects.Store
+	rs ref.Store
 }
 
 func NewCommitHandler(db objects.Store, rs ref.Store) *CommitHandler {
 	return &CommitHandler{
-		db:   db,
-		rs:   rs,
-		Path: "/commit/",
+		db: db,
+		rs: rs,
 	}
 }
 
