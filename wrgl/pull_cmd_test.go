@@ -8,10 +8,10 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/api"
+	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/pack"
-	packtest "github.com/wrgl/core/pkg/pack/test"
 	"github.com/wrgl/core/pkg/ref"
 	refmock "github.com/wrgl/core/pkg/ref/mock"
 )
@@ -27,21 +27,21 @@ func TestPullCmd(t *testing.T) {
 	sum4, c4 := factory.CommitRandom(t, dbs, nil)
 	sum5, c5 := factory.CommitRandom(t, dbs, [][]byte{sum4})
 	require.NoError(t, ref.CommitHead(rss, "beta", sum5, c5))
-	packtest.RegisterHandler(http.MethodGet, "/info/refs/", pack.NewInfoRefsHandler(rss))
-	packtest.RegisterHandler(http.MethodPost, "/upload-pack/", pack.NewUploadPackHandler(dbs, rss, 0))
+	apitest.RegisterHandler(http.MethodGet, "/info/refs/", api.NewInfoRefsHandler(rss))
+	apitest.RegisterHandler(http.MethodPost, "/upload-pack/", api.NewUploadPackHandler(dbs, rss, 0))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
-	packtest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum4})
+	apitest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum4})
 	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
 	require.NoError(t, ref.CommitHead(rs, "beta", sum4, c4))
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", packtest.TestOrigin, "-t", "beta", "-t", "main"})
+	cmd.SetArgs([]string{"remote", "add", "origin", apitest.TestOrigin, "-t", "beta", "-t", "main"})
 	require.NoError(t, cmd.Execute())
 
 	// pull set upstream

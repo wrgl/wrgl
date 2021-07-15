@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package packclient
+package apiclient
 
 import (
 	"fmt"
 	"io"
 
+	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/objects"
-	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
 )
 
@@ -17,7 +17,7 @@ const defaultHavesPerRoundTrip = 32
 type UploadPackSession struct {
 	c                 *Client
 	db                objects.Store
-	receiver          *packutils.ObjectReceiver
+	receiver          *apiutils.ObjectReceiver
 	rs                ref.Store
 	wants             [][]byte
 	q                 *ref.CommitsQueue
@@ -43,7 +43,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised 
 	if len(neg.wants) == 0 {
 		return nil, fmt.Errorf("nothing wanted")
 	}
-	neg.receiver = packutils.NewObjectReceiver(db, neg.wants)
+	neg.receiver = apiutils.NewObjectReceiver(db, neg.wants)
 	return neg, nil
 }
 

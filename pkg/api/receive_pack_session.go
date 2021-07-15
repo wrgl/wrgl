@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package pack
+package api
 
 import (
 	"encoding/hex"
@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
+	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
-	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
 )
 
@@ -24,7 +24,7 @@ const (
 	CTReceivePackResult      = "application/x-wrgl-receive-pack-result"
 )
 
-func parseReceivePackRequest(r io.Reader) (updates []*packutils.Update, pr *encoding.PackfileReader, err error) {
+func parseReceivePackRequest(r io.Reader) (updates []*apiutils.Update, pr *encoding.PackfileReader, err error) {
 	parser := encoding.NewParser(r)
 	var s string
 	readPack := false
@@ -54,7 +54,7 @@ func parseReceivePackRequest(r io.Reader) (updates []*packutils.Update, pr *enco
 		if sum != nil {
 			readPack = true
 		}
-		updates = append(updates, &packutils.Update{
+		updates = append(updates, &apiutils.Update{
 			Dst:    s[66:],
 			OldSum: oldSum,
 			Sum:    sum,
@@ -73,9 +73,9 @@ type ReceivePackSession struct {
 	db       objects.Store
 	rs       ref.Store
 	c        *conf.Config
-	updates  []*packutils.Update
+	updates  []*apiutils.Update
 	state    stateFn
-	receiver *packutils.ObjectReceiver
+	receiver *apiutils.ObjectReceiver
 	path, id string
 }
 
@@ -148,7 +148,7 @@ func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nex
 		}
 	}
 	if len(commits) > 0 {
-		s.receiver = packutils.NewObjectReceiver(s.db, commits)
+		s.receiver = apiutils.NewObjectReceiver(s.db, commits)
 		done, err := s.receiver.Receive(pr)
 		if err != nil {
 			panic(err)

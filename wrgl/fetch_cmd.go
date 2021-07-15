@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
-	packclient "github.com/wrgl/core/pkg/pack/client"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -92,7 +92,7 @@ type Ref struct {
 	Force bool
 }
 
-func identifyRefsToFetch(client *packclient.Client, specs []*conf.Refspec) (refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
+func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
 	m, err := client.GetRefsInfo()
 	if err != nil {
 		return
@@ -270,8 +270,8 @@ func saveFetchedRefs(
 	return savedRefs, nil
 }
 
-func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *packclient.Client, advertised [][]byte) (fetchedCommits [][]byte, err error) {
-	ses, err := packclient.NewUploadPackSession(db, rs, client, advertised, 0)
+func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *apiclient.Client, advertised [][]byte) (fetchedCommits [][]byte, err error) {
+	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised, 0)
 	if err != nil {
 		if err.Error() == "nothing wanted" {
 			err = nil
@@ -283,7 +283,7 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *pa
 }
 
 func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.ConfigUser, remote string, cr *conf.ConfigRemote, specs []*conf.Refspec, force bool) error {
-	client, err := packclient.NewClient(cr.URL)
+	client, err := apiclient.NewClient(cr.URL)
 	if err != nil {
 		return err
 	}

@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	apiclient "github.com/wrgl/core/pkg/api/client"
+	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
-	packclient "github.com/wrgl/core/pkg/pack/client"
-	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -51,7 +51,7 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, err := packclient.NewClient(cr.URL)
+			client, err := apiclient.NewClient(cr.URL)
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ses, err := packclient.NewReceivePackSession(db, rs, client, updates, remoteRefs, 0)
+			ses, err := apiclient.NewReceivePackSession(db, rs, client, updates, remoteRefs, 0)
 			if err != nil {
 				return err
 			}
@@ -196,7 +196,7 @@ func interpretDestination(remoteRefs map[string][]byte, src, dst string) (string
 
 func identifyUpdates(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, refspecs []*conf.Refspec, remoteRefs map[string][]byte, force bool,
-) (upToDateRefspecs []*conf.Refspec, updates []*packutils.Update, err error) {
+) (upToDateRefspecs []*conf.Refspec, updates []*apiutils.Update, err error) {
 	for _, s := range refspecs {
 		src := s.Src()
 		dst := s.Dst()
@@ -218,7 +218,7 @@ func identifyUpdates(
 				upToDateRefspecs = append(upToDateRefspecs, s)
 			} else if sum == nil {
 				// delete ref
-				updates = append(updates, &packutils.Update{
+				updates = append(updates, &apiutils.Update{
 					OldSum: v,
 					Sum:    sum,
 					Src:    src,
@@ -226,7 +226,7 @@ func identifyUpdates(
 				})
 			} else if strings.HasPrefix(dst, "tags/") {
 				if force || s.Force {
-					updates = append(updates, &packutils.Update{
+					updates = append(updates, &apiutils.Update{
 						OldSum: v,
 						Sum:    sum,
 						Src:    src,
@@ -239,14 +239,14 @@ func identifyUpdates(
 			} else if fastForward, err := ref.IsAncestorOf(db, v, sum); err != nil {
 				return nil, nil, err
 			} else if fastForward {
-				updates = append(updates, &packutils.Update{
+				updates = append(updates, &apiutils.Update{
 					OldSum: v,
 					Sum:    sum,
 					Src:    src,
 					Dst:    dst,
 				})
 			} else if force || s.Force {
-				updates = append(updates, &packutils.Update{
+				updates = append(updates, &apiutils.Update{
 					OldSum: v,
 					Sum:    sum,
 					Src:    src,
@@ -257,7 +257,7 @@ func identifyUpdates(
 				displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", src, dst)
 			}
 		} else if sum != nil {
-			updates = append(updates, &packutils.Update{
+			updates = append(updates, &apiutils.Update{
 				OldSum: nil,
 				Sum:    sum,
 				Src:    src,
@@ -268,7 +268,7 @@ func identifyUpdates(
 	return
 }
 
-func reportUpdateStatus(cmd *cobra.Command, updates []*packutils.Update) {
+func reportUpdateStatus(cmd *cobra.Command, updates []*apiutils.Update) {
 	for _, u := range updates {
 		if u.ErrMsg == "" {
 			if u.Sum == nil {

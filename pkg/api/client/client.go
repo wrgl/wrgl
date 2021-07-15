@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package packclient
+package apiclient
 
 import (
 	"bytes"
@@ -14,9 +14,9 @@ import (
 	"net/http/cookiejar"
 	"strings"
 
+	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/misc"
-	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -158,7 +158,7 @@ func (c *Client) PostUploadPack(wants, haves [][]byte, done bool) (acks [][]byte
 	return
 }
 
-func (c *Client) PostReceivePack(updates []*packutils.Update, writeObjects func(w io.Writer) error) (body io.ReadCloser, err error) {
+func (c *Client) PostReceivePack(updates []*apiutils.Update, writeObjects func(w io.Writer) error) (body io.ReadCloser, err error) {
 	reqBody := bytes.NewBuffer(nil)
 	gzw := gzip.NewWriter(reqBody)
 	buf := misc.NewBuffer(nil)

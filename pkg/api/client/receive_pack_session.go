@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package packclient
+package apiclient
 
 import (
 	"bytes"
@@ -9,19 +9,19 @@ import (
 	"io"
 	"strings"
 
+	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/objects"
-	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
 )
 
 type ReceivePackSession struct {
-	sender  *packutils.ObjectSender
+	sender  *apiutils.ObjectSender
 	c       *Client
-	updates []*packutils.Update
+	updates []*apiutils.Update
 }
 
-func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates []*packutils.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) (*ReceivePackSession, error) {
+func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates []*apiutils.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) (*ReceivePackSession, error) {
 	wants := [][]byte{}
 	for _, u := range updates {
 		if u.Sum != nil {
@@ -32,12 +32,12 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates []
 	for _, sum := range remoteRefs {
 		haves = append(haves, sum)
 	}
-	finder := packutils.NewClosedSetsFinder(db, rs)
+	finder := apiutils.NewClosedSetsFinder(db, rs)
 	_, err := finder.Process(wants, haves, true)
 	if err != nil {
 		return nil, err
 	}
-	sender, err := packutils.NewObjectSender(db, finder.CommitsToSend(), finder.CommonCommmits(), maxPackfileSize)
+	sender, err := apiutils.NewObjectSender(db, finder.CommitsToSend(), finder.CommonCommmits(), maxPackfileSize)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func parseReceivePackResult(r io.ReadCloser) (status map[string]string, err erro
 	return
 }
 
-func (s *ReceivePackSession) Start() (updates []*packutils.Update, err error) {
+func (s *ReceivePackSession) Start() (updates []*apiutils.Update, err error) {
 	var body io.ReadCloser
 	for {
 		done := false

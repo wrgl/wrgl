@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package packutils_test
+package apiutils_test
 
 import (
 	"bytes"
@@ -11,10 +11,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/objects"
 	objhelpers "github.com/wrgl/core/pkg/objects/helpers"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
-	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
 	refmock "github.com/wrgl/core/pkg/ref/mock"
@@ -52,7 +52,7 @@ func TestClosedSetsFinder(t *testing.T) {
 	require.NoError(t, ref.SaveTag(rs, "v1", sum6))
 
 	// send everything if haves are empty
-	finder := packutils.NewClosedSetsFinder(db, rs)
+	finder := apiutils.NewClosedSetsFinder(db, rs)
 	acks, err := finder.Process([][]byte{sum5, sum6}, nil, false)
 	require.NoError(t, err)
 	assert.Empty(t, acks)
@@ -61,7 +61,7 @@ func TestClosedSetsFinder(t *testing.T) {
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c2, c1, c3, c4, c5, c6}, commits, true)
 
 	// send only necessary commits
-	finder = packutils.NewClosedSetsFinder(db, rs)
+	finder = apiutils.NewClosedSetsFinder(db, rs)
 	acks, err = finder.Process([][]byte{sum3, sum4}, [][]byte{sum1, sum2}, false)
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1, sum2}, acks)
@@ -86,7 +86,7 @@ func TestClosedSetsFinderACKs(t *testing.T) {
 	require.NoError(t, ref.SaveTag(rs, "v1", sum7))
 	require.NoError(t, ref.CommitHead(rs, "beta", sum9, c9))
 
-	finder := packutils.NewClosedSetsFinder(db, rs)
+	finder := apiutils.NewClosedSetsFinder(db, rs)
 	acks, err := finder.Process([][]byte{sum6, sum7, sum9}, [][]byte{sum1}, false)
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1}, acks)
@@ -110,7 +110,7 @@ func TestClosedSetsFinderUnrecognizedWants(t *testing.T) {
 	sum2, c2 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2))
 	sum3 := testutils.SecureRandomBytes(16)
-	finder := packutils.NewClosedSetsFinder(db, rs)
+	finder := apiutils.NewClosedSetsFinder(db, rs)
 	_, err := finder.Process([][]byte{sum3}, [][]byte{sum1}, false)
 	assert.Error(t, err, "unrecognized wants: "+hex.EncodeToString(sum3))
 }

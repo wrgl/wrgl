@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package pack
+package api
 
 import (
 	"net/http"
@@ -10,9 +10,9 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiclient "github.com/wrgl/core/pkg/api/client"
+	apitest "github.com/wrgl/core/pkg/api/test"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
-	packclient "github.com/wrgl/core/pkg/pack/client"
-	packtest "github.com/wrgl/core/pkg/pack/test"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
 	refmock "github.com/wrgl/core/pkg/ref/mock"
@@ -43,9 +43,9 @@ func TestInfoRefs(t *testing.T) {
 		"from origin",
 	)
 	require.NoError(t, err)
-	packtest.RegisterHandler(http.MethodGet, "/info/refs/", NewInfoRefsHandler(rs))
+	apitest.RegisterHandler(http.MethodGet, "/info/refs/", NewInfoRefsHandler(rs))
 
-	c, err := packclient.NewClient(packtest.TestOrigin)
+	c, err := apiclient.NewClient(apitest.TestOrigin)
 	require.NoError(t, err)
 	m, err := c.GetRefsInfo()
 	require.NoError(t, err)

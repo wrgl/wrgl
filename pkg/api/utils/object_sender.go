@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package packutils
+package apiutils
 
 import (
 	"bytes"
@@ -13,6 +13,12 @@ import (
 )
 
 const defaultMaxPackfileSize uint64 = 1024 * 1024 * 1024 * 2
+
+type object struct {
+	Type    int
+	Content []byte
+	Sum     []byte
+}
 
 type ObjectSender struct {
 	db              objects.Store
@@ -92,7 +98,7 @@ func (s *ObjectSender) enqueueFrontCommit() (err error) {
 		s.commonTables[string(com.Table)] = struct{}{}
 		for _, blk := range tbl.Blocks {
 			if _, ok := s.commonBlocks[string(blk)]; !ok {
-				s.objs.PushBack(Object{Type: encoding.ObjectBlock, Sum: blk})
+				s.objs.PushBack(object{Type: encoding.ObjectBlock, Sum: blk})
 				s.commonBlocks[string(blk)] = struct{}{}
 			}
 		}
@@ -102,7 +108,7 @@ func (s *ObjectSender) enqueueFrontCommit() (err error) {
 		}
 		b := make([]byte, buf.Len())
 		copy(b, buf.Bytes())
-		s.objs.PushBack(Object{Type: encoding.ObjectTable, Content: b})
+		s.objs.PushBack(object{Type: encoding.ObjectTable, Content: b})
 		buf.Reset()
 	}
 
@@ -110,7 +116,7 @@ func (s *ObjectSender) enqueueFrontCommit() (err error) {
 	if err != nil {
 		return
 	}
-	s.objs.PushBack(Object{Type: encoding.ObjectCommit, Content: buf.Bytes()})
+	s.objs.PushBack(object{Type: encoding.ObjectCommit, Content: buf.Bytes()})
 	return nil
 }
 
@@ -123,7 +129,7 @@ func (s *ObjectSender) WriteObjects(w io.Writer) (done bool, err error) {
 	var size uint64
 	var n int
 	for s.objs.Len() > 0 {
-		obj := s.objs.Remove(s.objs.Front()).(Object)
+		obj := s.objs.Remove(s.objs.Front()).(object)
 		if obj.Content == nil {
 			b, err = objects.GetBlockBytes(s.db, obj.Sum)
 			if err != nil {

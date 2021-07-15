@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package pack
+package api
 
 import (
 	"compress/gzip"
@@ -10,10 +10,10 @@ import (
 	"net/http"
 	"strings"
 
+	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
-	packutils "github.com/wrgl/core/pkg/pack/utils"
 	"github.com/wrgl/core/pkg/ref"
 )
 
@@ -67,8 +67,8 @@ reading:
 type UploadPackSession struct {
 	db              objects.Store
 	id              string
-	finder          *packutils.ClosedSetsFinder
-	sender          *packutils.ObjectSender
+	finder          *apiutils.ClosedSetsFinder
+	sender          *apiutils.ObjectSender
 	path            string
 	state           stateFn
 	maxPackfileSize uint64
@@ -79,7 +79,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, path string, id string
 		db:              db,
 		id:              id,
 		path:            path,
-		finder:          packutils.NewClosedSetsFinder(db, rs),
+		finder:          apiutils.NewClosedSetsFinder(db, rs),
 		maxPackfileSize: maxPackfileSize,
 	}
 	s.state = s.greet
@@ -112,7 +112,7 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nex
 func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	var err error
 	if s.sender == nil {
-		s.sender, err = packutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.finder.CommonCommmits(), s.maxPackfileSize)
+		s.sender, err = apiutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.finder.CommonCommmits(), s.maxPackfileSize)
 		if err != nil {
 			panic(err)
 		}
@@ -144,7 +144,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Request, wants, haves [][]byte, done bool) (nextState stateFn) {
 	acks, err := s.finder.Process(wants, haves, done)
 	if err != nil {
-		if v, ok := err.(*packutils.UnrecognizedWantsError); ok {
+		if v, ok := err.(*apiutils.UnrecognizedWantsError); ok {
 			http.Error(rw, v.Error(), http.StatusBadRequest)
 			return nil
 		}
