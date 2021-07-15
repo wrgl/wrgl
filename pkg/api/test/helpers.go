@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -173,4 +174,27 @@ func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, pa
 	sum, err = objects.SaveCommit(db, buf.Bytes())
 	require.NoError(t, err)
 	return sum, com
+}
+
+func PostMultipartForm(t *testing.T, path string, value map[string][]string, files map[string]io.Reader) *http.Response {
+	t.Helper()
+	buf := bytes.NewBuffer(nil)
+	w := multipart.NewWriter(buf)
+	for k, sl := range value {
+		for _, v := range sl {
+			require.NoError(t, w.WriteField(k, v))
+		}
+	}
+	for k, r := range files {
+		w, err := w.CreateFormFile(k, k)
+		require.NoError(t, err)
+		io.Copy(w, r)
+	}
+	require.NoError(t, w.Close())
+	req, err := http.NewRequest(http.MethodPost, TestOrigin+path, bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	return resp
 }

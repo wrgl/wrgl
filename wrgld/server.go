@@ -23,5 +23,6 @@ func NewServer(db objects.Store, rs ref.Store, c *conf.Config) *Server {
 	s.serveMux.HandleFunc("/info/refs/", logging(api.NewInfoRefsHandler(rs)))
 	s.serveMux.HandleFunc("/upload-pack/", logging(api.NewUploadPackHandler(db, rs, 0)))
 	s.serveMux.HandleFunc("/receive-pack/", logging(api.NewReceivePackHandler(db, rs, c)))
+	s.serveMux.HandleFunc("/commit/", logging(api.NewCommitHandler(db, rs)))
 	return s
 }

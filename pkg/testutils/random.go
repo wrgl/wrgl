@@ -23,6 +23,15 @@ func SecureRandomBytes(length int) []byte {
 	return randomBytes
 }
 
+func RandomSum() [16]byte {
+	b := [16]byte{}
+	_, err := rand.Read(b[:])
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
 func brokenRandomString(length int, charSet string) string {
 	result := make([]byte, length)
 	bufferSize := int(float64(length) * 1.3)
