@@ -15,7 +15,7 @@ import (
 
 var zeroOID = strings.Repeat("0", 32)
 
-const PathReceivePath = "/receive-pack/"
+const PathReceivePack = "/receive-pack/"
 
 type ReceivePackHandler struct {
 	db       objects.Store

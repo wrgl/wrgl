@@ -19,7 +19,7 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func TestInfoRefs(t *testing.T) {
+func TestGetRefsHandler(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 	db := objmock.NewStore()
@@ -43,11 +43,11 @@ func TestInfoRefs(t *testing.T) {
 		"from origin",
 	)
 	require.NoError(t, err)
-	apitest.RegisterHandler(http.MethodGet, PathInfoRefs, NewInfoRefsHandler(rs))
+	apitest.RegisterHandler(http.MethodGet, PathRefs, NewGetRefsHandler(rs))
 
 	c, err := apiclient.NewClient(apitest.TestOrigin)
 	require.NoError(t, err)
-	m, err := c.GetRefsInfo()
+	m, err := c.GetRefs()
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/" + head: sum1,

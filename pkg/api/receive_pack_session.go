@@ -4,17 +4,17 @@
 package api
 
 import (
-	"encoding/hex"
-	"fmt"
-	"io"
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/wrgl/core/pkg/api/payload"
 	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
@@ -24,56 +24,11 @@ const (
 	CTReceivePackResult      = "application/x-wrgl-receive-pack-result"
 )
 
-func parseReceivePackRequest(r io.Reader) (updates []*apiutils.Update, pr *encoding.PackfileReader, err error) {
-	parser := encoding.NewParser(r)
-	var s string
-	readPack := false
-	for {
-		s, err = encoding.ReadPktLine(parser)
-		if err != nil {
-			return
-		}
-		if s == "" {
-			break
-		}
-		var oldSum, sum []byte
-		if s[:32] != zeroOID {
-			oldSum = make([]byte, 16)
-			_, err = hex.Decode(oldSum, []byte(s[:32]))
-			if err != nil {
-				return
-			}
-		}
-		if s[33:65] != zeroOID {
-			sum = make([]byte, 16)
-			_, err = hex.Decode(sum, []byte(s[33:65]))
-			if err != nil {
-				return
-			}
-		}
-		if sum != nil {
-			readPack = true
-		}
-		updates = append(updates, &apiutils.Update{
-			Dst:    s[66:],
-			OldSum: oldSum,
-			Sum:    sum,
-		})
-	}
-	if readPack {
-		pr, err = encoding.NewPackfileReader(io.NopCloser(r))
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
 type ReceivePackSession struct {
 	db       objects.Store
 	rs       ref.Store
 	c        *conf.Config
-	updates  []*apiutils.Update
+	updates  map[string]*payload.Update
 	state    stateFn
 	receiver *apiutils.ObjectReceiver
 	id       string
@@ -91,29 +46,34 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, id st
 }
 
 func (s *ReceivePackSession) saveRefs() error {
-	for _, u := range s.updates {
+	for dst, u := range s.updates {
+		oldSum, _ := ref.GetRef(s.rs, strings.TrimPrefix(dst, "refs/"))
+		if (u.OldSum == nil && oldSum != nil) || (u.OldSum != nil && !bytes.Equal(oldSum, (*u.OldSum)[:])) {
+			u.ErrMsg = "remote ref updated since checkout"
+			continue
+		}
+		var sum []byte
 		if u.Sum == nil {
 			if *s.c.Receive.DenyDeletes {
 				u.ErrMsg = "remote does not support deleting refs"
-				continue
 			} else {
-				err := ref.DeleteRef(s.rs, strings.TrimPrefix(u.Dst, "refs/"))
+				err := ref.DeleteRef(s.rs, strings.TrimPrefix(dst, "refs/"))
 				if err != nil {
 					return err
 				}
 			}
-		} else if !objects.CommitExist(s.db, u.Sum) {
-			u.ErrMsg = "remote did not receive commit"
 			continue
+		} else {
+			sum = (*u.Sum)[:]
+			if !objects.CommitExist(s.db, sum) {
+				u.ErrMsg = "remote did not receive commit"
+				continue
+			}
 		}
-		oldSum, _ := ref.GetRef(s.rs, strings.TrimPrefix(u.Dst, "refs/"))
 		var msg string
 		if oldSum != nil {
-			if string(u.OldSum) != string(oldSum) {
-				u.ErrMsg = "remote ref updated since checkout"
-				continue
-			} else if *s.c.Receive.DenyNonFastForwards {
-				fastForward, err := ref.IsAncestorOf(s.db, oldSum, u.Sum)
+			if *s.c.Receive.DenyNonFastForwards {
+				fastForward, err := ref.IsAncestorOf(s.db, oldSum, sum)
 				if err != nil {
 					return err
 				} else if !fastForward {
@@ -125,7 +85,15 @@ func (s *ReceivePackSession) saveRefs() error {
 		} else {
 			msg = "create ref"
 		}
-		err := ref.SaveRef(s.rs, strings.TrimPrefix(u.Dst, "refs/"), u.Sum, s.c.User.Name, s.c.User.Email, "receive-pack", msg)
+		err := ref.SaveRef(
+			s.rs,
+			strings.TrimPrefix(dst, "refs/"),
+			sum,
+			s.c.User.Name,
+			s.c.User.Email,
+			"receive-pack",
+			msg,
+		)
 		if err != nil {
 			return err
 		}
@@ -134,35 +102,58 @@ func (s *ReceivePackSession) saveRefs() error {
 }
 
 func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	var pr *encoding.PackfileReader
 	var err error
-	s.updates, pr, err = parseReceivePackRequest(r.Body)
-	if err != nil {
-		panic(err)
+	if v := r.Header.Get("Content-Type"); v != CTJSON {
+		http.Error(rw, "updates expected", http.StatusBadRequest)
+		return nil
 	}
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+	req := &payload.ReceivePackRequest{}
+	err = json.Unmarshal(b, req)
+	if err != nil {
+		return
+	}
+	s.updates = req.Updates
 	commits := [][]byte{}
-	for _, u := range s.updates {
-		if u.Sum != nil {
-			commits = append(commits, u.Sum)
+	outdated := false
+	for dst, u := range s.updates {
+		oldSum, err := ref.GetRef(s.rs, strings.TrimPrefix(dst, "refs/"))
+		if err != nil {
+			oldSum = nil
 		}
+		if (u.OldSum == nil && oldSum != nil) || (u.OldSum != nil && !bytes.Equal(oldSum, (*u.OldSum)[:])) {
+			outdated = true
+			u.ErrMsg = "remote ref updated since checkout"
+		}
+		if u.Sum != nil {
+			commits = append(commits, (*u.Sum)[:])
+		}
+	}
+	if outdated {
+		return s.reportStatus(rw, r)
 	}
 	if len(commits) > 0 {
 		s.receiver = apiutils.NewObjectReceiver(s.db, commits)
-		done, err := s.receiver.Receive(pr)
-		if err != nil {
-			panic(err)
-		}
-		if !done {
-			return s.askForMore(rw, r)
-		}
+		return s.askForMore(rw, r)
+	}
+	err = s.saveRefs()
+	if err != nil {
+		panic(err)
 	}
 	return s.reportStatus(rw, r)
 }
 
 func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	_, pr, err := parseReceivePackRequest(r.Body)
+	if v := r.Header.Get("Content-Type"); v != CTPackfile {
+		http.Error(rw, "packfile expected", http.StatusBadRequest)
+		return nil
+	}
+	pr, err := encoding.NewPackfileReader(r.Body)
 	if err != nil {
-		panic(err)
+		return
 	}
 	done, err := s.receiver.Receive(pr)
 	if err != nil {
@@ -171,65 +162,43 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 	if !done {
 		return s.askForMore(rw, r)
 	}
+	err = s.saveRefs()
+	if err != nil {
+		panic(err)
+	}
 	return s.reportStatus(rw, r)
 }
 
 func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	rw.Header().Set("Content-Type", CTReceivePackResult)
 	http.SetCookie(rw, &http.Cookie{
 		Name:     receivePackSessionCookie,
 		Value:    s.id,
-		Path:     PathReceivePath,
+		Path:     PathReceivePack,
 		HttpOnly: true,
 		MaxAge:   3600 * 24,
 	})
-	buf := misc.NewBuffer(nil)
-	for _, line := range []string{"unpack ok", "continue"} {
-		err := encoding.WritePktLine(rw, buf, line)
-		if err != nil {
-			panic(err)
-		}
-	}
-	err := encoding.WritePktLine(rw, buf, "")
-	if err != nil {
-		panic(err)
-	}
+	rw.WriteHeader(http.StatusOK)
 	return s.receiveObjects
 }
 
 func (s *ReceivePackSession) reportStatus(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	err := s.saveRefs()
-	if err != nil {
-		panic(err)
-	}
-	rw.Header().Set("Content-Type", CTReceivePackResult)
+	rw.Header().Set("Content-Type", CTJSON)
 	// remove cookie
 	http.SetCookie(rw, &http.Cookie{
 		Name:     receivePackSessionCookie,
 		Value:    s.id,
-		Path:     PathReceivePath,
+		Path:     PathReceivePack,
 		HttpOnly: true,
 		Expires:  time.Now().Add(time.Hour * -24),
 	})
-	buf := misc.NewBuffer(nil)
-	err = encoding.WritePktLine(rw, buf, "unpack ok")
+	resp := &payload.ReceivePackResponse{
+		Updates: s.updates,
+	}
+	b, err := json.Marshal(resp)
 	if err != nil {
 		panic(err)
 	}
-	for _, u := range s.updates {
-		if u.ErrMsg == "" {
-			err = encoding.WritePktLine(rw, buf, fmt.Sprintf("ok %s", u.Dst))
-			if err != nil {
-				panic(err)
-			}
-		} else {
-			err = encoding.WritePktLine(rw, buf, fmt.Sprintf("ng %s %s", u.Dst, u.ErrMsg))
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
-	err = encoding.WritePktLine(rw, buf, "")
+	_, err = rw.Write(b)
 	if err != nil {
 		panic(err)
 	}

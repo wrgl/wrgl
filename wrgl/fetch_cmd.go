@@ -93,7 +93,7 @@ type Ref struct {
 }
 
 func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
-	m, err := client.GetRefsInfo()
+	m, err := client.GetRefs()
 	if err != nil {
 		return
 	}

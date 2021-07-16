@@ -20,9 +20,9 @@ func NewServer(db objects.Store, rs ref.Store, c *conf.Config) *Server {
 	s := &Server{
 		serveMux: http.NewServeMux(),
 	}
-	s.serveMux.HandleFunc(api.PathReceivePath, logging(api.NewInfoRefsHandler(rs)))
+	s.serveMux.HandleFunc(api.PathReceivePack, logging(api.NewGetRefsHandler(rs)))
 	s.serveMux.HandleFunc(api.PathUploadPack, logging(api.NewUploadPackHandler(db, rs, 0)))
-	s.serveMux.HandleFunc(api.PathReceivePath, logging(api.NewReceivePackHandler(db, rs, c)))
+	s.serveMux.HandleFunc(api.PathReceivePack, logging(api.NewReceivePackHandler(db, rs, c)))
 	s.serveMux.HandleFunc(api.PathCommit, logging(api.NewCommitHandler(db, rs)))
 	return s
 }

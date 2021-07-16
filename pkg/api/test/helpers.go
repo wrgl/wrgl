@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
-	apiutils "github.com/wrgl/core/pkg/api/utils"
+	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/objects"
@@ -88,7 +88,7 @@ func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, advertised [][]b
 	return commits
 }
 
-func PushObjects(t *testing.T, db objects.Store, rs ref.Store, updates []*apiutils.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) []*apiutils.Update {
+func PushObjects(t *testing.T, db objects.Store, rs ref.Store, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) map[string]*payload.Update {
 	t.Helper()
 	c, err := apiclient.NewClient(TestOrigin)
 	require.NoError(t, err)

@@ -5,14 +5,12 @@ package api
 
 import (
 	"compress/gzip"
-	"encoding/hex"
-	"io"
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
-	"strings"
 
+	"github.com/wrgl/core/pkg/api/payload"
 	apiutils "github.com/wrgl/core/pkg/api/utils"
-	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/misc"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
@@ -25,41 +23,15 @@ const (
 
 type stateFn func(rw http.ResponseWriter, r *http.Request) (nextState stateFn)
 
-func parseUploadPackRequest(r io.Reader) (wants, haves [][]byte, done bool, err error) {
-	parser := encoding.NewParser(r)
-	var s string
-reading:
-	for {
-		s, err = encoding.ReadPktLine(parser)
-		if err != nil {
-			return
-		}
-		if s == "" {
-			break
-		}
-		fields := strings.Fields(s)
-		switch fields[0] {
-		case "done":
-			done = true
-			break reading
-		case "want":
-			b := make([]byte, 16)
-			_, err = hex.Decode(b, []byte(fields[1]))
-			if err != nil {
-				return
-			}
-			wants = append(wants, b)
-		case "have":
-			b := make([]byte, 16)
-			_, err = hex.Decode(b, []byte(fields[1]))
-			if err != nil {
-				return
-			}
-			haves = append(haves, b)
-		default:
-			err = NewBadRequestError("unrecognized command %q", fields[0])
-			return
-		}
+func parseUploadPackRequest(r *http.Request) (req *payload.UploadPackRequest, err error) {
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+	req = &payload.UploadPackRequest{}
+	err = json.Unmarshal(b, req)
+	if err != nil {
+		return nil, err
 	}
 	return
 }
@@ -85,7 +57,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, id string, maxPackfile
 }
 
 func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nextState stateFn) {
-	rw.Header().Set("Content-Type", CTUploadPackResult)
+	rw.Header().Set("Content-Type", CTJSON)
 	http.SetCookie(rw, &http.Cookie{
 		Name:     uploadPackSessionCookie,
 		Value:    s.id,
@@ -93,14 +65,15 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nex
 		HttpOnly: true,
 		MaxAge:   3600 * 24,
 	})
-	buf := misc.NewBuffer(nil)
+	resp := &payload.UploadPackResponse{}
 	for _, ack := range acks {
-		err := encoding.WritePktLine(rw, buf, "ACK "+hex.EncodeToString(ack))
-		if err != nil {
-			panic(err)
-		}
+		resp.ACKs = payload.AppendHex(resp.ACKs, ack)
 	}
-	err := encoding.WritePktLine(rw, buf, "NAK")
+	b, err := json.Marshal(resp)
+	if err != nil {
+		panic(err)
+	}
+	_, err = rw.Write(b)
 	if err != nil {
 		panic(err)
 	}
@@ -139,8 +112,8 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 	return s.sendPackfile
 }
 
-func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Request, wants, haves [][]byte, done bool) (nextState stateFn) {
-	acks, err := s.finder.Process(wants, haves, done)
+func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Request, req *payload.UploadPackRequest) (nextState stateFn) {
+	acks, err := s.finder.Process(payload.HexSliceToBytesSlice(req.Wants), payload.HexSliceToBytesSlice(req.Haves), req.Done)
 	if err != nil {
 		if v, ok := err.(*apiutils.UnrecognizedWantsError); ok {
 			http.Error(rw, v.Error(), http.StatusBadRequest)
@@ -148,35 +121,39 @@ func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Reque
 		}
 		panic(err)
 	}
-	if len(acks) > 0 && len(s.finder.Wants) > 0 && !done {
+	if len(acks) > 0 && len(s.finder.Wants) > 0 && !req.Done {
 		return s.sendACKs(rw, acks)
 	}
 	return s.sendPackfile(rw, r)
 }
 
 func (s *UploadPackSession) greet(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	wants, haves, done, err := parseUploadPackRequest(r.Body)
+	req, err := parseUploadPackRequest(r)
 	if err != nil {
 		panic(err)
 	}
-	if len(wants) == 0 {
+	if len(req.Wants) == 0 {
 		http.Error(rw, "empty wants list", http.StatusBadRequest)
 		return nil
 	}
-	return s.findClosedSets(rw, r, wants, haves, done)
+	return s.findClosedSets(rw, r, req)
 }
 
 func (s *UploadPackSession) negotiate(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	wants, haves, done, err := parseUploadPackRequest(r.Body)
+	req, err := parseUploadPackRequest(r)
 	if err != nil {
 		panic(err)
 	}
-	return s.findClosedSets(rw, r, wants, haves, done)
+	return s.findClosedSets(rw, r, req)
 }
 
 // ServeHTTP negotiates which commits to be sent and send them in one or more packfiles,
 // returns true when this session is completed and should be removed.
 func (s *UploadPackSession) ServeHTTP(rw http.ResponseWriter, r *http.Request) bool {
+	if ct := r.Header.Get("Content-Type"); ct != CTJSON {
+		http.Error(rw, "", http.StatusUnsupportedMediaType)
+		return true
+	}
 	s.state = s.state(rw, r)
 	return s.state == nil
 }

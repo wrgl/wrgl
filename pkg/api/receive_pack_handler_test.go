@@ -10,9 +10,10 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/api/payload"
 	apitest "github.com/wrgl/core/pkg/api/test"
-	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
@@ -40,7 +41,7 @@ func TestReceivePackHandler(t *testing.T) {
 	sum3, _ := factory.CommitHead(t, db, rs, "delta", nil, nil)
 	sum7, _ := factory.CommitHead(t, db, rs, "theta", nil, nil)
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePath, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false)),
+		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false)),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
@@ -58,19 +59,21 @@ func TestReceivePackHandler(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rsc, "delta", sum6, c6))
 	require.NoError(t, ref.CommitHead(rsc, "theta", sum8, c8))
 
-	updates := []*apiutils.Update{
-		{Dst: "refs/heads/alpha", OldSum: sum1, Sum: sum4}, // fast-forward
-		{Dst: "refs/heads/beta", OldSum: sum2},             // delete
-		{Dst: "refs/heads/gamma", Sum: sum5},               // create
-		{Dst: "refs/heads/delta", OldSum: sum9, Sum: sum6}, // outdated ref
-		{Dst: "refs/heads/theta", OldSum: sum7, Sum: sum8}, // non-fast-forward
+	updates := map[string]*payload.Update{
+		"refs/heads/alpha": {OldSum: payload.BytesToHex(sum1), Sum: payload.BytesToHex(sum4)}, // fast-forward
+		"refs/heads/beta":  {OldSum: payload.BytesToHex(sum2)},                                // delete
+		"refs/heads/gamma": {Sum: payload.BytesToHex(sum5)},                                   // create
+		"refs/heads/delta": {OldSum: payload.BytesToHex(sum9), Sum: payload.BytesToHex(sum6)}, // outdated ref
+		"refs/heads/theta": {OldSum: payload.BytesToHex(sum7), Sum: payload.BytesToHex(sum8)}, // non-fast-forward
 	}
 	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 0)
-	assert.Empty(t, updates[0].ErrMsg)
-	assert.Empty(t, updates[1].ErrMsg)
-	assert.Empty(t, updates[2].ErrMsg)
-	assert.Equal(t, "remote ref updated since checkout", updates[3].ErrMsg)
-	assert.Empty(t, updates[4].ErrMsg)
+	assert.Equal(t, "remote ref updated since checkout", updates["refs/heads/delta"].ErrMsg)
+	delete(updates, "refs/heads/delta")
+	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 0)
+	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
+	assert.Empty(t, updates["refs/heads/beta"].ErrMsg)
+	assert.Empty(t, updates["refs/heads/gamma"].ErrMsg)
+	assert.Empty(t, updates["refs/heads/theta"].ErrMsg)
 	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1, sum4, sum5})
 	assertRefEqual(t, rs, "heads/alpha", sum4)
 	refhelpers.AssertLatestReflogEqual(t, rs, "heads/alpha", &ref.Reflog{
@@ -100,6 +103,16 @@ func TestReceivePackHandler(t *testing.T) {
 		Action:      "receive-pack",
 		Message:     "update ref",
 	})
+
+	// delete only
+	updates = map[string]*payload.Update{
+		"refs/heads/alpha": {OldSum: payload.BytesToHex(sum4)}, // fast-forward
+	}
+	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 0)
+	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
+	_, err = ref.GetHead(rs, "alpha")
+	assert.Equal(t, ref.ErrKeyNotFound, err)
+	assert.True(t, objects.CommitExist(db, sum4))
 }
 
 func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
@@ -110,7 +123,7 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePath, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true)),
+		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true)),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
@@ -120,13 +133,13 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 	sum3, c3 := factory.CommitRandom(t, dbc, nil)
 	require.NoError(t, ref.CommitHead(rsc, "alpha", sum3, c3))
 
-	updates := []*apiutils.Update{
-		{Dst: "refs/heads/alpha", OldSum: sum1, Sum: sum3},
-		{Dst: "refs/heads/beta", OldSum: sum2},
+	updates := map[string]*payload.Update{
+		"refs/heads/alpha": {OldSum: payload.BytesToHex(sum1), Sum: payload.BytesToHex(sum3)},
+		"refs/heads/beta":  {OldSum: payload.BytesToHex(sum2)},
 	}
 	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 0)
-	assert.Equal(t, "remote does not support non-fast-fowards", updates[0].ErrMsg)
-	assert.Equal(t, "remote does not support deleting refs", updates[1].ErrMsg)
+	assert.Equal(t, "remote does not support non-fast-fowards", updates["refs/heads/alpha"].ErrMsg)
+	assert.Equal(t, "remote does not support deleting refs", updates["refs/heads/beta"].ErrMsg)
 	assertRefEqual(t, rs, "heads/alpha", sum1)
 	assertRefEqual(t, rs, "heads/beta", sum2)
 }
@@ -137,7 +150,7 @@ func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePath, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true)),
+		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true)),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
@@ -149,11 +162,11 @@ func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	sum3, c3 := apitest.CreateRandomCommit(t, dbc, 5, 700, [][]byte{sum2})
 	require.NoError(t, ref.CommitHead(rsc, "alpha", sum3, c3))
 
-	updates := []*apiutils.Update{
-		{Dst: "refs/heads/alpha", Sum: sum3},
+	updates := map[string]*payload.Update{
+		"refs/heads/alpha": {Sum: payload.BytesToHex(sum3)},
 	}
 	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 1024)
-	assert.Empty(t, updates[0].ErrMsg)
+	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
 	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1, sum2, sum3})
 	assertRefEqual(t, rs, "heads/alpha", sum3)
 }

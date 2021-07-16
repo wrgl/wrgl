@@ -19,3 +19,26 @@ func (x *Hex) UnmarshalJSON(b []byte) error {
 	_, err := hex.Decode((*x)[:], b)
 	return err
 }
+
+func AppendHex(sl []*Hex, b []byte) []*Hex {
+	h := &Hex{}
+	copy((*h)[:], b)
+	return append(sl, h)
+}
+
+func HexSliceToBytesSlice(sl []*Hex) [][]byte {
+	b := make([][]byte, len(sl))
+	for i, v := range sl {
+		b[i] = (*v)[:]
+	}
+	return b
+}
+
+func BytesToHex(b []byte) *Hex {
+	if b == nil {
+		return nil
+	}
+	h := &Hex{}
+	copy((*h)[:], b)
+	return h
+}

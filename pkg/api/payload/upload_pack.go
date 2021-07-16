@@ -4,5 +4,11 @@
 package payload
 
 type UploadPackRequest struct {
-	Wants []string
+	Wants []*Hex `json:"wants,omitempty"`
+	Haves []*Hex `json:"haves,omitempty"`
+	Done  bool   `json:"done,omitempty"`
+}
+
+type UploadPackResponse struct {
+	ACKs []*Hex `json:"acks,omitempty"`
 }
