@@ -5,15 +5,12 @@ package api
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
-
-var zeroOID = strings.Repeat("0", 32)
 
 const PathReceivePack = "/receive-pack/"
 

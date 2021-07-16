@@ -18,7 +18,9 @@ import (
 	"github.com/wrgl/core/pkg/api/payload"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
+	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestGetCommitHandler(t *testing.T) {
@@ -28,8 +30,14 @@ func TestGetCommitHandler(t *testing.T) {
 	parent, _ := factory.CommitRandom(t, db, nil)
 	sum, com := factory.CommitRandom(t, db, [][]byte{parent})
 	apitest.RegisterHandler(http.MethodGet, `=~^/commits/[0-9a-f]+/\z`, api.NewGetCommitHandler(db))
+	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/\z`, api.NewGetTableHandler(db))
 
-	resp := apitest.Get(t, fmt.Sprintf("/commits/%x/", sum))
+	// get commit not found
+	resp := apitest.Get(t, fmt.Sprintf("/commits/%x/", testutils.SecureRandomBytes(16)))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	// get commit OK
+	resp = apitest.Get(t, fmt.Sprintf("/commits/%x/", sum))
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	b, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -42,4 +50,21 @@ func TestGetCommitHandler(t *testing.T) {
 	assert.Equal(t, com.Time.Format(time.RFC3339), cr.Time.Format(time.RFC3339))
 	assert.Len(t, cr.Parents, 1)
 	assert.Equal(t, com.Parents[0], (*cr.Parents[0])[:])
+
+	// get table not found
+	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/", testutils.SecureRandomBytes(16)))
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	// get table OK
+	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/", com.Table))
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	b, err = ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	tr := &payload.GetTableResponse{}
+	require.NoError(t, json.Unmarshal(b, tr))
+	tbl, err := objects.GetTable(db, com.Table)
+	require.NoError(t, err)
+	assert.Equal(t, tbl.Columns, tr.Columns)
+	assert.Equal(t, tbl.PK, tr.PK)
+	assert.Equal(t, tbl.RowsCount, tr.RowsCount)
 }

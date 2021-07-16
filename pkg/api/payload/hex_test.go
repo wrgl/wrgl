@@ -33,7 +33,11 @@ func TestAppendHex(t *testing.T) {
 	assert.Len(t, sl, 1)
 	sl = AppendHex(sl, b2)
 	assert.Len(t, sl, 2)
+	sl = AppendHex(sl, nil)
+	assert.Len(t, sl, 3)
 	assert.Equal(t, b1, (*sl[0])[:])
 	assert.Equal(t, b2, (*sl[1])[:])
-	assert.Equal(t, [][]byte{b1, b2}, HexSliceToBytesSlice(sl))
+	assert.Equal(t, [][]byte{b1, b2, nil}, HexSliceToBytesSlice(sl))
+	sl[0] = nil
+	assert.Equal(t, [][]byte{nil, b2, nil}, HexSliceToBytesSlice(sl))
 }

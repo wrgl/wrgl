@@ -21,6 +21,9 @@ func (x *Hex) UnmarshalJSON(b []byte) error {
 }
 
 func AppendHex(sl []*Hex, b []byte) []*Hex {
+	if b == nil {
+		return append(sl, nil)
+	}
 	h := &Hex{}
 	copy((*h)[:], b)
 	return append(sl, h)
@@ -29,6 +32,9 @@ func AppendHex(sl []*Hex, b []byte) []*Hex {
 func HexSliceToBytesSlice(sl []*Hex) [][]byte {
 	b := make([][]byte, len(sl))
 	for i, v := range sl {
+		if v == nil {
+			continue
+		}
 		b[i] = (*v)[:]
 	}
 	return b
