@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,7 +53,11 @@ func decodeGzipPayload(header *http.Header, r io.ReadCloser) (io.ReadCloser, err
 }
 
 func RegisterHandlerWithOrigin(origin, method, path string, handler http.Handler) {
-	httpmock.RegisterResponder(method, origin+path,
+	url := origin + path
+	if strings.HasPrefix(path, "=~") {
+		url = path
+	}
+	httpmock.RegisterResponder(method, url,
 		func(req *http.Request) (*http.Response, error) {
 			rec := httptest.NewRecorder()
 			r, err := decodeGzipPayload(&req.Header, req.Body)
@@ -195,6 +200,13 @@ func PostMultipartForm(t *testing.T, path string, value map[string][]string, fil
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	return resp
+}
+
+func Get(t *testing.T, path string) *http.Response {
+	t.Helper()
+	resp, err := http.Get(TestOrigin + path)
 	require.NoError(t, err)
 	return resp
 }

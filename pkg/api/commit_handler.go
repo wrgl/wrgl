@@ -15,7 +15,7 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 )
 
-const PathCommit = "/commit/"
+const PathCommit = "/commits/"
 
 type CommitHandler struct {
 	db objects.Store
