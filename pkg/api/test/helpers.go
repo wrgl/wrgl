@@ -210,3 +210,12 @@ func Get(t *testing.T, path string) *http.Response {
 	require.NoError(t, err)
 	return resp
 }
+
+func AssertResp(t *testing.T, resp *http.Response, statusCode int, message string) {
+	t.Helper()
+	assert.Equal(t, statusCode, resp.StatusCode)
+	defer resp.Body.Close()
+	b, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, message, string(b))
+}
