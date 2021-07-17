@@ -64,18 +64,18 @@ func diffRows(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx
 		if row2 != nil {
 			if emitUnchangedRow || !colsEqual || !bytes.Equal(row1, row2) {
 				diffChan <- &objects.Diff{
-					PK:     pk,
-					Sum:    row1,
-					Row:    off1,
-					OldSum: row2,
-					OldRow: off2,
+					PK:        pk,
+					Sum:       row1,
+					Offset:    off1,
+					OldSum:    row2,
+					OldOffset: off2,
 				}
 			}
 		} else {
 			diffChan <- &objects.Diff{
-				PK:  pk,
-				Sum: row1,
-				Row: off1,
+				PK:     pk,
+				Sum:    row1,
+				Offset: off1,
 			}
 		}
 	})
@@ -87,9 +87,9 @@ func diffRows(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx
 		pt.SetCurrent(current)
 		if row2 == nil {
 			diffChan <- &objects.Diff{
-				PK:     pk,
-				OldSum: row1,
-				OldRow: off1,
+				PK:        pk,
+				OldSum:    row1,
+				OldOffset: off1,
 			}
 		}
 	})

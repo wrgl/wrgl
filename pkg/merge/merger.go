@@ -108,16 +108,16 @@ func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, 
 			merges[pkSum] = &Merge{
 				PK:           d.PK,
 				Base:         d.OldSum,
-				BaseOffset:   d.OldRow,
+				BaseOffset:   d.OldOffset,
 				Others:       make([][]byte, n),
 				OtherOffsets: make([]uint32, n),
 			}
 			merges[pkSum].Others[chosen] = d.Sum
-			merges[pkSum].OtherOffsets[chosen] = d.Row
+			merges[pkSum].OtherOffsets[chosen] = d.Offset
 			counter[pkSum] = 1
 		} else {
 			m.Others[chosen] = d.Sum
-			m.OtherOffsets[chosen] = d.Row
+			m.OtherOffsets[chosen] = d.Offset
 			counter[pkSum]++
 		}
 	}

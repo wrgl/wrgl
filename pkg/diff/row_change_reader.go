@@ -68,12 +68,12 @@ func (r *RowChangeReader) ReadAt(offset int) (mergedRow [][]string, err error) {
 		return nil, io.EOF
 	}
 	d := r.rowDiffs[offset]
-	blk, off := RowToBlockAndOffset(d.Row)
+	blk, off := RowToBlockAndOffset(d.Offset)
 	row, err := r.buf.GetRow(0, blk, off)
 	if err != nil {
 		return nil, err
 	}
-	blk, off = RowToBlockAndOffset(d.OldRow)
+	blk, off = RowToBlockAndOffset(d.OldOffset)
 	oldRow, err := r.buf.GetRow(1, blk, off)
 	if err != nil {
 		return nil, err

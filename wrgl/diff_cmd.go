@@ -248,7 +248,7 @@ mainLoop:
 						return
 					}
 				}
-				addedRowReader.Add(d.Row)
+				addedRowReader.Add(d.Offset)
 			} else if d.Sum == nil {
 				if removedRowReader == nil {
 					removedRowReader, err = diff.NewRowListReader(db2, tbl2)
@@ -256,7 +256,7 @@ mainLoop:
 						return
 					}
 				}
-				removedRowReader.Add(d.OldRow)
+				removedRowReader.Add(d.OldOffset)
 			} else {
 				if rowChangeReader == nil {
 					rowChangeReader, err = diff.NewRowChangeReader(db1, db2, tbl1, tbl2, colDiff)
@@ -311,7 +311,7 @@ mainLoop:
 			}
 			var row, oldRow []string
 			if d.Sum != nil {
-				blk, off := diff.RowToBlockAndOffset(d.Row)
+				blk, off := diff.RowToBlockAndOffset(d.Offset)
 				row, err = buf.GetRow(0, blk, off)
 				if err != nil {
 					return err
@@ -319,7 +319,7 @@ mainLoop:
 				row = colDiff.RearrangeRow(0, row)
 			}
 			if d.OldSum != nil {
-				blk, off := diff.RowToBlockAndOffset(d.OldRow)
+				blk, off := diff.RowToBlockAndOffset(d.OldOffset)
 				oldRow, err = buf.GetRow(1, blk, off)
 				if err != nil {
 					return err
