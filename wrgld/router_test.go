@@ -35,6 +35,15 @@ func assertResponse(t *testing.T, handler http.Handler, method, path string, sta
 	assert.Equal(t, resp, string(b))
 }
 
+func assertRedirect(t *testing.T, handler http.Handler, method, path string, status int, newPath string) {
+	t.Helper()
+	req := httptest.NewRequest(method, path, nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	require.Equal(t, status, rec.Result().StatusCode)
+	assert.Equal(t, newPath, rec.Result().Header.Get("Location"))
+}
+
 func TestRouter(t *testing.T) {
 	router := NewRouter(&Routes{
 		Subs: []*Routes{
@@ -64,4 +73,8 @@ func TestRouter(t *testing.T) {
 	assertResponse(t, router, http.MethodGet, fmt.Sprintf("/commits/%x/", testutils.SecureRandomBytes(16)), 200, "get commit")
 	assertResponse(t, router, http.MethodGet, fmt.Sprintf("/tables/%x/", testutils.SecureRandomBytes(16)), 200, "get table")
 	assertResponse(t, router, http.MethodGet, fmt.Sprintf("/tables/%x/blocks/", testutils.SecureRandomBytes(16)), 200, "get blocks")
+
+	// test redirect
+	p := fmt.Sprintf("/tables/%x/blocks", testutils.SecureRandomBytes(16))
+	assertRedirect(t, router, http.MethodGet, p, 301, p+"/")
 }

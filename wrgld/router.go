@@ -5,6 +5,7 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -29,6 +30,10 @@ func NewRouter(c *Routes) *Router {
 func (router *Router) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	routes := router.c
 	path := r.URL.Path
+	redirect := !strings.HasSuffix(path, "/")
+	if redirect {
+		path = path + "/"
+	}
 mainLoop:
 	for {
 		var defaultRoutes *Routes
@@ -54,6 +59,13 @@ mainLoop:
 	}
 	if routes.Handler == nil {
 		http.NotFound(rw, r)
+		return
+	}
+	if redirect {
+		u := &url.URL{}
+		*u = *r.URL
+		u.Path = r.URL.Path + "/"
+		http.Redirect(rw, r, u.String(), http.StatusMovedPermanently)
 		return
 	}
 	routes.Handler.ServeHTTP(rw, r)
