@@ -41,7 +41,7 @@ func TestReceivePackHandler(t *testing.T) {
 	sum3, _ := factory.CommitHead(t, db, rs, "delta", nil, nil)
 	sum7, _ := factory.CommitHead(t, db, rs, "theta", nil, nil)
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false)),
+		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false), NewReceivePackSessionMap()),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true)),
+		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), NewReceivePackSessionMap()),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true)),
+		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), NewReceivePackSessionMap()),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)

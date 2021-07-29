@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/conf"
@@ -31,10 +32,10 @@ type ReceivePackSession struct {
 	updates  map[string]*payload.Update
 	state    stateFn
 	receiver *apiutils.ObjectReceiver
-	id       string
+	id       uuid.UUID
 }
 
-func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, id string) *ReceivePackSession {
+func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, id uuid.UUID) *ReceivePackSession {
 	s := &ReceivePackSession{
 		db: db,
 		rs: rs,
@@ -172,7 +173,7 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	http.SetCookie(rw, &http.Cookie{
 		Name:     receivePackSessionCookie,
-		Value:    s.id,
+		Value:    s.id.String(),
 		Path:     PathReceivePack,
 		HttpOnly: true,
 		MaxAge:   3600 * 24,
@@ -186,7 +187,7 @@ func (s *ReceivePackSession) reportStatus(rw http.ResponseWriter, r *http.Reques
 	// remove cookie
 	http.SetCookie(rw, &http.Cookie{
 		Name:     receivePackSessionCookie,
-		Value:    s.id,
+		Value:    s.id.String(),
 		Path:     PathReceivePack,
 		HttpOnly: true,
 		Expires:  time.Now().Add(time.Hour * -24),

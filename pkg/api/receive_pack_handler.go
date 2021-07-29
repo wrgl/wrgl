@@ -14,41 +14,48 @@ import (
 
 const PathReceivePack = "/receive-pack/"
 
+type ReceivePackSessionStore interface {
+	Set(sid uuid.UUID, ses *ReceivePackSession)
+	Get(sid uuid.UUID) (ses *ReceivePackSession, ok bool)
+	Delete(sid uuid.UUID)
+}
+
 type ReceivePackHandler struct {
 	db       objects.Store
 	rs       ref.Store
 	c        *conf.Config
-	sessions map[string]*ReceivePackSession
+	sessions ReceivePackSessionStore
 }
 
-func NewReceivePackHandler(db objects.Store, rs ref.Store, c *conf.Config) *ReceivePackHandler {
+func NewReceivePackHandler(db objects.Store, rs ref.Store, c *conf.Config, sessions ReceivePackSessionStore) *ReceivePackHandler {
 	return &ReceivePackHandler{
 		db:       db,
 		rs:       rs,
 		c:        c,
-		sessions: map[string]*ReceivePackSession{},
+		sessions: sessions,
 	}
 }
 
-func (h *ReceivePackHandler) getSession(r *http.Request) (ses *ReceivePackSession, sid string, err error) {
+func (h *ReceivePackHandler) getSession(r *http.Request) (ses *ReceivePackSession, sid uuid.UUID, err error) {
 	var ok bool
 	c, err := r.Cookie(receivePackSessionCookie)
 	if err == nil {
-		sid = c.Value
-		ses, ok = h.sessions[sid]
+		sid, err = uuid.Parse(c.Value)
+		if err != nil {
+			return
+		}
+		ses, ok = h.sessions.Get(sid)
 		if !ok {
 			ses = nil
 		}
 	}
 	if ses == nil {
-		var id uuid.UUID
-		id, err = uuid.NewRandom()
+		sid, err = uuid.NewRandom()
 		if err != nil {
 			return
 		}
-		sid = id.String()
 		ses = NewReceivePackSession(h.db, h.rs, h.c, sid)
-		h.sessions[sid] = ses
+		h.sessions.Set(sid, ses)
 	}
 	return
 }
@@ -64,11 +71,11 @@ func (h *ReceivePackHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) 
 	}
 	defer func() {
 		if s := recover(); s != nil {
-			delete(h.sessions, sid)
+			h.sessions.Delete(sid)
 			panic(s)
 		}
 	}()
 	if done := ses.ServeHTTP(rw, r); done {
-		delete(h.sessions, sid)
+		h.sessions.Delete(sid)
 	}
 }

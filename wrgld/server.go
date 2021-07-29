@@ -24,8 +24,8 @@ func NewServer(db objects.Store, rs ref.Store, c *conf.Config) *Server {
 	s.serveMux.HandleFunc("/", logging(NewRouter(&Routes{
 		Subs: []*Routes{
 			{http.MethodGet, regexp.MustCompile(`^/refs/`), api.NewGetRefsHandler(rs), nil},
-			{http.MethodPost, regexp.MustCompile(`^/upload-pack/`), api.NewUploadPackHandler(db, rs, 0), nil},
-			{http.MethodPost, regexp.MustCompile(`^/receive-pack/`), api.NewReceivePackHandler(db, rs, c), nil},
+			{http.MethodPost, regexp.MustCompile(`^/upload-pack/`), api.NewUploadPackHandler(db, rs, api.NewUploadPackSessionMap(), 0), nil},
+			{http.MethodPost, regexp.MustCompile(`^/receive-pack/`), api.NewReceivePackHandler(db, rs, c, api.NewReceivePackSessionMap()), nil},
 			{"", regexp.MustCompile(`^/commits/`), nil, []*Routes{
 				{http.MethodPost, nil, api.NewCommitHandler(db, rs), nil},
 				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), api.NewGetCommitHandler(db), nil},

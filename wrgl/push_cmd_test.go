@@ -48,7 +48,7 @@ func TestPushCmd(t *testing.T) {
 	sum8, c8 := factory.CommitHead(t, dbs, rss, "theta", nil, nil)
 	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
 	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, false)),
+		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, false), api.NewReceivePackSessionMap()),
 	)
 
 	rd, cleanUp := createRepoDir(t)
@@ -138,7 +138,7 @@ func TestPushCmdForce(t *testing.T) {
 	sum2, _ := factory.CommitTag(t, dbs, rss, "2017", nil, nil, nil)
 	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
 	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, true)),
+		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, true), api.NewReceivePackSessionMap()),
 	)
 
 	rd, cleanUp := createRepoDir(t)
@@ -187,7 +187,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	sum1, c1 := factory.CommitHead(t, dbs, rss, "alpha", nil, nil)
 	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
 	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, true)),
+		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, true), api.NewReceivePackSessionMap()),
 	)
 
 	rd, cleanUp := createRepoDir(t)
@@ -240,7 +240,7 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	rss := refmock.NewStore()
 	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
 	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, false)),
+		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, false), api.NewReceivePackSessionMap()),
 	)
 
 	rd, cleanUp := createRepoDir(t)

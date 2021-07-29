@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/objects"
@@ -38,14 +39,14 @@ func parseUploadPackRequest(r *http.Request) (req *payload.UploadPackRequest, er
 
 type UploadPackSession struct {
 	db              objects.Store
-	id              string
+	id              uuid.UUID
 	finder          *apiutils.ClosedSetsFinder
 	sender          *apiutils.ObjectSender
 	state           stateFn
 	maxPackfileSize uint64
 }
 
-func NewUploadPackSession(db objects.Store, rs ref.Store, id string, maxPackfileSize uint64) *UploadPackSession {
+func NewUploadPackSession(db objects.Store, rs ref.Store, id uuid.UUID, maxPackfileSize uint64) *UploadPackSession {
 	s := &UploadPackSession{
 		db:              db,
 		id:              id,
@@ -60,7 +61,7 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nex
 	rw.Header().Set("Content-Type", CTJSON)
 	http.SetCookie(rw, &http.Cookie{
 		Name:     uploadPackSessionCookie,
-		Value:    s.id,
+		Value:    s.id.String(),
 		Path:     PathUploadPack,
 		HttpOnly: true,
 		MaxAge:   3600 * 24,
@@ -93,7 +94,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 	rw.Header().Set("Content-Encoding", "gzip")
 	http.SetCookie(rw, &http.Cookie{
 		Name:     uploadPackSessionCookie,
-		Value:    s.id,
+		Value:    s.id.String(),
 		Path:     PathUploadPack,
 		HttpOnly: true,
 		MaxAge:   3600 * 24,

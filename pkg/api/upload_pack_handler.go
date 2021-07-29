@@ -13,41 +13,48 @@ import (
 
 const PathUploadPack = "/upload-pack/"
 
+type UploadPackSessionStore interface {
+	Set(sid uuid.UUID, ses *UploadPackSession)
+	Get(sid uuid.UUID) (ses *UploadPackSession, ok bool)
+	Delete(sid uuid.UUID)
+}
+
 type UploadPackHandler struct {
 	db              objects.Store
 	rs              ref.Store
-	sessions        map[string]*UploadPackSession
+	sessions        UploadPackSessionStore
 	maxPackfileSize uint64
 }
 
-func NewUploadPackHandler(db objects.Store, rs ref.Store, maxPackfileSize uint64) *UploadPackHandler {
+func NewUploadPackHandler(db objects.Store, rs ref.Store, sessions UploadPackSessionStore, maxPackfileSize uint64) *UploadPackHandler {
 	return &UploadPackHandler{
 		db:              db,
 		rs:              rs,
 		maxPackfileSize: maxPackfileSize,
-		sessions:        map[string]*UploadPackSession{},
+		sessions:        sessions,
 	}
 }
 
-func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession, sid string, err error) {
+func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession, sid uuid.UUID, err error) {
 	var ok bool
 	c, err := r.Cookie(uploadPackSessionCookie)
 	if err == nil {
-		sid = c.Value
-		ses, ok = h.sessions[sid]
+		sid, err = uuid.Parse(c.Value)
+		if err != nil {
+			return
+		}
+		ses, ok = h.sessions.Get(sid)
 		if !ok {
 			ses = nil
 		}
 	}
 	if ses == nil {
-		var id uuid.UUID
-		id, err = uuid.NewRandom()
+		sid, err = uuid.NewRandom()
 		if err != nil {
 			return
 		}
-		sid = id.String()
 		ses = NewUploadPackSession(h.db, h.rs, sid, h.maxPackfileSize)
-		h.sessions[sid] = ses
+		h.sessions.Set(sid, ses)
 	}
 	return
 }
@@ -63,11 +70,11 @@ func (h *UploadPackHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		if s := recover(); s != nil {
-			delete(h.sessions, sid)
+			h.sessions.Delete(sid)
 			panic(s)
 		}
 	}()
 	if done := ses.ServeHTTP(rw, r); done {
-		delete(h.sessions, sid)
+		h.sessions.Delete(sid)
 	}
 }
