@@ -17,9 +17,19 @@ import (
 )
 
 const (
-	uploadPackSessionCookie = "upload-pack-session-id"
-	CTUploadPackResult      = "application/x-wrgl-upload-pack-result"
-	CTPackfile              = "application/x-wrgl-packfile"
+	// UploadPackSessionCookie identifies upload-pack session
+	UploadPackSessionCookie = "upload-pack-session-id"
+
+	// CTUploadPackResult is content type for upload pack result
+	CTUploadPackResult = "application/x-wrgl-upload-pack-result"
+
+	// CTPackfile is content type for packfile
+	CTPackfile = "application/x-wrgl-packfile"
+
+	// PurgeUploadPackSessionHeader is a trailer header that is set to "true"
+	// at the end of an upload pack session. Upon seeing this any in-between proxy
+	// should purge sticky session related to UploadPackSessionCookie
+	PurgeUploadPackSessionHeader = "Wrgl-Purge-Upload-Pack-Session"
 )
 
 type stateFn func(rw http.ResponseWriter, r *http.Request) (nextState stateFn)
@@ -60,7 +70,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, id uuid.UUID, maxPackf
 func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nextState stateFn) {
 	rw.Header().Set("Content-Type", CTJSON)
 	http.SetCookie(rw, &http.Cookie{
-		Name:     uploadPackSessionCookie,
+		Name:     UploadPackSessionCookie,
 		Value:    s.id.String(),
 		Path:     PathUploadPack,
 		HttpOnly: true,
@@ -92,8 +102,9 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 
 	rw.Header().Set("Content-Type", CTPackfile)
 	rw.Header().Set("Content-Encoding", "gzip")
+	rw.Header().Set("Trailer", PurgeUploadPackSessionHeader)
 	http.SetCookie(rw, &http.Cookie{
-		Name:     uploadPackSessionCookie,
+		Name:     UploadPackSessionCookie,
 		Value:    s.id.String(),
 		Path:     PathUploadPack,
 		HttpOnly: true,
@@ -108,6 +119,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 		panic(err)
 	}
 	if done {
+		rw.Header().Set(PurgeUploadPackSessionHeader, "true")
 		return nil
 	}
 	return s.sendPackfile

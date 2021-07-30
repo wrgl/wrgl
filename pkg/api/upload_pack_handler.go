@@ -37,7 +37,7 @@ func NewUploadPackHandler(db objects.Store, rs ref.Store, sessions UploadPackSes
 
 func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession, sid uuid.UUID, err error) {
 	var ok bool
-	c, err := r.Cookie(uploadPackSessionCookie)
+	c, err := r.Cookie(UploadPackSessionCookie)
 	if err == nil {
 		sid, err = uuid.Parse(c.Value)
 		if err != nil {
