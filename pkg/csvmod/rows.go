@@ -50,11 +50,16 @@ func (m *Modifier) AddRows(pct float64) *Modifier {
 	offs := selectIndices(m.modifiedRows, numModRows, len(m.Rows)-1+numModRows)
 	n := len(m.Rows[0])
 	for _, off := range offs {
-		k := 1 + off
-		m.Rows = append(m.Rows[:k+1], m.Rows[k:]...)
-		m.Rows[k] = make([]string, n)
+		row := make([]string, n)
 		for j := 0; j < n; j++ {
-			m.Rows[k][j] = randomValue()
+			row[j] = randomValue()
+		}
+		k := 1 + off
+		if k == cap(m.Rows) {
+			m.Rows = append(m.Rows, row)
+		} else {
+			m.Rows = append(m.Rows[:k+1], m.Rows[k:]...)
+			m.Rows[k] = row
 		}
 	}
 	return m
