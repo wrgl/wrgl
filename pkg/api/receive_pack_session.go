@@ -176,7 +176,7 @@ func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request)
 		Value:    s.id.String(),
 		Path:     PathReceivePack,
 		HttpOnly: true,
-		MaxAge:   3600 * 24,
+		MaxAge:   3600 * 3,
 	})
 	rw.WriteHeader(http.StatusOK)
 	return s.receiveObjects

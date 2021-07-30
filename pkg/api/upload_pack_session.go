@@ -64,7 +64,7 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nex
 		Value:    s.id.String(),
 		Path:     PathUploadPack,
 		HttpOnly: true,
-		MaxAge:   3600 * 24,
+		MaxAge:   3600 * 3,
 	})
 	resp := &payload.UploadPackResponse{}
 	for _, ack := range acks {
@@ -97,7 +97,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 		Value:    s.id.String(),
 		Path:     PathUploadPack,
 		HttpOnly: true,
-		MaxAge:   3600 * 24,
+		MaxAge:   3600 * 3,
 	})
 
 	gzw := gzip.NewWriter(rw)

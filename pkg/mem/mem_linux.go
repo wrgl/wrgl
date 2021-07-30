@@ -10,7 +10,7 @@ import (
 )
 
 func GetTotalMem() (uint64, error) {
-	out, err := exec.Command("awk", "/MemTotal/ {print $2}", "/proc/meminfo")
+	out, err := exec.Command("awk", "/MemTotal/ {print $2}", "/proc/meminfo").Output()
 	if err != nil {
 		return 0, err
 	}
@@ -22,7 +22,7 @@ func GetTotalMem() (uint64, error) {
 }
 
 func GetAvailMem() (uint64, error) {
-	out, err := exec.Command("awk", "/MemFree/ {print $2}", "/proc/meminfo")
+	out, err := exec.Command("awk", "/MemFree/ {print $2}", "/proc/meminfo").Output()
 	if err != nil {
 		return 0, err
 	}
