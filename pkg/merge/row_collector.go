@@ -5,7 +5,6 @@ package merge
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 
@@ -25,7 +24,7 @@ type RowCollector struct {
 }
 
 func NewCollector(db objects.Store, baseT *objects.Table, discardedRow *index.HashSet) (*RowCollector, error) {
-	s, err := sorter.NewSorter(0, io.Discard)
+	s, err := sorter.NewSorter(0, nil)
 	if err != nil {
 		return nil, err
 	}

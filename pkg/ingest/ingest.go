@@ -9,12 +9,16 @@ import (
 	"sync"
 
 	"github.com/mmcloughlin/meow"
-	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/sorter"
 )
 
-func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *sorter.Block, wg *sync.WaitGroup, errChan chan<- error) {
+type ProgressBar interface {
+	Add(int) error
+	Finish() error
+}
+
+func insertBlock(db objects.Store, pt ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *sorter.Block, wg *sync.WaitGroup, errChan chan<- error) {
 	buf := bytes.NewBuffer(nil)
 	defer wg.Done()
 	dec := objects.NewStrListDecoder(true)
@@ -43,19 +47,20 @@ func insertBlock(db objects.Store, bar *progressbar.ProgressBar, tbl *objects.Ta
 			return
 		}
 		tblIdx[blk.Offset] = blk.PK
-		bar.Add(1)
+		if pt != nil {
+			pt.Add(1)
+		}
 	}
 }
 
-func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rowsCount uint32, blocks <-chan *sorter.Block, numWorkers int, out io.Writer) ([]byte, error) {
-	bar := pbar(-1, "saving blocks", out)
+func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rowsCount uint32, blocks <-chan *sorter.Block, numWorkers int, pt ProgressBar) ([]byte, error) {
 	tbl := objects.NewTable(columns, pk, rowsCount)
 	tblIdx := make([][]string, objects.BlocksCount(rowsCount))
 	wg := &sync.WaitGroup{}
 	errChan := make(chan error, numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
-		go insertBlock(db, bar, tbl, tblIdx, blocks, wg, errChan)
+		go insertBlock(db, pt, tbl, tblIdx, blocks, wg, errChan)
 	}
 	wg.Wait()
 	close(errChan)
@@ -63,9 +68,10 @@ func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rows
 	if ok {
 		return nil, err
 	}
-	err = bar.Finish()
-	if err != nil {
-		return nil, err
+	if pt != nil {
+		if err := pt.Finish(); err != nil {
+			return nil, err
+		}
 	}
 
 	// write and save table
@@ -94,8 +100,8 @@ func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rows
 	return sum, nil
 }
 
-func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uint64, numWorkers int, out io.Writer) ([]byte, error) {
-	s, err := sorter.NewSorter(sortRunSize, out)
+func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uint64, numWorkers int, sortPT, blkPT ProgressBar) ([]byte, error) {
+	s, err := sorter.NewSorter(sortRunSize, sortPT)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +126,7 @@ func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uin
 	}
 	errChan := make(chan error, numWorkers)
 	blocks := s.SortedBlocks(nil, errChan)
-	sum, err := IngestTableFromBlocks(db, s.Columns, s.PK, s.RowsCount, blocks, numWorkers, out)
+	sum, err := IngestTableFromBlocks(db, s.Columns, s.PK, s.RowsCount, blocks, numWorkers, blkPT)
 	if err != nil {
 		return nil, err
 	}

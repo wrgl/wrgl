@@ -147,8 +147,8 @@ func getSecondCommit(
 }
 
 func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File) (hash string, commit *objects.Commit, err error) {
-	out := cmd.OutOrStdout()
-	sum, err := ingest.IngestTable(db, file, pk, 0, 1, out)
+	sortPT, blkPT := displayCommitProgress(cmd)
+	sum, err := ingest.IngestTable(db, file, pk, 0, 1, sortPT, blkPT)
 	if err != nil {
 		return
 	}

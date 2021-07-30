@@ -61,7 +61,7 @@ func TestSorterSortedRows(t *testing.T) {
 	f := writeCSV(t, rows)
 	defer os.Remove(f.Name())
 
-	s, err := NewSorter(4096, io.Discard)
+	s, err := NewSorter(4096, nil)
 	require.NoError(t, err)
 	err = s.SortFile(f, rows[0][:1])
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestSorterSortedRows(t *testing.T) {
 	// sorter run entirely in memory
 	f, err = os.Open(f.Name())
 	require.NoError(t, err)
-	s, err = NewSorter(0, io.Discard)
+	s, err = NewSorter(0, nil)
 	require.NoError(t, err)
 	require.NoError(t, s.SortFile(f, rows[0][:1]))
 	rowBlocks2 := sortedRows(t, s, 700, nil)
@@ -99,7 +99,7 @@ func TestSorterSortedBlocks(t *testing.T) {
 	f := writeCSV(t, rows)
 	defer os.Remove(f.Name())
 
-	s, err := NewSorter(4096, io.Discard)
+	s, err := NewSorter(4096, nil)
 	require.NoError(t, err)
 	err = s.SortFile(f, rows[0][:1])
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestSorterSortedBlocks(t *testing.T) {
 	// sorter run entirely in memory
 	f, err = os.Open(f.Name())
 	require.NoError(t, err)
-	s, err = NewSorter(0, io.Discard)
+	s, err = NewSorter(0, nil)
 	require.NoError(t, err)
 	require.NoError(t, s.SortFile(f, rows[0][:1]))
 	blocks2 := sortedBlocks(t, s, 700)
@@ -143,7 +143,7 @@ func TestSorterSortedBlocks(t *testing.T) {
 }
 
 func TestSorterAddRow(t *testing.T) {
-	s, err := NewSorter(0, io.Discard)
+	s, err := NewSorter(0, nil)
 	require.NoError(t, err)
 	s.PK = []uint32{1}
 	require.NoError(t, s.AddRow([]string{"1", "a", "q"}))

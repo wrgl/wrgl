@@ -5,7 +5,6 @@ package api
 
 import (
 	"bytes"
-	"io"
 	"net/http"
 	"time"
 
@@ -77,7 +76,7 @@ func (h *CommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 	primaryKey := r.MultipartForm.Value["primaryKey"]
 
-	sum, err := ingest.IngestTable(h.db, f, primaryKey, 0, 1, io.Discard)
+	sum, err := ingest.IngestTable(h.db, f, primaryKey, 0, 1, nil, nil)
 	if err != nil {
 		panic(err)
 	}

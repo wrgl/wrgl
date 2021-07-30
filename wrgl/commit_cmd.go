@@ -118,7 +118,8 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 		f = file
 	}
 
-	sum, err := ingest.IngestTable(db, f, primaryKey, memLimit, numWorkers, cmd.OutOrStdout())
+	sortPT, blkPT := displayCommitProgress(cmd)
+	sum, err := ingest.IngestTable(db, f, primaryKey, memLimit, numWorkers, sortPT, blkPT)
 	if err != nil {
 		return err
 	}

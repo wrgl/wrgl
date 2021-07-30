@@ -36,3 +36,14 @@ func MockGlobalConf(t *testing.T, setXDGConfigHome bool) func() {
 		}
 	}
 }
+
+func MockSystemConf(t *testing.T) func() {
+	t.Helper()
+	dir, err := ioutil.TempDir("", "test_wrgl_config")
+	require.NoError(t, err)
+	cleanup := MockEnv(t, "WRGL_SYSTEM_CONFIG_DIR", dir)
+	return func() {
+		require.NoError(t, os.RemoveAll(dir))
+		cleanup()
+	}
+}

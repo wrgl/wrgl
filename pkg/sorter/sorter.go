@@ -8,11 +8,15 @@ import (
 	"os"
 	"sort"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/core/pkg/mem"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
 )
+
+type ProgressBar interface {
+	Add(int) error
+	Finish() error
+}
 
 func getRunSize() (uint64, error) {
 	total, err := mem.GetTotalMem()
@@ -54,9 +58,8 @@ func writeChunk(rows [][]string) (*os.File, error) {
 type Sorter struct {
 	PK        []uint32
 	runSize   uint64
-	bar       *progressbar.ProgressBar
 	size      uint64
-	out       io.Writer
+	pt        ProgressBar
 	chunks    []io.Reader
 	current   [][]string
 	Columns   []string
@@ -70,7 +73,7 @@ func SortRows(blk [][]string, pk []uint32) {
 	})
 }
 
-func NewSorter(runSize uint64, out io.Writer) (s *Sorter, err error) {
+func NewSorter(runSize uint64, pt ProgressBar) (s *Sorter, err error) {
 	if runSize == 0 {
 		runSize, err = getRunSize()
 		if err != nil {
@@ -78,7 +81,7 @@ func NewSorter(runSize uint64, out io.Writer) (s *Sorter, err error) {
 		}
 	}
 	s = &Sorter{
-		out:     out,
+		pt:      pt,
 		runSize: runSize,
 	}
 	return
@@ -89,8 +92,8 @@ func (s *Sorter) AddRow(row []string) error {
 	for _, str := range row {
 		s.size += uint64(len(str)) + 2
 	}
-	if s.bar != nil {
-		s.bar.Add(1)
+	if s.pt != nil {
+		s.pt.Add(1)
 	}
 	s.RowsCount++
 	l := len(s.current)
@@ -136,7 +139,6 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 	if err != nil {
 		return
 	}
-	s.bar = pbar(-1, "sorting", s.out)
 	s.size = 0
 	for {
 		row, err = r.Read()
@@ -147,9 +149,10 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 		}
 		s.AddRow(row)
 	}
-	err = s.bar.Finish()
-	if err != nil {
-		return
+	if s.pt != nil {
+		if err := s.pt.Finish(); err != nil {
+			return err
+		}
 	}
 	return f.Close()
 }

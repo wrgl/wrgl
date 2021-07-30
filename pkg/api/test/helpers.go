@@ -163,7 +163,7 @@ func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, pa
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
 	require.NoError(t, w.WriteAll(rows))
-	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1], 0, 1, io.Discard)
+	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1], 0, 1, nil, nil)
 	require.NoError(t, err)
 	com := &objects.Commit{
 		Table:       sum,

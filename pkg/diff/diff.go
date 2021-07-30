@@ -37,7 +37,7 @@ func uintSliceEqual(s1, s2 []uint32) bool {
 
 func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, progressPeriod time.Duration, errChan chan<- error, emitUnchangedRow bool) (<-chan *objects.Diff, progress.Tracker) {
 	diffChan := make(chan *objects.Diff)
-	pt := progress.NewTracker(progressPeriod, 0)
+	pt := progress.NewSingleTracker(progressPeriod, 0)
 	go func() {
 		defer close(diffChan)
 
@@ -55,7 +55,7 @@ func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblI
 	return diffChan, pt
 }
 
-func diffRows(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, diffChan chan<- *objects.Diff, pt progress.Tracker, colsEqual, emitUnchangedRow bool) error {
+func diffRows(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, diffChan chan<- *objects.Diff, pt *progress.SingleTracker, colsEqual, emitUnchangedRow bool) error {
 	pt.SetTotal(int64(tbl1.RowsCount + tbl2.RowsCount))
 	var current int64
 	err := iterateAndMatch(db1, db2, tbl1, tbl2, tblIdx1, tblIdx2, func(pk, row1, row2 []byte, off1, off2 uint32) {

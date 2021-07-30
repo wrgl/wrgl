@@ -6,7 +6,6 @@ package utils
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,18 +14,6 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 	wrglhelpers "github.com/wrgl/core/wrgl/helpers"
 )
-
-func MockSystemConf(t *testing.T) func() {
-	t.Helper()
-	orig := systemConfigPath
-	dir, err := ioutil.TempDir("", "test_wrgl_config")
-	require.NoError(t, err)
-	systemConfigPath = filepath.Join(dir, "wrgl/config.yaml")
-	return func() {
-		require.NoError(t, os.RemoveAll(dir))
-		systemConfigPath = orig
-	}
-}
 
 func randomConfig() *conf.Config {
 	return &conf.Config{
@@ -38,11 +25,11 @@ func randomConfig() *conf.Config {
 }
 
 func TestOpenSystemConfig(t *testing.T) {
-	cleanup := MockSystemConf(t)
+	cleanup := wrglhelpers.MockSystemConf(t)
 	defer cleanup()
 
 	c1 := randomConfig()
-	c1.Path = systemConfigPath
+	c1.Path = systemConfigPath()
 	require.NoError(t, SaveConfig(c1))
 
 	c2, err := OpenConfig(true, false, "", "")
@@ -103,7 +90,7 @@ func TestOpenFileConfig(t *testing.T) {
 }
 
 func TestAggregateConfig(t *testing.T) {
-	cleanup := MockSystemConf(t)
+	cleanup := wrglhelpers.MockSystemConf(t)
 	defer cleanup()
 	cleanup = wrglhelpers.MockGlobalConf(t, true)
 	defer cleanup()

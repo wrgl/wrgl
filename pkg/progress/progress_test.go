@@ -11,7 +11,7 @@ import (
 )
 
 func TestTracker(t *testing.T) {
-	tr := NewTracker(10*time.Millisecond, 10)
+	tr := NewSingleTracker(10*time.Millisecond, 10)
 	go tr.Run()
 
 	tr.SetCurrent(1)
@@ -22,7 +22,7 @@ func TestTracker(t *testing.T) {
 		Total:    10,
 	}, <-c)
 
-	tr.SetCurrent(3)
+	tr.Add(2)
 	time.Sleep(10 * time.Millisecond)
 	assert.Equal(t, Event{
 		Progress: 3,
@@ -35,9 +35,9 @@ func TestTracker(t *testing.T) {
 }
 
 func TestJoinChannels(t *testing.T) {
-	tr1 := NewTracker(3*time.Millisecond, 10)
-	tr2 := NewTracker(3*time.Millisecond, 15)
-	tr3 := NewTracker(3*time.Millisecond, 27)
+	tr1 := NewSingleTracker(3*time.Millisecond, 10)
+	tr2 := NewSingleTracker(3*time.Millisecond, 15)
+	tr3 := NewSingleTracker(3*time.Millisecond, 27)
 	tr := JoinTrackers(tr1, tr2, tr3)
 	assert.Equal(t, 3*time.Millisecond, tr.Duration())
 	c := tr.Chan()

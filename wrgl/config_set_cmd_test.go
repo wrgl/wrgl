@@ -14,8 +14,8 @@ import (
 )
 
 func TestConfigSetCmd(t *testing.T) {
-	cleanup := wrglhelpers.MockGlobalConf(t, true)
-	defer cleanup()
+	defer wrglhelpers.MockGlobalConf(t, true)()
+	defer wrglhelpers.MockSystemConf(t)()
 	wrglDir, err := ioutil.TempDir("", ".wrgl*")
 	require.NoError(t, err)
 	defer os.RemoveAll(wrglDir)
@@ -51,8 +51,8 @@ func TestConfigSetCmd(t *testing.T) {
 }
 
 func TestConfigSetCmdBool(t *testing.T) {
-	cleanup := wrglhelpers.MockGlobalConf(t, true)
-	defer cleanup()
+	defer wrglhelpers.MockGlobalConf(t, true)()
+	defer wrglhelpers.MockSystemConf(t)()
 	wrglDir, err := ioutil.TempDir("", ".wrgl*")
 	require.NoError(t, err)
 	defer os.RemoveAll(wrglDir)

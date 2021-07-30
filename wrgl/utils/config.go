@@ -15,7 +15,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var systemConfigPath = "/usr/local/etc/wrgl/config.yaml"
+func systemConfigPath() string {
+	if s := os.Getenv("WRGL_SYSTEM_CONFIG_DIR"); s != "" {
+		return filepath.Join(s, "config.yaml")
+	}
+	return "/usr/local/etc/wrgl/config.yaml"
+}
 
 func SaveConfig(c *conf.Config) error {
 	if c.Path == "" {
@@ -93,7 +98,7 @@ func OpenConfig(system, global bool, rootDir, file string) (c *conf.Config, err 
 	if file != "" {
 		fp = file
 	} else if system {
-		fp = systemConfigPath
+		fp = systemConfigPath()
 	} else if global {
 		fp, err = findGlobalConfigFile()
 		if err != nil {
@@ -133,7 +138,7 @@ func AggregateConfig(rootDir string) (*conf.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	sysConfig, err := readConfig(systemConfigPath)
+	sysConfig, err := readConfig(systemConfigPath())
 	if err != nil {
 		return nil, err
 	}

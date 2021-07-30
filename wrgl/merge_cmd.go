@@ -25,6 +25,7 @@ import (
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/core/pkg/progress"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/widgets"
@@ -161,7 +162,8 @@ func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store
 		if err != nil {
 			return err
 		}
-		sum, err := ingest.IngestTable(db, file, pk, 0, numWorkers, cmd.OutOrStdout())
+		sortPT, blkPT := displayCommitProgress(cmd)
+		sum, err := ingest.IngestTable(db, file, pk, 0, numWorkers, sortPT, blkPT)
 		if err != nil {
 			return err
 		}
@@ -396,6 +398,27 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	return bar.Finish()
 }
 
+func displayProgress(cmd *cobra.Command, pt progress.Tracker, total int64, desc string) {
+	go pt.Run()
+	bar := pbar(total, desc, cmd.OutOrStdout(), cmd.OutOrStderr())
+	for evt := range pt.Chan() {
+		bar.Set64(evt.Progress)
+		if evt.Total != 0 && evt.Total != bar.GetMax64() {
+			bar.ChangeMax64(evt.Total)
+		}
+	}
+	if err := bar.Finish(); err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+}
+
+func displayCommitProgress(cmd *cobra.Command) (sortPT, blkPT *progressbar.ProgressBar) {
+	sortPT = pbar(-1, "sorting", cmd.OutOrStdout(), cmd.OutOrStderr())
+	blkPT = pbar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
+	return
+}
+
 func commitMergeResult(
 	cmd *cobra.Command,
 	db objects.Store,
@@ -417,7 +440,8 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
-	sum, err := ingest.IngestTableFromBlocks(db, columns, pk, rowsCount, blocks, numWorkers, cmd.OutOrStdout())
+	blkPT := pbar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
+	sum, err := ingest.IngestTableFromBlocks(db, columns, pk, rowsCount, blocks, numWorkers, blkPT)
 	if err != nil {
 		return err
 	}

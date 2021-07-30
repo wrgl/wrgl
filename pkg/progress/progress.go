@@ -15,15 +15,13 @@ type Event struct {
 type Tracker interface {
 	Duration() time.Duration
 	Current() int64
-	SetCurrent(int64)
 	Total() int64
-	SetTotal(int64)
 	Chan() <-chan Event
 	Run()
 	Stop()
 }
 
-type tracker struct {
+type SingleTracker struct {
 	current int64
 	total   int64
 	ticker  *time.Ticker
@@ -32,45 +30,49 @@ type tracker struct {
 	stopped bool
 }
 
-func NewTracker(d time.Duration, total int64) Tracker {
+func NewSingleTracker(d time.Duration, total int64) *SingleTracker {
 	if d == 0 {
 		// never produce any tick event
 		d = (1 << 20) * time.Hour
 	}
-	return &tracker{
+	return &SingleTracker{
 		d:     d,
 		total: total,
 	}
 }
 
-func (t *tracker) Current() int64 {
+func (t *SingleTracker) Current() int64 {
 	return t.current
 }
 
-func (t *tracker) SetCurrent(n int64) {
+func (t *SingleTracker) SetCurrent(n int64) {
 	t.current = n
 }
 
-func (t *tracker) Total() int64 {
+func (t *SingleTracker) Add(n int64) {
+	t.current += n
+}
+
+func (t *SingleTracker) Total() int64 {
 	return t.total
 }
 
-func (t *tracker) SetTotal(n int64) {
+func (t *SingleTracker) SetTotal(n int64) {
 	t.total = n
 }
 
-func (t *tracker) Chan() <-chan Event {
+func (t *SingleTracker) Chan() <-chan Event {
 	if t.c == nil {
 		t.c = make(chan Event)
 	}
 	return t.c
 }
 
-func (t *tracker) Duration() time.Duration {
+func (t *SingleTracker) Duration() time.Duration {
 	return t.d
 }
 
-func (t *tracker) Stop() {
+func (t *SingleTracker) Stop() {
 	if t.ticker != nil {
 		t.ticker.Stop()
 	}
@@ -80,7 +82,7 @@ func (t *tracker) Stop() {
 	t.stopped = true
 }
 
-func (t *tracker) Run() {
+func (t *SingleTracker) Run() {
 	if t.ticker == nil {
 		t.ticker = time.NewTicker(t.d)
 	}
@@ -129,8 +131,6 @@ func (t *joinedTracker) Current() int64 {
 	return c
 }
 
-func (t *joinedTracker) SetCurrent(int64) {}
-
 func (t *joinedTracker) Total() int64 {
 	var c int64
 	for _, t := range t.trackers {
@@ -138,8 +138,6 @@ func (t *joinedTracker) Total() int64 {
 	}
 	return c
 }
-
-func (t *joinedTracker) SetTotal(int64) {}
 
 func (t *joinedTracker) Chan() <-chan Event {
 	if t.c == nil {
