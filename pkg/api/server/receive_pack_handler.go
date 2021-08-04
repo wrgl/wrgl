@@ -37,7 +37,7 @@ func NewReceivePackHandler(db objects.Store, rs ref.Store, c *conf.Config, sessi
 
 func (h *ReceivePackHandler) getSession(r *http.Request) (ses *ReceivePackSession, sid uuid.UUID, err error) {
 	var ok bool
-	c, err := r.Cookie(api.ReceivePackSessionCookie)
+	c, err := r.Cookie(api.CookieReceivePackSession)
 	if err == nil {
 		sid, err = uuid.Parse(c.Value)
 		if err != nil {

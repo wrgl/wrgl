@@ -168,7 +168,7 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 
 func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	http.SetCookie(rw, &http.Cookie{
-		Name:     api.ReceivePackSessionCookie,
+		Name:     api.CookieReceivePackSession,
 		Value:    s.id.String(),
 		Path:     api.PathReceivePack,
 		HttpOnly: true,
@@ -182,7 +182,7 @@ func (s *ReceivePackSession) reportStatus(rw http.ResponseWriter, r *http.Reques
 	rw.Header().Set("Content-Type", api.CTJSON)
 	// remove cookie
 	http.SetCookie(rw, &http.Cookie{
-		Name:     api.ReceivePackSessionCookie,
+		Name:     api.CookieReceivePackSession,
 		Value:    s.id.String(),
 		Path:     api.PathReceivePack,
 		HttpOnly: true,

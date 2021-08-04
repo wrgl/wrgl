@@ -55,7 +55,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, id uuid.UUID, maxPackf
 func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nextState stateFn) {
 	rw.Header().Set("Content-Type", api.CTJSON)
 	http.SetCookie(rw, &http.Cookie{
-		Name:     api.UploadPackSessionCookie,
+		Name:     api.CookieUploadPackSession,
 		Value:    s.id.String(),
 		Path:     api.PathUploadPack,
 		HttpOnly: true,
@@ -87,9 +87,9 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 
 	rw.Header().Set("Content-Type", api.CTPackfile)
 	rw.Header().Set("Content-Encoding", "gzip")
-	rw.Header().Set("Trailer", api.PurgeUploadPackSessionHeader)
+	rw.Header().Set("Trailer", api.HeaderPurgeUploadPackSession)
 	http.SetCookie(rw, &http.Cookie{
-		Name:     api.UploadPackSessionCookie,
+		Name:     api.CookieUploadPackSession,
 		Value:    s.id.String(),
 		Path:     api.PathUploadPack,
 		HttpOnly: true,
@@ -104,7 +104,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 		panic(err)
 	}
 	if done {
-		rw.Header().Set(api.PurgeUploadPackSessionHeader, "true")
+		rw.Header().Set(api.HeaderPurgeUploadPackSession, "true")
 		return nil
 	}
 	return s.sendPackfile
