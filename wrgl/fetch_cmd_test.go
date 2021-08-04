@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/api"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
@@ -36,8 +37,8 @@ func TestFetchCmd(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
 	require.NoError(t, ref.CommitHead(rss, "tickets", sum4, c4))
 	require.NoError(t, ref.SaveTag(rss, "2020", sum1))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, api.NewUploadPackHandler(dbs, rss, api.NewUploadPackSessionMap(), 0))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rss))
+	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(dbs, rss, apiserver.NewUploadPackSessionMap(), 0))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -111,24 +112,24 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	sum1, c1 := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.CommitHead(rs1, "main", sum1, c1))
 	url1 := "https://origin.remote"
-	apitest.RegisterHandlerWithOrigin(url1, http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rs1))
-	apitest.RegisterHandlerWithOrigin(url1, http.MethodPost, api.PathUploadPack, api.NewUploadPackHandler(db1, rs1, api.NewUploadPackSessionMap(), 0))
+	apitest.RegisterHandlerWithOrigin(url1, http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs1))
+	apitest.RegisterHandlerWithOrigin(url1, http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db1, rs1, apiserver.NewUploadPackSessionMap(), 0))
 
 	db2 := objmock.NewStore()
 	rs2 := refmock.NewStore()
 	sum2, c2 := factory.CommitRandom(t, db2, nil)
 	require.NoError(t, ref.CommitHead(rs2, "main", sum2, c2))
 	url2 := "https://acme.remote"
-	apitest.RegisterHandlerWithOrigin(url2, http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rs2))
-	apitest.RegisterHandlerWithOrigin(url2, http.MethodPost, api.PathUploadPack, api.NewUploadPackHandler(db2, rs2, api.NewUploadPackSessionMap(), 0))
+	apitest.RegisterHandlerWithOrigin(url2, http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs2))
+	apitest.RegisterHandlerWithOrigin(url2, http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db2, rs2, apiserver.NewUploadPackSessionMap(), 0))
 
 	db3 := objmock.NewStore()
 	rs3 := refmock.NewStore()
 	sum3, c3 := factory.CommitRandom(t, db3, nil)
 	require.NoError(t, ref.CommitHead(rs3, "main", sum3, c3))
 	url3 := "https://home.remote"
-	apitest.RegisterHandlerWithOrigin(url3, http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rs3))
-	apitest.RegisterHandlerWithOrigin(url3, http.MethodPost, api.PathUploadPack, api.NewUploadPackHandler(db3, rs3, api.NewUploadPackSessionMap(), 0))
+	apitest.RegisterHandlerWithOrigin(url3, http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs3))
+	apitest.RegisterHandlerWithOrigin(url3, http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db3, rs3, apiserver.NewUploadPackSessionMap(), 0))
 
 	rd, cleanUp := createRepoDir(t)
 	rs := rd.OpenRefStore()
@@ -182,8 +183,8 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	rs1 := refmock.NewStore()
 	sum1, _ := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.SaveRef(rs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom"))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rs1))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, api.NewUploadPackHandler(db1, rs1, api.NewUploadPackSessionMap(), 0))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs1))
+	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db1, rs1, apiserver.NewUploadPackSessionMap(), 0))
 
 	rd, cleanUp := createRepoDir(t)
 	rs := rd.OpenRefStore()
@@ -226,8 +227,8 @@ func TestFetchCmdTag(t *testing.T) {
 	require.NoError(t, ref.SaveTag(rs1, "2020-dec", sum1))
 	sum2, _ := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.SaveTag(rs1, "2021-dec", sum2))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rs1))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, api.NewUploadPackHandler(db1, rs1, api.NewUploadPackSessionMap(), 0))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs1))
+	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db1, rs1, apiserver.NewUploadPackSessionMap(), 0))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -308,8 +309,8 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	rs1 := refmock.NewStore()
 	sum1, c1 := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.CommitHead(rs1, "abc", sum1, c1))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rs1))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, api.NewUploadPackHandler(db1, rs1, api.NewUploadPackSessionMap(), 0))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs1))
+	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db1, rs1, apiserver.NewUploadPackSessionMap(), 0))
 
 	rd, cleanUp := createRepoDir(t)
 	db, err := rd.OpenObjectsStore()

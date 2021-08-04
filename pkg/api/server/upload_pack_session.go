@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package apiserver
 
 import (
 	"compress/gzip"
@@ -10,26 +10,11 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
-)
-
-const (
-	// UploadPackSessionCookie identifies upload-pack session
-	UploadPackSessionCookie = "upload-pack-session-id"
-
-	// CTUploadPackResult is content type for upload pack result
-	CTUploadPackResult = "application/x-wrgl-upload-pack-result"
-
-	// CTPackfile is content type for packfile
-	CTPackfile = "application/x-wrgl-packfile"
-
-	// PurgeUploadPackSessionHeader is a trailer header that is set to "true"
-	// at the end of an upload pack session. Upon seeing this any in-between proxy
-	// should purge sticky session related to UploadPackSessionCookie
-	PurgeUploadPackSessionHeader = "Wrgl-Purge-Upload-Pack-Session"
 )
 
 type stateFn func(rw http.ResponseWriter, r *http.Request) (nextState stateFn)
@@ -68,11 +53,11 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, id uuid.UUID, maxPackf
 }
 
 func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nextState stateFn) {
-	rw.Header().Set("Content-Type", CTJSON)
+	rw.Header().Set("Content-Type", api.CTJSON)
 	http.SetCookie(rw, &http.Cookie{
-		Name:     UploadPackSessionCookie,
+		Name:     api.UploadPackSessionCookie,
 		Value:    s.id.String(),
-		Path:     PathUploadPack,
+		Path:     api.PathUploadPack,
 		HttpOnly: true,
 		MaxAge:   3600 * 3,
 	})
@@ -100,13 +85,13 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 		}
 	}
 
-	rw.Header().Set("Content-Type", CTPackfile)
+	rw.Header().Set("Content-Type", api.CTPackfile)
 	rw.Header().Set("Content-Encoding", "gzip")
-	rw.Header().Set("Trailer", PurgeUploadPackSessionHeader)
+	rw.Header().Set("Trailer", api.PurgeUploadPackSessionHeader)
 	http.SetCookie(rw, &http.Cookie{
-		Name:     UploadPackSessionCookie,
+		Name:     api.UploadPackSessionCookie,
 		Value:    s.id.String(),
-		Path:     PathUploadPack,
+		Path:     api.PathUploadPack,
 		HttpOnly: true,
 		MaxAge:   3600 * 3,
 	})
@@ -119,7 +104,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 		panic(err)
 	}
 	if done {
-		rw.Header().Set(PurgeUploadPackSessionHeader, "true")
+		rw.Header().Set(api.PurgeUploadPackSessionHeader, "true")
 		return nil
 	}
 	return s.sendPackfile
@@ -163,7 +148,7 @@ func (s *UploadPackSession) negotiate(rw http.ResponseWriter, r *http.Request) (
 // ServeHTTP negotiates which commits to be sent and send them in one or more packfiles,
 // returns true when this session is completed and should be removed.
 func (s *UploadPackSession) ServeHTTP(rw http.ResponseWriter, r *http.Request) bool {
-	if ct := r.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := r.Header.Get("Content-Type"); ct != api.CTJSON {
 		http.Error(rw, "", http.StatusUnsupportedMediaType)
 		return true
 	}

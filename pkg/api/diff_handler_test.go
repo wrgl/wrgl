@@ -13,8 +13,8 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
@@ -31,7 +31,7 @@ func TestDiffHandler(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 	db := objmock.NewStore()
-	apitest.RegisterHandler(http.MethodGet, `=~^/diff/[0-9a-f]+/[0-9a-f]+/\z`, api.NewDiffHandler(db))
+	apitest.RegisterHandler(http.MethodGet, `=~^/diff/[0-9a-f]+/[0-9a-f]+/\z`, apiserver.NewDiffHandler(db))
 
 	sum1, _ := factory.Commit(t, db, []string{
 		"a,b,c",

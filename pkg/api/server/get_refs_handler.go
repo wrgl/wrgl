@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package apiserver
 
 import (
 	"net/http"
@@ -9,8 +9,6 @@ import (
 	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/ref"
 )
-
-const PathRefs = "/refs/"
 
 type GetRefsHandler struct {
 	rs ref.Store

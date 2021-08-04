@@ -12,7 +12,7 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
@@ -24,8 +24,8 @@ func TestGetRowsHandler(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 	db := objmock.NewStore()
-	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/rows/\z`, api.NewGetRowsHandler(db))
-	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/blocks/\z`, api.NewGetBlocksHandler(db))
+	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/rows/\z`, apiserver.NewGetRowsHandler(db))
+	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/blocks/\z`, apiserver.NewGetBlocksHandler(db))
 
 	_, com := factory.Commit(t, db, []string{
 		"a,b,c",

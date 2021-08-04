@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/api"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/factory"
@@ -46,9 +47,9 @@ func TestPushCmd(t *testing.T) {
 	sum4, _ := factory.CommitHead(t, dbs, rss, "gamma", nil, nil)
 	sum9, _ := factory.CommitHead(t, dbs, rss, "delta", nil, nil)
 	sum8, c8 := factory.CommitHead(t, dbs, rss, "theta", nil, nil)
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rss))
 	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, false), api.NewReceivePackSessionMap()),
+		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, false), apiserver.NewReceivePackSessionMap()),
 	)
 
 	rd, cleanUp := createRepoDir(t)
@@ -136,9 +137,9 @@ func TestPushCmdForce(t *testing.T) {
 	sum1, _ := factory.CommitHead(t, dbs, rss, "alpha", nil, nil)
 	sum5, _ := factory.CommitHead(t, dbs, rss, "beta", nil, nil)
 	sum2, _ := factory.CommitTag(t, dbs, rss, "2017", nil, nil, nil)
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rss))
 	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, true), api.NewReceivePackSessionMap()),
+		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, true), apiserver.NewReceivePackSessionMap()),
 	)
 
 	rd, cleanUp := createRepoDir(t)
@@ -185,9 +186,9 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	dbs := objmock.NewStore()
 	rss := refmock.NewStore()
 	sum1, c1 := factory.CommitHead(t, dbs, rss, "alpha", nil, nil)
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rss))
 	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, true), api.NewReceivePackSessionMap()),
+		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, true), apiserver.NewReceivePackSessionMap()),
 	)
 
 	rd, cleanUp := createRepoDir(t)
@@ -238,9 +239,9 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	defer httpmock.Deactivate()
 	dbs := objmock.NewStore()
 	rss := refmock.NewStore()
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rss))
 	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, api.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, false), api.NewReceivePackSessionMap()),
+		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(dbs, rss, apitest.ReceivePackConfig(false, false), apiserver.NewReceivePackSessionMap()),
 	)
 
 	rd, cleanUp := createRepoDir(t)

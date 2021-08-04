@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package api_test
 
 import (
 	"net/http"
@@ -10,7 +10,9 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
@@ -41,7 +43,7 @@ func TestReceivePackHandler(t *testing.T) {
 	sum3, _ := factory.CommitHead(t, db, rs, "delta", nil, nil)
 	sum7, _ := factory.CommitHead(t, db, rs, "theta", nil, nil)
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false), NewReceivePackSessionMap()),
+		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false), apiserver.NewReceivePackSessionMap()),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
@@ -123,7 +125,7 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), NewReceivePackSessionMap()),
+		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
@@ -150,7 +152,7 @@ func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	apitest.RegisterHandler(
-		http.MethodPost, PathReceivePack, NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), NewReceivePackSessionMap()),
+		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
 	)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)

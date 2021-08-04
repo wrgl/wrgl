@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package apiserver
 
 import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
-
-const PathReceivePack = "/receive-pack/"
 
 type ReceivePackSessionStore interface {
 	Set(sid uuid.UUID, ses *ReceivePackSession)
@@ -38,7 +37,7 @@ func NewReceivePackHandler(db objects.Store, rs ref.Store, c *conf.Config, sessi
 
 func (h *ReceivePackHandler) getSession(r *http.Request) (ses *ReceivePackSession, sid uuid.UUID, err error) {
 	var ok bool
-	c, err := r.Cookie(receivePackSessionCookie)
+	c, err := r.Cookie(api.ReceivePackSessionCookie)
 	if err == nil {
 		sid, err = uuid.Parse(c.Value)
 		if err != nil {

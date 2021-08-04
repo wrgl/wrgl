@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package apiserver
 
 import (
 	"compress/gzip"
@@ -11,12 +11,8 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/objects"
-)
-
-const (
-	CTCSV          = "text/csv"
-	CTBlocksBinary = "application/x-wrgl-blocks-binary"
 )
 
 var blocksURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/blocks/`)
@@ -85,7 +81,7 @@ func (h *GetBlocksHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Encoding", "gzip")
 		gzw := gzip.NewWriter(rw)
 		defer gzw.Close()
-		rw.Header().Set("Content-Type", CTBlocksBinary)
+		rw.Header().Set("Content-Type", api.CTBlocksBinary)
 		for i := start; i < end; i++ {
 			b, err := objects.GetBlockBytes(h.db, tbl.Blocks[i])
 			if err != nil {
@@ -100,7 +96,7 @@ func (h *GetBlocksHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Encoding", "gzip")
 		gzw := gzip.NewWriter(rw)
 		defer gzw.Close()
-		rw.Header().Set("Content-Type", CTCSV)
+		rw.Header().Set("Content-Type", api.CTCSV)
 		w := csv.NewWriter(gzw)
 		defer w.Flush()
 		for i := start; i < end; i++ {

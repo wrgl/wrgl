@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package apiserver
 
 import (
 	"compress/gzip"
@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/objects"
 )
@@ -82,7 +83,7 @@ func (h *GetRowsHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Encoding", "gzip")
 	gzw := gzip.NewWriter(rw)
 	defer gzw.Close()
-	rw.Header().Set("Content-Type", CTCSV)
+	rw.Header().Set("Content-Type", api.CTCSV)
 	w := csv.NewWriter(gzw)
 	defer w.Flush()
 	for _, o := range offsets {

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/wrgl/core/pkg/api"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
@@ -23,20 +23,20 @@ func NewServer(db objects.Store, rs ref.Store, c *conf.Config) *Server {
 	}
 	s.serveMux.HandleFunc("/", logging(NewRouter(&Routes{
 		Subs: []*Routes{
-			{http.MethodGet, regexp.MustCompile(`^/refs/`), api.NewGetRefsHandler(rs), nil},
-			{http.MethodPost, regexp.MustCompile(`^/upload-pack/`), api.NewUploadPackHandler(db, rs, api.NewUploadPackSessionMap(), 0), nil},
-			{http.MethodPost, regexp.MustCompile(`^/receive-pack/`), api.NewReceivePackHandler(db, rs, c, api.NewReceivePackSessionMap()), nil},
+			{http.MethodGet, regexp.MustCompile(`^/refs/`), apiserver.NewGetRefsHandler(rs), nil},
+			{http.MethodPost, regexp.MustCompile(`^/upload-pack/`), apiserver.NewUploadPackHandler(db, rs, apiserver.NewUploadPackSessionMap(), 0), nil},
+			{http.MethodPost, regexp.MustCompile(`^/receive-pack/`), apiserver.NewReceivePackHandler(db, rs, c, apiserver.NewReceivePackSessionMap()), nil},
 			{"", regexp.MustCompile(`^/commits/`), nil, []*Routes{
-				{http.MethodPost, nil, api.NewCommitHandler(db, rs), nil},
-				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), api.NewGetCommitHandler(db), nil},
+				{http.MethodPost, nil, apiserver.NewCommitHandler(db, rs), nil},
+				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), apiserver.NewGetCommitHandler(db), nil},
 			}},
 			{"", regexp.MustCompile(`^/tables/`), nil, []*Routes{
-				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), api.NewGetTableHandler(db), []*Routes{
-					{http.MethodGet, regexp.MustCompile(`^blocks/`), api.NewGetBlocksHandler(db), nil},
-					{http.MethodGet, regexp.MustCompile(`^rows/`), api.NewGetRowsHandler(db), nil},
+				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), apiserver.NewGetTableHandler(db), []*Routes{
+					{http.MethodGet, regexp.MustCompile(`^blocks/`), apiserver.NewGetBlocksHandler(db), nil},
+					{http.MethodGet, regexp.MustCompile(`^rows/`), apiserver.NewGetRowsHandler(db), nil},
 				}},
 			}},
-			{http.MethodGet, regexp.MustCompile(`^/diff/[0-9a-z]{32}/[0-9a-z]{32}/`), api.NewDiffHandler(db), nil},
+			{http.MethodGet, regexp.MustCompile(`^/diff/[0-9a-z]{32}/[0-9a-z]{32}/`), apiserver.NewDiffHandler(db), nil},
 		},
 	})))
 	return s

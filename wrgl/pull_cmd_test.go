@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/api"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
@@ -27,8 +28,8 @@ func TestPullCmd(t *testing.T) {
 	sum4, c4 := factory.CommitRandom(t, dbs, nil)
 	sum5, c5 := factory.CommitRandom(t, dbs, [][]byte{sum4})
 	require.NoError(t, ref.CommitHead(rss, "beta", sum5, c5))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, api.NewGetRefsHandler(rss))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, api.NewUploadPackHandler(dbs, rss, api.NewUploadPackSessionMap(), 0))
+	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rss))
+	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(dbs, rss, apiserver.NewUploadPackSessionMap(), 0))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()

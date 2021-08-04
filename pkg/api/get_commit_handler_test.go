@@ -14,8 +14,8 @@ import (
 	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
@@ -29,8 +29,8 @@ func TestGetCommitHandler(t *testing.T) {
 	db := objmock.NewStore()
 	parent, _ := factory.CommitRandom(t, db, nil)
 	sum, com := factory.CommitRandom(t, db, [][]byte{parent})
-	apitest.RegisterHandler(http.MethodGet, `=~^/commits/[0-9a-f]+/\z`, api.NewGetCommitHandler(db))
-	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/\z`, api.NewGetTableHandler(db))
+	apitest.RegisterHandler(http.MethodGet, `=~^/commits/[0-9a-f]+/\z`, apiserver.NewGetCommitHandler(db))
+	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/\z`, apiserver.NewGetTableHandler(db))
 
 	// get commit not found
 	resp := apitest.Get(t, fmt.Sprintf("/commits/%x/", testutils.SecureRandomBytes(16)))

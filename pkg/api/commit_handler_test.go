@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
@@ -29,7 +30,7 @@ func TestCommitHandler(t *testing.T) {
 	rs := refmock.NewStore()
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
-	apitest.RegisterHandler(http.MethodPost, api.PathCommit, api.NewCommitHandler(db, rs))
+	apitest.RegisterHandler(http.MethodPost, api.PathCommit, apiserver.NewCommitHandler(db, rs))
 
 	// missing branch
 	resp := apitest.PostMultipartForm(t, api.PathCommit, nil, nil)

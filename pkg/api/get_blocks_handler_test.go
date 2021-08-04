@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/api"
+	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
@@ -59,7 +60,7 @@ func TestGetBlocksHandler(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.Deactivate()
 	db := objmock.NewStore()
-	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/blocks/\z`, api.NewGetBlocksHandler(db))
+	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/blocks/\z`, apiserver.NewGetBlocksHandler(db))
 
 	_, com := apitest.CreateRandomCommit(t, db, 5, 700, nil)
 	tbl, err := objects.GetTable(db, com.Table)

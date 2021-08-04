@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package apiserver
 
 import (
 	"bytes"
@@ -13,8 +13,6 @@ import (
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
-
-const PathCommit = "/commits/"
 
 type CommitHandler struct {
 	db objects.Store

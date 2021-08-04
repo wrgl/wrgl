@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package apiserver
 
 import (
 	"bytes"
@@ -12,17 +12,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiutils "github.com/wrgl/core/pkg/api/utils"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/encoding"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
-)
-
-const (
-	receivePackSessionCookie = "receive-pack-session-id"
-	CTReceivePackResult      = "application/x-wrgl-receive-pack-result"
 )
 
 type ReceivePackSession struct {
@@ -104,7 +100,7 @@ func (s *ReceivePackSession) saveRefs() error {
 
 func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	var err error
-	if v := r.Header.Get("Content-Type"); v != CTJSON {
+	if v := r.Header.Get("Content-Type"); v != api.CTJSON {
 		http.Error(rw, "updates expected", http.StatusBadRequest)
 		return nil
 	}
@@ -148,7 +144,7 @@ func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nex
 }
 
 func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	if v := r.Header.Get("Content-Type"); v != CTPackfile {
+	if v := r.Header.Get("Content-Type"); v != api.CTPackfile {
 		http.Error(rw, "packfile expected", http.StatusBadRequest)
 		return nil
 	}
@@ -172,9 +168,9 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 
 func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	http.SetCookie(rw, &http.Cookie{
-		Name:     receivePackSessionCookie,
+		Name:     api.ReceivePackSessionCookie,
 		Value:    s.id.String(),
-		Path:     PathReceivePack,
+		Path:     api.PathReceivePack,
 		HttpOnly: true,
 		MaxAge:   3600 * 3,
 	})
@@ -183,12 +179,12 @@ func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request)
 }
 
 func (s *ReceivePackSession) reportStatus(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	rw.Header().Set("Content-Type", CTJSON)
+	rw.Header().Set("Content-Type", api.CTJSON)
 	// remove cookie
 	http.SetCookie(rw, &http.Cookie{
-		Name:     receivePackSessionCookie,
+		Name:     api.ReceivePackSessionCookie,
 		Value:    s.id.String(),
-		Path:     PathReceivePack,
+		Path:     api.PathReceivePack,
 		HttpOnly: true,
 		Expires:  time.Now().Add(time.Hour * -24),
 	})

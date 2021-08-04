@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package api
+package apiserver
 
 import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
-
-const PathUploadPack = "/upload-pack/"
 
 type UploadPackSessionStore interface {
 	Set(sid uuid.UUID, ses *UploadPackSession)
@@ -37,7 +36,7 @@ func NewUploadPackHandler(db objects.Store, rs ref.Store, sessions UploadPackSes
 
 func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession, sid uuid.UUID, err error) {
 	var ok bool
-	c, err := r.Cookie(UploadPackSessionCookie)
+	c, err := r.Cookie(api.UploadPackSessionCookie)
 	if err == nil {
 		sid, err = uuid.Parse(c.Value)
 		if err != nil {
