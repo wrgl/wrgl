@@ -4,13 +4,10 @@
 package api_test
 
 import (
-	"net/http"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
@@ -34,17 +31,17 @@ func assertRefEqual(t *testing.T, rs ref.Store, r string, sum []byte) {
 }
 
 func TestReceivePackHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	sum3, _ := factory.CommitHead(t, db, rs, "delta", nil, nil)
 	sum7, _ := factory.CommitHead(t, db, rs, "theta", nil, nil)
-	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false), apiserver.NewReceivePackSessionMap()),
-	)
+	cli, cleanup := createClient(t, &apitest.GZIPAwareHandler{
+		T:       t,
+		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false), apiserver.NewReceivePackSessionMap()),
+	})
+	defer cleanup()
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 
@@ -68,10 +65,10 @@ func TestReceivePackHandler(t *testing.T) {
 		"refs/heads/delta": {OldSum: payload.BytesToHex(sum9), Sum: payload.BytesToHex(sum6)}, // outdated ref
 		"refs/heads/theta": {OldSum: payload.BytesToHex(sum7), Sum: payload.BytesToHex(sum8)}, // non-fast-forward
 	}
-	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 0)
+	updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 0)
 	assert.Equal(t, "remote ref updated since checkout", updates["refs/heads/delta"].ErrMsg)
 	delete(updates, "refs/heads/delta")
-	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 0)
+	updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 0)
 	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
 	assert.Empty(t, updates["refs/heads/beta"].ErrMsg)
 	assert.Empty(t, updates["refs/heads/gamma"].ErrMsg)
@@ -110,7 +107,7 @@ func TestReceivePackHandler(t *testing.T) {
 	updates = map[string]*payload.Update{
 		"refs/heads/alpha": {OldSum: payload.BytesToHex(sum4)}, // fast-forward
 	}
-	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 0)
+	updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 0)
 	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
 	_, err = ref.GetHead(rs, "alpha")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
@@ -118,15 +115,15 @@ func TestReceivePackHandler(t *testing.T) {
 }
 
 func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
-	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
-	)
+	cli, cleanup := createClient(t, &apitest.GZIPAwareHandler{
+		T:       t,
+		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
+	})
+	defer cleanup()
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 
@@ -139,7 +136,7 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 		"refs/heads/alpha": {OldSum: payload.BytesToHex(sum1), Sum: payload.BytesToHex(sum3)},
 		"refs/heads/beta":  {OldSum: payload.BytesToHex(sum2)},
 	}
-	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 0)
+	updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 0)
 	assert.Equal(t, "remote does not support non-fast-fowards", updates["refs/heads/alpha"].ErrMsg)
 	assert.Equal(t, "remote does not support deleting refs", updates["refs/heads/beta"].ErrMsg)
 	assertRefEqual(t, rs, "heads/alpha", sum1)
@@ -147,13 +144,13 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 }
 
 func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
-	apitest.RegisterHandler(
-		http.MethodPost, api.PathReceivePack, apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
-	)
+	cli, cleanup := createClient(t, &apitest.GZIPAwareHandler{
+		T:       t,
+		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
+	})
+	defer cleanup()
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 
@@ -167,7 +164,7 @@ func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	updates := map[string]*payload.Update{
 		"refs/heads/alpha": {Sum: payload.BytesToHex(sum3)},
 	}
-	updates = apitest.PushObjects(t, dbc, rsc, updates, remoteRefs, 1024)
+	updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 1024)
 	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
 	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1, sum2, sum3})
 	assertRefEqual(t, rs, "heads/alpha", sum3)

@@ -46,10 +46,26 @@ func decodeGzipPayload(header *http.Header, r io.ReadCloser) (io.ReadCloser, err
 		if err != nil {
 			return nil, err
 		}
+		gzr.Close()
+		if err := r.Close(); err != nil {
+			return nil, err
+		}
 		r = io.NopCloser(bytes.NewReader(b))
 		header.Del("Content-Encoding")
 	}
 	return r, nil
+}
+
+type GZIPAwareHandler struct {
+	T       *testing.T
+	Handler http.Handler
+}
+
+func (h *GZIPAwareHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	reader, err := decodeGzipPayload(&r.Header, r.Body)
+	require.NoError(h.T, err)
+	r.Body = reader
+	h.Handler.ServeHTTP(rw, r)
 }
 
 func RegisterHandlerWithOrigin(origin, method, path string, handler http.Handler) {
@@ -77,10 +93,8 @@ func RegisterHandlerWithOrigin(origin, method, path string, handler http.Handler
 	)
 }
 
-func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, advertised [][]byte, havesPerRoundTrip int) [][]byte {
+func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, advertised [][]byte, havesPerRoundTrip int) [][]byte {
 	t.Helper()
-	c, err := apiclient.NewClient(TestOrigin)
-	require.NoError(t, err)
 	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip)
 	require.NoError(t, err)
 	commits, err := ses.Start()
@@ -88,10 +102,8 @@ func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, advertised [][]b
 	return commits
 }
 
-func PushObjects(t *testing.T, db objects.Store, rs ref.Store, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) map[string]*payload.Update {
+func PushObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) map[string]*payload.Update {
 	t.Helper()
-	c, err := apiclient.NewClient(TestOrigin)
-	require.NoError(t, err)
 	ses, err := apiclient.NewReceivePackSession(db, rs, c, updates, remoteRefs, maxPackfileSize)
 	require.NoError(t, err)
 	updates, err = ses.Start()

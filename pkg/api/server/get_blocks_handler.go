@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/wrgl/core/pkg/api"
+	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/objects"
 )
 
@@ -72,12 +73,12 @@ func (h *GetBlocksHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "end out of range", http.StatusBadRequest)
 		return
 	}
-	format := "csv"
+	format := payload.BlockFormatCSV
 	if v, ok := values["format"]; ok {
-		format = v[0]
+		format = payload.BlockFormat(v[0])
 	}
 	switch format {
-	case "binary":
+	case payload.BlockFormatBinary:
 		rw.Header().Set("Content-Encoding", "gzip")
 		gzw := gzip.NewWriter(rw)
 		defer gzw.Close()
@@ -92,7 +93,7 @@ func (h *GetBlocksHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 				panic(err)
 			}
 		}
-	case "csv":
+	case payload.BlockFormatCSV:
 		rw.Header().Set("Content-Encoding", "gzip")
 		gzw := gzip.NewWriter(rw)
 		defer gzw.Close()

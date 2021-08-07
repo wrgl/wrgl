@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/wrgl/core/pkg/api/payload"
 	apiutils "github.com/wrgl/core/pkg/api/utils"
@@ -79,14 +80,14 @@ func (s *ReceivePackSession) initialize() (stateFn, error) {
 }
 
 func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
-		return nil, fmt.Errorf("unexpected content type %q", ct)
-	}
-	r := &payload.ReceivePackResponse{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return nil, fmt.Errorf("unexpected content type %q, payload was %q", ct, strings.TrimSpace(string(b)))
+	}
+	r := &payload.ReceivePackResponse{}
 	err = json.Unmarshal(b, r)
 	if err != nil {
 		return nil, err

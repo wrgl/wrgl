@@ -6,6 +6,7 @@ package apiserver
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -150,6 +151,7 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 	}
 	pr, err := encoding.NewPackfileReader(r.Body)
 	if err != nil {
+		fmt.Printf("err: %v\n", err)
 		return
 	}
 	done, err := s.receiver.Receive(pr)

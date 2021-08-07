@@ -4,19 +4,13 @@
 package api_test
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api/payload"
 	apiserver "github.com/wrgl/core/pkg/api/server"
-	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
@@ -24,25 +18,22 @@ import (
 )
 
 func TestGetCommitHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
 	parent, _ := factory.CommitRandom(t, db, nil)
 	sum, com := factory.CommitRandom(t, db, [][]byte{parent})
-	apitest.RegisterHandler(http.MethodGet, `=~^/commits/[0-9a-f]+/\z`, apiserver.NewGetCommitHandler(db))
-	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/\z`, apiserver.NewGetTableHandler(db))
+	sm := http.NewServeMux()
+	sm.Handle("/commits/", apiserver.NewGetCommitHandler(db))
+	sm.Handle("/tables/", apiserver.NewGetTableHandler(db))
+	cli, cleanup := createClient(t, sm)
+	defer cleanup()
 
 	// get commit not found
-	resp := apitest.Get(t, fmt.Sprintf("/commits/%x/", testutils.SecureRandomBytes(16)))
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	_, err := cli.GetCommit(testutils.SecureRandomBytes(16))
+	assert.Equal(t, "status 404: 404 page not found", err.Error())
 
 	// get commit OK
-	resp = apitest.Get(t, fmt.Sprintf("/commits/%x/", sum))
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	b, err := ioutil.ReadAll(resp.Body)
+	cr, err := cli.GetCommit(sum)
 	require.NoError(t, err)
-	cr := &payload.GetCommitResponse{}
-	require.NoError(t, json.Unmarshal(b, cr))
 	assert.Equal(t, com.Table, (*cr.Table)[:])
 	assert.Equal(t, com.AuthorName, cr.AuthorName)
 	assert.Equal(t, com.AuthorEmail, cr.AuthorEmail)
@@ -52,16 +43,12 @@ func TestGetCommitHandler(t *testing.T) {
 	assert.Equal(t, com.Parents[0], (*cr.Parents[0])[:])
 
 	// get table not found
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/", testutils.SecureRandomBytes(16)))
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	_, err = cli.GetTable(testutils.SecureRandomBytes(16))
+	assert.Equal(t, "status 404: 404 page not found", err.Error())
 
 	// get table OK
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/", com.Table))
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	b, err = ioutil.ReadAll(resp.Body)
+	tr, err := cli.GetTable(com.Table)
 	require.NoError(t, err)
-	tr := &payload.GetTableResponse{}
-	require.NoError(t, json.Unmarshal(b, tr))
 	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 	assert.Equal(t, tbl.Columns, tr.Columns)

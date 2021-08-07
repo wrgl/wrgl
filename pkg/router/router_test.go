@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package main
+package router
 
 import (
 	"fmt"
@@ -77,4 +77,15 @@ func TestRouter(t *testing.T) {
 	// test redirect
 	p := fmt.Sprintf("/tables/%x/blocks", testutils.SecureRandomBytes(16))
 	assertRedirect(t, router, http.MethodGet, p, 301, p+"/")
+}
+
+func TestRouterWithPrefix(t *testing.T) {
+	router := NewRouter(&Routes{
+		Pat: regexp.MustCompile(`^/repos/[0-9a-f]{32}/`),
+		Subs: []*Routes{
+			{http.MethodGet, regexp.MustCompile(`^refs/`), &mockHandler{"get refs"}, nil},
+		},
+	})
+	assertResponse(t, router, http.MethodGet, fmt.Sprintf("/repos/%x/refs/", testutils.SecureRandomBytes(16)), 200, "get refs")
+	assertResponse(t, router, http.MethodGet, "/refs/", 404, "404 page not found\n")
 }

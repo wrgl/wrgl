@@ -5,27 +5,42 @@ package api_test
 
 import (
 	"encoding/csv"
-	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"regexp"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	apiserver "github.com/wrgl/core/pkg/api/server"
-	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
+	"github.com/wrgl/core/pkg/router"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
 func TestGetRowsHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
-	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/rows/\z`, apiserver.NewGetRowsHandler(db))
-	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/blocks/\z`, apiserver.NewGetBlocksHandler(db))
+	ts := httptest.NewServer(router.NewRouter(&router.Routes{
+		Pat: regexp.MustCompile(`^/tables/[0-9a-f]{32}/`),
+		Subs: []*router.Routes{
+			{
+				Method:  http.MethodGet,
+				Pat:     regexp.MustCompile(`^blocks/`),
+				Handler: apiserver.NewGetBlocksHandler(db),
+			},
+			{
+				Method:  http.MethodGet,
+				Pat:     regexp.MustCompile(`^rows/`),
+				Handler: apiserver.NewGetRowsHandler(db),
+			},
+		},
+	}))
+	defer ts.Close()
+	cli, err := apiclient.NewClient(ts.URL)
+	require.NoError(t, err)
 
 	_, com := factory.Commit(t, db, []string{
 		"a,b,c",
@@ -36,22 +51,21 @@ func TestGetRowsHandler(t *testing.T) {
 	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 
-	resp := apitest.Get(t, fmt.Sprintf("/tables/%x/rows/", testutils.SecureRandomBytes(16)))
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	_, err = cli.GetRows(testutils.SecureRandomBytes(16), nil)
+	assert.Equal(t, "status 404: 404 page not found", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/rows/", com.Table))
+	resp, err := cli.GetRows(com.Table, nil)
+	require.NoError(t, err)
 	assertBlocksCSV(t, db, tbl.Blocks, resp)
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/rows/?offsets=abc", com.Table))
-	apitest.AssertResp(t, resp, http.StatusBadRequest, "invalid offset \"abc\"\n")
+	_, err = cli.GetRows(com.Table, []int{-1})
+	assert.Equal(t, "status 400: offset out of range \"-1\"", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/rows/?offsets=-1", com.Table))
-	apitest.AssertResp(t, resp, http.StatusBadRequest, "offset out of range \"-1\"\n")
+	_, err = cli.GetRows(com.Table, []int{10})
+	assert.Equal(t, "status 400: offset out of range \"10\"", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/rows/?offsets=10", com.Table))
-	apitest.AssertResp(t, resp, http.StatusBadRequest, "offset out of range \"10\"\n")
-
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/rows/?offsets=0,1", com.Table))
+	resp, err = cli.GetRows(com.Table, []int{0, 1})
+	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	r := csv.NewReader(resp.Body)
 	rows, err := r.ReadAll()
@@ -61,7 +75,8 @@ func TestGetRowsHandler(t *testing.T) {
 		{"2", "a", "s"},
 	}, rows)
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/rows/?offsets=2,1", com.Table))
+	resp, err = cli.GetRows(com.Table, []int{2, 1})
+	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	r = csv.NewReader(resp.Body)
 	rows, err = r.ReadAll()

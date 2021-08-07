@@ -9,9 +9,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
+	"strconv"
+	"strings"
 
+	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/encoding"
 	"golang.org/x/net/publicsuffix"
@@ -58,7 +63,7 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 		if err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("%s: %s", resp.Status, string(b))
+		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 	return
 }
@@ -86,6 +91,169 @@ func (c *Client) GetRefs() (m map[string][]byte, err error) {
 		m[k] = (*v)[:]
 	}
 	return
+}
+
+func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]io.Reader) (*http.Response, error) {
+	buf := bytes.NewBuffer(nil)
+	w := multipart.NewWriter(buf)
+	for k, sl := range value {
+		for _, v := range sl {
+			err := w.WriteField(k, v)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	for k, r := range files {
+		if r == nil {
+			continue
+		}
+		w, err := w.CreateFormFile(k, k)
+		if err != nil {
+			return nil, err
+		}
+		io.Copy(w, r)
+	}
+	err := w.Close()
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPost, c.origin+path, bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (c *Client) Commit(branch, message, authorEmail, authorName string, file io.Reader, primaryKey []string) (cr *payload.CommitResponse, err error) {
+	resp, err := c.PostMultipartForm(api.PathCommit, map[string][]string{
+		"branch":      {branch},
+		"message":     {message},
+		"authorName":  {authorName},
+		"authorEmail": {authorEmail},
+		"primaryKey":  primaryKey,
+	}, map[string]io.Reader{
+		"file": file,
+	})
+	if err != nil {
+		return nil, err
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	cr = &payload.CommitResponse{}
+	err = json.Unmarshal(b, cr)
+	if err != nil {
+		return nil, err
+	}
+	return cr, nil
+}
+
+func (c *Client) Diff(sum1, sum2 []byte) (dr *payload.DiffResponse, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/diff/%x/%x/", sum1, sum2), nil, nil)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	dr = &payload.DiffResponse{}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(b, dr)
+	if err != nil {
+		return nil, err
+	}
+	return dr, nil
+}
+
+func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockFormat) (resp *http.Response, err error) {
+	v := url.Values{}
+	if start > 0 {
+		v.Set("start", strconv.Itoa(start))
+	}
+	if end > 0 {
+		v.Set("end", strconv.Itoa(end))
+	}
+	if format != "" {
+		v.Set("format", string(format))
+	}
+	var qs string
+	if len(v) > 0 {
+		qs = fmt.Sprintf("?%s", v.Encode())
+	}
+	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/blocks/%s", sum, qs), nil, nil)
+}
+
+func (c *Client) GetRows(sum []byte, offsets []int) (resp *http.Response, err error) {
+	v := url.Values{}
+	if len(offsets) > 0 {
+		sl := make([]string, len(offsets))
+		for i := range sl {
+			sl[i] = strconv.Itoa(offsets[i])
+		}
+		v.Set("offsets", strings.Join(sl, ","))
+	}
+	var qs string
+	if len(v) > 0 {
+		qs = fmt.Sprintf("?%s", v.Encode())
+	}
+	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/rows/%s", sum, qs), nil, nil)
+}
+
+func (c *Client) GetCommit(sum []byte) (cr *payload.GetCommitResponse, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/commits/%x/", sum), nil, nil)
+	if err != nil {
+		return
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	cr = &payload.GetCommitResponse{}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(b, cr)
+	if err != nil {
+		return nil, err
+	}
+	return cr, nil
+}
+
+func (c *Client) GetTable(sum []byte) (tr *payload.GetTableResponse, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/", sum), nil, nil)
+	if err != nil {
+		return
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	tr = &payload.GetTableResponse{}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(b, tr)
+	if err != nil {
+		return nil, err
+	}
+	return tr, nil
 }
 
 func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool) (resp *http.Response, err error) {
@@ -156,51 +324,3 @@ func (c *Client) ErrHTTP(resp *http.Response) error {
 	}
 	return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(b))
 }
-
-// func (c *Client) PostReceivePack(updates []*payload.Update, writeObjects func(w io.Writer) error) (body io.ReadCloser, err error) {
-// 	reqBody := bytes.NewBuffer(nil)
-// 	gzw := gzip.NewWriter(reqBody)
-// 	buf := misc.NewBuffer(nil)
-// 	strs := make([]string, 0, 3)
-// 	sendPackfile := false
-// 	for _, update := range updates {
-// 		strs = strs[:0]
-// 		for _, sum := range [][]byte{update.OldSum, update.Sum} {
-// 			if sum == nil {
-// 				strs = append(strs, strings.Repeat("0", 32))
-// 			} else {
-// 				strs = append(strs, hex.EncodeToString(sum))
-// 			}
-// 		}
-// 		if update.Sum != nil {
-// 			sendPackfile = true
-// 		}
-// 		strs = append(strs, update.Dst)
-// 		err = encoding.WritePktLine(gzw, buf, strings.Join(strs, " "))
-// 		if err != nil {
-// 			return
-// 		}
-// 	}
-// 	err = encoding.WritePktLine(gzw, buf, "")
-// 	if err != nil {
-// 		return
-// 	}
-// 	if sendPackfile {
-// 		err = writeObjects(gzw)
-// 		if err != nil {
-// 			return
-// 		}
-// 	}
-// 	err = gzw.Close()
-// 	if err != nil {
-// 		return
-// 	}
-// 	resp, err := c.Request(http.MethodPost, "/receive-pack/", reqBody, map[string]string{
-// 		"Content-Type":     "application/x-wrgl-receive-pack-request",
-// 		"Content-Encoding": "gzip",
-// 	})
-// 	if err != nil {
-// 		return
-// 	}
-// 	return resp.Body, nil
-// }

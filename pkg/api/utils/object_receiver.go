@@ -76,6 +76,7 @@ func (r *ObjectReceiver) Receive(pr *encoding.PackfileReader) (done bool, err er
 		if err != nil {
 			return false, err
 		}
+		fmt.Printf("received object\n")
 		switch ot {
 		case encoding.ObjectBlock:
 			_, err = objects.SaveBlock(r.db, b)

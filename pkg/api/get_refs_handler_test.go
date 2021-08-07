@@ -4,16 +4,11 @@
 package api_test
 
 import (
-	"net/http"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
-	apiclient "github.com/wrgl/core/pkg/api/client"
 	apiserver "github.com/wrgl/core/pkg/api/server"
-	apitest "github.com/wrgl/core/pkg/api/test"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
@@ -22,8 +17,6 @@ import (
 )
 
 func TestGetRefsHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
@@ -45,11 +38,10 @@ func TestGetRefsHandler(t *testing.T) {
 		"from origin",
 	)
 	require.NoError(t, err)
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs))
+	cli, cleanup := createClient(t, apiserver.NewGetRefsHandler(rs))
+	defer cleanup()
 
-	c, err := apiclient.NewClient(apitest.TestOrigin)
-	require.NoError(t, err)
-	m, err := c.GetRefs()
+	m, err := cli.GetRefs()
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/" + head: sum1,

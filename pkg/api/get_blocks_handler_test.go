@@ -5,15 +5,14 @@ package api_test
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
 	"net/http"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/api"
+	"github.com/wrgl/core/pkg/api/payload"
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/objects"
@@ -57,42 +56,39 @@ func assertBlocksBinary(t *testing.T, db objects.Store, blocks [][]byte, resp *h
 }
 
 func TestGetBlocksHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
-	apitest.RegisterHandler(http.MethodGet, `=~^/tables/[0-9a-f]+/blocks/\z`, apiserver.NewGetBlocksHandler(db))
+	cli, cleanup := createClient(t, apiserver.NewGetBlocksHandler(db))
+	defer cleanup()
 
 	_, com := apitest.CreateRandomCommit(t, db, 5, 700, nil)
 	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 
-	resp := apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/", testutils.SecureRandomBytes(16)))
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	_, err = cli.GetBlocks(testutils.SecureRandomBytes(16), 0, 0, "")
+	assert.Equal(t, "status 404: 404 page not found", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/?start=abc", com.Table))
-	apitest.AssertResp(t, resp, http.StatusBadRequest, "invalid start\n")
+	_, err = cli.GetBlocks(com.Table, 7, 0, "")
+	assert.Equal(t, "status 400: start out of range", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/?start=7", com.Table))
-	apitest.AssertResp(t, resp, http.StatusBadRequest, "start out of range\n")
+	_, err = cli.GetBlocks(com.Table, 0, 7, "")
+	assert.Equal(t, "status 400: end out of range", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/?end=abc", com.Table))
-	apitest.AssertResp(t, resp, http.StatusBadRequest, "invalid end\n")
-
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/?end=7", com.Table))
-	apitest.AssertResp(t, resp, http.StatusBadRequest, "end out of range\n")
-
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/", com.Table))
+	resp, err := cli.GetBlocks(com.Table, 0, 0, "")
+	require.NoError(t, err)
 	assertBlocksCSV(t, db, tbl.Blocks, resp)
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/?end=1", com.Table))
+	resp, err = cli.GetBlocks(com.Table, 0, 1, "")
+	require.NoError(t, err)
 	assertBlocksCSV(t, db, tbl.Blocks[:1], resp)
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/?start=1&end=2", com.Table))
+	resp, err = cli.GetBlocks(com.Table, 1, 2, "")
+	require.NoError(t, err)
 	assertBlocksCSV(t, db, tbl.Blocks[1:2], resp)
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/?format=abc", com.Table))
-	apitest.AssertResp(t, resp, http.StatusBadRequest, "invalid format\n")
+	_, err = cli.GetBlocks(com.Table, 0, 0, "abc")
+	assert.Equal(t, "status 400: invalid format", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/tables/%x/blocks/?format=binary", com.Table))
+	resp, err = cli.GetBlocks(com.Table, 0, 0, payload.BlockFormatBinary)
+	require.NoError(t, err)
 	assertBlocksBinary(t, db, tbl.Blocks, resp)
 }

@@ -6,16 +6,12 @@ package api_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiserver "github.com/wrgl/core/pkg/api/server"
-	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/testutils"
@@ -28,10 +24,9 @@ func hexFromString(t *testing.T, s string) *payload.Hex {
 }
 
 func TestDiffHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
-	apitest.RegisterHandler(http.MethodGet, `=~^/diff/[0-9a-f]+/[0-9a-f]+/\z`, apiserver.NewDiffHandler(db))
+	cli, cleanup := createClient(t, apiserver.NewDiffHandler(db))
+	defer cleanup()
 
 	sum1, _ := factory.Commit(t, db, []string{
 		"a,b,c",
@@ -46,19 +41,14 @@ func TestDiffHandler(t *testing.T) {
 		"3,z,c",
 	}, []uint32{0}, nil)
 
-	resp := apitest.Get(t, fmt.Sprintf("/diff/%x/%x/", testutils.SecureRandomBytes(16), sum2))
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	_, err := cli.Diff(testutils.SecureRandomBytes(16), sum2)
+	assert.Equal(t, "status 404: 404 page not found", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/diff/%x/%x/", sum1, testutils.SecureRandomBytes(16)))
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	_, err = cli.Diff(sum1, testutils.SecureRandomBytes(16))
+	assert.Equal(t, "status 404: 404 page not found", err.Error())
 
-	resp = apitest.Get(t, fmt.Sprintf("/diff/%x/%x/", sum1, sum2))
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	b, err := ioutil.ReadAll(resp.Body)
+	dr, err := cli.Diff(sum1, sum2)
 	require.NoError(t, err)
-	require.NoError(t, resp.Body.Close())
-	dr := &payload.DiffResponse{}
-	require.NoError(t, json.Unmarshal(b, dr))
 	assert.Equal(t, &payload.DiffResponse{
 		ColDiff: &payload.ColDiff{
 			Columns:    []string{"a", "b", "c"},

@@ -3,6 +3,13 @@
 
 package payload
 
+type BlockFormat string
+
+const (
+	BlockFormatCSV    BlockFormat = "csv"
+	BlockFormatBinary BlockFormat = "binary"
+)
+
 type GetTableResponse struct {
 	Columns   []string `json:"columns"`
 	PK        []uint32 `json:"pk,omitempty"`

@@ -3,19 +3,16 @@ package api_test
 import (
 	"bytes"
 	"encoding/csv"
-	"encoding/json"
-	"io"
-	"io/ioutil"
+	"fmt"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
-	"github.com/wrgl/core/pkg/api/payload"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	apiserver "github.com/wrgl/core/pkg/api/server"
-	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
@@ -23,72 +20,60 @@ import (
 	refmock "github.com/wrgl/core/pkg/ref/mock"
 )
 
+func createClient(t *testing.T, handler http.Handler) (*apiclient.Client, func()) {
+	t.Helper()
+	ts := httptest.NewUnstartedServer(handler)
+	ts.Config.ConnState = func(c net.Conn, cs http.ConnState) {
+		switch cs {
+		case http.StateNew:
+			fmt.Printf("connState: StateNew\n")
+		case http.StateActive:
+			fmt.Printf("connState: StateActive\n")
+		case http.StateIdle:
+			fmt.Printf("connState: StateIdle\n")
+		case http.StateHijacked:
+			fmt.Printf("connState: StateHijacked\n")
+		case http.StateClosed:
+			fmt.Printf("connState: StateClosed\n")
+		}
+	}
+	ts.Start()
+	cli, err := apiclient.NewClient(ts.URL)
+	require.NoError(t, err)
+	return cli, ts.Close
+}
+
 func TestCommitHandler(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
-	apitest.RegisterHandler(http.MethodPost, api.PathCommit, apiserver.NewCommitHandler(db, rs))
+	cli, cleanup := createClient(t, apiserver.NewCommitHandler(db, rs))
+	defer cleanup()
 
 	// missing branch
-	resp := apitest.PostMultipartForm(t, api.PathCommit, nil, nil)
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	b, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, "missing branch name\n", string(b))
+	_, err := cli.Commit("", "", "", "", nil, nil)
+	assert.Equal(t, "status 400: missing branch name", err.Error())
 
 	// invalid branch
-	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
-		"branch": {"123 kjl"},
-	}, nil)
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	b, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, "invalid branch name\n", string(b))
+	_, err = cli.Commit("123 kjl", "", "", "", nil, nil)
+	assert.Equal(t, "status 400: invalid branch name", err.Error())
 
 	// missing message
-	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
-		"branch": {"alpha"},
-	}, nil)
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	b, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, "missing message\n", string(b))
+	_, err = cli.Commit("alpha", "", "", "", nil, nil)
+	assert.Equal(t, "status 400: missing message", err.Error())
 
 	// missing author email
-	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
-		"branch":  {"alpha"},
-		"message": {"initial commit"},
-	}, nil)
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	b, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, "missing author email\n", string(b))
+	_, err = cli.Commit("alpha", "initial commit", "", "", nil, nil)
+	assert.Equal(t, "status 400: missing author email", err.Error())
 
-	// missing author email
-	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
-		"branch":      {"alpha"},
-		"message":     {"initial commit"},
-		"authorEmail": {"john@doe.com"},
-	}, nil)
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	b, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, "missing author name\n", string(b))
+	// missing author name
+	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "", nil, nil)
+	assert.Equal(t, "status 400: missing author name", err.Error())
 
 	// missing file
-	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
-		"branch":      {"alpha"},
-		"message":     {"initial commit"},
-		"authorEmail": {"john@doe.com"},
-		"authorName":  {"John Doe"},
-	}, nil)
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	b, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, "missing file\n", string(b))
+	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", nil, nil)
+	assert.Equal(t, "status 400: missing file", err.Error())
 
 	// valid request
 	buf := bytes.NewBuffer(nil)
@@ -100,19 +85,8 @@ func TestCommitHandler(t *testing.T) {
 		{"3", "z", "x"},
 	}))
 	w.Flush()
-	resp = apitest.PostMultipartForm(t, api.PathCommit, map[string][]string{
-		"branch":      {"alpha"},
-		"message":     {"initial commit"},
-		"authorName":  {"John Doe"},
-		"authorEmail": {"john@doe.com"},
-		"primaryKey":  {"a"},
-	}, map[string]io.Reader{"file": bytes.NewReader(buf.Bytes())})
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Equal(t, api.CTJSON, resp.Header.Get("Content-Type"))
-	b, err = ioutil.ReadAll(resp.Body)
+	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), []string{"a"})
 	require.NoError(t, err)
-	cr := &payload.CommitResponse{}
-	require.NoError(t, json.Unmarshal(b, cr))
 	assert.NotEmpty(t, cr.Sum)
 
 	com, err := objects.GetCommit(db, (*cr.Sum)[:])

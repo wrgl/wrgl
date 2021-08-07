@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package main
+package router
 
 import (
 	"net/http"
@@ -33,6 +33,14 @@ func (router *Router) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	redirect := !strings.HasSuffix(path, "/")
 	if redirect {
 		path = path + "/"
+	}
+	if routes.Pat != nil {
+		if m := routes.Pat.FindStringSubmatch(path); m != nil {
+			path = strings.TrimPrefix(path, m[0])
+		} else {
+			http.NotFound(rw, r)
+			return
+		}
 	}
 mainLoop:
 	for {
