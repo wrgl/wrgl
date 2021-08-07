@@ -149,7 +149,6 @@ func (s *UploadPackSession) negotiate(rw http.ResponseWriter, r *http.Request) (
 // ServeHTTP negotiates which commits to be sent and send them in one or more packfiles,
 // returns true when this session is completed and should be removed.
 func (s *UploadPackSession) ServeHTTP(rw http.ResponseWriter, r *http.Request) bool {
-	defer fmt.Printf("done Serving HTTP\n")
 	if ct := r.Header.Get("Content-Type"); ct != api.CTJSON {
 		http.Error(rw, "", http.StatusUnsupportedMediaType)
 		return true

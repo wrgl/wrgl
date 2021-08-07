@@ -91,7 +91,7 @@ func (n *UploadPackSession) Start() ([][]byte, error) {
 			return nil, err
 		}
 		n.wants = nil
-		if acks == nil {
+		if len(acks) == 0 {
 			defer pr.Close()
 			doneReceiving, err := n.receiver.Receive(pr)
 			if err != nil {

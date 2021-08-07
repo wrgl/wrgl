@@ -134,10 +134,7 @@ func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
 	}
 	b = make([]byte, int(u))
 	_, err = r.r.Read(b)
-	if err == io.EOF {
-		return 0, nil, fmt.Errorf("reading object: data corrupted")
-	}
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return
 	}
 	return

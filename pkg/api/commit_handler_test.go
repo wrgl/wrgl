@@ -3,8 +3,6 @@ package api_test
 import (
 	"bytes"
 	"encoding/csv"
-	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,22 +20,7 @@ import (
 
 func createClient(t *testing.T, handler http.Handler) (*apiclient.Client, func()) {
 	t.Helper()
-	ts := httptest.NewUnstartedServer(handler)
-	ts.Config.ConnState = func(c net.Conn, cs http.ConnState) {
-		switch cs {
-		case http.StateNew:
-			fmt.Printf("connState: StateNew\n")
-		case http.StateActive:
-			fmt.Printf("connState: StateActive\n")
-		case http.StateIdle:
-			fmt.Printf("connState: StateIdle\n")
-		case http.StateHijacked:
-			fmt.Printf("connState: StateHijacked\n")
-		case http.StateClosed:
-			fmt.Printf("connState: StateClosed\n")
-		}
-	}
-	ts.Start()
+	ts := httptest.NewServer(handler)
 	cli, err := apiclient.NewClient(ts.URL)
 	require.NoError(t, err)
 	return cli, ts.Close

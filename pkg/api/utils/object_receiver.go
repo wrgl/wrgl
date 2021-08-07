@@ -70,29 +70,28 @@ func (r *ObjectReceiver) saveCommit(b []byte) (err error) {
 func (r *ObjectReceiver) Receive(pr *encoding.PackfileReader) (done bool, err error) {
 	for {
 		ot, b, err := pr.ReadObject()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return false, err
 		}
-		fmt.Printf("received object\n")
 		switch ot {
 		case encoding.ObjectBlock:
-			_, err = objects.SaveBlock(r.db, b)
+			_, err := objects.SaveBlock(r.db, b)
 			if err != nil {
 				return false, err
 			}
 		case encoding.ObjectTable:
-			err = r.saveTable(b)
+			err := r.saveTable(b)
 			if err != nil {
 				return false, err
 			}
 		case encoding.ObjectCommit:
-			err = r.saveCommit(b)
+			err := r.saveCommit(b)
 			if err != nil {
 				return false, err
 			}
+		}
+		if err == io.EOF {
+			break
 		}
 	}
 	return len(r.expectedCommits) == 0, nil
