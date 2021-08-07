@@ -52,12 +52,12 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, id uuid.UUID, maxPackf
 	return s
 }
 
-func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, acks [][]byte) (nextState stateFn) {
+func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, r *http.Request, acks [][]byte) (nextState stateFn) {
 	rw.Header().Set("Content-Type", api.CTJSON)
 	http.SetCookie(rw, &http.Cookie{
 		Name:     api.CookieUploadPackSession,
 		Value:    s.id.String(),
-		Path:     api.PathUploadPack,
+		Path:     r.URL.Path,
 		HttpOnly: true,
 		MaxAge:   3600 * 3,
 	})
@@ -91,7 +91,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 	http.SetCookie(rw, &http.Cookie{
 		Name:     api.CookieUploadPackSession,
 		Value:    s.id.String(),
-		Path:     api.PathUploadPack,
+		Path:     r.URL.Path,
 		HttpOnly: true,
 		MaxAge:   3600 * 3,
 	})
@@ -120,7 +120,7 @@ func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Reque
 		panic(err)
 	}
 	if len(acks) > 0 && len(s.finder.Wants) > 0 && !req.Done {
-		return s.sendACKs(rw, acks)
+		return s.sendACKs(rw, r, acks)
 	}
 	return s.sendPackfile(rw, r)
 }

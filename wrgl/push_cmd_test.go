@@ -43,7 +43,10 @@ func receivePackServer(t *testing.T, rs ref.Store, db objects.Store, cfg *conf.C
 		api.PathReceivePack,
 		apiserver.NewReceivePackHandler(db, rs, cfg, apiserver.NewReceivePackSessionMap()),
 	)
-	return httptest.NewServer(&apitest.GZIPAwareHandler{t, sm})
+	return httptest.NewServer(&apitest.GZIPAwareHandler{
+		T:       t,
+		Handler: sm,
+	})
 }
 
 func TestPushCmd(t *testing.T) {

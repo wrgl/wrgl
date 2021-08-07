@@ -170,7 +170,7 @@ func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request)
 	http.SetCookie(rw, &http.Cookie{
 		Name:     api.CookieReceivePackSession,
 		Value:    s.id.String(),
-		Path:     api.PathReceivePack,
+		Path:     r.URL.Path,
 		HttpOnly: true,
 		MaxAge:   3600 * 3,
 	})
@@ -184,7 +184,7 @@ func (s *ReceivePackSession) reportStatus(rw http.ResponseWriter, r *http.Reques
 	http.SetCookie(rw, &http.Cookie{
 		Name:     api.CookieReceivePackSession,
 		Value:    s.id.String(),
-		Path:     api.PathReceivePack,
+		Path:     r.URL.Path,
 		HttpOnly: true,
 		Expires:  time.Now().Add(time.Hour * -24),
 	})
