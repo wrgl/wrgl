@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,15 +19,21 @@ import (
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
 	refmock "github.com/wrgl/core/pkg/ref/mock"
 )
 
+func uploadPackServer(rs ref.Store, db objects.Store) *httptest.Server {
+	sm := http.NewServeMux()
+	sm.Handle(api.PathRefs, apiserver.NewGetRefsHandler(rs))
+	sm.Handle(api.PathUploadPack, apiserver.NewUploadPackHandler(db, rs, apiserver.NewUploadPackSessionMap(), 0))
+	return httptest.NewServer(sm)
+}
+
 func TestFetchCmd(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	dbs := objmock.NewStore()
 	rss := refmock.NewStore()
 	sum1, c1 := factory.CommitRandom(t, dbs, nil)
@@ -37,8 +43,8 @@ func TestFetchCmd(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
 	require.NoError(t, ref.CommitHead(rss, "tickets", sum4, c4))
 	require.NoError(t, ref.SaveTag(rss, "2020", sum1))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rss))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(dbs, rss, apiserver.NewUploadPackSessionMap(), 0))
+	ts := uploadPackServer(rss, dbs)
+	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -51,13 +57,13 @@ func TestFetchCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", apitest.TestOrigin})
+	cmd.SetArgs([]string{"remote", "add", "origin", ts.URL})
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		"From " + apitest.TestOrigin,
+		"From " + ts.URL,
 		" * [new branch]      main        -> origin/main",
 		" * [new branch]      tickets     -> origin/tickets",
 		" * [new tag]         2020        -> 2020",
@@ -104,32 +110,29 @@ func assertCommandNoErr(t *testing.T, cmd *cobra.Command) {
 }
 
 func TestFetchCmdAllRepos(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
-
 	db1 := objmock.NewStore()
 	rs1 := refmock.NewStore()
 	sum1, c1 := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.CommitHead(rs1, "main", sum1, c1))
-	url1 := "https://origin.remote"
-	apitest.RegisterHandlerWithOrigin(url1, http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs1))
-	apitest.RegisterHandlerWithOrigin(url1, http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db1, rs1, apiserver.NewUploadPackSessionMap(), 0))
+	ts := uploadPackServer(rs1, db1)
+	defer ts.Close()
+	url1 := ts.URL
 
 	db2 := objmock.NewStore()
 	rs2 := refmock.NewStore()
 	sum2, c2 := factory.CommitRandom(t, db2, nil)
 	require.NoError(t, ref.CommitHead(rs2, "main", sum2, c2))
-	url2 := "https://acme.remote"
-	apitest.RegisterHandlerWithOrigin(url2, http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs2))
-	apitest.RegisterHandlerWithOrigin(url2, http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db2, rs2, apiserver.NewUploadPackSessionMap(), 0))
+	ts = uploadPackServer(rs2, db2)
+	defer ts.Close()
+	url2 := ts.URL
 
 	db3 := objmock.NewStore()
 	rs3 := refmock.NewStore()
 	sum3, c3 := factory.CommitRandom(t, db3, nil)
 	require.NoError(t, ref.CommitHead(rs3, "main", sum3, c3))
-	url3 := "https://home.remote"
-	apitest.RegisterHandlerWithOrigin(url3, http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs3))
-	apitest.RegisterHandlerWithOrigin(url3, http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db3, rs3, apiserver.NewUploadPackSessionMap(), 0))
+	ts = uploadPackServer(rs3, db3)
+	defer ts.Close()
+	url3 := ts.URL
 
 	rd, cleanUp := createRepoDir(t)
 	rs := rd.OpenRefStore()
@@ -176,28 +179,25 @@ func TestFetchCmdAllRepos(t *testing.T) {
 }
 
 func TestFetchCmdCustomRefSpec(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
-
 	db1 := objmock.NewStore()
 	rs1 := refmock.NewStore()
 	sum1, _ := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.SaveRef(rs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom"))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs1))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db1, rs1, apiserver.NewUploadPackSessionMap(), 0))
+	ts := uploadPackServer(rs1, db1)
+	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	rs := rd.OpenRefStore()
 	defer cleanUp()
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", apitest.TestOrigin})
+	cmd.SetArgs([]string{"remote", "add", "origin", ts.URL})
 	assertCommandNoErr(t, cmd)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/custom/abc:refs/custom/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		"From " + apitest.TestOrigin,
+		"From " + ts.URL,
 		" * [new ref]         refs/custom/abc -> refs/custom/abc",
 		"",
 	}, "\n"))
@@ -218,17 +218,14 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 }
 
 func TestFetchCmdTag(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
-
 	db1 := objmock.NewStore()
 	rs1 := refmock.NewStore()
 	sum1, _ := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.SaveTag(rs1, "2020-dec", sum1))
 	sum2, _ := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.SaveTag(rs1, "2021-dec", sum2))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs1))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db1, rs1, apiserver.NewUploadPackSessionMap(), 0))
+	ts := uploadPackServer(rs1, db1)
+	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -242,22 +239,22 @@ func TestFetchCmdTag(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", apitest.TestOrigin})
+	cmd.SetArgs([]string{"remote", "add", "origin", ts.URL})
 	assertCommandNoErr(t, cmd)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/202*:refs/tags/202*"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
-		"From " + apitest.TestOrigin,
+		"From " + ts.URL,
 		" ! [rejected]        2020-dec    -> 2020-dec (would clobber existing tag)",
 		" ! [rejected]        2021-dec    -> 2021-dec (would clobber existing tag)",
 		"",
-	}, "\n"), fmt.Errorf("failed to fetch some refs from "+apitest.TestOrigin))
+	}, "\n"), fmt.Errorf("failed to fetch some refs from "+ts.URL))
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "+refs/tags/2020*:refs/tags/2020*"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		"From " + apitest.TestOrigin,
+		"From " + ts.URL,
 		" t [tag update]      2020-dec    -> 2020-dec",
 		"",
 	}, "\n"))
@@ -280,7 +277,7 @@ func TestFetchCmdTag(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/2021*:refs/tags/2021*", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		"From " + apitest.TestOrigin,
+		"From " + ts.URL,
 		" t [tag update]      2021-dec    -> 2021-dec",
 		"",
 	}, "\n"))
@@ -302,15 +299,12 @@ func TestFetchCmdTag(t *testing.T) {
 }
 
 func TestFetchCmdForceUpdate(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
-
 	db1 := objmock.NewStore()
 	rs1 := refmock.NewStore()
 	sum1, c1 := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.CommitHead(rs1, "abc", sum1, c1))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rs1))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(db1, rs1, apiserver.NewUploadPackSessionMap(), 0))
+	ts := uploadPackServer(rs1, db1)
+	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	db, err := rd.OpenObjectsStore()
@@ -322,21 +316,21 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", apitest.TestOrigin})
+	cmd.SetArgs([]string{"remote", "add", "origin", ts.URL})
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/heads/abc:refs/heads/abc"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
-		"From " + apitest.TestOrigin,
+		"From " + ts.URL,
 		" ! [rejected]        abc         -> abc (non-fast-forward)",
 		"",
-	}, "\n"), fmt.Errorf("failed to fetch some refs from "+apitest.TestOrigin))
+	}, "\n"), fmt.Errorf("failed to fetch some refs from "+ts.URL))
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "+refs/heads/abc:refs/heads/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		"From " + apitest.TestOrigin,
+		"From " + ts.URL,
 		fmt.Sprintf(" + %s...%s abc         -> abc (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum1)[:7]),
 		"",
 	}, "\n"))

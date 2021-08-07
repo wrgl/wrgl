@@ -6,7 +6,6 @@ package apiserver
 import (
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 

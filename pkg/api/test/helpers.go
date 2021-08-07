@@ -9,14 +9,10 @@ import (
 	"encoding/csv"
 	"io"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
@@ -27,14 +23,6 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/testutils"
 )
-
-const (
-	TestOrigin = "https://wrgl.test"
-)
-
-func RegisterHandler(method, path string, handler http.Handler) {
-	RegisterHandlerWithOrigin(TestOrigin, method, path, handler)
-}
 
 func decodeGzipPayload(header *http.Header, r io.ReadCloser) (io.ReadCloser, error) {
 	if header.Get("Content-Encoding") == "gzip" {
@@ -66,31 +54,6 @@ func (h *GZIPAwareHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	require.NoError(h.T, err)
 	r.Body = reader
 	h.Handler.ServeHTTP(rw, r)
-}
-
-func RegisterHandlerWithOrigin(origin, method, path string, handler http.Handler) {
-	url := origin + path
-	if strings.HasPrefix(path, "=~") {
-		url = path
-	}
-	httpmock.RegisterResponder(method, url,
-		func(req *http.Request) (*http.Response, error) {
-			rec := httptest.NewRecorder()
-			r, err := decodeGzipPayload(&req.Header, req.Body)
-			if err != nil {
-				return nil, err
-			}
-			req.Body = r
-			handler.ServeHTTP(rec, req)
-			resp := rec.Result()
-			r, err = decodeGzipPayload(&resp.Header, resp.Body)
-			if err != nil {
-				return nil, err
-			}
-			resp.Body = r
-			return resp, nil
-		},
-	)
 }
 
 func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, advertised [][]byte, havesPerRoundTrip int) [][]byte {
@@ -191,43 +154,4 @@ func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, pa
 	sum, err = objects.SaveCommit(db, buf.Bytes())
 	require.NoError(t, err)
 	return sum, com
-}
-
-func PostMultipartForm(t *testing.T, path string, value map[string][]string, files map[string]io.Reader) *http.Response {
-	t.Helper()
-	buf := bytes.NewBuffer(nil)
-	w := multipart.NewWriter(buf)
-	for k, sl := range value {
-		for _, v := range sl {
-			require.NoError(t, w.WriteField(k, v))
-		}
-	}
-	for k, r := range files {
-		w, err := w.CreateFormFile(k, k)
-		require.NoError(t, err)
-		io.Copy(w, r)
-	}
-	require.NoError(t, w.Close())
-	req, err := http.NewRequest(http.MethodPost, TestOrigin+path, bytes.NewReader(buf.Bytes()))
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", w.FormDataContentType())
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	return resp
-}
-
-func Get(t *testing.T, path string) *http.Response {
-	t.Helper()
-	resp, err := http.Get(TestOrigin + path)
-	require.NoError(t, err)
-	return resp
-}
-
-func AssertResp(t *testing.T, resp *http.Response, statusCode int, message string) {
-	t.Helper()
-	assert.Equal(t, statusCode, resp.StatusCode)
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, message, string(b))
 }

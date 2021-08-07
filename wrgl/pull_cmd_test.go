@@ -2,14 +2,10 @@ package main
 
 import (
 	"io"
-	"net/http"
 	"testing"
 
-	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
-	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
@@ -18,8 +14,6 @@ import (
 )
 
 func TestPullCmd(t *testing.T) {
-	httpmock.Activate()
-	defer httpmock.Deactivate()
 	dbs := objmock.NewStore()
 	rss := refmock.NewStore()
 	sum1, c1 := factory.CommitRandom(t, dbs, nil)
@@ -28,8 +22,8 @@ func TestPullCmd(t *testing.T) {
 	sum4, c4 := factory.CommitRandom(t, dbs, nil)
 	sum5, c5 := factory.CommitRandom(t, dbs, [][]byte{sum4})
 	require.NoError(t, ref.CommitHead(rss, "beta", sum5, c5))
-	apitest.RegisterHandler(http.MethodGet, api.PathRefs, apiserver.NewGetRefsHandler(rss))
-	apitest.RegisterHandler(http.MethodPost, api.PathUploadPack, apiserver.NewUploadPackHandler(dbs, rss, apiserver.NewUploadPackSessionMap(), 0))
+	ts := uploadPackServer(rss, dbs)
+	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -42,7 +36,7 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", apitest.TestOrigin, "-t", "beta", "-t", "main"})
+	cmd.SetArgs([]string{"remote", "add", "origin", ts.URL, "-t", "beta", "-t", "main"})
 	require.NoError(t, cmd.Execute())
 
 	// pull set upstream
