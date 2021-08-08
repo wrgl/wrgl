@@ -28,8 +28,11 @@ func TestTracker(t *testing.T) {
 	}, <-c)
 
 	tr.Stop()
-	_, ok := <-c
-	assert.False(t, ok)
+	ok := true
+	for ok {
+		_, ok = <-c
+	}
+	// c is closed after a few straggler events
 }
 
 func TestJoinChannels(t *testing.T) {
@@ -62,6 +65,9 @@ func TestJoinChannels(t *testing.T) {
 	}, <-c)
 
 	tr.Stop()
-	_, ok := <-c
-	assert.False(t, ok)
+	ok := true
+	for ok {
+		_, ok = <-c
+	}
+	// c is closed after a few straggler events
 }
