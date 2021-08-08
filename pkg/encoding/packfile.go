@@ -126,7 +126,7 @@ func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
 		if err != nil {
 			return
 		}
-		u |= uint64(b[0]) << bits
+		u |= uint64(b[0]&127) << bits
 		if b[0]&128 == 0 {
 			break
 		}

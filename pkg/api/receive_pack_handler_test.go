@@ -156,16 +156,15 @@ func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 
 	dbc := objmock.NewStore()
 	rsc := refmock.NewStore()
-	sum1, _ := apitest.CreateRandomCommit(t, dbc, 5, 700, nil)
-	sum2, _ := apitest.CreateRandomCommit(t, dbc, 5, 700, [][]byte{sum1})
-	sum3, c3 := apitest.CreateRandomCommit(t, dbc, 5, 700, [][]byte{sum2})
-	require.NoError(t, ref.CommitHead(rsc, "alpha", sum3, c3))
+	sum1, _ := apitest.CreateRandomCommit(t, dbc, 5, 1000, nil)
+	sum2, c2 := apitest.CreateRandomCommit(t, dbc, 5, 1000, [][]byte{sum1})
+	require.NoError(t, ref.CommitHead(rsc, "alpha", sum2, c2))
 
 	updates := map[string]*payload.Update{
-		"refs/heads/alpha": {Sum: payload.BytesToHex(sum3)},
+		"refs/heads/alpha": {Sum: payload.BytesToHex(sum2)},
 	}
 	updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 1024)
 	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
-	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1, sum2, sum3})
-	assertRefEqual(t, rs, "heads/alpha", sum3)
+	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1, sum2})
+	assertRefEqual(t, rs, "heads/alpha", sum2)
 }
