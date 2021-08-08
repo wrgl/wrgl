@@ -497,7 +497,7 @@ func redrawEvery(app *tview.Application, d time.Duration) (cancel func()) {
 	return cancel
 }
 
-func collectMergeConflicts(cmd *cobra.Command, merger *merge.Merger) (*objects.ColDiff, []*merge.Merge, error) {
+func collectMergeConflicts(cmd *cobra.Command, merger *merge.Merger) (*diff.ColDiff, []*merge.Merge, error) {
 	var bar *progressbar.ProgressBar
 	mch, err := merger.Start()
 	if err != nil {
@@ -532,7 +532,7 @@ mainLoop:
 	return merges[0].ColDiff, merges[1:], nil
 }
 
-func displayMergeApp(cmd *cobra.Command, buf *diff.BlockBuffer, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte, cd *objects.ColDiff, merges []*merge.Merge) (map[int]struct{}, error) {
+func displayMergeApp(cmd *cobra.Command, buf *diff.BlockBuffer, merger *merge.Merger, commitNames []string, commitSums [][]byte, baseSum []byte, cd *diff.ColDiff, merges []*merge.Merge) (map[int]struct{}, error) {
 	app := tview.NewApplication()
 	mergeApp := widgets.NewMergeApp(buf, merger, app, commitNames, commitSums, baseSum)
 	mergeApp.InitializeTable(cd, merges)

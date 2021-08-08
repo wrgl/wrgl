@@ -3,12 +3,10 @@
 
 package merge
 
-import (
-	"github.com/wrgl/core/pkg/objects"
-)
+import "github.com/wrgl/core/pkg/diff"
 
 type Merge struct {
-	ColDiff        *objects.ColDiff
+	ColDiff        *diff.ColDiff
 	PK             []byte
 	Base           []byte
 	BaseOffset     uint32

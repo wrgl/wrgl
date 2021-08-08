@@ -4,7 +4,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/merge"
-	"github.com/wrgl/core/pkg/objects"
 )
 
 var (
@@ -13,13 +12,13 @@ var (
 )
 
 type MergeRow struct {
-	cd      *objects.ColDiff
+	cd      *diff.ColDiff
 	Cells   [][]*TableCell
 	baseRow []string
 	buf     *diff.BlockBuffer
 }
 
-func NewMergeRow(buf *diff.BlockBuffer, cd *objects.ColDiff, names []string) *MergeRow {
+func NewMergeRow(buf *diff.BlockBuffer, cd *diff.ColDiff, names []string) *MergeRow {
 	l := cd.Layers() + 1
 	n := cd.Len() + 1
 	numPK := len(cd.OtherPK[0])
@@ -157,7 +156,7 @@ func (c *MergeRow) SetCell(col int, s string, unresolved bool) {
 
 type MergeRowPool struct {
 	blkBuf *diff.BlockBuffer
-	cd     *objects.ColDiff
+	cd     *diff.ColDiff
 	names  []string
 	buf    []*MergeRow
 	rowMap map[int]int
@@ -166,7 +165,7 @@ type MergeRowPool struct {
 	maxInd int
 }
 
-func NewMergeRowPool(blkBuf *diff.BlockBuffer, cd *objects.ColDiff, names []string, merges []*merge.Merge) *MergeRowPool {
+func NewMergeRowPool(blkBuf *diff.BlockBuffer, cd *diff.ColDiff, names []string, merges []*merge.Merge) *MergeRowPool {
 	return &MergeRowPool{
 		blkBuf: blkBuf,
 		cd:     cd,

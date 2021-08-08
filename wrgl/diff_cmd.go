@@ -100,7 +100,7 @@ func newDiffCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cd := objects.CompareColumns(
+			cd := diff.CompareColumns(
 				[2][]string{tbl2.Columns, tbl2.PrimaryKey()},
 				[2][]string{tbl1.Columns, tbl1.PrimaryKey()},
 			)
@@ -223,7 +223,7 @@ func collectDiffObjects(
 	tbl1, tbl2 *objects.Table,
 	diffChan <-chan *objects.Diff,
 	pt progress.Tracker,
-	colDiff *objects.ColDiff,
+	colDiff *diff.ColDiff,
 ) (addedRowReader, removedRowReader *diff.RowListReader, rowChangeReader *diff.RowChangeReader, err error) {
 	progChan := pt.Start()
 	defer pt.Stop()
@@ -286,7 +286,7 @@ func writeRowChanges(
 	tbl1, tbl2 *objects.Table,
 	diffChan <-chan *objects.Diff,
 	pt progress.Tracker,
-	colDiff *objects.ColDiff,
+	colDiff *diff.ColDiff,
 ) (err error) {
 	buf, err := diff.NewBlockBuffer([]objects.Store{db1, db2}, []*objects.Table{tbl1, tbl2})
 	if err != nil {
@@ -370,7 +370,7 @@ func outputDiffToCSV(
 	tbl1, tbl2 *objects.Table,
 	diffChan <-chan *objects.Diff,
 	pt progress.Tracker,
-	colDiff *objects.ColDiff,
+	colDiff *diff.ColDiff,
 ) (err error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -452,7 +452,7 @@ func outputDiffToTerminal(
 	tbl1, tbl2 *objects.Table,
 	diffChan <-chan *objects.Diff,
 	pt progress.Tracker,
-	colDiff *objects.ColDiff,
+	colDiff *diff.ColDiff,
 ) (err error) {
 	app := tview.NewApplication()
 	titleBar := tview.NewTextView().SetDynamicColors(true)

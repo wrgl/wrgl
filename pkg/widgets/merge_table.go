@@ -8,7 +8,6 @@ import (
 	"github.com/rivo/tview"
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/merge"
-	"github.com/wrgl/core/pkg/objects"
 )
 
 var (
@@ -25,7 +24,7 @@ type MergeTable struct {
 	*SelectableTable
 
 	buf         *diff.BlockBuffer
-	cd          *objects.ColDiff
+	cd          *diff.ColDiff
 	columnCells []*TableCell
 	removedCols map[int]struct{}
 	removedRows map[int]struct{}
@@ -44,7 +43,7 @@ type MergeTable struct {
 	unresolveHandler          func(row int)
 }
 
-func NewMergeTable(buf *diff.BlockBuffer, commitNames []string, commitSums [][]byte, cd *objects.ColDiff, merges []*merge.Merge, removedCols map[int]struct{}, removedRows map[int]struct{}) *MergeTable {
+func NewMergeTable(buf *diff.BlockBuffer, commitNames []string, commitSums [][]byte, cd *diff.ColDiff, merges []*merge.Merge, removedCols map[int]struct{}, removedRows map[int]struct{}) *MergeTable {
 	t := &MergeTable{
 		buf:             buf,
 		SelectableTable: NewSelectableTable(),

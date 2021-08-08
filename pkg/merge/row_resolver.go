@@ -13,14 +13,14 @@ import (
 
 type RowResolver struct {
 	buf     *diff.BlockBuffer
-	cd      *objects.ColDiff
+	cd      *diff.ColDiff
 	rows    *Rows
 	nCols   int
 	nLayers int
 	rowDec  *objects.StrListDecoder
 }
 
-func NewRowResolver(db objects.Store, cd *objects.ColDiff, buf *diff.BlockBuffer) *RowResolver {
+func NewRowResolver(db objects.Store, cd *diff.ColDiff, buf *diff.BlockBuffer) *RowResolver {
 	nCols := cd.Len()
 	nLayers := cd.Layers()
 	return &RowResolver{

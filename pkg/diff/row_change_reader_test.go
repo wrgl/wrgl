@@ -31,7 +31,7 @@ func TestRowChangeReader(t *testing.T) {
 	tbl1, tblIdx1 := getTable(t, db, sum1)
 	tbl2, tblIdx2 := getTable(t, db, sum2)
 	errCh := make(chan error, 1)
-	diffCh, _ := DiffTables(db, db,tbl1, tbl2, tblIdx1, tblIdx2, 0, errCh, false)
+	diffCh, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errCh, false)
 	close(errCh)
 	err, ok := <-errCh
 	assert.False(t, ok)
@@ -45,7 +45,7 @@ func TestRowChangeReader(t *testing.T) {
 	// test Read
 	reader, err := NewRowChangeReader(
 		db, db, tbl1, tbl2,
-		objects.CompareColumns([2][]string{{"a", "b", "c", "e"}, {"a"}}, [2][]string{{"a", "b", "c", "d"}, {"a"}}),
+		CompareColumns([2][]string{{"a", "b", "c", "e"}, {"a"}}, [2][]string{{"a", "b", "c", "d"}, {"a"}}),
 	)
 	require.NoError(t, err)
 	reader.AddRowDiff(diffs[0])

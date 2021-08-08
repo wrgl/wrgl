@@ -64,7 +64,7 @@ func strSliceEqual(left, right []string) bool {
 	return true
 }
 
-func (m *Merger) mergeTables(colDiff *objects.ColDiff, mergeChan chan<- *Merge, errChan chan<- error, diffChans ...<-chan *objects.Diff) {
+func (m *Merger) mergeTables(colDiff *diff.ColDiff, mergeChan chan<- *Merge, errChan chan<- error, diffChans ...<-chan *objects.Diff) {
 	var (
 		n        = len(diffChans)
 		cases    = make([]reflect.SelectCase, n)
@@ -171,7 +171,7 @@ func (m *Merger) Start() (ch <-chan *Merge, err error) {
 		progs[i] = progTracker
 		cols[i] = [2][]string{t.Columns, t.PrimaryKey()}
 	}
-	colDiff := objects.CompareColumns([2][]string{m.baseT.Columns, m.baseT.PrimaryKey()}, cols...)
+	colDiff := diff.CompareColumns([2][]string{m.baseT.Columns, m.baseT.PrimaryKey()}, cols...)
 	m.Progress = progress.JoinTrackers(progs...)
 	go m.mergeTables(colDiff, mergeChan, m.errChan, diffs...)
 	return m.collector.CollectResolvedRow(m.errChan, mergeChan), nil

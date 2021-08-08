@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/merge"
 	mergehelpers "github.com/wrgl/core/pkg/merge/helpers"
-	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/sorter"
 )
@@ -48,7 +48,7 @@ func TestMergerAutoResolve(t *testing.T) {
 	merges := mergehelpers.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{
 		{
-			ColDiff: &objects.ColDiff{
+			ColDiff: &diff.ColDiff{
 				Names:   []string{"a", "b", "c"},
 				BasePK:  []uint32{0},
 				OtherPK: [][]uint32{{0}, {0}},
@@ -110,7 +110,7 @@ func TestMergerManualResolve(t *testing.T) {
 	merges := mergehelpers.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{
 		{
-			ColDiff: &objects.ColDiff{
+			ColDiff: &diff.ColDiff{
 				Names:   []string{"a", "b", "c"},
 				BasePK:  []uint32{0},
 				OtherPK: [][]uint32{{0}, {0}},
@@ -213,7 +213,7 @@ func TestMergerRemoveCols(t *testing.T) {
 	merges := mergehelpers.CollectUnresolvedMerges(t, merger)
 	assert.Equal(t, []*merge.Merge{
 		{
-			ColDiff: &objects.ColDiff{
+			ColDiff: &diff.ColDiff{
 				Names:   []string{"a", "b", "c"},
 				BasePK:  []uint32{0},
 				OtherPK: [][]uint32{{0}, {0}},

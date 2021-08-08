@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/mmcloughlin/meow"
+	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/index"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/slice"
@@ -18,7 +19,7 @@ import (
 type RowCollector struct {
 	discardedRows *index.HashSet
 	resolvedRows  *sorter.Sorter
-	cd            *objects.ColDiff
+	cd            *diff.ColDiff
 	db            objects.Store
 	baseT         *objects.Table
 }

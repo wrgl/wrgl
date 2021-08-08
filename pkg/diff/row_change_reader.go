@@ -11,13 +11,13 @@ import (
 )
 
 type RowChangeReader struct {
-	ColDiff  *objects.ColDiff
+	ColDiff  *ColDiff
 	rowDiffs []*objects.Diff
 	off      int
 	buf      *BlockBuffer
 }
 
-func NewRowChangeReader(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, colDiff *objects.ColDiff) (*RowChangeReader, error) {
+func NewRowChangeReader(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, colDiff *ColDiff) (*RowChangeReader, error) {
 	buf, err := NewBlockBuffer([]objects.Store{db1, db2}, []*objects.Table{tbl1, tbl2})
 	if err != nil {
 		return nil, err

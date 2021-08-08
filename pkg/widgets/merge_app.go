@@ -10,7 +10,6 @@ import (
 	"github.com/rivo/tview"
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/merge"
-	"github.com/wrgl/core/pkg/objects"
 )
 
 const (
@@ -37,7 +36,7 @@ type editOp struct {
 type MergeApp struct {
 	buf          *diff.BlockBuffer
 	merger       *merge.Merger
-	cd           *objects.ColDiff
+	cd           *diff.ColDiff
 	merges       []*merge.Merge
 	RemovedCols  map[int]struct{}
 	removedRows  map[int]struct{}
@@ -129,7 +128,7 @@ func (a *MergeApp) updateStatus() {
 	fmt.Fprint(a.statusBar, statText)
 }
 
-func (a *MergeApp) InitializeTable(cd *objects.ColDiff, merges []*merge.Merge) {
+func (a *MergeApp) InitializeTable(cd *diff.ColDiff, merges []*merge.Merge) {
 	a.cd = cd
 	a.merges = merges
 	a.Table = NewMergeTable(a.buf, a.commitNames, a.commitSums, a.cd, a.merges, a.RemovedCols, a.removedRows).
