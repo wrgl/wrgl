@@ -67,3 +67,17 @@ func ReadBlockFrom(r io.Reader) (int64, [][]string, error) {
 	}
 	return total, blk, nil
 }
+
+func ValidateBlockBytes(b []byte) (err error) {
+	var off int
+	n := int(binary.BigEndian.Uint32(b))
+	off += 4
+	for i := 0; i < n; i++ {
+		m, err := ValidateStrListBytes(b[off:])
+		if err != nil {
+			return err
+		}
+		off += m
+	}
+	return nil
+}

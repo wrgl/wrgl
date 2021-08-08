@@ -100,6 +100,20 @@ func (d *StrListDecoder) Decode(b []byte) []string {
 	return sl
 }
 
+func ValidateStrListBytes(b []byte) (int, error) {
+	count := int(binary.BigEndian.Uint32(b))
+	offset := 4
+	n := len(b)
+	for i := 0; i < count; i++ {
+		l := binary.BigEndian.Uint16(b[offset:])
+		offset += 2 + int(l)
+		if offset > n {
+			return 0, fmt.Errorf("invalid strList")
+		}
+	}
+	return offset, nil
+}
+
 func (d *StrListDecoder) ensureBufSize(n int) {
 	for n > cap(d.buf) {
 		b := make([]byte, cap(d.buf)*2)

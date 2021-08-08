@@ -31,6 +31,15 @@ func NewObjectReceiver(db objects.Store, expectedCommits [][]byte) *ObjectReceiv
 	return r
 }
 
+func (r *ObjectReceiver) saveBlock(b []byte) (err error) {
+	err = objects.ValidateBlockBytes(b)
+	if err != nil {
+		return
+	}
+	_, err = objects.SaveBlock(r.db, b)
+	return err
+}
+
 func (r *ObjectReceiver) saveTable(b []byte) (err error) {
 	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
 	if err != nil {
@@ -75,7 +84,7 @@ func (r *ObjectReceiver) Receive(pr *encoding.PackfileReader) (done bool, err er
 		}
 		switch ot {
 		case encoding.ObjectBlock:
-			_, err := objects.SaveBlock(r.db, b)
+			err := r.saveBlock(b)
 			if err != nil {
 				return false, err
 			}
@@ -88,6 +97,10 @@ func (r *ObjectReceiver) Receive(pr *encoding.PackfileReader) (done bool, err er
 			err := r.saveCommit(b)
 			if err != nil {
 				return false, err
+			}
+		default:
+			if ot != 0 || len(b) != 0 {
+				return false, fmt.Errorf("unrecognized object type %d", ot)
 			}
 		}
 		if err == io.EOF {
