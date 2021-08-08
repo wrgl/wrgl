@@ -399,9 +399,9 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 }
 
 func displayProgress(cmd *cobra.Command, pt progress.Tracker, total int64, desc string) {
-	go pt.Run()
+	pc := pt.Start()
 	bar := pbar(total, desc, cmd.OutOrStdout(), cmd.OutOrStderr())
-	for evt := range pt.Chan() {
+	for evt := range pc {
 		bar.Set64(evt.Progress)
 		if evt.Total != 0 && evt.Total != bar.GetMax64() {
 			bar.ChangeMax64(evt.Total)
@@ -503,8 +503,7 @@ func collectMergeConflicts(cmd *cobra.Command, merger *merge.Merger) (*objects.C
 	if err != nil {
 		return nil, nil, err
 	}
-	pch := merger.Progress.Chan()
-	go merger.Progress.Run()
+	pch := merger.Progress.Start()
 	merges := []*merge.Merge{}
 mainLoop:
 	for {

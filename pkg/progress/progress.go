@@ -16,8 +16,7 @@ type Tracker interface {
 	Duration() time.Duration
 	Current() int64
 	Total() int64
-	Chan() <-chan Event
-	Run()
+	Start() <-chan Event
 	Stop()
 }
 
@@ -25,9 +24,9 @@ type SingleTracker struct {
 	current int64
 	total   int64
 	ticker  *time.Ticker
+	done    chan bool
 	c       chan Event
 	d       time.Duration
-	stopped bool
 }
 
 func NewSingleTracker(d time.Duration, total int64) *SingleTracker {
@@ -61,10 +60,24 @@ func (t *SingleTracker) SetTotal(n int64) {
 	t.total = n
 }
 
-func (t *SingleTracker) Chan() <-chan Event {
-	if t.c == nil {
-		t.c = make(chan Event)
-	}
+func (t *SingleTracker) Start() <-chan Event {
+	t.c = make(chan Event)
+	t.ticker = time.NewTicker(t.d)
+	t.done = make(chan bool)
+	go func() {
+		defer close(t.c)
+		for {
+			select {
+			case <-t.done:
+				return
+			case <-t.ticker.C:
+				t.c <- Event{
+					Progress: t.current,
+					Total:    t.total,
+				}
+			}
+		}
+	}()
 	return t.c
 }
 
@@ -75,25 +88,7 @@ func (t *SingleTracker) Duration() time.Duration {
 func (t *SingleTracker) Stop() {
 	if t.ticker != nil {
 		t.ticker.Stop()
-	}
-	if t.c != nil {
-		close(t.c)
-	}
-	t.stopped = true
-}
-
-func (t *SingleTracker) Run() {
-	if t.ticker == nil {
-		t.ticker = time.NewTicker(t.d)
-	}
-	for range t.ticker.C {
-		if t.stopped {
-			break
-		}
-		t.c <- Event{
-			Progress: t.current,
-			Total:    t.total,
-		}
+		close(t.done)
 	}
 }
 
@@ -101,8 +96,8 @@ type joinedTracker struct {
 	trackers []Tracker
 	d        time.Duration
 	c        chan Event
+	done     chan bool
 	ticker   *time.Ticker
-	stopped  bool
 }
 
 func JoinTrackers(sl ...Tracker) Tracker {
@@ -110,7 +105,6 @@ func JoinTrackers(sl ...Tracker) Tracker {
 	var totalD time.Duration
 	for _, t := range sl {
 		totalD += t.Duration()
-		go t.Run()
 	}
 	d := time.Duration(int64(totalD) / int64(n))
 	return &joinedTracker{
@@ -139,34 +133,30 @@ func (t *joinedTracker) Total() int64 {
 	return c
 }
 
-func (t *joinedTracker) Chan() <-chan Event {
-	if t.c == nil {
-		t.c = make(chan Event)
-	}
+func (t *joinedTracker) Start() <-chan Event {
+	t.c = make(chan Event)
+	t.done = make(chan bool)
+	t.ticker = time.NewTicker(t.d)
+	go func() {
+		defer close(t.c)
+		for {
+			select {
+			case <-t.done:
+				return
+			case <-t.ticker.C:
+				t.c <- Event{
+					Progress: t.Current(),
+					Total:    t.Total(),
+				}
+			}
+		}
+	}()
 	return t.c
-}
-
-func (t *joinedTracker) Run() {
-	if t.ticker == nil {
-		t.ticker = time.NewTicker(t.d)
-	}
-	for range t.ticker.C {
-		if t.stopped {
-			break
-		}
-		t.c <- Event{
-			Progress: t.Current(),
-			Total:    t.Total(),
-		}
-	}
 }
 
 func (t *joinedTracker) Stop() {
 	if t.ticker != nil {
 		t.ticker.Stop()
+		close(t.done)
 	}
-	if t.c != nil {
-		close(t.c)
-	}
-	t.stopped = true
 }

@@ -225,8 +225,7 @@ func collectDiffObjects(
 	pt progress.Tracker,
 	colDiff *objects.ColDiff,
 ) (addedRowReader, removedRowReader *diff.RowListReader, rowChangeReader *diff.RowChangeReader, err error) {
-	progChan := pt.Chan()
-	go pt.Run()
+	progChan := pt.Start()
 	defer pt.Stop()
 	bar := pbar(0, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
 mainLoop:
@@ -293,8 +292,7 @@ func writeRowChanges(
 	if err != nil {
 		return
 	}
-	progChan := pt.Chan()
-	go pt.Run()
+	progChan := pt.Start()
 	defer pt.Stop()
 	bar := pbar(0, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
 mainLoop:

@@ -12,10 +12,8 @@ import (
 
 func TestTracker(t *testing.T) {
 	tr := NewSingleTracker(10*time.Millisecond, 10)
-	go tr.Run()
-
+	c := tr.Start()
 	tr.SetCurrent(1)
-	c := tr.Chan()
 	time.Sleep(10 * time.Millisecond)
 	assert.Equal(t, Event{
 		Progress: 1,
@@ -40,8 +38,7 @@ func TestJoinChannels(t *testing.T) {
 	tr3 := NewSingleTracker(3*time.Millisecond, 27)
 	tr := JoinTrackers(tr1, tr2, tr3)
 	assert.Equal(t, 3*time.Millisecond, tr.Duration())
-	c := tr.Chan()
-	go tr.Run()
+	c := tr.Start()
 
 	tr1.SetCurrent(3)
 	time.Sleep(3 * time.Millisecond)
