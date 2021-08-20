@@ -25,9 +25,10 @@ type ReceivePackSession struct {
 	c       *Client
 	updates map[string]*payload.Update
 	state   stateFn
+	opts    []RequestOption
 }
 
-func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) (*ReceivePackSession, error) {
+func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, opts ...RequestOption) (*ReceivePackSession, error) {
 	wants := [][]byte{}
 	for _, u := range updates {
 		if u.Sum != nil {
@@ -51,6 +52,7 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 		sender:  sender,
 		updates: updates,
 		c:       c,
+		opts:    opts,
 	}
 	s.state = s.initialize
 	return s, nil
@@ -63,7 +65,7 @@ func (s *ReceivePackSession) initialize() (stateFn, error) {
 			nextState = s.sendObjects
 		}
 	}
-	resp, err := s.c.PostUpdatesToReceivePack(s.updates)
+	resp, err := s.c.PostUpdatesToReceivePack(s.updates, s.opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +112,7 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	resp, err := s.c.Request(http.MethodPost, "/receive-pack/", reqBody, map[string]string{
 		"Content-Type":     CTPackfile,
 		"Content-Encoding": "gzip",
-	})
+	}, s.opts...)
 	if err != nil {
 		return nil, err
 	}

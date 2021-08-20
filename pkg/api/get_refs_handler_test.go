@@ -4,10 +4,12 @@
 package api_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
@@ -38,13 +40,22 @@ func TestGetRefsHandler(t *testing.T) {
 		"from origin",
 	)
 	require.NoError(t, err)
-	cli, cleanup := createClient(t, apiserver.NewGetRefsHandler(rs))
+	cli, m, cleanup := createClient(t, apiserver.NewGetRefsHandler(rs))
 	defer cleanup()
 
-	m, err := cli.GetRefs()
+	refs, err := cli.GetRefs()
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/" + head: sum1,
 		"tags/" + tag:   sum2,
-	}, m)
+	}, refs)
+
+	// pass custom header
+	req := m.Capture(t, func(header http.Header) {
+		header.Set("Custom-Header", "sdf")
+		refs, err := cli.GetRefs(apiclient.WithHeader(header))
+		require.NoError(t, err)
+		assert.Greater(t, len(refs), 0)
+	})
+	assert.Equal(t, "sdf", req.Header.Get("Custom-Header"))
 }

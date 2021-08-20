@@ -27,6 +27,18 @@ const (
 	CTPackfile = "application/x-wrgl-packfile"
 )
 
+type RequestOption func(r *http.Request)
+
+func WithHeader(header http.Header) RequestOption {
+	return func(r *http.Request) {
+		for k, sl := range header {
+			for _, v := range sl {
+				r.Header.Add(k, v)
+			}
+		}
+	}
+}
+
 type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
@@ -46,13 +58,16 @@ func NewClient(origin string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Request(method, path string, body io.Reader, headers map[string]string) (resp *http.Response, err error) {
+func (c *Client) Request(method, path string, body io.Reader, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {
 	req, err := http.NewRequest(method, c.origin+path, body)
 	if err != nil {
 		return
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
+	}
+	for _, opt := range opts {
+		opt(req)
 	}
 	resp, err = c.client.Do(req)
 	if err != nil {
@@ -68,8 +83,8 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 	return
 }
 
-func (c *Client) GetRefs() (m map[string][]byte, err error) {
-	resp, err := c.Request(http.MethodGet, "/refs/", nil, nil)
+func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error) {
+	resp, err := c.Request(http.MethodGet, "/refs/", nil, nil, opts...)
 	if err != nil {
 		return
 	}
@@ -93,7 +108,7 @@ func (c *Client) GetRefs() (m map[string][]byte, err error) {
 	return
 }
 
-func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]io.Reader) (*http.Response, error) {
+func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]io.Reader, opts ...RequestOption) (*http.Response, error) {
 	buf := bytes.NewBuffer(nil)
 	w := multipart.NewWriter(buf)
 	for k, sl := range value {
@@ -123,14 +138,17 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 		return nil, err
 	}
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	resp, err := http.DefaultClient.Do(req)
+	for _, opt := range opts {
+		opt(req)
+	}
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
 
-func (c *Client) Commit(branch, message, authorEmail, authorName string, file io.Reader, primaryKey []string) (cr *payload.CommitResponse, err error) {
+func (c *Client) Commit(branch, message, authorEmail, authorName string, file io.Reader, primaryKey []string, opts ...RequestOption) (cr *payload.CommitResponse, err error) {
 	resp, err := c.PostMultipartForm(api.PathCommit, map[string][]string{
 		"branch":      {branch},
 		"message":     {message},
@@ -139,7 +157,7 @@ func (c *Client) Commit(branch, message, authorEmail, authorName string, file io
 		"primaryKey":  primaryKey,
 	}, map[string]io.Reader{
 		"file": file,
-	})
+	}, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +179,8 @@ func (c *Client) Commit(branch, message, authorEmail, authorName string, file io
 	return cr, nil
 }
 
-func (c *Client) Diff(sum1, sum2 []byte) (dr *payload.DiffResponse, err error) {
-	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/diff/%x/%x/", sum1, sum2), nil, nil)
+func (c *Client) Diff(sum1, sum2 []byte, opts ...RequestOption) (dr *payload.DiffResponse, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/diff/%x/%x/", sum1, sum2), nil, nil, opts...)
 	if err != nil {
 		return
 	}
@@ -182,7 +200,7 @@ func (c *Client) Diff(sum1, sum2 []byte) (dr *payload.DiffResponse, err error) {
 	return dr, nil
 }
 
-func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockFormat) (resp *http.Response, err error) {
+func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockFormat, opts ...RequestOption) (resp *http.Response, err error) {
 	v := url.Values{}
 	if start > 0 {
 		v.Set("start", strconv.Itoa(start))
@@ -197,10 +215,10 @@ func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockForma
 	if len(v) > 0 {
 		qs = fmt.Sprintf("?%s", v.Encode())
 	}
-	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/blocks/%s", sum, qs), nil, nil)
+	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/blocks/%s", sum, qs), nil, nil, opts...)
 }
 
-func (c *Client) GetRows(sum []byte, offsets []int) (resp *http.Response, err error) {
+func (c *Client) GetRows(sum []byte, offsets []int, opts ...RequestOption) (resp *http.Response, err error) {
 	v := url.Values{}
 	if len(offsets) > 0 {
 		sl := make([]string, len(offsets))
@@ -213,11 +231,11 @@ func (c *Client) GetRows(sum []byte, offsets []int) (resp *http.Response, err er
 	if len(v) > 0 {
 		qs = fmt.Sprintf("?%s", v.Encode())
 	}
-	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/rows/%s", sum, qs), nil, nil)
+	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/rows/%s", sum, qs), nil, nil, opts...)
 }
 
-func (c *Client) GetCommit(sum []byte) (cr *payload.GetCommitResponse, err error) {
-	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/commits/%x/", sum), nil, nil)
+func (c *Client) GetCommit(sum []byte, opts ...RequestOption) (cr *payload.GetCommitResponse, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/commits/%x/", sum), nil, nil, opts...)
 	if err != nil {
 		return
 	}
@@ -236,8 +254,8 @@ func (c *Client) GetCommit(sum []byte) (cr *payload.GetCommitResponse, err error
 	return cr, nil
 }
 
-func (c *Client) GetTable(sum []byte) (tr *payload.GetTableResponse, err error) {
-	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/", sum), nil, nil)
+func (c *Client) GetTable(sum []byte, opts ...RequestOption) (tr *payload.GetTableResponse, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/", sum), nil, nil, opts...)
 	if err != nil {
 		return
 	}
@@ -256,7 +274,7 @@ func (c *Client) GetTable(sum []byte) (tr *payload.GetTableResponse, err error) 
 	return tr, nil
 }
 
-func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool) (resp *http.Response, err error) {
+func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool, opts ...RequestOption) (resp *http.Response, err error) {
 	req := &payload.UploadPackRequest{}
 	for _, want := range wants {
 		req.Wants = payload.AppendHex(req.Wants, want)
@@ -271,7 +289,7 @@ func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool) (resp *
 	}
 	return c.Request(http.MethodPost, "/upload-pack/", bytes.NewReader(b), map[string]string{
 		"Content-Type": CTJSON,
-	})
+	}, opts...)
 }
 
 func parseUploadPackResult(r io.ReadCloser) (acks [][]byte, err error) {
@@ -291,8 +309,8 @@ func parseUploadPackResult(r io.ReadCloser) (acks [][]byte, err error) {
 	return
 }
 
-func (c *Client) PostUploadPack(wants, haves [][]byte, done bool) (acks [][]byte, pr *encoding.PackfileReader, err error) {
-	resp, err := c.sendUploadPackRequest(wants, haves, done)
+func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, opts ...RequestOption) (acks [][]byte, pr *encoding.PackfileReader, err error) {
+	resp, err := c.sendUploadPackRequest(wants, haves, done, opts...)
 	if err != nil {
 		return
 	}
@@ -304,7 +322,7 @@ func (c *Client) PostUploadPack(wants, haves [][]byte, done bool) (acks [][]byte
 	return
 }
 
-func (c *Client) PostUpdatesToReceivePack(updates map[string]*payload.Update) (*http.Response, error) {
+func (c *Client) PostUpdatesToReceivePack(updates map[string]*payload.Update, opts ...RequestOption) (*http.Response, error) {
 	req := &payload.ReceivePackRequest{
 		Updates: updates,
 	}
@@ -314,7 +332,7 @@ func (c *Client) PostUpdatesToReceivePack(updates map[string]*payload.Update) (*
 	}
 	return c.Request(http.MethodPost, "/receive-pack/", bytes.NewReader(b), map[string]string{
 		"Content-Type": CTJSON,
-	})
+	}, opts...)
 }
 
 func (c *Client) ErrHTTP(resp *http.Response) error {

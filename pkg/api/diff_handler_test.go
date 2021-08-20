@@ -6,10 +6,12 @@ package api_test
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	"github.com/wrgl/core/pkg/factory"
@@ -25,7 +27,7 @@ func hexFromString(t *testing.T, s string) *payload.Hex {
 
 func TestDiffHandler(t *testing.T) {
 	db := objmock.NewStore()
-	cli, cleanup := createClient(t, apiserver.NewDiffHandler(db))
+	cli, m, cleanup := createClient(t, apiserver.NewDiffHandler(db))
 	defer cleanup()
 
 	sum1, _ := factory.Commit(t, db, []string{
@@ -78,4 +80,13 @@ func TestDiffHandler(t *testing.T) {
 			},
 		},
 	}, dr)
+
+	// pass custom headers
+	req := m.Capture(t, func(header http.Header) {
+		header.Set("Asdf", "1234")
+		dr, err = cli.Diff(sum1, sum2, apiclient.WithHeader(header))
+		require.NoError(t, err)
+		assert.NotEmpty(t, dr)
+	})
+	assert.Equal(t, "1234", req.Header.Get("Asdf"))
 }

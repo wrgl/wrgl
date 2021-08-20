@@ -3,6 +3,7 @@ package api_test
 import (
 	"bytes"
 	"encoding/csv"
+	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,14 +17,51 @@ import (
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
 	refmock "github.com/wrgl/core/pkg/ref/mock"
+	"github.com/wrgl/core/pkg/testutils"
 )
 
-func createClient(t *testing.T, handler http.Handler) (*apiclient.Client, func()) {
+const (
+	headerRequestCaptureMiddlewareKey = "Request-Capture-Middleware-Key"
+)
+
+type requestCaptureMiddleware struct {
+	handler  http.Handler
+	requests map[string]*http.Request
+}
+
+func newRequestCaptureMiddleware(handler http.Handler) *requestCaptureMiddleware {
+	return &requestCaptureMiddleware{
+		handler:  handler,
+		requests: map[string]*http.Request{},
+	}
+}
+
+func (m *requestCaptureMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	if v := r.Header.Get(headerRequestCaptureMiddlewareKey); v != "" {
+		m.requests[v] = &http.Request{}
+		*m.requests[v] = *r
+	}
+	m.handler.ServeHTTP(rw, r)
+}
+
+func (m *requestCaptureMiddleware) Capture(t *testing.T, f func(header http.Header)) *http.Request {
 	t.Helper()
-	ts := httptest.NewServer(handler)
+	k := hex.EncodeToString(testutils.SecureRandomBytes(16))
+	header := http.Header{}
+	header.Set(headerRequestCaptureMiddlewareKey, k)
+	f(header)
+	r, ok := m.requests[k]
+	require.True(t, ok, "request not found for key %q", k)
+	return r
+}
+
+func createClient(t *testing.T, handler http.Handler) (*apiclient.Client, *requestCaptureMiddleware, func()) {
+	t.Helper()
+	m := newRequestCaptureMiddleware(handler)
+	ts := httptest.NewServer(m)
 	cli, err := apiclient.NewClient(ts.URL)
 	require.NoError(t, err)
-	return cli, ts.Close
+	return cli, m, ts.Close
 }
 
 func TestCommitHandler(t *testing.T) {
@@ -31,7 +69,7 @@ func TestCommitHandler(t *testing.T) {
 	rs := refmock.NewStore()
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
-	cli, cleanup := createClient(t, apiserver.NewCommitHandler(db, rs))
+	cli, m, cleanup := createClient(t, apiserver.NewCommitHandler(db, rs))
 	defer cleanup()
 
 	// missing branch
@@ -95,4 +133,21 @@ func TestCommitHandler(t *testing.T) {
 	sum, err := ref.GetHead(rs, "alpha")
 	require.NoError(t, err)
 	assert.Equal(t, (*cr.Sum)[:], sum)
+
+	// pass custom headers
+	buf = bytes.NewBuffer(nil)
+	w = csv.NewWriter(buf)
+	require.NoError(t, w.Write([]string{"a", "b", "c"}))
+	require.NoError(t, w.WriteAll(testutils.BuildRawCSV(3, 4)))
+	w.Flush()
+	req := m.Capture(t, func(header http.Header) {
+		header.Set("Abcd", "qwer")
+		cr, err = cli.Commit(
+			"alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), []string{"a"},
+			apiclient.WithHeader(header),
+		)
+		require.NoError(t, err)
+		assert.NotEmpty(t, cr.Sum)
+	})
+	assert.Equal(t, "qwer", req.Header.Get("Abcd"))
 }

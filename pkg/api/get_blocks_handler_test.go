@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/api"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
@@ -57,7 +58,7 @@ func assertBlocksBinary(t *testing.T, db objects.Store, blocks [][]byte, resp *h
 
 func TestGetBlocksHandler(t *testing.T) {
 	db := objmock.NewStore()
-	cli, cleanup := createClient(t, apiserver.NewGetBlocksHandler(db))
+	cli, m, cleanup := createClient(t, apiserver.NewGetBlocksHandler(db))
 	defer cleanup()
 
 	_, com := apitest.CreateRandomCommit(t, db, 5, 700, nil)
@@ -91,4 +92,13 @@ func TestGetBlocksHandler(t *testing.T) {
 	resp, err = cli.GetBlocks(com.Table, 0, 0, payload.BlockFormatBinary)
 	require.NoError(t, err)
 	assertBlocksBinary(t, db, tbl.Blocks, resp)
+
+	// pass custom header
+	req := m.Capture(t, func(header http.Header) {
+		header.Set("Custom-Header", "4567")
+		resp, err = cli.GetBlocks(com.Table, 0, 0, "", apiclient.WithHeader(header))
+		require.NoError(t, err)
+		assertBlocksCSV(t, db, tbl.Blocks, resp)
+	})
+	assert.Equal(t, "4567", req.Header.Get("Custom-Header"))
 }

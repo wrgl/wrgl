@@ -4,10 +4,12 @@
 package api_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
@@ -37,7 +39,7 @@ func TestReceivePackHandler(t *testing.T) {
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	sum3, _ := factory.CommitHead(t, db, rs, "delta", nil, nil)
 	sum7, _ := factory.CommitHead(t, db, rs, "theta", nil, nil)
-	cli, cleanup := createClient(t, &apitest.GZIPAwareHandler{
+	cli, _, cleanup := createClient(t, &apitest.GZIPAwareHandler{
 		T:       t,
 		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false), apiserver.NewReceivePackSessionMap()),
 	})
@@ -119,7 +121,7 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 	rs := refmock.NewStore()
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
-	cli, cleanup := createClient(t, &apitest.GZIPAwareHandler{
+	cli, _, cleanup := createClient(t, &apitest.GZIPAwareHandler{
 		T:       t,
 		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
 	})
@@ -146,7 +148,7 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
-	cli, cleanup := createClient(t, &apitest.GZIPAwareHandler{
+	cli, _, cleanup := createClient(t, &apitest.GZIPAwareHandler{
 		T:       t,
 		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
 	})
@@ -167,4 +169,33 @@ func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
 	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1, sum2})
 	assertRefEqual(t, rs, "heads/alpha", sum2)
+}
+
+func TestReceivePackHandlerCustomHeader(t *testing.T) {
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	cli, m, cleanup := createClient(t, &apitest.GZIPAwareHandler{
+		T:       t,
+		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
+	})
+	defer cleanup()
+	remoteRefs, err := ref.ListAllRefs(rs)
+	require.NoError(t, err)
+
+	dbc := objmock.NewStore()
+	rsc := refmock.NewStore()
+	sum1, c1 := apitest.CreateRandomCommit(t, dbc, 3, 4, nil)
+	require.NoError(t, ref.CommitHead(rsc, "alpha", sum1, c1))
+
+	updates := map[string]*payload.Update{
+		"refs/heads/alpha": {Sum: payload.BytesToHex(sum1)},
+	}
+	req := m.Capture(t, func(header http.Header) {
+		header.Set("Custom-Header", "qwe")
+		updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 1024, apiclient.WithHeader(header))
+		assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
+		apitest.AssertCommitsPersisted(t, db, [][]byte{sum1})
+		assertRefEqual(t, rs, "heads/alpha", sum1)
+	})
+	assert.Equal(t, "qwe", req.Header.Get("Custom-Header"))
 }

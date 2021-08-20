@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
@@ -24,7 +25,7 @@ func TestGetCommitHandler(t *testing.T) {
 	sm := http.NewServeMux()
 	sm.Handle("/commits/", apiserver.NewGetCommitHandler(db))
 	sm.Handle("/tables/", apiserver.NewGetTableHandler(db))
-	cli, cleanup := createClient(t, sm)
+	cli, m, cleanup := createClient(t, sm)
 	defer cleanup()
 
 	// get commit not found
@@ -54,4 +55,20 @@ func TestGetCommitHandler(t *testing.T) {
 	assert.Equal(t, tbl.Columns, tr.Columns)
 	assert.Equal(t, tbl.PK, tr.PK)
 	assert.Equal(t, tbl.RowsCount, tr.RowsCount)
+
+	// pass custom header
+	req := m.Capture(t, func(header http.Header) {
+		header.Set("Custom-Header", "123")
+		cr, err = cli.GetCommit(sum, apiclient.WithHeader(header))
+		require.NoError(t, err)
+		assert.NotEmpty(t, cr)
+	})
+	assert.Equal(t, "123", req.Header.Get("Custom-Header"))
+	req = m.Capture(t, func(header http.Header) {
+		header.Set("Custom-Header", "456")
+		tr, err = cli.GetTable(com.Table, apiclient.WithHeader(header))
+		require.NoError(t, err)
+		assert.NotEmpty(t, tr)
+	})
+	assert.Equal(t, "456", req.Header.Get("Custom-Header"))
 }

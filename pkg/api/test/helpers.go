@@ -56,18 +56,18 @@ func (h *GZIPAwareHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	h.Handler.ServeHTTP(rw, r)
 }
 
-func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, advertised [][]byte, havesPerRoundTrip int) [][]byte {
+func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, advertised [][]byte, havesPerRoundTrip int, opts ...apiclient.RequestOption) [][]byte {
 	t.Helper()
-	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip)
+	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip, opts...)
 	require.NoError(t, err)
 	commits, err := ses.Start()
 	require.NoError(t, err)
 	return commits
 }
 
-func PushObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64) map[string]*payload.Update {
+func PushObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, opts ...apiclient.RequestOption) map[string]*payload.Update {
 	t.Helper()
-	ses, err := apiclient.NewReceivePackSession(db, rs, c, updates, remoteRefs, maxPackfileSize)
+	ses, err := apiclient.NewReceivePackSession(db, rs, c, updates, remoteRefs, maxPackfileSize, opts...)
 	require.NoError(t, err)
 	updates, err = ses.Start()
 	require.NoError(t, err)

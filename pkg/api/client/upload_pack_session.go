@@ -23,9 +23,10 @@ type UploadPackSession struct {
 	q                 *ref.CommitsQueue
 	popCount          int
 	havesPerRoundTrip int
+	opts              []RequestOption
 }
 
-func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised [][]byte, havesPerRoundTrip int) (*UploadPackSession, error) {
+func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised [][]byte, havesPerRoundTrip int, opts ...RequestOption) (*UploadPackSession, error) {
 	if havesPerRoundTrip == 0 {
 		havesPerRoundTrip = defaultHavesPerRoundTrip
 	}
@@ -34,6 +35,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised 
 		db:                db,
 		rs:                rs,
 		havesPerRoundTrip: havesPerRoundTrip,
+		opts:              opts,
 	}
 	for _, b := range advertised {
 		if !objects.CommitExist(db, b) {
@@ -86,7 +88,7 @@ func (n *UploadPackSession) Start() ([][]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		acks, pr, err := n.c.PostUploadPack(n.wants, haves, done)
+		acks, pr, err := n.c.PostUploadPack(n.wants, haves, done, n.opts...)
 		if err != nil {
 			return nil, err
 		}
