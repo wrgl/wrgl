@@ -104,7 +104,8 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 		panic(err)
 	}
 	if done {
-		rw.Header().Set(api.HeaderPurgeUploadPackSession, "true")
+		// TODO: figure out whether to enable this trailer once more servers can deal with it?
+		// rw.Header().Set(api.HeaderPurgeUploadPackSession, "true")
 		return nil
 	}
 	return s.sendPackfile
