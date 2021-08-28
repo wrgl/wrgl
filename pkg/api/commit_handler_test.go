@@ -109,6 +109,7 @@ func TestCommitHandler(t *testing.T) {
 	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), []string{"a"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, cr.Sum)
+	assert.NotEmpty(t, cr.Table)
 
 	com, err := objects.GetCommit(db, (*cr.Sum)[:])
 	require.NoError(t, err)
@@ -116,6 +117,7 @@ func TestCommitHandler(t *testing.T) {
 	assert.Equal(t, "John Doe", com.AuthorName)
 	assert.Equal(t, "john@doe.com", com.AuthorEmail)
 	assert.Equal(t, [][]byte{parent}, com.Parents)
+	assert.Equal(t, (*cr.Table)[:], com.Table)
 	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"a"}, tbl.PrimaryKey())

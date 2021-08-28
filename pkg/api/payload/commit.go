@@ -3,7 +3,8 @@ package payload
 import "time"
 
 type CommitResponse struct {
-	Sum *Hex `json:"sum,omitempty"`
+	Sum   *Hex `json:"sum,omitempty"`
+	Table *Hex `json:"table,omitempty"`
 }
 
 type GetCommitResponse struct {

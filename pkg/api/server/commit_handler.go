@@ -104,8 +104,10 @@ func (h *CommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	resp := &payload.CommitResponse{
-		Sum: &payload.Hex{},
+		Sum:   &payload.Hex{},
+		Table: &payload.Hex{},
 	}
 	copy((*resp.Sum)[:], commitSum)
+	copy((*resp.Table)[:], sum)
 	writeJSON(rw, resp)
 }
