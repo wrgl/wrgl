@@ -6,17 +6,38 @@ package main
 import (
 	"log"
 	"net/http"
+	"runtime/debug"
+	"time"
 )
 
-func logging(handler http.Handler) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.RequestURI())
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("Error: %v", r)
-				http.Error(rw, "internal server error", http.StatusInternalServerError)
-			}
-		}()
-		handler.ServeHTTP(rw, r)
-	}
+type loggingMiddleware struct {
+	handler http.Handler
+}
+
+func (h *loggingMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	h.handler.ServeHTTP(rw, r)
+	log.Printf("%s %s (%s)", r.Method, r.URL.RequestURI(), time.Since(start))
+}
+
+func LoggingMiddleware(handler http.Handler) http.Handler {
+	return &loggingMiddleware{handler: handler}
+}
+
+type recoveryMiddleware struct {
+	handler http.Handler
+}
+
+func (h *recoveryMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("panic (recovered): %v %s", r, string(debug.Stack()))
+			http.Error(rw, "internal server error", http.StatusInternalServerError)
+		}
+	}()
+	h.handler.ServeHTTP(rw, r)
+}
+
+func RecoveryMiddleware(handler http.Handler) http.Handler {
+	return &recoveryMiddleware{handler: handler}
 }

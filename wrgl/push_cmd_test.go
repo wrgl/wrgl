@@ -18,11 +18,11 @@ import (
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/objects"
 	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
 	refmock "github.com/wrgl/core/pkg/ref/mock"
-	"github.com/wrgl/core/wrgl/utils"
 )
 
 func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {
@@ -222,7 +222,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 		"",
 	}, "\n"))
 
-	c, err := utils.OpenConfig(false, false, rd.FullPath, "")
+	c, err := local.OpenConfig(false, false, rd.FullPath, "")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*conf.ConfigBranch{
 		"alpha": {

@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	if err := execute(); err != nil {
+	if err := newRootCmd().Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		os.Exit(1)
 	}

@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -21,7 +22,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			c, err := utils.OpenConfig(false, false, wrglDir, "")
+			c, err := local.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}

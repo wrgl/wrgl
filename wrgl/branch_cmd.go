@@ -11,6 +11,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/slice"
@@ -41,7 +42,7 @@ func newBranchCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
 			wrglDir := utils.MustWRGLDir(cmd)
-			conf, err := utils.AggregateConfig(wrglDir)
+			conf, err := local.AggregateConfig(wrglDir)
 			if err != nil {
 				return err
 			}

@@ -5,11 +5,10 @@ package utils
 
 import (
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/wrgl/core/pkg/local"
 )
 
 func GetWRGLDir() (string, error) {
@@ -17,33 +16,7 @@ func GetWRGLDir() (string, error) {
 	if wd != "" {
 		return wd, nil
 	}
-	d, err := filepath.Abs(".")
-	if err != nil {
-		return "", err
-	}
-	home, _ := os.UserHomeDir()
-	if home != "" && !strings.HasPrefix(d, home) {
-		home = ""
-	}
-	for {
-		wd = filepath.Join(d, ".wrgl")
-		_, err := os.Stat(wd)
-		if err == nil {
-			return wd, nil
-		}
-		if !os.IsNotExist(err) {
-			return "", err
-		}
-		if home != "" {
-			if d == home {
-				break
-			}
-		} else if filepath.Dir(d) == d {
-			break
-		}
-		d = filepath.Dir(d)
-	}
-	return "", nil
+	return local.FindWrglDir()
 }
 
 func MustWRGLDir(cmd *cobra.Command) string {

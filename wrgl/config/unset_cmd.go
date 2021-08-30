@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -54,7 +55,7 @@ func unsetCmd() *cobra.Command {
 					return err
 				}
 			}
-			return utils.SaveConfig(c)
+			return local.SaveConfig(c)
 		},
 	}
 	return cmd

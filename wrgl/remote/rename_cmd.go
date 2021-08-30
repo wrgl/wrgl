@@ -5,6 +5,7 @@ package remote
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -22,12 +23,12 @@ func renameCmd() *cobra.Command {
 			if oldRem == newRem {
 				return nil
 			}
-			c, err := utils.OpenConfig(false, false, wrglDir, "")
+			c, err := local.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}
 			utils.MustGetRemote(cmd, c, oldRem)
-			rd := utils.NewRepoDir(wrglDir, false, false)
+			rd := local.NewRepoDir(wrglDir, false, false)
 			rs := rd.OpenRefStore()
 			err = ref.RenameAllRemoteRefs(rs, oldRem, newRem)
 			if err != nil {
@@ -35,7 +36,7 @@ func renameCmd() *cobra.Command {
 			}
 			c.Remote[newRem] = c.Remote[oldRem]
 			delete(c.Remote, oldRem)
-			return utils.SaveConfig(c)
+			return local.SaveConfig(c)
 		},
 	}
 	return cmd

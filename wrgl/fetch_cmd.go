@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -25,7 +26,7 @@ func newFetchCmd() *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := utils.AggregateConfig(wrglDir)
+			c, err := local.AggregateConfig(wrglDir)
 			if err != nil {
 				return err
 			}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -21,7 +22,7 @@ func newResetCmd() *cobra.Command {
 			branch := args[0]
 			rd := getRepoDir(cmd)
 			wrglDir := utils.MustWRGLDir(cmd)
-			conf, err := utils.AggregateConfig(wrglDir)
+			conf, err := local.AggregateConfig(wrglDir)
 			if err != nil {
 				return err
 			}

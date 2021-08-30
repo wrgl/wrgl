@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package utils
+package local
 
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/wrgl/core/pkg/objects"
@@ -82,4 +83,34 @@ func (d *RepoDir) Init() error {
 func (d *RepoDir) Exist() bool {
 	_, err := os.Stat(d.FullPath)
 	return err == nil
+}
+
+func FindWrglDir() (string, error) {
+	d, err := filepath.Abs(".")
+	if err != nil {
+		return "", err
+	}
+	home, _ := os.UserHomeDir()
+	if home != "" && !strings.HasPrefix(d, home) {
+		home = ""
+	}
+	for {
+		wd := filepath.Join(d, ".wrgl")
+		_, err := os.Stat(wd)
+		if err == nil {
+			return wd, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		if home != "" {
+			if d == home {
+				break
+			}
+		} else if filepath.Dir(d) == d {
+			break
+		}
+		d = filepath.Dir(d)
+	}
+	return "", nil
 }

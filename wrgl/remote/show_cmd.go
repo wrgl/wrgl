@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -20,12 +21,12 @@ func showCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := utils.OpenConfig(false, false, wrglDir, "")
+			c, err := local.OpenConfig(false, false, wrglDir, "")
 			if err != nil {
 				return err
 			}
 			rem := utils.MustGetRemote(cmd, c, name)
-			rd := utils.NewRepoDir(wrglDir, false, false)
+			rd := local.NewRepoDir(wrglDir, false, false)
 			rs := rd.OpenRefStore()
 			cmd.Printf("* %s\n", name)
 			cmd.Printf("  URL: %s\n", rem.URL)

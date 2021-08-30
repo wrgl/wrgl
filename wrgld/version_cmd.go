@@ -17,7 +17,7 @@ func newVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Shows version",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf("WRGL v%s\n", version)
+			cmd.Printf("WRGLD v%s\n", version)
 		},
 	}
 	return cmd

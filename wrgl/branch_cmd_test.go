@@ -17,17 +17,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
-	"github.com/wrgl/core/wrgl/utils"
 )
 
-func createRepoDir(t *testing.T) (rd *utils.RepoDir, cleanup func()) {
+func createRepoDir(t *testing.T) (rd *local.RepoDir, cleanup func()) {
 	t.Helper()
 	rootDir, err := ioutil.TempDir("", "test_wrgl_*")
 	require.NoError(t, err)
 	wrglDir := filepath.Join(rootDir, ".wrgl")
-	rd = utils.NewRepoDir(wrglDir, false, false)
+	rd = local.NewRepoDir(wrglDir, false, false)
 	err = rd.Init()
 	require.NoError(t, err)
 	viper.Set("wrgl_dir", wrglDir)

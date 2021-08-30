@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/wrgl/utils"
+	"github.com/wrgl/core/pkg/local"
 )
 
 func TestRemoteSetBranches(t *testing.T) {
@@ -26,7 +26,7 @@ func TestRemoteSetBranches(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"remote", "set-branches", "origin", "main"})
 	require.NoError(t, cmd.Execute())
-	c, err := utils.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
+	c, err := local.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
 	assert.Equal(t, []*conf.Refspec{
 		conf.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
@@ -36,7 +36,7 @@ func TestRemoteSetBranches(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"remote", "set-branches", "origin", "data", "--add"})
 	require.NoError(t, cmd.Execute())
-	c, err = utils.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
+	c, err = local.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
 	assert.Equal(t, []*conf.Refspec{
 		conf.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),

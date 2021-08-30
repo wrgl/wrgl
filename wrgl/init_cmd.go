@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wrgl/core/wrgl/utils"
+	"github.com/wrgl/core/pkg/local"
 )
 
 func newInitCmd() *cobra.Command {
@@ -33,7 +33,7 @@ func newInitCmd() *cobra.Command {
 				cmd.Printf("Repository already initialized at %s\n", dir)
 				return nil
 			}
-			rd := utils.NewRepoDir(dir, false, false)
+			rd := local.NewRepoDir(dir, false, false)
 			err = rd.Init()
 			if err != nil {
 				return err

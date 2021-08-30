@@ -23,13 +23,13 @@ import (
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/ingest"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/progress"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/widgets"
-	"github.com/wrgl/core/wrgl/utils"
 )
 
 func getTable(db objects.Store, comSum []byte) (sum []byte, tbl *objects.Table, err error) {
@@ -51,7 +51,7 @@ func mergeCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
-			c, err := utils.AggregateConfig(rd.FullPath)
+			c, err := local.AggregateConfig(rd.FullPath)
 			if err != nil {
 				return err
 			}

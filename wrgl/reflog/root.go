@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -21,7 +22,7 @@ func RootCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			rd := utils.NewRepoDir(wrglDir, false, false)
+			rd := local.NewRepoDir(wrglDir, false, false)
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

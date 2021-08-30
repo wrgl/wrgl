@@ -5,7 +5,9 @@ package apiserver
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -148,9 +150,17 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 		http.Error(rw, "packfile expected", http.StatusBadRequest)
 		return nil
 	}
-	pr, err := encoding.NewPackfileReader(r.Body)
+	body := r.Body
+	if r.Header.Get("Content-Encoding") == "gzip" {
+		gr, err := gzip.NewReader(r.Body)
+		if err != nil {
+			panic(err)
+		}
+		body = io.NopCloser(gr)
+	}
+	pr, err := encoding.NewPackfileReader(body)
 	if err != nil {
-		return
+		panic(err)
 	}
 	done, err := s.receiver.Receive(pr)
 	if err != nil {

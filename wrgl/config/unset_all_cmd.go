@@ -5,6 +5,7 @@ package config
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -55,7 +56,7 @@ func unsetAllCmd() *cobra.Command {
 					return err
 				}
 			}
-			return utils.SaveConfig(c)
+			return local.SaveConfig(c)
 		},
 	}
 	return cmd

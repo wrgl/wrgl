@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -24,7 +25,7 @@ func addCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return utils.SaveConfig(c)
+			return local.SaveConfig(c)
 		},
 	}
 	return cmd

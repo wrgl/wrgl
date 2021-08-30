@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/ingest"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -44,7 +45,7 @@ func newCommitCmd() *cobra.Command {
 			}
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
-			c, err := utils.AggregateConfig(rd.FullPath)
+			c, err := local.AggregateConfig(rd.FullPath)
 			if err != nil {
 				return err
 			}
@@ -58,7 +59,7 @@ func newCommitCmd() *cobra.Command {
 	return cmd
 }
 
-func getRepoDir(cmd *cobra.Command) *utils.RepoDir {
+func getRepoDir(cmd *cobra.Command) *local.RepoDir {
 	wrglDir := utils.MustWRGLDir(cmd)
 	badgerLogInfo, err := cmd.Flags().GetBool("badger-log-info")
 	if err != nil {
@@ -70,11 +71,11 @@ func getRepoDir(cmd *cobra.Command) *utils.RepoDir {
 		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
-	rd := utils.NewRepoDir(wrglDir, badgerLogInfo, badgerLogDebug)
+	rd := local.NewRepoDir(wrglDir, badgerLogInfo, badgerLogDebug)
 	return rd
 }
 
-func quitIfRepoDirNotExist(cmd *cobra.Command, rd *utils.RepoDir) {
+func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) {
 	if !rd.Exist() {
 		cmd.PrintErrf("Repository not initialized in directory \"%s\". Initialize with command:\n", rd.FullPath)
 		cmd.PrintErrln("  wrgl init")
@@ -93,7 +94,7 @@ func ensureUserSet(cmd *cobra.Command, c *conf.Config) {
 	}
 }
 
-func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, memLimit uint64, rd *utils.RepoDir, c *conf.Config) error {
+func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, memLimit uint64, rd *local.RepoDir, c *conf.Config) error {
 	if !ref.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
 	}

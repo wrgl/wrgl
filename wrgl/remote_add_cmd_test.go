@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/wrgl/utils"
+	"github.com/wrgl/core/pkg/local"
 )
 
 func TestRemoteAddCmd(t *testing.T) {
@@ -55,7 +55,7 @@ func TestRemoteAddCmd(t *testing.T) {
 	}, "\n"))
 
 	// test config
-	c, err := utils.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
+	c, err := local.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*conf.ConfigRemote{
 		"acme": {

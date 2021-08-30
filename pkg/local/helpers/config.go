@@ -1,4 +1,4 @@
-package wrglhelpers
+package localhelpers
 
 import (
 	"io/ioutil"
@@ -14,6 +14,17 @@ func MockEnv(t *testing.T, key, val string) func() {
 	require.NoError(t, os.Setenv(key, val))
 	return func() {
 		require.NoError(t, os.Setenv(key, orig))
+	}
+}
+
+func MockHomeDir(t *testing.T) (string, func()) {
+	t.Helper()
+	name, err := ioutil.TempDir("", "test_wrgl_home")
+	require.NoError(t, err)
+	cleanup := MockEnv(t, "HOME", name)
+	return name, func() {
+		cleanup()
+		require.NoError(t, os.RemoveAll(name))
 	}
 }
 

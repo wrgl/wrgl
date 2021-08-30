@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package utils
+package local
 
 import (
 	"io/ioutil"
@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/conf"
+	localhelpers "github.com/wrgl/core/pkg/local/helpers"
 	"github.com/wrgl/core/pkg/testutils"
-	wrglhelpers "github.com/wrgl/core/wrgl/helpers"
 )
 
 func randomConfig() *conf.Config {
@@ -25,7 +25,7 @@ func randomConfig() *conf.Config {
 }
 
 func TestOpenSystemConfig(t *testing.T) {
-	cleanup := wrglhelpers.MockSystemConf(t)
+	cleanup := localhelpers.MockSystemConf(t)
 	defer cleanup()
 
 	c1 := randomConfig()
@@ -39,7 +39,7 @@ func TestOpenSystemConfig(t *testing.T) {
 
 func TestOpenGlobalConfig(t *testing.T) {
 	for _, b := range []bool{true, false} {
-		cleanup := wrglhelpers.MockGlobalConf(t, b)
+		cleanup := localhelpers.MockGlobalConf(t, b)
 		defer cleanup()
 
 		c1, err := OpenConfig(false, true, "", "")
@@ -90,9 +90,9 @@ func TestOpenFileConfig(t *testing.T) {
 }
 
 func TestAggregateConfig(t *testing.T) {
-	cleanup := wrglhelpers.MockSystemConf(t)
+	cleanup := localhelpers.MockSystemConf(t)
 	defer cleanup()
-	cleanup = wrglhelpers.MockGlobalConf(t, true)
+	cleanup = localhelpers.MockGlobalConf(t, true)
 	defer cleanup()
 	rd, err := ioutil.TempDir("", "test_wrgl_config")
 	require.NoError(t, err)
