@@ -3,6 +3,8 @@ package localhelpers
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,11 +19,20 @@ func MockEnv(t *testing.T, key, val string) func() {
 	}
 }
 
-func MockHomeDir(t *testing.T) (string, func()) {
+func MockHomeDir(t *testing.T, parent_dir string) (string, func()) {
 	t.Helper()
-	name, err := ioutil.TempDir("", "test_wrgl_home")
+	name, err := ioutil.TempDir(parent_dir, "test_wrgl_home")
 	require.NoError(t, err)
-	cleanup := MockEnv(t, "HOME", name)
+	name, err = filepath.EvalSymlinks(name)
+	require.NoError(t, err)
+	env := "HOME"
+	switch runtime.GOOS {
+	case "windows":
+		env = "USERPROFILE"
+	case "plan9":
+		env = "home"
+	}
+	cleanup := MockEnv(t, env, name)
 	return name, func() {
 		cleanup()
 		require.NoError(t, os.RemoveAll(name))

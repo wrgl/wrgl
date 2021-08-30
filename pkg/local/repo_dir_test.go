@@ -42,13 +42,13 @@ func TestRepoDirInit(t *testing.T) {
 }
 
 func TestFindWrglDir(t *testing.T) {
-	home, cleanup := localhelpers.MockHomeDir(t)
-	defer cleanup()
 	dir, err := ioutil.TempDir("", "test_find_wrgl_dir")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	dir, err = filepath.EvalSymlinks(dir)
 	require.NoError(t, err)
+	home, cleanup := localhelpers.MockHomeDir(t, dir)
+	defer cleanup()
 
 	require.NoError(t, os.Chdir(dir))
 	p, err := FindWrglDir()
@@ -74,15 +74,18 @@ func TestFindWrglDir(t *testing.T) {
 
 	require.NoError(t, os.Mkdir(filepath.Join(home, "tmp"), 0755))
 	require.NoError(t, os.Chdir(filepath.Join(home, "tmp")))
+	p, err = FindWrglDir()
 	require.NoError(t, err)
 	assert.Empty(t, p)
 
 	wrglDir = filepath.Join(home, ".wrgl")
+	require.NoError(t, os.Mkdir(wrglDir, 0755))
 	require.NoError(t, os.Chdir(home))
 	p, err = FindWrglDir()
 	require.NoError(t, err)
 	assert.Equal(t, wrglDir, p)
 	require.NoError(t, os.Chdir(filepath.Join(home, "tmp")))
+	p, err = FindWrglDir()
 	require.NoError(t, err)
 	assert.Equal(t, wrglDir, p)
 }

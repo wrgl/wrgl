@@ -4,6 +4,7 @@
 package local
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,10 +92,17 @@ func FindWrglDir() (string, error) {
 		return "", err
 	}
 	home, _ := os.UserHomeDir()
-	if home != "" && !strings.HasPrefix(d, home) {
-		home = ""
+	if home != "" {
+		home, err = filepath.EvalSymlinks(home)
+		if err != nil {
+			return "", err
+		}
+		if !strings.HasPrefix(d, home) {
+			home = ""
+		}
 	}
 	for {
+		fmt.Printf("try %s\n", d)
 		wd := filepath.Join(d, ".wrgl")
 		_, err := os.Stat(wd)
 		if err == nil {
