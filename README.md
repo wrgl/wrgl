@@ -1,6 +1,6 @@
 # WRGL
 
-Git-like data versioning. It can handle files up to 10s of Gigabytes. How it differs from other alternative such as [dolt](https://github.com/dolthub/dolt) is that it doesn't require a schema up front, any arbitrary CSV file can be commited and that it can display much more detailed diff.
+Git-like data versioning. It can handle files up to 10s of Gigabytes.
 
 ## Installation
 
@@ -45,17 +45,3 @@ wrgl branch -d my-branch
 ## Version compatibility
 
 This software isn't ready for production so all new minor version introduce breaking changes. You will need to throw away the entire `.wrgl` folder once you upgrade to a new minor version e.g. `0.1.x` to `0.2.x`.
-
-## Dealing with big file
-
-For tables that have more than 1 << 24 (~16M) rows, the system automatically save table to big store. Big store does not keep the table in memory so while it is slightly slower it should be able to deal with arbitrarily large files. If you are committing huge files remember to set `ulimit` to something big:
-
-```bash
-ulimit -n 10000
-
-wrgl commit my-branch big_file.csv --primary-key my_key
-```
-
-## Roadmap
-
-- Add ability to setup remote and sync files between local and remotes just like Git

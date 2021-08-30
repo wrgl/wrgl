@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -25,9 +26,10 @@ func newRootCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-			}
-			if dir == "" {
-				return fmt.Errorf("repository not initialized in current directory. Initialize with command:\n  wrgl init")
+				if dir == "" {
+					return fmt.Errorf("repository not initialized in current directory. Initialize with command:\n  wrgl init")
+				}
+				log.Printf("repository found at %s\n", dir)
 			}
 			port, err := cmd.Flags().GetInt("port")
 			if err != nil {
