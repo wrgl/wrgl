@@ -153,3 +153,39 @@ func TestCommitHandler(t *testing.T) {
 	})
 	assert.Equal(t, "qwer", req.Header.Get("Abcd"))
 }
+
+func TestPostCommitCallback(t *testing.T) {
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	parent, parentCom := factory.CommitRandom(t, db, nil)
+	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
+	var com = &objects.Commit{}
+	var ref string
+	var comSum = make([]byte, 16)
+	cli, _, cleanup := createClient(t, apiserver.NewCommitHandler(db, rs, apiserver.WithPostCommitCallback(func(commit *objects.Commit, sum []byte, branch string) {
+		*com = *commit
+		copy(comSum, sum)
+		ref = branch
+	})))
+	defer cleanup()
+
+	buf := bytes.NewBuffer(nil)
+	w := csv.NewWriter(buf)
+	require.NoError(t, w.WriteAll([][]string{
+		{"a", "b", "c"},
+		{"1", "q", "w"},
+		{"2", "a", "s"},
+		{"3", "z", "x"},
+	}))
+	w.Flush()
+	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), []string{"a"})
+	require.NoError(t, err)
+	assert.Equal(t, (*cr.Table)[:], com.Table)
+	assert.Equal(t, "John Doe", com.AuthorName)
+	assert.Equal(t, "john@doe.com", com.AuthorEmail)
+	assert.False(t, com.Time.IsZero())
+	assert.Equal(t, "initial commit", com.Message)
+	assert.Equal(t, [][]byte{parent}, com.Parents)
+	assert.Equal(t, (*cr.Sum)[:], comSum)
+	assert.Equal(t, "alpha", ref)
+}

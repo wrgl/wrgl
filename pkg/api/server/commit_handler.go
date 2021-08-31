@@ -15,15 +15,28 @@ import (
 )
 
 type CommitHandler struct {
-	db objects.Store
-	rs ref.Store
+	db         objects.Store
+	rs         ref.Store
+	postCommit func(commit *objects.Commit, sum []byte, branch string)
 }
 
-func NewCommitHandler(db objects.Store, rs ref.Store) *CommitHandler {
-	return &CommitHandler{
+type CommitHandlerOption func(h *CommitHandler)
+
+func WithPostCommitCallback(postCommit func(commit *objects.Commit, sum []byte, branch string)) CommitHandlerOption {
+	return func(h *CommitHandler) {
+		h.postCommit = postCommit
+	}
+}
+
+func NewCommitHandler(db objects.Store, rs ref.Store, opts ...CommitHandlerOption) *CommitHandler {
+	h := &CommitHandler{
 		db: db,
 		rs: rs,
 	}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 func (h *CommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
@@ -102,6 +115,9 @@ func (h *CommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	err = ref.CommitHead(h.rs, branch, commitSum, commit)
 	if err != nil {
 		panic(err)
+	}
+	if h.postCommit != nil {
+		h.postCommit(commit, commitSum, branch)
 	}
 	resp := &payload.CommitResponse{
 		Sum:   &payload.Hex{},
