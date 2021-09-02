@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/DataDog/zstd v1.4.1 // indirect
+	github.com/casbin/casbin/v2 v2.36.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2103.1
 	github.com/gdamore/tcell/v2 v2.3.9
@@ -26,6 +27,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.0 // indirect
 	golang.org/x/crypto v0.0.0-20210314154223-e6e6c4f2bb5b // indirect
 	golang.org/x/net v0.0.0-20210508051633-16afe75a6701
+	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
