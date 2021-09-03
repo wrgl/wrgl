@@ -121,11 +121,11 @@ func AssertCommitsPersisted(t *testing.T, db objects.Store, commits [][]byte) {
 
 func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *conf.Config {
 	return &conf.Config{
-		User: &conf.ConfigUser{
+		User: &conf.User{
 			Name:  "test",
 			Email: "test@domain.com",
 		},
-		Receive: &conf.ConfigReceive{
+		Receive: &conf.Receive{
 			DenyNonFastForwards: &denyNonFastForwards,
 			DenyDeletes:         &denyDeletes,
 		},

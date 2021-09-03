@@ -10,7 +10,7 @@ import (
 	"github.com/wrgl/core/pkg/conf"
 )
 
-func MustGetRemote(cmd *cobra.Command, c *conf.Config, name string) *conf.ConfigRemote {
+func MustGetRemote(cmd *cobra.Command, c *conf.Config, name string) *conf.Remote {
 	v, ok := c.Remote[name]
 	if !ok {
 		cmd.PrintErrf("fatal: No such remote '%s'\n", name)

@@ -3,14 +3,14 @@
 
 package conf
 
-type ConfigRemote struct {
+type Remote struct {
 	URL    string
 	Fetch  []*Refspec `yaml:"fetch,omitempty" json:"fetch,omitempty"`
 	Push   []*Refspec `yaml:"push,omitempty" json:"push,omitempty"`
 	Mirror bool       `yaml:"mirror,omitempty" json:"mirror,omitempty"`
 }
 
-func (cr *ConfigRemote) FetchDstForRef(r string) string {
+func (cr *Remote) FetchDstForRef(r string) string {
 	s := ""
 	for _, rs := range cr.Fetch {
 		if rs.Exclude(r) {
@@ -24,7 +24,7 @@ func (cr *ConfigRemote) FetchDstForRef(r string) string {
 	return s
 }
 
-func (cr *ConfigRemote) FetchDstMatchRef(r string) bool {
+func (cr *Remote) FetchDstMatchRef(r string) bool {
 	for _, rs := range cr.Fetch {
 		if rs.DstMatchRef(r) {
 			return true

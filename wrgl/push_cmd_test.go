@@ -224,7 +224,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 
 	c, err := local.OpenConfig(false, false, rd.FullPath, "")
 	require.NoError(t, err)
-	assert.Equal(t, map[string]*conf.ConfigBranch{
+	assert.Equal(t, map[string]*conf.Branch{
 		"alpha": {
 			Remote: "my-repo",
 			Merge:  "refs/heads/alpha",

@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConfigRemoteFetchDstMatchRef(t *testing.T) {
-	cr := &ConfigRemote{
+func TestRemoteFetchDstMatchRef(t *testing.T) {
+	cr := &Remote{
 		Fetch: []*Refspec{
 			MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
 			MustParseRefspec("refs/tags/v1.0.0:refs/tags/v1.0.0"),
@@ -21,8 +21,8 @@ func TestConfigRemoteFetchDstMatchRef(t *testing.T) {
 	assert.False(t, cr.FetchDstMatchRef("refs/tags/v2.1.0"))
 }
 
-func TestConfigRemoteFetchDstForRef(t *testing.T) {
-	cr := &ConfigRemote{
+func TestRemoteFetchDstForRef(t *testing.T) {
+	cr := &Remote{
 		Fetch: []*Refspec{
 			MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
 			MustParseRefspec("refs/tags/v1.0.0:refs/tags/v1.0.0"),

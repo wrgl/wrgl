@@ -57,7 +57,7 @@ func TestRemoteAddCmd(t *testing.T) {
 	// test config
 	c, err := local.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
 	require.NoError(t, err)
-	assert.Equal(t, map[string]*conf.ConfigRemote{
+	assert.Equal(t, map[string]*conf.Remote{
 		"acme": {
 			URL: "https://acme.com",
 			Fetch: []*conf.Refspec{

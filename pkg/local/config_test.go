@@ -17,7 +17,7 @@ import (
 
 func randomConfig() *conf.Config {
 	return &conf.Config{
-		User: &conf.ConfigUser{
+		User: &conf.User{
 			Name:  testutils.BrokenRandomAlphaNumericString(8),
 			Email: testutils.BrokenRandomAlphaNumericString(10),
 		},
@@ -44,7 +44,7 @@ func TestOpenGlobalConfig(t *testing.T) {
 
 		c1, err := OpenConfig(false, true, "", "")
 		require.NoError(t, err)
-		c1.User = &conf.ConfigUser{
+		c1.User = &conf.User{
 			Name:  "John Doe",
 			Email: "john@domain.com",
 		}
@@ -63,7 +63,7 @@ func TestOpenLocalConfig(t *testing.T) {
 
 	c1, err := OpenConfig(false, false, rd, "")
 	require.NoError(t, err)
-	c1.User = &conf.ConfigUser{
+	c1.User = &conf.User{
 		Name:  "John Doe",
 		Email: "john@domain.com",
 	}
@@ -103,7 +103,7 @@ func TestAggregateConfig(t *testing.T) {
 	require.NoError(t, err)
 	yes := true
 	no := false
-	c.Receive = &conf.ConfigReceive{
+	c.Receive = &conf.Receive{
 		DenyNonFastForwards: &yes,
 		DenyDeletes:         &yes,
 	}
@@ -112,7 +112,7 @@ func TestAggregateConfig(t *testing.T) {
 	// write global config
 	c, err = OpenConfig(false, true, rd, "")
 	require.NoError(t, err)
-	c.User = &conf.ConfigUser{
+	c.User = &conf.User{
 		Name:  "Jane Lane",
 		Email: "jane@domain.com",
 	}
@@ -121,7 +121,7 @@ func TestAggregateConfig(t *testing.T) {
 	// write local config
 	c, err = OpenConfig(false, false, rd, "")
 	require.NoError(t, err)
-	c.Remote = map[string]*conf.ConfigRemote{
+	c.Remote = map[string]*conf.Remote{
 		"origin": {
 			Fetch: []*conf.Refspec{
 				conf.MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
@@ -131,7 +131,7 @@ func TestAggregateConfig(t *testing.T) {
 			},
 		},
 	}
-	c.Receive = &conf.ConfigReceive{
+	c.Receive = &conf.Receive{
 		DenyDeletes: &no,
 	}
 	require.NoError(t, SaveConfig(c))
@@ -140,11 +140,11 @@ func TestAggregateConfig(t *testing.T) {
 	c, err = AggregateConfig(rd)
 	require.NoError(t, err)
 	assert.Equal(t, &conf.Config{
-		User: &conf.ConfigUser{
+		User: &conf.User{
 			Name:  "Jane Lane",
 			Email: "jane@domain.com",
 		},
-		Remote: map[string]*conf.ConfigRemote{
+		Remote: map[string]*conf.Remote{
 			"origin": {
 				Fetch: []*conf.Refspec{
 					conf.MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
@@ -154,7 +154,7 @@ func TestAggregateConfig(t *testing.T) {
 				},
 			},
 		},
-		Receive: &conf.ConfigReceive{
+		Receive: &conf.Receive{
 			DenyNonFastForwards: &yes,
 			DenyDeletes:         &no,
 		},

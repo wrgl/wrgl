@@ -68,7 +68,7 @@ func newFetchCmd() *cobra.Command {
 	return cmd
 }
 
-func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, args []string) (string, *conf.ConfigRemote, []*conf.Refspec, error) {
+func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, args []string) (string, *conf.Remote, []*conf.Refspec, error) {
 	var remote = "origin"
 	if len(args) > 0 {
 		remote = args[0]
@@ -163,7 +163,7 @@ func quickref(oldSum, sum []byte, fastForward bool) string {
 }
 
 func saveFetchedRefs(
-	cmd *cobra.Command, u *conf.ConfigUser, db objects.Store, rs ref.Store, remoteURL string,
+	cmd *cobra.Command, u *conf.User, db objects.Store, rs ref.Store, remoteURL string,
 	fetchedCommits [][]byte, refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, force bool,
 ) ([]*Ref, error) {
 	someFailed := false
@@ -284,7 +284,7 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 	return ses.Start()
 }
 
-func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.ConfigUser, remote string, cr *conf.ConfigRemote, specs []*conf.Refspec, force bool) error {
+func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote string, cr *conf.Remote, specs []*conf.Refspec, force bool) error {
 	client, err := apiclient.NewClient(cr.URL)
 	if err != nil {
 		return err

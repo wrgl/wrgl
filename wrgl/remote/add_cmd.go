@@ -45,9 +45,9 @@ func addCmd() *cobra.Command {
 				return err
 			}
 			if c.Remote == nil {
-				c.Remote = map[string]*conf.ConfigRemote{}
+				c.Remote = map[string]*conf.Remote{}
 			}
-			c.Remote[name] = &conf.ConfigRemote{
+			c.Remote[name] = &conf.Remote{
 				URL: u,
 			}
 			remote := c.Remote[name]

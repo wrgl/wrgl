@@ -118,11 +118,11 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) 
 		return err
 	}
 	if c.Branch == nil {
-		c.Branch = map[string]*conf.ConfigBranch{}
+		c.Branch = map[string]*conf.Branch{}
 	}
 	for _, ref := range refs {
 		if strings.HasPrefix(ref.Src, "heads/") && strings.HasPrefix(ref.Dst, "heads/") {
-			c.Branch[ref.Src[6:]] = &conf.ConfigBranch{
+			c.Branch[ref.Src[6:]] = &conf.Branch{
 				Remote: remote,
 				Merge:  "refs/" + ref.Dst,
 			}
@@ -132,7 +132,7 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) 
 	return local.SaveConfig(c)
 }
 
-func getRepoToPush(c *conf.Config, args []string) (remote string, cr *conf.ConfigRemote, rem []string, err error) {
+func getRepoToPush(c *conf.Config, args []string) (remote string, cr *conf.Remote, rem []string, err error) {
 	if len(args) > 0 {
 		if v, ok := c.Remote[args[0]]; ok {
 			return args[0], v, args[1:], nil
@@ -147,7 +147,7 @@ func getRepoToPush(c *conf.Config, args []string) (remote string, cr *conf.Confi
 	return "", nil, nil, fmt.Errorf("repository name not specified")
 }
 
-func getRefspecsToPush(cr *conf.ConfigRemote, args []string) (refspecs []*conf.Refspec, err error) {
+func getRefspecsToPush(cr *conf.Remote, args []string) (refspecs []*conf.Refspec, err error) {
 	if len(args) > 0 {
 		for _, s := range args {
 			rs, err := conf.ParseRefspec(s)

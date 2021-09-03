@@ -139,7 +139,7 @@ func validateNewBranch(rs ref.Store, newBranch string) error {
 	return nil
 }
 
-func copyBranch(cmd *cobra.Command, u *conf.ConfigUser, rs ref.Store, oldBranch, newBranch string) error {
+func copyBranch(cmd *cobra.Command, u *conf.User, rs ref.Store, oldBranch, newBranch string) error {
 	err := validateNewBranch(rs, newBranch)
 	if err != nil {
 		return err
@@ -186,7 +186,7 @@ func deleteBranch(cmd *cobra.Command, rs ref.Store, args []string) error {
 	return nil
 }
 
-func createBranch(cmd *cobra.Command, u *conf.ConfigUser, db objects.Store, rs ref.Store, args []string) error {
+func createBranch(cmd *cobra.Command, u *conf.User, db objects.Store, rs ref.Store, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("please specify both branch name and start point (could be branch name, commit hash)")
 	}
