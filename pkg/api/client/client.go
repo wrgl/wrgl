@@ -94,15 +94,45 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 	return
 }
 
+func (c *Client) Authenticate(email, password string) (token string, err error) {
+	b, err := json.Marshal(&payload.AuthenticateRequest{
+		Email:    email,
+		Password: password,
+	})
+	if err != nil {
+		return
+	}
+	resp, err := c.Request(http.MethodPost, "/authenticate/", bytes.NewReader(b), map[string]string{
+		"Content-Type": CTJSON,
+	})
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return "", fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	b, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	ar := &payload.AuthenticateResponse{}
+	err = json.Unmarshal(b, ar)
+	if err != nil {
+		return
+	}
+	return ar.IDToken, nil
+}
+
 func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error) {
 	resp, err := c.Request(http.MethodGet, "/refs/", nil, nil, opts...)
 	if err != nil {
 		return
 	}
+	defer resp.Body.Close()
 	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
-	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return

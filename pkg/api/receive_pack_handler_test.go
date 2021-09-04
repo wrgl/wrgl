@@ -32,7 +32,7 @@ func assertRefEqual(t *testing.T, rs ref.Store, r string, sum []byte) {
 }
 
 func (s *testSuite) TestReceivePackHandler(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t)
+	repo, cli, _, cleanup := s.NewClient(t, true)
 	defer cleanup()
 	db := s.getDB(repo)
 	rs := s.getRS(repo)
@@ -114,7 +114,7 @@ func (s *testSuite) TestReceivePackHandler(t *testing.T) {
 }
 
 func (s *testSuite) TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t)
+	repo, cli, _, cleanup := s.NewClient(t, true)
 	defer cleanup()
 	db := s.getDB(repo)
 	rs := s.getRS(repo)
@@ -141,7 +141,7 @@ func (s *testSuite) TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) 
 }
 
 func (s *testSuite) TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t)
+	repo, cli, _, cleanup := s.NewClient(t, true)
 	defer cleanup()
 	db := s.getDB(repo)
 	rs := s.getRS(repo)
@@ -165,7 +165,7 @@ func (s *testSuite) TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 }
 
 func (s *testSuite) TestReceivePackHandlerCustomHeader(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t)
+	repo, cli, m, cleanup := s.NewClient(t, true)
 	defer cleanup()
 	db := s.getDB(repo)
 	rs := s.getRS(repo)

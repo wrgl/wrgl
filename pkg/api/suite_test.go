@@ -124,24 +124,27 @@ func (s *testSuite) getRpSessions(repo string) apiserver.ReceivePackSessionStore
 	return s.rpSessions[repo]
 }
 
-func (s *testSuite) NewClient(t *testing.T) (string, *apiclient.Client, *requestCaptureMiddleware, func()) {
+func (s *testSuite) NewClient(t *testing.T, authenticate bool) (string, *apiclient.Client, *requestCaptureMiddleware, func()) {
 	t.Helper()
 	repo := testutils.BrokenRandomLowerAlphaString(6)
-	// m := newRequestCaptureMiddleware(s.s.RepoHandler(repo))
 	m := newRequestCaptureMiddleware(&apitest.GZIPAwareHandler{
 		T:           t,
 		HandlerFunc: s.s.RepoHandler(repo),
 	})
 	ts := httptest.NewServer(m)
-	authnS := s.getAuthnS(repo)
-	authzS := s.getAuthzS(repo)
-	email := "user@test.com"
-	require.NoError(t, authnS.SetPassword(email, "password"))
-	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRead))
-	require.NoError(t, authzS.AddPolicy(email, auth.ScopeWrite))
-	tok, err := authnS.Authenticate(email, "password")
-	require.NoError(t, err)
-	cli, err := apiclient.NewClient(ts.URL, apiclient.WithAuthorization(tok))
+	var opts []apiclient.RequestOption
+	if authenticate {
+		authnS := s.getAuthnS(repo)
+		authzS := s.getAuthzS(repo)
+		email := "user@test.com"
+		require.NoError(t, authnS.SetPassword(email, "password"))
+		require.NoError(t, authzS.AddPolicy(email, auth.ScopeRead))
+		require.NoError(t, authzS.AddPolicy(email, auth.ScopeWrite))
+		tok, err := authnS.Authenticate(email, "password")
+		require.NoError(t, err)
+		opts = []apiclient.RequestOption{apiclient.WithAuthorization(tok)}
+	}
+	cli, err := apiclient.NewClient(ts.URL, opts...)
 	require.NoError(t, err)
 	return repo, cli, m, ts.Close
 }
