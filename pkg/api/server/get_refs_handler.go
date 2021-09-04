@@ -10,20 +10,14 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 )
 
-type GetRefsHandler struct {
-	rs ref.Store
-}
-
-func NewGetRefsHandler(rs ref.Store) *GetRefsHandler {
-	return &GetRefsHandler{rs: rs}
-}
-
-func (h *GetRefsHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetRefs(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
 	}
-	refs, err := ref.ListLocalRefs(h.rs)
+	repo := getRepo(r)
+	rs := s.getRS(repo)
+	refs, err := ref.ListLocalRefs(rs)
 	if err != nil {
 		panic(err)
 	}

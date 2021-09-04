@@ -11,22 +11,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
-	apiserver "github.com/wrgl/core/pkg/api/server"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func TestGetCommitHandler(t *testing.T) {
-	db := objmock.NewStore()
+func (s *testSuite) TestGetCommitHandler(t *testing.T) {
+	repo, cli, m, cleanup := s.NewClient(t)
+	defer cleanup()
+	db := s.getDB(repo)
 	parent, _ := factory.CommitRandom(t, db, nil)
 	sum, com := factory.CommitRandom(t, db, [][]byte{parent})
-	sm := http.NewServeMux()
-	sm.Handle("/commits/", apiserver.NewGetCommitHandler(db))
-	sm.Handle("/tables/", apiserver.NewGetTableHandler(db))
-	cli, m, cleanup := createClient(t, sm)
-	defer cleanup()
 
 	// get commit not found
 	_, err := cli.GetCommit(testutils.SecureRandomBytes(16))

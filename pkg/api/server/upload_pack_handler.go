@@ -8,8 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/wrgl/core/pkg/api"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
 )
 
 type UploadPackSessionStore interface {
@@ -18,23 +16,7 @@ type UploadPackSessionStore interface {
 	Delete(sid uuid.UUID)
 }
 
-type UploadPackHandler struct {
-	db              objects.Store
-	rs              ref.Store
-	sessions        UploadPackSessionStore
-	maxPackfileSize uint64
-}
-
-func NewUploadPackHandler(db objects.Store, rs ref.Store, sessions UploadPackSessionStore, maxPackfileSize uint64) *UploadPackHandler {
-	return &UploadPackHandler{
-		db:              db,
-		rs:              rs,
-		maxPackfileSize: maxPackfileSize,
-		sessions:        sessions,
-	}
-}
-
-func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession, sid uuid.UUID, err error) {
+func (s *Server) getUploadPackSession(r *http.Request, sessions UploadPackSessionStore) (ses *UploadPackSession, sid uuid.UUID, err error) {
 	var ok bool
 	c, err := r.Cookie(api.CookieUploadPackSession)
 	if err == nil {
@@ -42,7 +24,7 @@ func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession,
 		if err != nil {
 			return
 		}
-		ses, ok = h.sessions.Get(sid)
+		ses, ok = sessions.Get(sid)
 		if !ok {
 			ses = nil
 		}
@@ -52,28 +34,38 @@ func (h *UploadPackHandler) getSession(r *http.Request) (ses *UploadPackSession,
 		if err != nil {
 			return
 		}
-		ses = NewUploadPackSession(h.db, h.rs, sid, h.maxPackfileSize)
-		h.sessions.Set(sid, ses)
+		repo := getRepo(r)
+		db := s.getDB(repo)
+		rs := s.getRS(repo)
+		c := s.getConf(repo)
+		var size uint64
+		if c.Pack != nil && c.Pack.MaxFileSize > 0 {
+			size = c.Pack.MaxFileSize
+		}
+		ses = NewUploadPackSession(db, rs, sid, size)
+		sessions.Set(sid, ses)
 	}
 	return
 }
 
-func (h *UploadPackHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUploadPack(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
 	}
-	ses, sid, err := h.getSession(r)
+	repo := getRepo(r)
+	sessions := s.getUpSession(repo)
+	ses, sid, err := s.getUploadPackSession(r, sessions)
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
 		if s := recover(); s != nil {
-			h.sessions.Delete(sid)
+			sessions.Delete(sid)
 			panic(s)
 		}
 	}()
 	if done := ses.ServeHTTP(rw, r); done {
-		h.sessions.Delete(sid)
+		sessions.Delete(sid)
 	}
 }

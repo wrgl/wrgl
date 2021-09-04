@@ -13,9 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
-	apiserver "github.com/wrgl/core/pkg/api/server"
 	"github.com/wrgl/core/pkg/factory"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -25,10 +23,10 @@ func hexFromString(t *testing.T, s string) *payload.Hex {
 	return h
 }
 
-func TestDiffHandler(t *testing.T) {
-	db := objmock.NewStore()
-	cli, m, cleanup := createClient(t, apiserver.NewDiffHandler(db))
+func (s *testSuite) TestDiffHandler(t *testing.T) {
+	repo, cli, m, cleanup := s.NewClient(t)
 	defer cleanup()
+	db := s.getDB(repo)
 
 	sum1, _ := factory.Commit(t, db, []string{
 		"a,b,c",

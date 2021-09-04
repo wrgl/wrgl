@@ -22,12 +22,12 @@ func TestAuthzStore(t *testing.T) {
 	require.NoError(t, err)
 
 	email1 := "alice@domain.com"
-	require.NoError(t, s.AddPolicy(email1, auth.ActRead))
+	require.NoError(t, s.AddPolicy(email1, auth.ScopeRead))
 
-	ok, err := s.Authorized(email1, auth.ActRead)
+	ok, err := s.Authorized(email1, auth.ScopeRead)
 	require.NoError(t, err)
 	assert.True(t, ok)
-	ok, err = s.Authorized(email1, auth.ActWrite)
+	ok, err = s.Authorized(email1, auth.ScopeWrite)
 	require.NoError(t, err)
 	assert.False(t, ok)
 
@@ -35,11 +35,11 @@ func TestAuthzStore(t *testing.T) {
 
 	s, err = NewAuthzStore(dir)
 	require.NoError(t, err)
-	ok, err = s.Authorized(email1, auth.ActRead)
+	ok, err = s.Authorized(email1, auth.ScopeRead)
 	require.NoError(t, err)
 	assert.True(t, ok)
-	require.NoError(t, s.RemovePolicy(email1, auth.ActRead))
-	ok, err = s.Authorized(email1, auth.ActRead)
+	require.NoError(t, s.RemovePolicy(email1, auth.ScopeRead))
+	ok, err = s.Authorized(email1, auth.ScopeRead)
 	require.NoError(t, err)
 	assert.False(t, ok)
 
@@ -47,7 +47,7 @@ func TestAuthzStore(t *testing.T) {
 
 	s, err = NewAuthzStore(dir)
 	require.NoError(t, err)
-	ok, err = s.Authorized(email1, auth.ActRead)
+	ok, err = s.Authorized(email1, auth.ScopeRead)
 	require.NoError(t, err)
 	assert.False(t, ok)
 }

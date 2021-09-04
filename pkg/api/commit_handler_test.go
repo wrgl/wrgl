@@ -5,18 +5,14 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
-	apiserver "github.com/wrgl/core/pkg/api/server"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -55,22 +51,13 @@ func (m *requestCaptureMiddleware) Capture(t *testing.T, f func(header http.Head
 	return r
 }
 
-func createClient(t *testing.T, handler http.Handler) (*apiclient.Client, *requestCaptureMiddleware, func()) {
-	t.Helper()
-	m := newRequestCaptureMiddleware(handler)
-	ts := httptest.NewServer(m)
-	cli, err := apiclient.NewClient(ts.URL)
-	require.NoError(t, err)
-	return cli, m, ts.Close
-}
-
-func TestCommitHandler(t *testing.T) {
-	db := objmock.NewStore()
-	rs := refmock.NewStore()
+func (s *testSuite) TestCommitHandler(t *testing.T) {
+	repo, cli, m, cleanup := s.NewClient(t)
+	defer cleanup()
+	db := s.getDB(repo)
+	rs := s.getRS(repo)
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
-	cli, m, cleanup := createClient(t, apiserver.NewCommitHandler(db, rs))
-	defer cleanup()
 
 	// missing branch
 	_, err := cli.Commit("", "", "", "", nil, nil)
@@ -154,20 +141,21 @@ func TestCommitHandler(t *testing.T) {
 	assert.Equal(t, "qwer", req.Header.Get("Abcd"))
 }
 
-func TestPostCommitCallback(t *testing.T) {
-	db := objmock.NewStore()
-	rs := refmock.NewStore()
-	parent, parentCom := factory.CommitRandom(t, db, nil)
-	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
+func (s *testSuite) TestPostCommitCallback(t *testing.T) {
+	repo, cli, _, cleanup := s.NewClient(t)
+	defer cleanup()
 	var com = &objects.Commit{}
-	var ref string
+	var r string
 	var comSum = make([]byte, 16)
-	cli, _, cleanup := createClient(t, apiserver.NewCommitHandler(db, rs, apiserver.WithPostCommitCallback(func(commit *objects.Commit, sum []byte, branch string) {
+	s.postCommit = func(commit *objects.Commit, sum []byte, branch string) {
 		*com = *commit
 		copy(comSum, sum)
-		ref = branch
-	})))
-	defer cleanup()
+		r = branch
+	}
+	db := s.getDB(repo)
+	rs := s.getRS(repo)
+	parent, parentCom := factory.CommitRandom(t, db, nil)
+	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
 
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
@@ -187,5 +175,5 @@ func TestPostCommitCallback(t *testing.T) {
 	assert.Equal(t, "initial commit", com.Message)
 	assert.Equal(t, [][]byte{parent}, com.Parents)
 	assert.Equal(t, (*cr.Sum)[:], comSum)
-	assert.Equal(t, "alpha", ref)
+	assert.Equal(t, "alpha", r)
 }

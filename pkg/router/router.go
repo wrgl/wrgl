@@ -11,10 +11,10 @@ import (
 )
 
 type Routes struct {
-	Method  string
-	Pat     *regexp.Regexp
-	Handler http.Handler
-	Subs    []*Routes
+	Method      string
+	Pat         *regexp.Regexp
+	HandlerFunc http.HandlerFunc
+	Subs        []*Routes
 }
 
 type Router struct {
@@ -65,7 +65,7 @@ mainLoop:
 		}
 		break
 	}
-	if routes.Handler == nil {
+	if routes.HandlerFunc == nil {
 		http.NotFound(rw, r)
 		return
 	}
@@ -76,5 +76,5 @@ mainLoop:
 		http.Redirect(rw, r, u.String(), http.StatusMovedPermanently)
 		return
 	}
-	routes.Handler.ServeHTTP(rw, r)
+	routes.HandlerFunc(rw, r)
 }

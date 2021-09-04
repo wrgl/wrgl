@@ -18,17 +18,7 @@ import (
 
 var blocksURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/blocks/`)
 
-type GetBlocksHandler struct {
-	db objects.Store
-}
-
-func NewGetBlocksHandler(db objects.Store) *GetBlocksHandler {
-	return &GetBlocksHandler{
-		db: db,
-	}
-}
-
-func (h *GetBlocksHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
@@ -42,7 +32,9 @@ func (h *GetBlocksHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	tbl, err := objects.GetTable(h.db, sum)
+	repo := getRepo(r)
+	db := s.getDB(repo)
+	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
 		http.NotFound(rw, r)
 		return
@@ -84,7 +76,7 @@ func (h *GetBlocksHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		defer gzw.Close()
 		rw.Header().Set("Content-Type", api.CTBlocksBinary)
 		for i := start; i < end; i++ {
-			b, err := objects.GetBlockBytes(h.db, tbl.Blocks[i])
+			b, err := objects.GetBlockBytes(db, tbl.Blocks[i])
 			if err != nil {
 				panic(err)
 			}
@@ -101,7 +93,7 @@ func (h *GetBlocksHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		w := csv.NewWriter(gzw)
 		defer w.Flush()
 		for i := start; i < end; i++ {
-			blk, err := objects.GetBlock(h.db, tbl.Blocks[i])
+			blk, err := objects.GetBlock(db, tbl.Blocks[i])
 			if err != nil {
 				panic(err)
 			}

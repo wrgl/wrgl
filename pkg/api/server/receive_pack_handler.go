@@ -8,9 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/wrgl/core/pkg/api"
-	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
 )
 
 type ReceivePackSessionStore interface {
@@ -19,23 +16,7 @@ type ReceivePackSessionStore interface {
 	Delete(sid uuid.UUID)
 }
 
-type ReceivePackHandler struct {
-	db       objects.Store
-	rs       ref.Store
-	c        *conf.Config
-	sessions ReceivePackSessionStore
-}
-
-func NewReceivePackHandler(db objects.Store, rs ref.Store, c *conf.Config, sessions ReceivePackSessionStore) *ReceivePackHandler {
-	return &ReceivePackHandler{
-		db:       db,
-		rs:       rs,
-		c:        c,
-		sessions: sessions,
-	}
-}
-
-func (h *ReceivePackHandler) getSession(r *http.Request) (ses *ReceivePackSession, sid uuid.UUID, err error) {
+func (s *Server) getReceivePackSession(r *http.Request, sessions ReceivePackSessionStore) (ses *ReceivePackSession, sid uuid.UUID, err error) {
 	var ok bool
 	c, err := r.Cookie(api.CookieReceivePackSession)
 	if err == nil {
@@ -43,7 +24,7 @@ func (h *ReceivePackHandler) getSession(r *http.Request) (ses *ReceivePackSessio
 		if err != nil {
 			return
 		}
-		ses, ok = h.sessions.Get(sid)
+		ses, ok = sessions.Get(sid)
 		if !ok {
 			ses = nil
 		}
@@ -53,28 +34,34 @@ func (h *ReceivePackHandler) getSession(r *http.Request) (ses *ReceivePackSessio
 		if err != nil {
 			return
 		}
-		ses = NewReceivePackSession(h.db, h.rs, h.c, sid)
-		h.sessions.Set(sid, ses)
+		repo := getRepo(r)
+		db := s.getDB(repo)
+		rs := s.getRS(repo)
+		c := s.getConf(repo)
+		ses = NewReceivePackSession(db, rs, c, sid)
+		sessions.Set(sid, ses)
 	}
 	return
 }
 
-func (h *ReceivePackHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Server) handleReceivePack(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
 	}
-	ses, sid, err := h.getSession(r)
+	repo := getRepo(r)
+	sessions := s.getRPSession(repo)
+	ses, sid, err := s.getReceivePackSession(r, sessions)
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
 		if s := recover(); s != nil {
-			h.sessions.Delete(sid)
+			sessions.Delete(sid)
 			panic(s)
 		}
 	}()
 	if done := ses.ServeHTTP(rw, r); done {
-		h.sessions.Delete(sid)
+		sessions.Delete(sid)
 	}
 }

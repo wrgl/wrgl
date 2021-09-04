@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
-	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
@@ -32,18 +31,16 @@ func assertRefEqual(t *testing.T, rs ref.Store, r string, sum []byte) {
 	}
 }
 
-func TestReceivePackHandler(t *testing.T) {
-	db := objmock.NewStore()
-	rs := refmock.NewStore()
+func (s *testSuite) TestReceivePackHandler(t *testing.T) {
+	repo, cli, _, cleanup := s.NewClient(t)
+	defer cleanup()
+	db := s.getDB(repo)
+	rs := s.getRS(repo)
+	s.conf[repo] = apitest.ReceivePackConfig(false, false)
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	sum3, _ := factory.CommitHead(t, db, rs, "delta", nil, nil)
 	sum7, _ := factory.CommitHead(t, db, rs, "theta", nil, nil)
-	cli, _, cleanup := createClient(t, &apitest.GZIPAwareHandler{
-		T:       t,
-		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(false, false), apiserver.NewReceivePackSessionMap()),
-	})
-	defer cleanup()
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 
@@ -116,16 +113,14 @@ func TestReceivePackHandler(t *testing.T) {
 	assert.True(t, objects.CommitExist(db, sum4))
 }
 
-func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
-	db := objmock.NewStore()
-	rs := refmock.NewStore()
+func (s *testSuite) TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
+	repo, cli, _, cleanup := s.NewClient(t)
+	defer cleanup()
+	db := s.getDB(repo)
+	rs := s.getRS(repo)
+	s.conf[repo] = apitest.ReceivePackConfig(true, true)
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
-	cli, _, cleanup := createClient(t, &apitest.GZIPAwareHandler{
-		T:       t,
-		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
-	})
-	defer cleanup()
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 
@@ -145,14 +140,12 @@ func TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
 	assertRefEqual(t, rs, "heads/beta", sum2)
 }
 
-func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
-	db := objmock.NewStore()
-	rs := refmock.NewStore()
-	cli, _, cleanup := createClient(t, &apitest.GZIPAwareHandler{
-		T:       t,
-		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
-	})
+func (s *testSuite) TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
+	repo, cli, _, cleanup := s.NewClient(t)
 	defer cleanup()
+	db := s.getDB(repo)
+	rs := s.getRS(repo)
+	s.conf[repo] = apitest.ReceivePackConfig(true, true)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 
@@ -171,14 +164,12 @@ func TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	assertRefEqual(t, rs, "heads/alpha", sum2)
 }
 
-func TestReceivePackHandlerCustomHeader(t *testing.T) {
-	db := objmock.NewStore()
-	rs := refmock.NewStore()
-	cli, m, cleanup := createClient(t, &apitest.GZIPAwareHandler{
-		T:       t,
-		Handler: apiserver.NewReceivePackHandler(db, rs, apitest.ReceivePackConfig(true, true), apiserver.NewReceivePackSessionMap()),
-	})
+func (s *testSuite) TestReceivePackHandlerCustomHeader(t *testing.T) {
+	repo, cli, m, cleanup := s.NewClient(t)
 	defer cleanup()
+	db := s.getDB(repo)
+	rs := s.getRS(repo)
+	s.conf[repo] = apitest.ReceivePackConfig(true, true)
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 

@@ -6,41 +6,19 @@ package api_test
 import (
 	"encoding/csv"
 	"net/http"
-	"net/http/httptest"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	apiserver "github.com/wrgl/core/pkg/api/server"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/router"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func TestGetRowsHandler(t *testing.T) {
-	db := objmock.NewStore()
-	ts := httptest.NewServer(router.NewRouter(&router.Routes{
-		Pat: regexp.MustCompile(`^/tables/[0-9a-f]{32}/`),
-		Subs: []*router.Routes{
-			{
-				Method:  http.MethodGet,
-				Pat:     regexp.MustCompile(`^blocks/`),
-				Handler: apiserver.NewGetBlocksHandler(db),
-			},
-			{
-				Method:  http.MethodGet,
-				Pat:     regexp.MustCompile(`^rows/`),
-				Handler: apiserver.NewGetRowsHandler(db),
-			},
-		},
-	}))
-	defer ts.Close()
-	cli, err := apiclient.NewClient(ts.URL)
-	require.NoError(t, err)
+func (s *testSuite) TestGetRowsHandler(t *testing.T) {
+	repo, cli, _, cleanup := s.NewClient(t)
+	defer cleanup()
+	db := s.getDB(repo)
 
 	_, com := factory.Commit(t, db, []string{
 		"a,b,c",

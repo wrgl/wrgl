@@ -14,10 +14,8 @@ import (
 	"github.com/wrgl/core/pkg/api"
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
-	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -56,10 +54,10 @@ func assertBlocksBinary(t *testing.T, db objects.Store, blocks [][]byte, resp *h
 	assert.Equal(t, io.EOF, err)
 }
 
-func TestGetBlocksHandler(t *testing.T) {
-	db := objmock.NewStore()
-	cli, m, cleanup := createClient(t, apiserver.NewGetBlocksHandler(db))
+func (s *testSuite) TestGetBlocksHandler(t *testing.T) {
+	repo, cli, m, cleanup := s.NewClient(t)
 	defer cleanup()
+	db := s.getDB(repo)
 
 	_, com := apitest.CreateRandomCommit(t, db, 5, 700, nil)
 	tbl, err := objects.GetTable(db, com.Table)

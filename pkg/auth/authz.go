@@ -4,14 +4,13 @@
 package auth
 
 const (
-	ActRead       = "read"
-	ActReadConfig = "readConfig"
-	ActWrite      = "write"
+	ScopeRead  = "read"
+	ScopeWrite = "write"
 )
 
 type AuthzStore interface {
-	AddPolicy(email, act string) error
-	RemovePolicy(email, act string) error
-	Authorized(email, act string) (bool, error)
+	AddPolicy(email, scope string) error
+	RemovePolicy(email, scope string) error
+	Authorized(email, scope string) (bool, error)
 	Flush() error
 }

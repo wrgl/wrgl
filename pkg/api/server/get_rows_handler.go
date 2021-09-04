@@ -21,17 +21,7 @@ import (
 
 var rowsURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/rows/`)
 
-type GetRowsHandler struct {
-	db objects.Store
-}
-
-func NewGetRowsHandler(db objects.Store) *GetRowsHandler {
-	return &GetRowsHandler{
-		db: db,
-	}
-}
-
-func (h *GetRowsHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
@@ -45,7 +35,9 @@ func (h *GetRowsHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	tbl, err := objects.GetTable(h.db, sum)
+	repo := getRepo(r)
+	db := s.getDB(repo)
+	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
 		http.NotFound(rw, r)
 		return
@@ -76,7 +68,7 @@ func (h *GetRowsHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		http.Redirect(rw, r, url.String(), http.StatusTemporaryRedirect)
 		return
 	}
-	buf, err := diff.NewBlockBuffer([]objects.Store{h.db}, []*objects.Table{tbl})
+	buf, err := diff.NewBlockBuffer([]objects.Store{db}, []*objects.Table{tbl})
 	if err != nil {
 		panic(err)
 	}

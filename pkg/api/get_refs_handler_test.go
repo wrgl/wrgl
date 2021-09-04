@@ -10,17 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
-	apiserver "github.com/wrgl/core/pkg/api/server"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func TestGetRefsHandler(t *testing.T) {
-	db := objmock.NewStore()
-	rs := refmock.NewStore()
+func (s *testSuite) TestGetRefsHandler(t *testing.T) {
+	repo, cli, m, cleanup := s.NewClient(t)
+	defer cleanup()
+	db := s.getDB(repo)
+	rs := s.getRS(repo)
 	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
 	head := "my-branch"
 	err := ref.CommitHead(rs, head, sum1, commit1)
@@ -40,8 +39,6 @@ func TestGetRefsHandler(t *testing.T) {
 		"from origin",
 	)
 	require.NoError(t, err)
-	cli, m, cleanup := createClient(t, apiserver.NewGetRefsHandler(rs))
-	defer cleanup()
 
 	refs, err := cli.GetRefs()
 	require.NoError(t, err)

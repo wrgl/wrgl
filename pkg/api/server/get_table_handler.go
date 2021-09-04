@@ -14,17 +14,7 @@ import (
 
 var tableURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/`)
 
-type GetTableHandler struct {
-	db objects.Store
-}
-
-func NewGetTableHandler(db objects.Store) *GetTableHandler {
-	return &GetTableHandler{
-		db: db,
-	}
-}
-
-func (h *GetTableHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetTable(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
@@ -38,7 +28,9 @@ func (h *GetTableHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	tbl, err := objects.GetTable(h.db, sum)
+	repo := getRepo(r)
+	db := s.getDB(repo)
+	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
 		http.NotFound(rw, r)
 		return

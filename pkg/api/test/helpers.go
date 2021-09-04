@@ -45,14 +45,19 @@ func decodeGzipPayload(header *http.Header, r io.ReadCloser) (io.ReadCloser, err
 }
 
 type GZIPAwareHandler struct {
-	T       *testing.T
-	Handler http.Handler
+	T           *testing.T
+	Handler     http.Handler
+	HandlerFunc http.HandlerFunc
 }
 
 func (h *GZIPAwareHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	reader, err := decodeGzipPayload(&r.Header, r.Body)
 	require.NoError(h.T, err)
 	r.Body = reader
+	if h.HandlerFunc != nil {
+		h.HandlerFunc(rw, r)
+		return
+	}
 	h.Handler.ServeHTTP(rw, r)
 }
 

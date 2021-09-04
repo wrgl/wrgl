@@ -39,13 +39,20 @@ func WithHeader(header http.Header) RequestOption {
 	}
 }
 
+func WithAuthorization(token string) RequestOption {
+	return func(r *http.Request) {
+		r.Header.Set("Authorization", "Bearer "+token)
+	}
+}
+
 type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
-	origin string
+	origin         string
+	requestOptions []RequestOption
 }
 
-func NewClient(origin string) (*Client, error) {
+func NewClient(origin string, opts ...RequestOption) (*Client, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, err
@@ -54,7 +61,8 @@ func NewClient(origin string) (*Client, error) {
 		client: &http.Client{
 			Jar: jar,
 		},
-		origin: origin,
+		origin:         origin,
+		requestOptions: opts,
 	}, nil
 }
 
@@ -65,6 +73,9 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
+	}
+	for _, opt := range c.requestOptions {
+		opt(req)
 	}
 	for _, opt := range opts {
 		opt(req)
@@ -138,6 +149,9 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 		return nil, err
 	}
 	req.Header.Set("Content-Type", w.FormDataContentType())
+	for _, opt := range c.requestOptions {
+		opt(req)
+	}
 	for _, opt := range opts {
 		opt(req)
 	}

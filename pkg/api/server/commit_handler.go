@@ -14,32 +14,7 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 )
 
-type CommitHandler struct {
-	db         objects.Store
-	rs         ref.Store
-	postCommit func(commit *objects.Commit, sum []byte, branch string)
-}
-
-type CommitHandlerOption func(h *CommitHandler)
-
-func WithPostCommitCallback(postCommit func(commit *objects.Commit, sum []byte, branch string)) CommitHandlerOption {
-	return func(h *CommitHandler) {
-		h.postCommit = postCommit
-	}
-}
-
-func NewCommitHandler(db objects.Store, rs ref.Store, opts ...CommitHandlerOption) *CommitHandler {
-	h := &CommitHandler{
-		db: db,
-		rs: rs,
-	}
-	for _, opt := range opts {
-		opt(h)
-	}
-	return h
-}
-
-func (h *CommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
@@ -87,7 +62,9 @@ func (h *CommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	}
 	primaryKey := r.MultipartForm.Value["primaryKey"]
 
-	sum, err := ingest.IngestTable(h.db, f, primaryKey, 0, 1, nil, nil)
+	repo := getRepo(r)
+	db := s.getDB(repo)
+	sum, err := ingest.IngestTable(db, f, primaryKey, 0, 1, nil, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -99,7 +76,8 @@ func (h *CommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		AuthorEmail: email,
 		AuthorName:  name,
 	}
-	parent, _ := ref.GetHead(h.rs, branch)
+	rs := s.getRS(repo)
+	parent, _ := ref.GetHead(rs, branch)
 	if parent != nil {
 		commit.Parents = [][]byte{parent}
 	}
@@ -108,16 +86,16 @@ func (h *CommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	commitSum, err := objects.SaveCommit(h.db, buf.Bytes())
+	commitSum, err := objects.SaveCommit(db, buf.Bytes())
 	if err != nil {
 		panic(err)
 	}
-	err = ref.CommitHead(h.rs, branch, commitSum, commit)
+	err = ref.CommitHead(rs, branch, commitSum, commit)
 	if err != nil {
 		panic(err)
 	}
-	if h.postCommit != nil {
-		h.postCommit(commit, commitSum, branch)
+	if s.postCommit != nil {
+		s.postCommit(commit, commitSum, branch)
 	}
 	resp := &payload.CommitResponse{
 		Sum:   &payload.Hex{},

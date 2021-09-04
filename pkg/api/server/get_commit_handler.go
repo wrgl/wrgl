@@ -14,17 +14,7 @@ import (
 
 var commitURIPat = regexp.MustCompile(`/commits/([0-9a-f]{32})/`)
 
-type GetCommitHandler struct {
-	db objects.Store
-}
-
-func NewGetCommitHandler(db objects.Store) *GetCommitHandler {
-	return &GetCommitHandler{
-		db: db,
-	}
-}
-
-func (h *GetCommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetCommit(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(rw, "forbidden", http.StatusForbidden)
 		return
@@ -38,7 +28,9 @@ func (h *GetCommitHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	com, err := objects.GetCommit(h.db, sum)
+	repo := getRepo(r)
+	db := s.getDB(repo)
+	com, err := objects.GetCommit(db, sum)
 	if err != nil {
 		http.NotFound(rw, r)
 		return
