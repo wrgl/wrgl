@@ -32,11 +32,12 @@ func assertRefEqual(t *testing.T, rs ref.Store, r string, sum []byte) {
 }
 
 func (s *testSuite) TestReceivePackHandler(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t, true)
+	repo, cli, _, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
-	s.conf[repo] = apitest.ReceivePackConfig(false, false)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
+	cs := s.s.GetConfS(repo)
+	require.NoError(t, cs.Save(apitest.ReceivePackConfig(false, false)))
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	sum3, _ := factory.CommitHead(t, db, rs, "delta", nil, nil)
@@ -114,11 +115,12 @@ func (s *testSuite) TestReceivePackHandler(t *testing.T) {
 }
 
 func (s *testSuite) TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t, true)
+	repo, cli, _, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
-	s.conf[repo] = apitest.ReceivePackConfig(true, true)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
+	cs := s.s.GetConfS(repo)
+	require.NoError(t, cs.Save(apitest.ReceivePackConfig(true, true)))
 	sum1, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	remoteRefs, err := ref.ListAllRefs(rs)
@@ -141,11 +143,12 @@ func (s *testSuite) TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) 
 }
 
 func (s *testSuite) TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t, true)
+	repo, cli, _, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
-	s.conf[repo] = apitest.ReceivePackConfig(true, true)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
+	cs := s.s.GetConfS(repo)
+	require.NoError(t, cs.Save(apitest.ReceivePackConfig(true, true)))
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 
@@ -165,11 +168,12 @@ func (s *testSuite) TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 }
 
 func (s *testSuite) TestReceivePackHandlerCustomHeader(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
-	s.conf[repo] = apitest.ReceivePackConfig(true, true)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
+	cs := s.s.GetConfS(repo)
+	require.NoError(t, cs.Save(apitest.ReceivePackConfig(true, true)))
 	remoteRefs, err := ref.ListAllRefs(rs)
 	require.NoError(t, err)
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/local"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -28,7 +28,8 @@ func addCmd() *cobra.Command {
 				return err
 			}
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := local.OpenConfig(false, false, wrglDir, "")
+			s := conffs.NewStore(wrglDir, conffs.LocalSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}
@@ -72,7 +73,7 @@ func addCmd() *cobra.Command {
 			if mirror == "push" {
 				remote.Mirror = true
 			}
-			return local.SaveConfig(c)
+			return s.Save(c)
 		},
 	}
 	cmd.Flags().Bool("tags", false, "wrgl fetch NAME imports every tag from the remote repository")

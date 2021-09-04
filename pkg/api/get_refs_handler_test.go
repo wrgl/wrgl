@@ -16,10 +16,10 @@ import (
 )
 
 func (s *testSuite) TestGetRefsHandler(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
 	head := "my-branch"
 	err := ref.CommitHead(rs, head, sum1, commit1)

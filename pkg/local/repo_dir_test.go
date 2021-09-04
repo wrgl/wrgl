@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	localhelpers "github.com/wrgl/core/pkg/local/helpers"
+	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
 )
 
 func TestRepoDirInit(t *testing.T) {
@@ -47,7 +47,7 @@ func TestFindWrglDir(t *testing.T) {
 	defer os.RemoveAll(dir)
 	dir, err = filepath.EvalSymlinks(dir)
 	require.NoError(t, err)
-	home, cleanup := localhelpers.MockHomeDir(t, dir)
+	home, cleanup := confhelpers.MockHomeDir(t, dir)
 	defer cleanup()
 
 	require.NoError(t, os.Chdir(dir))

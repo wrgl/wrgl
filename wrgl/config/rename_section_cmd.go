@@ -8,7 +8,6 @@ import (
 	"reflect"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -19,7 +18,11 @@ func renameSectionCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
-			c := openConfigToWrite(cmd, dir)
+			s := writeableConfigStore(cmd, dir)
+			c, err := s.Open()
+			if err != nil {
+				return err
+			}
 			oldField, err := getFieldValue(c, args[0], false)
 			if err != nil {
 				return err
@@ -44,7 +47,7 @@ func renameSectionCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return local.SaveConfig(c)
+			return s.Save(c)
 		},
 	}
 	return cmd

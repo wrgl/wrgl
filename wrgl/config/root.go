@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/local"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 )
 
 func RootCmd() *cobra.Command {
@@ -66,36 +66,32 @@ func fileOptions(cmd *cobra.Command) (file string, system, global, local bool) {
 	return
 }
 
-func openConfigToRead(cmd *cobra.Command, rootDir string) (c *conf.Config) {
+func readableConfigStore(cmd *cobra.Command, rootDir string) (s conf.Store) {
 	file, system, global, l := fileOptions(cmd)
-	var err error
-	if l {
-		c, err = local.OpenConfig(false, false, rootDir, "")
-		if err != nil {
-			fatal(cmd, err)
-		}
-		return
-	} else if file == "" && !system && !global {
-		c, err = local.AggregateConfig(rootDir)
-		if err != nil {
-			fatal(cmd, err)
-		}
-		return
+	source := conffs.AggregateSource
+	if system {
+		source = conffs.SystemSource
+	} else if global {
+		source = conffs.GlobalSource
+	} else if l {
+		source = conffs.LocalSource
+	} else if file != "" {
+		source = conffs.FileSource
 	}
-	c, err = local.OpenConfig(system, global, rootDir, file)
-	if err != nil {
-		fatal(cmd, err)
-	}
-	return
+	return conffs.NewStore(rootDir, source, file)
 }
 
-func openConfigToWrite(cmd *cobra.Command, rootDir string) (c *conf.Config) {
+func writeableConfigStore(cmd *cobra.Command, rootDir string) (s conf.Store) {
 	file, system, global, _ := fileOptions(cmd)
-	c, err := local.OpenConfig(system, global, rootDir, file)
-	if err != nil {
-		fatal(cmd, err)
+	source := conffs.LocalSource
+	if system {
+		source = conffs.SystemSource
+	} else if global {
+		source = conffs.GlobalSource
+	} else if file != "" {
+		source = conffs.FileSource
 	}
-	return
+	return conffs.NewStore(rootDir, source, file)
 }
 
 func filterWithValuePattern(cmd *cobra.Command, v reflect.Value, valuePattern string) (idxMap map[int]struct{}, vals []string, err error) {

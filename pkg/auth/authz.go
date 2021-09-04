@@ -4,8 +4,10 @@
 package auth
 
 const (
-	ScopeRead  = "read"
-	ScopeWrite = "write"
+	ScopeRead        = "read"
+	ScopeWrite       = "write"
+	ScopeReadConfig  = "readConfig"
+	ScopeWriteConfig = "writeConfig"
 )
 
 type AuthzStore interface {

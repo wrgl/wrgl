@@ -6,23 +6,16 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
-	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/conf"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/local"
-	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
 )
 
 func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {
@@ -36,22 +29,12 @@ func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {
 	}
 }
 
-func receivePackServer(t *testing.T, rs ref.Store, db objects.Store, cfg *conf.Config) *httptest.Server {
-	sm := http.NewServeMux()
-	sm.Handle(api.PathRefs, apiserver.NewGetRefsHandler(rs))
-	sm.Handle(
-		api.PathReceivePack,
-		apiserver.NewReceivePackHandler(db, rs, cfg, apiserver.NewReceivePackSessionMap()),
-	)
-	return httptest.NewServer(&apitest.GZIPAwareHandler{
-		T:       t,
-		Handler: sm,
-	})
-}
-
 func TestPushCmd(t *testing.T) {
-	dbs := objmock.NewStore()
-	rss := refmock.NewStore()
+	ts := apitest.NewServer(t)
+	repo, url, _, cleanup := ts.NewRemote(t, true)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
 	sum1, c1 := factory.CommitHead(t, dbs, rss, "beta", nil, nil)
 	sum10, _ := factory.CommitTag(t, dbs, rss, "2017", nil, nil, nil)
 	sum6, _ := factory.CommitTag(t, dbs, rss, "2018", nil, nil, nil)
@@ -59,8 +42,6 @@ func TestPushCmd(t *testing.T) {
 	sum4, _ := factory.CommitHead(t, dbs, rss, "gamma", nil, nil)
 	sum9, _ := factory.CommitHead(t, dbs, rss, "delta", nil, nil)
 	sum8, c8 := factory.CommitHead(t, dbs, rss, "theta", nil, nil)
-	ts := receivePackServer(t, rss, dbs, apitest.ReceivePackConfig(false, false))
-	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -85,7 +66,7 @@ func TestPushCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "my-repo", ts.URL})
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
@@ -106,7 +87,7 @@ func TestPushCmd(t *testing.T) {
 		"theta:theta",
 	})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		fmt.Sprintf("To %s", ts.URL),
+		fmt.Sprintf("To %s", url),
 		" ! [rejected]        delta       -> delta (non-fast-forward)",
 		" ! [rejected]        2017        -> 2017 (would clobber existing tag)",
 		" = [up to date]      theta       -> theta",
@@ -140,13 +121,16 @@ func TestPushCmd(t *testing.T) {
 }
 
 func TestPushCmdForce(t *testing.T) {
-	dbs := objmock.NewStore()
-	rss := refmock.NewStore()
+	ts := apitest.NewServer(t)
+	repo, url, _, cleanup := ts.NewRemote(t, true)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
+	cs := ts.GetConfS(repo)
+	require.NoError(t, cs.Save(apitest.ReceivePackConfig(false, true)))
 	sum1, _ := factory.CommitHead(t, dbs, rss, "alpha", nil, nil)
 	sum5, _ := factory.CommitHead(t, dbs, rss, "beta", nil, nil)
 	sum2, _ := factory.CommitTag(t, dbs, rss, "2017", nil, nil, nil)
-	ts := receivePackServer(t, rss, dbs, apitest.ReceivePackConfig(false, true))
-	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -158,7 +142,7 @@ func TestPushCmdForce(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", ts.URL})
+	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	require.NoError(t, cmd.Execute())
 	for _, ref := range []string{
 		"refs/heads/alpha:refs/heads/alpha",
@@ -173,7 +157,7 @@ func TestPushCmdForce(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"push", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		fmt.Sprintf("To %s", ts.URL),
+		fmt.Sprintf("To %s", url),
 		fmt.Sprintf(" + %s...%s alpha       -> alpha (forced update)", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum3)[:7]),
 		" ! [remote rejected]             -> beta (remote does not support deleting refs)",
 		fmt.Sprintf(" + %s...%s 2017        -> 2017 (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum4)[:7]),
@@ -187,11 +171,14 @@ func TestPushCmdForce(t *testing.T) {
 }
 
 func TestPushCmdSetUpstream(t *testing.T) {
-	dbs := objmock.NewStore()
-	rss := refmock.NewStore()
+	ts := apitest.NewServer(t)
+	repo, url, _, cleanup := ts.NewRemote(t, true)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
+	cs := ts.GetConfS(repo)
+	require.NoError(t, cs.Save(apitest.ReceivePackConfig(false, true)))
 	sum1, c1 := factory.CommitHead(t, dbs, rss, "alpha", nil, nil)
-	ts := receivePackServer(t, rss, dbs, apitest.ReceivePackConfig(false, true))
-	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -204,7 +191,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "my-repo", ts.URL})
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
@@ -214,7 +201,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 		"refs/heads/beta:",
 	})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		fmt.Sprintf("To %s", ts.URL),
+		fmt.Sprintf("To %s", url),
 		" = [up to date]      alpha       -> alpha",
 		" * [new branch]      beta        -> beta",
 		"branch \"alpha\" setup to track remote branch \"alpha\" from \"my-repo\"",
@@ -222,7 +209,8 @@ func TestPushCmdSetUpstream(t *testing.T) {
 		"",
 	}, "\n"))
 
-	c, err := local.OpenConfig(false, false, rd.FullPath, "")
+	cs = conffs.NewStore(rd.FullPath, conffs.LocalSource, "")
+	c, err := cs.Open()
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*conf.Branch{
 		"alpha": {
@@ -237,10 +225,11 @@ func TestPushCmdSetUpstream(t *testing.T) {
 }
 
 func TestPushCmdDepthGreaterThanOne(t *testing.T) {
-	dbs := objmock.NewStore()
-	rss := refmock.NewStore()
-	ts := receivePackServer(t, rss, dbs, apitest.ReceivePackConfig(false, false))
-	defer ts.Close()
+	ts := apitest.NewServer(t)
+	repo, url, _, cleanup := ts.NewRemote(t, true)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -255,7 +244,7 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "my-repo", ts.URL})
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
@@ -263,7 +252,7 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 		"push", "my-repo", "refs/heads/alpha:",
 	})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		fmt.Sprintf("To %s", ts.URL),
+		fmt.Sprintf("To %s", url),
 		" * [new branch]      alpha       -> alpha",
 		"",
 	}, "\n"))

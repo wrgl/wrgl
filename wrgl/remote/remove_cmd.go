@@ -5,6 +5,7 @@ package remote
 
 import (
 	"github.com/spf13/cobra"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -19,7 +20,8 @@ func removeCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := local.OpenConfig(false, false, wrglDir, "")
+			s := conffs.NewStore(wrglDir, conffs.LocalSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}
@@ -30,7 +32,7 @@ func removeCmd() *cobra.Command {
 				return err
 			}
 			delete(c.Remote, args[0])
-			return local.SaveConfig(c)
+			return s.Save(c)
 		},
 	}
 	return cmd

@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/local"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -21,7 +21,8 @@ func pullCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := local.AggregateConfig(wrglDir)
+			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}

@@ -14,7 +14,11 @@ func getAllCmd() *cobra.Command {
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
-			c := openConfigToRead(cmd, dir)
+			s := readableConfigStore(cmd, dir)
+			c, err := s.Open()
+			if err != nil {
+				return err
+			}
 			v, err := getFieldValue(c, args[0], false)
 			if err != nil {
 				return fmt.Errorf("key %q is not set", args[0])

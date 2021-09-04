@@ -12,11 +12,11 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-	localhelpers "github.com/wrgl/core/pkg/local/helpers"
+	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
 )
 
 func TestConfigUnsetAllCmd(t *testing.T) {
-	cleanup := localhelpers.MockGlobalConf(t, true)
+	cleanup := confhelpers.MockGlobalConf(t, true)
 	defer cleanup()
 	wrglDir, err := ioutil.TempDir("", ".wrgl*")
 	require.NoError(t, err)

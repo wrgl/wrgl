@@ -21,9 +21,9 @@ import (
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/progress"
@@ -51,7 +51,8 @@ func mergeCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
-			c, err := local.AggregateConfig(rd.FullPath)
+			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}

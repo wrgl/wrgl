@@ -37,5 +37,4 @@ type Config struct {
 	Branch  map[string]*Branch `yaml:"branch,omitempty" json:"branch,omitempty"`
 	Auth    *Auth              `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Pack    *Pack              `yaml:"pack,omitempty" json:"pack,omitempty"`
-	Path    string             `yaml:"-" json:"-"`
 }

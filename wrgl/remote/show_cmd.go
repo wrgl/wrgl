@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/spf13/cobra"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -21,7 +22,8 @@ func showCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := local.OpenConfig(false, false, wrglDir, "")
+			s := conffs.NewStore(wrglDir, conffs.LocalSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}

@@ -11,7 +11,7 @@ import (
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/local"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -24,7 +24,8 @@ func newPushCmd() *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
-			c, err := local.AggregateConfig(wrglDir)
+			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}
@@ -113,7 +114,8 @@ func newPushCmd() *cobra.Command {
 }
 
 func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) error {
-	c, err := local.OpenConfig(false, false, wrglDir, "")
+	s := conffs.NewStore(wrglDir, conffs.LocalSource, "")
+	c, err := s.Open()
 	if err != nil {
 		return err
 	}
@@ -129,7 +131,7 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) 
 			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src[6:], ref.Dst[6:], remote)
 		}
 	}
-	return local.SaveConfig(c)
+	return s.Save(c)
 }
 
 func getRepoToPush(c *conf.Config, args []string) (remote string, cr *conf.Remote, rem []string, err error) {

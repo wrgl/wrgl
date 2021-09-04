@@ -8,22 +8,21 @@ import (
 	"github.com/stretchr/testify/require"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
 	"github.com/wrgl/core/pkg/ref"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
 )
 
 func TestPullCmd(t *testing.T) {
-	dbs := objmock.NewStore()
-	rss := refmock.NewStore()
+	ts := apitest.NewServer(t)
+	repo, url, _, cleanup := ts.NewRemote(t, true)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
 	sum1, c1 := factory.CommitRandom(t, dbs, nil)
 	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
 	sum4, c4 := factory.CommitRandom(t, dbs, nil)
 	sum5, c5 := factory.CommitRandom(t, dbs, [][]byte{sum4})
 	require.NoError(t, ref.CommitHead(rss, "beta", sum5, c5))
-	ts := uploadPackServer(rss, dbs)
-	defer ts.Close()
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -36,7 +35,7 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", ts.URL, "-t", "beta", "-t", "main"})
+	cmd.SetArgs([]string{"remote", "add", "origin", url, "-t", "beta", "-t", "main"})
 	require.NoError(t, cmd.Execute())
 
 	// pull set upstream

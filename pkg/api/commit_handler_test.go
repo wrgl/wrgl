@@ -3,7 +3,6 @@ package api_test
 import (
 	"bytes"
 	"encoding/csv"
-	"encoding/hex"
 	"net/http"
 	"testing"
 
@@ -16,46 +15,11 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-const (
-	headerRequestCaptureMiddlewareKey = "Request-Capture-Middleware-Key"
-)
-
-type requestCaptureMiddleware struct {
-	handler  http.Handler
-	requests map[string]*http.Request
-}
-
-func newRequestCaptureMiddleware(handler http.Handler) *requestCaptureMiddleware {
-	return &requestCaptureMiddleware{
-		handler:  handler,
-		requests: map[string]*http.Request{},
-	}
-}
-
-func (m *requestCaptureMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	if v := r.Header.Get(headerRequestCaptureMiddlewareKey); v != "" {
-		m.requests[v] = &http.Request{}
-		*m.requests[v] = *r
-	}
-	m.handler.ServeHTTP(rw, r)
-}
-
-func (m *requestCaptureMiddleware) Capture(t *testing.T, f func(header http.Header)) *http.Request {
-	t.Helper()
-	k := hex.EncodeToString(testutils.SecureRandomBytes(16))
-	header := http.Header{}
-	header.Set(headerRequestCaptureMiddlewareKey, k)
-	f(header)
-	r, ok := m.requests[k]
-	require.True(t, ok, "request not found for key %q", k)
-	return r
-}
-
 func (s *testSuite) TestCommitHandler(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
 
@@ -142,7 +106,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 }
 
 func (s *testSuite) TestPostCommitCallback(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t, true)
+	repo, cli, _, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
 	var com = &objects.Commit{}
 	var r string
@@ -152,8 +116,8 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 		copy(comSum, sum)
 		r = branch
 	}
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
 

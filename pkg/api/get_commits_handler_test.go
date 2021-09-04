@@ -45,10 +45,10 @@ func assertCommitTreeEqual(t *testing.T, m1, m2 map[string]*payload.Commit) {
 }
 
 func (s *testSuite) TestGetCommits(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 	sum1, com1 := factory.CommitRandom(t, db, nil)
 	sum2, com2 := factory.CommitRandom(t, db, [][]byte{sum1})
 	sum3, com3 := factory.CommitRandom(t, db, nil)

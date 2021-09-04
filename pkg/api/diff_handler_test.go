@@ -24,9 +24,9 @@ func hexFromString(t *testing.T, s string) *payload.Hex {
 }
 
 func (s *testSuite) TestDiffHandler(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
+	db := s.s.GetDB(repo)
 
 	sum1, _ := factory.Commit(t, db, []string{
 		"a,b,c",

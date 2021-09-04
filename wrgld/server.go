@@ -7,86 +7,41 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"regexp"
 	"time"
 
 	apiserver "github.com/wrgl/core/pkg/api/server"
+	"github.com/wrgl/core/pkg/auth"
 	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
-	"github.com/wrgl/core/pkg/router"
 )
 
 type Server struct {
 	srv *http.Server
 	db  objects.Store
+	s   *apiserver.Server
 }
 
-func NewServer(db objects.Store, rs ref.Store, c *conf.Config, readTimeout, writeTimeout time.Duration) *Server {
+func NewServer(authnS auth.AuthnStore, authzS auth.AuthzStore, db objects.Store, rs ref.Store, c conf.Store, readTimeout, writeTimeout time.Duration) *Server {
+	upSessions := apiserver.NewUploadPackSessionMap()
+	rpSessions := apiserver.NewReceivePackSessionMap()
 	s := &Server{
 		srv: &http.Server{
 			ReadTimeout:  readTimeout,
 			WriteTimeout: writeTimeout,
 		},
 		db: db,
+		s: apiserver.NewServer(
+			func(repo string) auth.AuthnStore { return authnS },
+			func(repo string) auth.AuthzStore { return authzS },
+			func(repo string) objects.Store { return db },
+			func(repo string) ref.Store { return rs },
+			func(repo string) conf.Store { return c },
+			func(repo string) apiserver.UploadPackSessionStore { return upSessions },
+			func(repo string) apiserver.ReceivePackSessionStore { return rpSessions },
+		),
 	}
-	s.srv.Handler = RecoveryMiddleware(LoggingMiddleware(router.NewRouter(&router.Routes{
-		Subs: []*router.Routes{
-			{
-				Method:  http.MethodGet,
-				Pat:     regexp.MustCompile(`^/refs/`),
-				Handler: apiserver.NewGetRefsHandler(rs),
-			},
-			{
-				Method:  http.MethodPost,
-				Pat:     regexp.MustCompile(`^/upload-pack/`),
-				Handler: apiserver.NewUploadPackHandler(db, rs, apiserver.NewUploadPackSessionMap(), 0),
-			},
-			{
-				Method:  http.MethodPost,
-				Pat:     regexp.MustCompile(`^/receive-pack/`),
-				Handler: apiserver.NewReceivePackHandler(db, rs, c, apiserver.NewReceivePackSessionMap()),
-			},
-			{
-				Pat: regexp.MustCompile(`^/commits/`),
-				Subs: []*router.Routes{
-					{
-						Method:  http.MethodPost,
-						Handler: apiserver.NewCommitHandler(db, rs),
-					},
-					{
-						Method:  http.MethodGet,
-						Pat:     regexp.MustCompile(`^[0-9a-f]{32}/`),
-						Handler: apiserver.NewGetCommitHandler(db),
-					},
-				}},
-			{
-				Pat: regexp.MustCompile(`^/tables/`),
-				Subs: []*router.Routes{
-					{
-						Method:  http.MethodGet,
-						Pat:     regexp.MustCompile(`^[0-9a-f]{32}/`),
-						Handler: apiserver.NewGetTableHandler(db),
-						Subs: []*router.Routes{
-							{
-								Method:  http.MethodGet,
-								Pat:     regexp.MustCompile(`^blocks/`),
-								Handler: apiserver.NewGetBlocksHandler(db),
-							},
-							{
-								Method:  http.MethodGet,
-								Pat:     regexp.MustCompile(`^rows/`),
-								Handler: apiserver.NewGetRowsHandler(db),
-							},
-						}},
-				}},
-			{
-				Method:  http.MethodGet,
-				Pat:     regexp.MustCompile(`^/diff/[0-9a-f]{32}/[0-9a-f]{32}/`),
-				Handler: apiserver.NewDiffHandler(db),
-			},
-		},
-	})))
+	s.srv.Handler = RecoveryMiddleware(LoggingMiddleware(s.s))
 	return s
 }
 

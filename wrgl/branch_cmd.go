@@ -11,7 +11,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/local"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/slice"
@@ -42,7 +42,8 @@ func newBranchCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
 			wrglDir := utils.MustWRGLDir(cmd)
-			conf, err := local.AggregateConfig(wrglDir)
+			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}
@@ -75,7 +76,7 @@ func newBranchCmd() *cobra.Command {
 				return err
 			}
 			if newBranch != "" {
-				return copyBranch(cmd, conf.User, rs, args[0], newBranch)
+				return copyBranch(cmd, c.User, rs, args[0], newBranch)
 			}
 
 			newBranch, err = cmd.Flags().GetString("move")
@@ -94,7 +95,7 @@ func newBranchCmd() *cobra.Command {
 				return deleteBranch(cmd, rs, args)
 			}
 
-			return createBranch(cmd, conf.User, db, rs, args)
+			return createBranch(cmd, c.User, db, rs, args)
 		},
 	}
 	cmd.Flags().StringSliceP("list", "l", nil, "list branches that match wildcard patterns")

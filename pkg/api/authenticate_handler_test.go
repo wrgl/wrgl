@@ -17,12 +17,12 @@ import (
 )
 
 func (s *testSuite) TestAuthenticate(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t, false)
+	repo, cli, _, cleanup := s.s.NewClient(t, false)
 	defer cleanup()
-	authnS := s.getAuthnS(repo)
-	authzS := s.getAuthzS(repo)
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
+	authnS := s.s.GetAuthnS(repo)
+	authzS := s.s.GetAuthzS(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 	sum1, _ := factory.CommitRandom(t, db, nil)
 	sum2, com := factory.CommitRandom(t, db, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rs, "main", sum2, com))

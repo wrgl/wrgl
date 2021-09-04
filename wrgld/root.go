@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	authfs "github.com/wrgl/core/pkg/auth/fs"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/local"
 )
 
@@ -57,11 +59,24 @@ func newRootCmd() *cobra.Command {
 				return
 			}
 			refstore := rd.OpenRefStore()
-			c, err := local.AggregateConfig(rd.FullPath)
+			cs := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
+			c, err := cs.Open()
 			if err != nil {
 				return
 			}
-			server := NewServer(objstore, refstore, c, readTimeout, writeTimeout)
+			var tokDuration time.Duration
+			if c.Auth != nil && c.Auth.TokenDuration > 0 {
+				tokDuration = c.Auth.TokenDuration
+			}
+			authnS, err := authfs.NewAuthnStore(rd.FullPath, tokDuration)
+			if err != nil {
+				return
+			}
+			authzS, err := authfs.NewAuthzStore(rd.FullPath)
+			if err != nil {
+				return
+			}
+			server := NewServer(authnS, authzS, objstore, refstore, cs, readTimeout, writeTimeout)
 			defer server.Close()
 			return server.Start(fmt.Sprintf(":%d", port))
 		},

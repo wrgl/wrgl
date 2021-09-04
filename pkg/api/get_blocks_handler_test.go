@@ -55,9 +55,9 @@ func assertBlocksBinary(t *testing.T, db objects.Store, blocks [][]byte, resp *h
 }
 
 func (s *testSuite) TestGetBlocksHandler(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
+	db := s.s.GetDB(repo)
 
 	_, com := apitest.CreateRandomCommit(t, db, 5, 700, nil)
 	tbl, err := objects.GetTable(db, com.Table)

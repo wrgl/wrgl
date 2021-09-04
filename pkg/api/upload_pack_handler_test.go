@@ -18,10 +18,10 @@ import (
 )
 
 func (s *testSuite) TestUploadPack(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t, true)
+	repo, cli, _, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 	sum1, c1 := apitest.CreateRandomCommit(t, db, 5, 1000, nil)
 	sum2, c2 := apitest.CreateRandomCommit(t, db, 5, 1000, [][]byte{sum1})
 	sum3, _ := apitest.CreateRandomCommit(t, db, 5, 1000, nil)
@@ -47,11 +47,15 @@ func (s *testSuite) TestUploadPack(t *testing.T) {
 }
 
 func (s *testSuite) TestUploadPackMultiplePackfiles(t *testing.T) {
-	repo, cli, _, cleanup := s.NewClient(t, true)
+	repo, cli, _, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
-	c := s.getConf(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
+	cs := s.s.GetConfS(repo)
+	c, err := cs.Open()
+	if err != nil {
+		panic(err)
+	}
 	c.Pack = &conf.Pack{
 		MaxFileSize: 1024,
 	}
@@ -67,10 +71,10 @@ func (s *testSuite) TestUploadPackMultiplePackfiles(t *testing.T) {
 }
 
 func (s *testSuite) TestUploadPackCustomHeader(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 	sum1, c1 := apitest.CreateRandomCommit(t, db, 3, 4, nil)
 	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
 

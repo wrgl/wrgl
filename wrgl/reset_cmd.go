@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/local"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
 )
@@ -22,7 +22,8 @@ func newResetCmd() *cobra.Command {
 			branch := args[0]
 			rd := getRepoDir(cmd)
 			wrglDir := utils.MustWRGLDir(cmd)
-			conf, err := local.AggregateConfig(wrglDir)
+			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}
@@ -40,7 +41,7 @@ func newResetCmd() *cobra.Command {
 			if len(hash) == 0 {
 				return fmt.Errorf("commit \"%s\" not found", args[1])
 			}
-			return ref.SaveRef(rs, "heads/"+branch, hash, conf.User.Name, conf.User.Email, "reset", "to commit "+hex.EncodeToString(hash))
+			return ref.SaveRef(rs, "heads/"+branch, hash, c.User.Name, c.User.Email, "reset", "to commit "+hex.EncodeToString(hash))
 		},
 	}
 	return cmd

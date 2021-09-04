@@ -42,7 +42,7 @@ type Server struct {
 	getAuthnS    func(repo string) auth.AuthnStore
 	getAuthzS    func(repo string) auth.AuthzStore
 	getRS        func(repo string) ref.Store
-	getConf      func(repo string) *conf.Config
+	getConfS     func(repo string) conf.Store
 	getUpSession func(repo string) UploadPackSessionStore
 	getRPSession func(repo string) ReceivePackSessionStore
 	postCommit   func(commit *objects.Commit, sum []byte, branch string)
@@ -51,7 +51,7 @@ type Server struct {
 
 func NewServer(
 	getAuthnS func(repo string) auth.AuthnStore, getAuthzS func(repo string) auth.AuthzStore, getDB func(repo string) objects.Store,
-	getRS func(repo string) ref.Store, getConf func(repo string) *conf.Config, getUpSession func(repo string) UploadPackSessionStore,
+	getRS func(repo string) ref.Store, getConfS func(repo string) conf.Store, getUpSession func(repo string) UploadPackSessionStore,
 	getRPSession func(repo string) ReceivePackSessionStore, opts ...ServerOption,
 ) *Server {
 	s := &Server{
@@ -59,7 +59,7 @@ func NewServer(
 		getAuthnS:    getAuthnS,
 		getAuthzS:    getAuthzS,
 		getRS:        getRS,
-		getConf:      getConf,
+		getConfS:     getConfS,
 		getUpSession: getUpSession,
 		getRPSession: getRPSession,
 	}
@@ -69,6 +69,19 @@ func NewServer(
 				Method:      http.MethodPost,
 				Pat:         regexp.MustCompile(`^/authenticate/`),
 				HandlerFunc: s.handleAuthenticate,
+			},
+			{
+				Pat: regexp.MustCompile(`^/config/`),
+				Subs: []*router.Routes{
+					{
+						Method:      http.MethodGet,
+						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetConfig, auth.ScopeReadConfig)),
+					},
+					{
+						Method:      http.MethodPut,
+						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handlePutConfig, auth.ScopeWriteConfig)),
+					},
+				},
 			},
 			{
 				Pat: regexp.MustCompile(`^/refs/`),
@@ -198,6 +211,10 @@ func (s *Server) authorizeMiddleware(handle http.HandlerFunc, requiredScope stri
 func (s *Server) RepoHandler(repo string) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		r = setRepo(r, repo)
-		s.router.ServeHTTP(rw, r)
+		s.ServeHTTP(rw, r)
 	}
+}
+
+func (s *Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	s.router.ServeHTTP(rw, r)
 }

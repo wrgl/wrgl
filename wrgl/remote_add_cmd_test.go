@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/local"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 )
 
 func TestRemoteAddCmd(t *testing.T) {
@@ -55,7 +55,9 @@ func TestRemoteAddCmd(t *testing.T) {
 	}, "\n"))
 
 	// test config
-	c, err := local.OpenConfig(false, false, viper.GetString("wrgl_dir"), "")
+
+	cs := conffs.NewStore(viper.GetString("wrgl_dir"), conffs.LocalSource, "")
+	c, err := cs.Open()
 	require.NoError(t, err)
 	assert.Equal(t, map[string]*conf.Remote{
 		"acme": {

@@ -5,7 +5,6 @@ package config
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/wrgl/utils"
 )
 
@@ -16,7 +15,11 @@ func unsetAllCmd() *cobra.Command {
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
-			c := openConfigToWrite(cmd, dir)
+			s := writeableConfigStore(cmd, dir)
+			c, err := s.Open()
+			if err != nil {
+				return err
+			}
 			if len(args) > 1 {
 				v, err := getFieldValue(c, args[0], false)
 				if err != nil {
@@ -56,7 +59,7 @@ func unsetAllCmd() *cobra.Command {
 					return err
 				}
 			}
-			return local.SaveConfig(c)
+			return s.Save(c)
 		},
 	}
 	return cmd

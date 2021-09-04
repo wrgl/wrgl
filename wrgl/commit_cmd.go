@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
+	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/objects"
@@ -45,7 +46,8 @@ func newCommitCmd() *cobra.Command {
 			}
 			rd := getRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
-			c, err := local.AggregateConfig(rd.FullPath)
+			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}

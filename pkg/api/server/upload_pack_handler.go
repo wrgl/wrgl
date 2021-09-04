@@ -37,7 +37,11 @@ func (s *Server) getUploadPackSession(r *http.Request, sessions UploadPackSessio
 		repo := getRepo(r)
 		db := s.getDB(repo)
 		rs := s.getRS(repo)
-		c := s.getConf(repo)
+		cs := s.getConfS(repo)
+		c, err := cs.Open()
+		if err != nil {
+			panic(err)
+		}
 		var size uint64
 		if c.Pack != nil && c.Pack.MaxFileSize > 0 {
 			size = c.Pack.MaxFileSize

@@ -1,4 +1,4 @@
-package localhelpers
+package confhelpers
 
 import (
 	"io/ioutil"

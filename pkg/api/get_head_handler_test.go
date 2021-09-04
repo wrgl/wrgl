@@ -13,10 +13,10 @@ import (
 )
 
 func (s *testSuite) TestGetHead(t *testing.T) {
-	repo, cli, m, cleanup := s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true)
 	defer cleanup()
-	db := s.getDB(repo)
-	rs := s.getRS(repo)
+	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 	parent, _ := factory.CommitRandom(t, db, nil)
 	sum, com := factory.CommitRandom(t, db, [][]byte{parent})
 	require.NoError(t, ref.CommitHead(rs, "main", sum, com))

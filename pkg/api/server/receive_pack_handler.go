@@ -37,7 +37,11 @@ func (s *Server) getReceivePackSession(r *http.Request, sessions ReceivePackSess
 		repo := getRepo(r)
 		db := s.getDB(repo)
 		rs := s.getRS(repo)
-		c := s.getConf(repo)
+		cs := s.getConfS(repo)
+		c, err := cs.Open()
+		if err != nil {
+			panic(err)
+		}
 		ses = NewReceivePackSession(db, rs, c, sid)
 		sessions.Set(sid, ses)
 	}

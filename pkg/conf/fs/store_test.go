@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package local
+package conffs
 
 import (
 	"io/ioutil"
@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/conf"
-	localhelpers "github.com/wrgl/core/pkg/local/helpers"
+	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -25,32 +25,33 @@ func randomConfig() *conf.Config {
 }
 
 func TestOpenSystemConfig(t *testing.T) {
-	cleanup := localhelpers.MockSystemConf(t)
+	cleanup := confhelpers.MockSystemConf(t)
 	defer cleanup()
 
+	s := NewStore("", SystemSource, "")
 	c1 := randomConfig()
-	c1.Path = systemConfigPath()
-	require.NoError(t, SaveConfig(c1))
+	require.NoError(t, s.Save(c1))
 
-	c2, err := OpenConfig(true, false, "", "")
+	c2, err := s.Open()
 	require.NoError(t, err)
 	assert.Equal(t, c1, c2)
 }
 
 func TestOpenGlobalConfig(t *testing.T) {
 	for _, b := range []bool{true, false} {
-		cleanup := localhelpers.MockGlobalConf(t, b)
+		cleanup := confhelpers.MockGlobalConf(t, b)
 		defer cleanup()
 
-		c1, err := OpenConfig(false, true, "", "")
+		s := NewStore("", GlobalSource, "")
+		c1, err := s.Open()
 		require.NoError(t, err)
 		c1.User = &conf.User{
 			Name:  "John Doe",
 			Email: "john@domain.com",
 		}
-		require.NoError(t, SaveConfig(c1))
+		require.NoError(t, s.Save(c1))
 
-		c2, err := OpenConfig(false, true, "", "")
+		c2, err := s.Open()
 		require.NoError(t, err)
 		assert.Equal(t, c1, c2)
 	}
@@ -61,15 +62,16 @@ func TestOpenLocalConfig(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(rd)
 
-	c1, err := OpenConfig(false, false, rd, "")
+	s := NewStore(rd, LocalSource, "")
+	c1, err := s.Open()
 	require.NoError(t, err)
 	c1.User = &conf.User{
 		Name:  "John Doe",
 		Email: "john@domain.com",
 	}
-	require.NoError(t, SaveConfig(c1))
+	require.NoError(t, s.Save(c1))
 
-	c2, err := OpenConfig(false, false, rd, "")
+	c2, err := s.Open()
 	require.NoError(t, err)
 	assert.Equal(t, c1, c2)
 }
@@ -80,26 +82,27 @@ func TestOpenFileConfig(t *testing.T) {
 	require.NoError(t, f.Close())
 	defer os.Remove(f.Name())
 
+	s := NewStore("", FileSource, f.Name())
 	c1 := randomConfig()
-	c1.Path = f.Name()
-	require.NoError(t, SaveConfig(c1))
+	require.NoError(t, s.Save(c1))
 
-	c2, err := OpenConfig(false, false, "", f.Name())
+	c2, err := s.Open()
 	require.NoError(t, err)
 	assert.Equal(t, c1, c2)
 }
 
 func TestAggregateConfig(t *testing.T) {
-	cleanup := localhelpers.MockSystemConf(t)
+	cleanup := confhelpers.MockSystemConf(t)
 	defer cleanup()
-	cleanup = localhelpers.MockGlobalConf(t, true)
+	cleanup = confhelpers.MockGlobalConf(t, true)
 	defer cleanup()
 	rd, err := ioutil.TempDir("", "test_wrgl_config")
 	require.NoError(t, err)
 	defer os.RemoveAll(rd)
 
 	// write system config
-	c, err := OpenConfig(true, false, rd, "")
+	s := NewStore(rd, SystemSource, "")
+	c, err := s.Open()
 	require.NoError(t, err)
 	yes := true
 	no := false
@@ -107,19 +110,20 @@ func TestAggregateConfig(t *testing.T) {
 		DenyNonFastForwards: &yes,
 		DenyDeletes:         &yes,
 	}
-	require.NoError(t, SaveConfig(c))
+	require.NoError(t, s.Save(c))
 
 	// write global config
-	c, err = OpenConfig(false, true, rd, "")
+	s = NewStore(rd, GlobalSource, "")
+	c, err = s.Open()
 	require.NoError(t, err)
 	c.User = &conf.User{
 		Name:  "Jane Lane",
 		Email: "jane@domain.com",
 	}
-	require.NoError(t, SaveConfig(c))
+	require.NoError(t, s.Save(c))
 
 	// write local config
-	c, err = OpenConfig(false, false, rd, "")
+	s = NewStore(rd, LocalSource, "")
 	require.NoError(t, err)
 	c.Remote = map[string]*conf.Remote{
 		"origin": {
@@ -134,10 +138,11 @@ func TestAggregateConfig(t *testing.T) {
 	c.Receive = &conf.Receive{
 		DenyDeletes: &no,
 	}
-	require.NoError(t, SaveConfig(c))
+	require.NoError(t, s.Save(c))
 
 	// aggregate
-	c, err = AggregateConfig(rd)
+	s = NewStore(rd, AggregateSource, "")
+	c, err = s.Open()
 	require.NoError(t, err)
 	assert.Equal(t, &conf.Config{
 		User: &conf.User{
@@ -159,5 +164,5 @@ func TestAggregateConfig(t *testing.T) {
 			DenyDeletes:         &no,
 		},
 	}, c)
-	assert.Error(t, SaveConfig(c))
+	assert.Error(t, s.Save(c))
 }

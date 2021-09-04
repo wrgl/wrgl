@@ -10,12 +10,12 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-	localhelpers "github.com/wrgl/core/pkg/local/helpers"
+	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
 )
 
 func TestConfigSetCmd(t *testing.T) {
-	defer localhelpers.MockGlobalConf(t, true)()
-	defer localhelpers.MockSystemConf(t)()
+	defer confhelpers.MockGlobalConf(t, true)()
+	defer confhelpers.MockSystemConf(t)()
 	wrglDir, err := ioutil.TempDir("", ".wrgl*")
 	require.NoError(t, err)
 	defer os.RemoveAll(wrglDir)
@@ -51,8 +51,8 @@ func TestConfigSetCmd(t *testing.T) {
 }
 
 func TestConfigSetCmdBool(t *testing.T) {
-	defer localhelpers.MockGlobalConf(t, true)()
-	defer localhelpers.MockSystemConf(t)()
+	defer confhelpers.MockGlobalConf(t, true)()
+	defer confhelpers.MockSystemConf(t)()
 	wrglDir, err := ioutil.TempDir("", ".wrgl*")
 	require.NoError(t, err)
 	defer os.RemoveAll(wrglDir)
