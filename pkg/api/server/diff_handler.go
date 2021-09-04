@@ -36,10 +36,6 @@ func (s *Server) getTable(db objects.Store, x string) (*objects.Table, [][]strin
 }
 
 func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(rw, "forbidden", http.StatusForbidden)
-		return
-	}
 	m := diffURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
 		http.NotFound(rw, r)

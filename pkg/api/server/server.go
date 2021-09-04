@@ -71,9 +71,18 @@ func NewServer(
 				HandlerFunc: s.handleAuthenticate,
 			},
 			{
-				Method:      http.MethodGet,
-				Pat:         regexp.MustCompile(`^/refs/`),
-				HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetRefs, auth.ScopeRead)),
+				Pat: regexp.MustCompile(`^/refs/`),
+				Subs: []*router.Routes{
+					{
+						Method:      http.MethodGet,
+						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetRefs, auth.ScopeRead)),
+					},
+					{
+						Method:      http.MethodGet,
+						Pat:         regexp.MustCompile(`^heads/[-_0-9a-zA-Z]+/`),
+						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetHead, auth.ScopeRead)),
+					},
+				},
 			},
 			{
 				Method:      http.MethodPost,
@@ -91,6 +100,10 @@ func NewServer(
 					{
 						Method:      http.MethodPost,
 						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleCommit, auth.ScopeWrite)),
+					},
+					{
+						Method:      http.MethodGet,
+						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetCommits, auth.ScopeRead)),
 					},
 					{
 						Method:      http.MethodGet,

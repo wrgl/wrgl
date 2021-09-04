@@ -16,12 +16,10 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-type mockHandler struct {
-	msg string
-}
-
-func (h *mockHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	rw.Write([]byte(h.msg))
+func mockHandler(msg string) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		rw.Write([]byte(msg))
+	}
 }
 
 func assertResponse(t *testing.T, handler http.Handler, method, path string, status int, resp string) {
@@ -47,16 +45,16 @@ func assertRedirect(t *testing.T, handler http.Handler, method, path string, sta
 func TestRouter(t *testing.T) {
 	router := NewRouter(&Routes{
 		Subs: []*Routes{
-			{http.MethodGet, regexp.MustCompile(`^/refs/`), &mockHandler{"get refs"}, nil},
-			{http.MethodPost, regexp.MustCompile(`^/upload-pack/`), &mockHandler{"upload pack"}, nil},
-			{http.MethodGet, regexp.MustCompile(`^/diff/[0-9a-z]{32}/[0-9a-z]{32}/`), &mockHandler{"diff"}, nil},
+			{http.MethodGet, regexp.MustCompile(`^/refs/`), mockHandler("get refs"), nil},
+			{http.MethodPost, regexp.MustCompile(`^/upload-pack/`), mockHandler("upload pack"), nil},
+			{http.MethodGet, regexp.MustCompile(`^/diff/[0-9a-z]{32}/[0-9a-z]{32}/`), mockHandler("diff"), nil},
 			{"", regexp.MustCompile(`^/commits/`), nil, []*Routes{
-				{http.MethodPost, nil, &mockHandler{"commit"}, nil},
-				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), &mockHandler{"get commit"}, nil},
+				{http.MethodPost, nil, mockHandler("commit"), nil},
+				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), mockHandler("get commit"), nil},
 			}},
 			{"", regexp.MustCompile(`^/tables/`), nil, []*Routes{
-				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), &mockHandler{"get table"}, []*Routes{
-					{http.MethodGet, regexp.MustCompile(`^blocks/`), &mockHandler{"get blocks"}, nil},
+				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), mockHandler("get table"), []*Routes{
+					{http.MethodGet, regexp.MustCompile(`^blocks/`), mockHandler("get blocks"), nil},
 				}},
 			}},
 		},
@@ -83,7 +81,7 @@ func TestRouterWithPrefix(t *testing.T) {
 	router := NewRouter(&Routes{
 		Pat: regexp.MustCompile(`^/repos/[0-9a-f]{32}/`),
 		Subs: []*Routes{
-			{http.MethodGet, regexp.MustCompile(`^refs/`), &mockHandler{"get refs"}, nil},
+			{http.MethodGet, regexp.MustCompile(`^refs/`), mockHandler("get refs"), nil},
 		},
 	})
 	assertResponse(t, router, http.MethodGet, fmt.Sprintf("/repos/%x/refs/", testutils.SecureRandomBytes(16)), 200, "get refs")

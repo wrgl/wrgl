@@ -11,10 +11,6 @@ import (
 )
 
 func (s *Server) handleGetRefs(rw http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(rw, "forbidden", http.StatusForbidden)
-		return
-	}
 	repo := getRepo(r)
 	rs := s.getRS(repo)
 	refs, err := ref.ListLocalRefs(rs)

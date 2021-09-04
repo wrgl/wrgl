@@ -19,10 +19,6 @@ import (
 var blocksURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/blocks/`)
 
 func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(rw, "forbidden", http.StatusForbidden)
-		return
-	}
 	m := blocksURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
 		http.NotFound(rw, r)

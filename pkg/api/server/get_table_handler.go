@@ -15,10 +15,6 @@ import (
 var tableURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/`)
 
 func (s *Server) handleGetTable(rw http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(rw, "forbidden", http.StatusForbidden)
-		return
-	}
 	m := tableURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
 		http.NotFound(rw, r)

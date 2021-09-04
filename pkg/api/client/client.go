@@ -94,7 +94,7 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 	return
 }
 
-func (c *Client) Authenticate(email, password string) (token string, err error) {
+func (c *Client) Authenticate(email, password string, opts ...RequestOption) (token string, err error) {
 	b, err := json.Marshal(&payload.AuthenticateRequest{
 		Email:    email,
 		Password: password,
@@ -104,7 +104,7 @@ func (c *Client) Authenticate(email, password string) (token string, err error) 
 	}
 	resp, err := c.Request(http.MethodPost, "/authenticate/", bytes.NewReader(b), map[string]string{
 		"Content-Type": CTJSON,
-	})
+	}, opts...)
 	if err != nil {
 		return
 	}
@@ -122,6 +122,52 @@ func (c *Client) Authenticate(email, password string) (token string, err error) 
 		return
 	}
 	return ar.IDToken, nil
+}
+
+func (c *Client) GetHead(branch string, opts ...RequestOption) (com *payload.Commit, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/refs/heads/%s/", branch), nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	com = &payload.Commit{}
+	err = json.Unmarshal(b, com)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (c *Client) GetCommits(ref string, minDepth, maxDepth int, opts ...RequestOption) (gcr *payload.GetCommitsResponse, err error) {
+	query := url.Values{}
+	query.Set("ref", ref)
+	query.Set("minDepth", strconv.Itoa(minDepth))
+	query.Set("maxDepth", strconv.Itoa(maxDepth))
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/commits/?%s", query.Encode()), nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	gcr = &payload.GetCommitsResponse{}
+	err = json.Unmarshal(b, gcr)
+	if err != nil {
+		return nil, err
+	}
+	return
 }
 
 func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error) {
@@ -278,7 +324,7 @@ func (c *Client) GetRows(sum []byte, offsets []int, opts ...RequestOption) (resp
 	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/rows/%s", sum, qs), nil, nil, opts...)
 }
 
-func (c *Client) GetCommit(sum []byte, opts ...RequestOption) (cr *payload.GetCommitResponse, err error) {
+func (c *Client) GetCommit(sum []byte, opts ...RequestOption) (cr *payload.Commit, err error) {
 	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/commits/%x/", sum), nil, nil, opts...)
 	if err != nil {
 		return
@@ -286,7 +332,7 @@ func (c *Client) GetCommit(sum []byte, opts ...RequestOption) (cr *payload.GetCo
 	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
-	cr = &payload.GetCommitResponse{}
+	cr = &payload.Commit{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

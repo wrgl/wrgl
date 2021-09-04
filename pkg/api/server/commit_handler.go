@@ -15,10 +15,6 @@ import (
 )
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(rw, "forbidden", http.StatusForbidden)
-		return
-	}
 	err := r.ParseMultipartForm(0)
 	if err != nil {
 		if err == http.ErrNotMultipart || err == http.ErrMissingBoundary {

@@ -45,10 +45,6 @@ func (s *Server) getReceivePackSession(r *http.Request, sessions ReceivePackSess
 }
 
 func (s *Server) handleReceivePack(rw http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(rw, "forbidden", http.StatusForbidden)
-		return
-	}
 	repo := getRepo(r)
 	sessions := s.getRPSession(repo)
 	ses, sid, err := s.getReceivePackSession(r, sessions)

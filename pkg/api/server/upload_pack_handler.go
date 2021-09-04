@@ -49,10 +49,6 @@ func (s *Server) getUploadPackSession(r *http.Request, sessions UploadPackSessio
 }
 
 func (s *Server) handleUploadPack(rw http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(rw, "forbidden", http.StatusForbidden)
-		return
-	}
 	repo := getRepo(r)
 	sessions := s.getUpSession(repo)
 	ses, sid, err := s.getUploadPackSession(r, sessions)
