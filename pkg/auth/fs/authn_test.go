@@ -24,7 +24,7 @@ func TestAuthnStore(t *testing.T) {
 	require.NoError(t, err)
 
 	peoples := map[string]string{}
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		email := fmt.Sprintf("%s@%s.com", testutils.BrokenRandomLowerAlphaString(8), testutils.BrokenRandomLowerAlphaString(8))
 		pass := testutils.BrokenRandomAlphaNumericString(10)
 		peoples[email] = pass
@@ -42,7 +42,7 @@ func TestAuthnStore(t *testing.T) {
 	}
 	emails, err := s.ListUsers()
 	require.NoError(t, err)
-	assert.Len(t, emails, 5)
+	assert.Len(t, emails, 10)
 	for _, email := range emails {
 		_, ok := peoples[email]
 		assert.True(t, ok)
@@ -50,21 +50,13 @@ func TestAuthnStore(t *testing.T) {
 
 	require.NoError(t, s.Flush())
 
-	s, err = NewAuthnStore(dir, 5*time.Second)
+	s, err = NewAuthnStore(dir, 0)
 	require.NoError(t, err)
-	start := time.Now()
 	for email := range peoples {
 		assert.True(t, s.Exist(email))
 		c, err := s.CheckToken(tokens[email])
 		require.NoError(t, err)
 		assert.Equal(t, email, c.Email)
-	}
-
-	time.Sleep(5*time.Second - time.Since(start))
-
-	for email := range peoples {
-		_, err := s.CheckToken(tokens[email])
-		assert.Error(t, err)
 	}
 
 	for email, pass := range peoples {
