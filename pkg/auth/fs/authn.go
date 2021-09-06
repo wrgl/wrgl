@@ -30,7 +30,6 @@ func NewAuthnStore(rootDir string, tokenDuration time.Duration) (s *AuthnStore, 
 	if tokenDuration == 0 {
 		tokenDuration = DefaultTokenDuration
 	}
-	fmt.Printf("token duration: %v\n", tokenDuration)
 	s = &AuthnStore{
 		rootDir:       rootDir,
 		tokenDuration: tokenDuration,

@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,7 @@ func TestAuthnStore(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 
-	s, err := NewAuthnStore(dir, 1*time.Second)
+	s, err := NewAuthnStore(dir, 0)
 	require.NoError(t, err)
 
 	peoples := map[string]string{}
