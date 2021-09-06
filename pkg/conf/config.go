@@ -38,3 +38,17 @@ type Config struct {
 	Auth    *Auth              `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Pack    *Pack              `yaml:"pack,omitempty" json:"pack,omitempty"`
 }
+
+func (c *Config) TokenDuration() time.Duration {
+	if c.Auth != nil {
+		return c.Auth.TokenDuration
+	}
+	return 0
+}
+
+func (c *Config) MaxPackFileSize() uint64 {
+	if c.Pack != nil {
+		return c.Pack.MaxFileSize
+	}
+	return 0
+}

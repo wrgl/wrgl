@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/wrgl/core/wrgl/auth"
 	"github.com/wrgl/core/wrgl/config"
 	"github.com/wrgl/core/wrgl/credentials"
 	"github.com/wrgl/core/wrgl/reflog"
@@ -87,6 +88,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(remote.RootCmd())
 	rootCmd.AddCommand(reflog.RootCmd())
 	rootCmd.AddCommand(credentials.RootCmd())
+	rootCmd.AddCommand(auth.RootCmd())
 	return rootCmd
 }
 

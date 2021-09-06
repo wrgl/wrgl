@@ -6,14 +6,12 @@ package credentials
 import (
 	"bufio"
 	"net/url"
-	"syscall"
 
 	"github.com/spf13/cobra"
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/credentials"
 	"github.com/wrgl/core/wrgl/utils"
-	"golang.org/x/term"
 )
 
 func authenticateCmd() *cobra.Command {
@@ -55,8 +53,7 @@ func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string) (uri
 	if err != nil {
 		return nil, "", err
 	}
-	cmd.Print("Password: ")
-	bytePassword, err := term.ReadPassword(syscall.Stdin)
+	password, err := utils.PromptForPassword(cmd)
 	if err != nil {
 		return nil, "", err
 	}
@@ -64,7 +61,7 @@ func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string) (uri
 	if err != nil {
 		return nil, "", err
 	}
-	token, err = client.Authenticate(email, string(bytePassword))
+	token, err = client.Authenticate(email, password)
 	if err != nil {
 		return nil, "", err
 	}

@@ -155,3 +155,15 @@ func (s *AuthnStore) RemoveUser(email string) error {
 	}
 	return nil
 }
+
+func (s *AuthnStore) ListUsers() (emails []string, err error) {
+	emails = make([]string, s.Len())
+	for i, entry := range s.sl {
+		emails[i] = entry[0]
+	}
+	return emails, nil
+}
+
+func (s *AuthnStore) Exist(email string) bool {
+	return s.findUserIndex(email) != -1
+}

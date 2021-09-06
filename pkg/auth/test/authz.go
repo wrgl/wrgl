@@ -43,3 +43,10 @@ func (s *AuthzStore) Authorized(email, scope string) (bool, error) {
 func (s *AuthzStore) Flush() error {
 	return nil
 }
+
+func (s *AuthzStore) ListPolicies(email string) (scopes []string, err error) {
+	if sl, ok := s.m[email]; ok {
+		return sl, nil
+	}
+	return nil, nil
+}

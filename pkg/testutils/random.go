@@ -4,6 +4,7 @@
 package testutils
 
 import (
+	"fmt"
 	"math/rand"
 )
 
@@ -55,4 +56,11 @@ func BrokenRandomAlphaNumericString(length int) string {
 
 func BrokenRandomLowerAlphaString(length int) string {
 	return brokenRandomString(length, lowerAlphaBytes)
+}
+
+func RandomEmail() string {
+	return fmt.Sprintf("%s@%s.com",
+		BrokenRandomLowerAlphaString(8),
+		BrokenRandomLowerAlphaString(8),
+	)
 }

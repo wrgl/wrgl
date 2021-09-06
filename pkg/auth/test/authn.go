@@ -2,6 +2,7 @@ package authtest
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/wrgl/core/pkg/auth"
 )
@@ -44,4 +45,18 @@ func (s *AuthnStore) RemoveUser(email string) error {
 
 func (s *AuthnStore) Flush() error {
 	return nil
+}
+
+func (s *AuthnStore) ListUsers() (emails []string, err error) {
+	emails = make([]string, len(s.m))
+	for email := range s.m {
+		emails = append(emails, email)
+	}
+	sort.Strings(emails)
+	return emails, nil
+}
+
+func (s *AuthnStore) Exist(email string) bool {
+	_, ok := s.m[email]
+	return ok
 }

@@ -14,5 +14,6 @@ type AuthzStore interface {
 	AddPolicy(email, scope string) error
 	RemovePolicy(email, scope string) error
 	Authorized(email, scope string) (bool, error)
+	ListPolicies(email string) (scopes []string, err error)
 	Flush() error
 }

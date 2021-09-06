@@ -62,3 +62,12 @@ func (s *AuthzStore) Authorized(email, act string) (bool, error) {
 func (s *AuthzStore) Flush() error {
 	return s.e.SavePolicy()
 }
+
+func (s *AuthzStore) ListPolicies(email string) (scopes []string, err error) {
+	policies := s.e.GetFilteredPolicy(0, email, "-")
+	scopes = make([]string, len(policies))
+	for i, sl := range policies {
+		scopes[i] = sl[2]
+	}
+	return scopes, nil
+}

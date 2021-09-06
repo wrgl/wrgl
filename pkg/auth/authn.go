@@ -8,5 +8,7 @@ type AuthnStore interface {
 	Authenticate(email, password string) (token string, err error)
 	CheckToken(token string) (claims *Claims, err error)
 	RemoveUser(email string) error
+	ListUsers() (emails []string, err error)
+	Exist(email string) bool
 	Flush() error
 }

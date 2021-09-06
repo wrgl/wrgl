@@ -23,51 +23,62 @@ func TestAuthnStore(t *testing.T) {
 	s, err := NewAuthnStore(dir, 1*time.Second)
 	require.NoError(t, err)
 
-	peoples := make([][]string, 10)
-	for i := range peoples {
-		peoples[i] = []string{
-			fmt.Sprintf("%s@%s.com", testutils.BrokenRandomLowerAlphaString(8), testutils.BrokenRandomLowerAlphaString(8)),
-			testutils.BrokenRandomAlphaNumericString(10),
-		}
-		require.NoError(t, s.SetPassword(peoples[i][0], peoples[i][1]))
+	peoples := map[string]string{}
+	for i := 0; i < 10; i++ {
+		email := fmt.Sprintf("%s@%s.com", testutils.BrokenRandomLowerAlphaString(8), testutils.BrokenRandomLowerAlphaString(8))
+		pass := testutils.BrokenRandomAlphaNumericString(10)
+		peoples[email] = pass
+		require.NoError(t, s.SetPassword(email, pass))
+		assert.True(t, s.Exist(email))
 	}
 
-	tokens := make([]string, len(peoples))
-	for i, sl := range peoples {
-		ts, err := s.Authenticate(sl[0], sl[1])
+	tokens := map[string]string{}
+	for email, pass := range peoples {
+		ts, err := s.Authenticate(email, pass)
 		require.NoError(t, err)
-		tokens[i] = ts
-		_, err = s.Authenticate(sl[0], testutils.BrokenRandomAlphaNumericString(10))
+		tokens[email] = ts
+		_, err = s.Authenticate(email, testutils.BrokenRandomAlphaNumericString(10))
 		assert.Error(t, err)
 	}
+	emails, err := s.ListUsers()
+	require.NoError(t, err)
+	assert.Len(t, emails, 10)
+	for _, email := range emails {
+		_, ok := peoples[email]
+		assert.True(t, ok)
+	}
+
 	require.NoError(t, s.Flush())
 
 	s, err = NewAuthnStore(dir, 1*time.Second)
 	require.NoError(t, err)
-	for i, sl := range peoples {
-		c, err := s.CheckToken(tokens[i])
+	for email := range peoples {
+		assert.True(t, s.Exist(email))
+		c, err := s.CheckToken(tokens[email])
 		require.NoError(t, err)
-		assert.Equal(t, sl[0], c.Email)
+		assert.Equal(t, email, c.Email)
 	}
 
 	time.Sleep(2 * time.Second)
 
-	for i := range peoples {
-		_, err := s.CheckToken(tokens[i])
+	for email := range peoples {
+		_, err := s.CheckToken(tokens[email])
 		assert.Error(t, err)
 	}
 
-	for _, sl := range peoples {
-		require.NoError(t, s.RemoveUser(sl[0]))
-		_, err = s.Authenticate(sl[0], sl[1])
+	for email, pass := range peoples {
+		require.NoError(t, s.RemoveUser(email))
+		_, err = s.Authenticate(email, pass)
 		assert.Error(t, err)
+		assert.False(t, s.Exist(email))
 	}
 	require.NoError(t, s.Flush())
 
 	s, err = NewAuthnStore(dir, 0)
 	require.NoError(t, err)
-	for _, sl := range peoples {
-		_, err = s.Authenticate(sl[0], sl[1])
+	for email, pass := range peoples {
+		_, err = s.Authenticate(email, pass)
 		assert.Error(t, err)
+		assert.False(t, s.Exist(email))
 	}
 }
