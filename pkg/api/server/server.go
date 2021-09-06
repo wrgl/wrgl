@@ -38,21 +38,21 @@ func WithPostCommitCallback(postCommit func(commit *objects.Commit, sum []byte, 
 }
 
 type Server struct {
-	getDB        func(repo string) objects.Store
-	getAuthnS    func(repo string) auth.AuthnStore
-	getAuthzS    func(repo string) auth.AuthzStore
-	getRS        func(repo string) ref.Store
-	getConfS     func(repo string) conf.Store
-	getUpSession func(repo string) UploadPackSessionStore
-	getRPSession func(repo string) ReceivePackSessionStore
+	getDB        func(r *http.Request) objects.Store
+	getAuthnS    func(r *http.Request) auth.AuthnStore
+	getAuthzS    func(r *http.Request) auth.AuthzStore
+	getRS        func(r *http.Request) ref.Store
+	getConfS     func(r *http.Request) conf.Store
+	getUpSession func(r *http.Request) UploadPackSessionStore
+	getRPSession func(r *http.Request) ReceivePackSessionStore
 	postCommit   func(commit *objects.Commit, sum []byte, branch string)
 	router       *router.Router
 }
 
 func NewServer(
-	getAuthnS func(repo string) auth.AuthnStore, getAuthzS func(repo string) auth.AuthzStore, getDB func(repo string) objects.Store,
-	getRS func(repo string) ref.Store, getConfS func(repo string) conf.Store, getUpSession func(repo string) UploadPackSessionStore,
-	getRPSession func(repo string) ReceivePackSessionStore, opts ...ServerOption,
+	getAuthnS func(r *http.Request) auth.AuthnStore, getAuthzS func(r *http.Request) auth.AuthzStore, getDB func(r *http.Request) objects.Store,
+	getRS func(r *http.Request) ref.Store, getConfS func(r *http.Request) conf.Store, getUpSession func(r *http.Request) UploadPackSessionStore,
+	getRPSession func(r *http.Request) ReceivePackSessionStore, opts ...ServerOption,
 ) *Server {
 	s := &Server{
 		getDB:        getDB,
@@ -157,24 +157,10 @@ func NewServer(
 	return s
 }
 
-type repoKey struct{}
-
-func setRepo(r *http.Request, repo string) *http.Request {
-	return r.WithContext(context.WithValue(r.Context(), repoKey{}, repo))
-}
-
-func getRepo(r *http.Request) string {
-	if i := r.Context().Value(repoKey{}); i != nil {
-		return i.(string)
-	}
-	return ""
-}
-
 func (s *Server) authenticateMiddleware(handle http.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		if h := r.Header.Get("Authorization"); h != "" && strings.HasPrefix(h, "Bearer ") {
-			repo := getRepo(r)
-			authnS := s.getAuthnS(repo)
+			authnS := s.getAuthnS(r)
 			claims, err := authnS.CheckToken(h[7:])
 			if err != nil {
 				if strings.HasPrefix(err.Error(), "unexpected signing method: ") || err.Error() == "invalid token" {
@@ -191,8 +177,7 @@ func (s *Server) authenticateMiddleware(handle http.HandlerFunc) http.HandlerFun
 
 func (s *Server) authorizeMiddleware(handle http.HandlerFunc, requiredScope string) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		repo := getRepo(r)
-		authzS := s.getAuthzS(repo)
+		authzS := s.getAuthzS(r)
 		email := getEmail(r)
 		if ok, err := authzS.Authorized(email, requiredScope); err != nil {
 			panic(err)
@@ -205,13 +190,6 @@ func (s *Server) authorizeMiddleware(handle http.HandlerFunc, requiredScope stri
 			return
 		}
 		handle(rw, r)
-	}
-}
-
-func (s *Server) RepoHandler(repo string) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		r = setRepo(r, repo)
-		s.ServeHTTP(rw, r)
 	}
 }
 

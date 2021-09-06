@@ -34,10 +34,9 @@ func (s *Server) getUploadPackSession(r *http.Request, sessions UploadPackSessio
 		if err != nil {
 			return
 		}
-		repo := getRepo(r)
-		db := s.getDB(repo)
-		rs := s.getRS(repo)
-		cs := s.getConfS(repo)
+		db := s.getDB(r)
+		rs := s.getRS(r)
+		cs := s.getConfS(r)
 		c, err := cs.Open()
 		if err != nil {
 			panic(err)
@@ -49,8 +48,7 @@ func (s *Server) getUploadPackSession(r *http.Request, sessions UploadPackSessio
 }
 
 func (s *Server) handleUploadPack(rw http.ResponseWriter, r *http.Request) {
-	repo := getRepo(r)
-	sessions := s.getUpSession(repo)
+	sessions := s.getUpSession(r)
 	ses, sid, err := s.getUploadPackSession(r, sessions)
 	if err != nil {
 		panic(err)

@@ -46,7 +46,6 @@ func (s *Server) handleGetCommit(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	repo := getRepo(r)
-	db := s.getDB(repo)
+	db := s.getDB(r)
 	writeCommitJSON(rw, r, db, sum)
 }

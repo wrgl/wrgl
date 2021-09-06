@@ -15,13 +15,12 @@ func (s *Server) handleGetHead(rw http.ResponseWriter, r *http.Request) {
 		http.NotFound(rw, r)
 		return
 	}
-	repo := getRepo(r)
-	rs := s.getRS(repo)
+	rs := s.getRS(r)
 	sum, err := ref.GetHead(rs, m[1])
 	if err != nil {
 		http.NotFound(rw, r)
 		return
 	}
-	db := s.getDB(repo)
+	db := s.getDB(r)
 	writeCommitJSON(rw, r, db, sum)
 }

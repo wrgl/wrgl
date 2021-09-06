@@ -58,8 +58,7 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	}
 	primaryKey := r.MultipartForm.Value["primaryKey"]
 
-	repo := getRepo(r)
-	db := s.getDB(repo)
+	db := s.getDB(r)
 	sum, err := ingest.IngestTable(db, f, primaryKey, 0, 1, nil, nil)
 	if err != nil {
 		panic(err)
@@ -72,7 +71,7 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		AuthorEmail: email,
 		AuthorName:  name,
 	}
-	rs := s.getRS(repo)
+	rs := s.getRS(r)
 	parent, _ := ref.GetHead(rs, branch)
 	if parent != nil {
 		commit.Parents = [][]byte{parent}

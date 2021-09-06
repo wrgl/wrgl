@@ -1,6 +1,8 @@
 package apitest
 
 import (
+	"context"
+	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
@@ -24,6 +26,19 @@ const (
 	Password = "password"
 	Name     = "Test User"
 )
+
+type repoKey struct{}
+
+func setRepo(r *http.Request, repo string) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), repoKey{}, repo))
+}
+
+func getRepo(r *http.Request) string {
+	if i := r.Context().Value(repoKey{}); i != nil {
+		return i.(string)
+	}
+	return ""
+}
 
 type Server struct {
 	dbMx       sync.Mutex
@@ -54,7 +69,28 @@ func NewServer(t *testing.T, opts ...apiserver.ServerOption) *Server {
 		rpSessions: map[string]apiserver.ReceivePackSessionStore{},
 	}
 	ts.s = apiserver.NewServer(
-		ts.GetAuthnS, ts.GetAuthzS, ts.GetDB, ts.GetRS, ts.GetConfS, ts.GetUpSessions, ts.GetRpSessions, opts...,
+		func(r *http.Request) auth.AuthnStore {
+			return ts.GetAuthnS(getRepo(r))
+		},
+		func(r *http.Request) auth.AuthzStore {
+			return ts.GetAuthzS(getRepo(r))
+		},
+		func(r *http.Request) objects.Store {
+			return ts.GetDB(getRepo(r))
+		},
+		func(r *http.Request) ref.Store {
+			return ts.GetRS(getRepo(r))
+		},
+		func(r *http.Request) conf.Store {
+			return ts.GetConfS(getRepo(r))
+		},
+		func(r *http.Request) apiserver.UploadPackSessionStore {
+			return ts.GetUpSessions(getRepo(r))
+		},
+		func(r *http.Request) apiserver.ReceivePackSessionStore {
+			return ts.GetRpSessions(getRepo(r))
+		},
+		opts...,
 	)
 	return ts
 }
@@ -126,8 +162,11 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool) (repo string, url st
 	t.Helper()
 	repo = testutils.BrokenRandomLowerAlphaString(6)
 	m = NewRequestCaptureMiddleware(&GZIPAwareHandler{
-		T:           t,
-		HandlerFunc: s.s.RepoHandler(repo),
+		T: t,
+		HandlerFunc: func(rw http.ResponseWriter, r *http.Request) {
+			r = setRepo(r, repo)
+			s.s.ServeHTTP(rw, r)
+		},
 	})
 	cs := s.GetConfS(repo)
 	c, err := cs.Open()

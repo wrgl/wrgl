@@ -34,10 +34,9 @@ func (s *Server) getReceivePackSession(r *http.Request, sessions ReceivePackSess
 		if err != nil {
 			return
 		}
-		repo := getRepo(r)
-		db := s.getDB(repo)
-		rs := s.getRS(repo)
-		cs := s.getConfS(repo)
+		db := s.getDB(r)
+		rs := s.getRS(r)
+		cs := s.getConfS(r)
 		c, err := cs.Open()
 		if err != nil {
 			panic(err)
@@ -49,8 +48,7 @@ func (s *Server) getReceivePackSession(r *http.Request, sessions ReceivePackSess
 }
 
 func (s *Server) handleReceivePack(rw http.ResponseWriter, r *http.Request) {
-	repo := getRepo(r)
-	sessions := s.getRPSession(repo)
+	sessions := s.getRPSession(r)
 	ses, sid, err := s.getReceivePackSession(r, sessions)
 	if err != nil {
 		panic(err)

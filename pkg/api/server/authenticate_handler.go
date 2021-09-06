@@ -23,8 +23,7 @@ func (s *Server) handleAuthenticate(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	repo := getRepo(r)
-	authnS := s.getAuthnS(repo)
+	authnS := s.getAuthnS(r)
 	tok, err := authnS.Authenticate(req.Email, req.Password)
 	if err != nil {
 		if err.Error() == "email/password invalid" {

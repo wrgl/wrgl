@@ -99,8 +99,7 @@ func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
 	var sum []byte
 	var err error
 
-	repo := getRepo(r)
-	rs := s.getRS(repo)
+	rs := s.getRS(r)
 	query := r.URL.Query()
 	if s := query.Get("ref"); s == "" {
 		http.Error(rw, "missing ref query param", http.StatusBadRequest)
@@ -123,7 +122,7 @@ func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := s.getDB(repo)
+	db := s.getDB(r)
 	commits, err := getCommitTree(db, sum, minDepth, maxDepth)
 	if err != nil {
 		panic(err)

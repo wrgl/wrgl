@@ -41,8 +41,7 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 		http.NotFound(rw, r)
 		return
 	}
-	repo := getRepo(r)
-	db := s.getDB(repo)
+	db := s.getDB(r)
 	tbl1, idx1 := s.getTable(db, m[1])
 	if tbl1 == nil {
 		http.NotFound(rw, r)

@@ -25,31 +25,31 @@ func newSuite(t *testing.T) *testSuite {
 	return ts
 }
 
-// func (s *testSuite) getAuthnS(repo string) auth.AuthnStore {
+// func (s *testSuite) getAuthnS(r *http.Request) auth.AuthnStore {
 // 	return s.s.GetAuthnS(repo)
 // }
 
-// func (s *testSuite) getAuthzS(repo string) auth.AuthzStore {
+// func (s *testSuite) getAuthzS(r *http.Request) auth.AuthzStore {
 // 	return s.s.GetAuthzS(repo)
 // }
 
-// func (s *testSuite) getDB(repo string) objects.Store {
+// func (s *testSuite) getDB(r *http.Request) objects.Store {
 // 	return s.s.GetDB(repo)
 // }
 
-// func (s *testSuite) getRS(repo string) ref.Store {
+// func (s *testSuite) getRS(r *http.Request) ref.Store {
 // 	return s.s.GetRS(repo)
 // }
 
-// func (s *testSuite) getConf(repo string) *conf.Config {
+// func (s *testSuite) getConf(r *http.Request) *conf.Config {
 // 	return s.s.GetConf(repo)
 // }
 
-// func (s *testSuite) getUpSessions(repo string) apiserver.UploadPackSessionStore {
+// func (s *testSuite) getUpSessions(r *http.Request) apiserver.UploadPackSessionStore {
 // 	return s.s.GetUpSessions(repo)
 // }
 
-// func (s *testSuite) getRpSessions(repo string) apiserver.ReceivePackSessionStore {
+// func (s *testSuite) getRpSessions(r *http.Request) apiserver.ReceivePackSessionStore {
 // 	return s.s.GetRpSessions(repo)
 // }
 

@@ -8,8 +8,7 @@ import (
 )
 
 func (s *Server) handleGetConfig(rw http.ResponseWriter, r *http.Request) {
-	repo := getRepo(r)
-	cs := s.getConfS(repo)
+	cs := s.getConfS(r)
 	c, err := cs.Open()
 	if err != nil {
 		panic(err)

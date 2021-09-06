@@ -31,8 +31,7 @@ func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	repo := getRepo(r)
-	db := s.getDB(repo)
+	db := s.getDB(r)
 	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
 		http.NotFound(rw, r)

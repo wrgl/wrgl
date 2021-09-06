@@ -11,8 +11,7 @@ import (
 )
 
 func (s *Server) handleGetRefs(rw http.ResponseWriter, r *http.Request) {
-	repo := getRepo(r)
-	rs := s.getRS(repo)
+	rs := s.getRS(r)
 	refs, err := ref.ListLocalRefs(rs)
 	if err != nil {
 		panic(err)
