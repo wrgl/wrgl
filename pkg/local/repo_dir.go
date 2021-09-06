@@ -4,7 +4,6 @@
 package local
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -102,7 +101,6 @@ func FindWrglDir() (string, error) {
 		}
 	}
 	for {
-		fmt.Printf("try %s\n", d)
 		wd := filepath.Join(d, ".wrgl")
 		_, err := os.Stat(wd)
 		if err == nil {

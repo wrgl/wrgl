@@ -64,11 +64,7 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return
 			}
-			var tokDuration time.Duration
-			if c.Auth != nil && c.Auth.TokenDuration > 0 {
-				tokDuration = c.Auth.TokenDuration
-			}
-			authnS, err := authfs.NewAuthnStore(rd.FullPath, tokDuration)
+			authnS, err := authfs.NewAuthnStore(rd.FullPath, c.TokenDuration())
 			if err != nil {
 				return
 			}

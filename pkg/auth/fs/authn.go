@@ -132,6 +132,10 @@ func (s *AuthnStore) SetPassword(email, password string) error {
 		return err
 	}
 	i := s.search(email)
+	if i < s.Len() && s.sl[i][0] == email {
+		s.sl[i][1] = string(passwordHash)
+		return nil
+	}
 	if i < s.Len() {
 		s.sl = append(s.sl[:i+1], s.sl[i:]...)
 		s.sl[i] = []string{email, string(passwordHash)}

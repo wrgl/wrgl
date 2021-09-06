@@ -6,6 +6,7 @@ package credentials
 import (
 	"bufio"
 	"net/url"
+	"strings"
 
 	"github.com/spf13/cobra"
 	apiclient "github.com/wrgl/core/pkg/api/client"
@@ -53,6 +54,7 @@ func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string) (uri
 	if err != nil {
 		return nil, "", err
 	}
+	email = strings.TrimSpace(email)
 	password, err := utils.PromptForPassword(cmd)
 	if err != nil {
 		return nil, "", err

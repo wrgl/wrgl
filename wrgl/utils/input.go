@@ -23,5 +23,6 @@ func PromptForPassword(cmd *cobra.Command) (password string, err error) {
 	if err != nil {
 		return "", err
 	}
+	cmd.Println("")
 	return string(bytePassword), nil
 }

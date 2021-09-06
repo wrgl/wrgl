@@ -19,13 +19,24 @@ var validScopes = map[string]string{
 	auth.ScopeWriteConfig: "covers write config action",
 }
 
+func maxScopeLength() int {
+	n := 0
+	for scope := range validScopes {
+		if len(scope) > n {
+			n = len(scope)
+		}
+	}
+	return n
+}
+
 func allScopesString(indent int, withDesc bool) string {
 	sl := []string{}
 	spaces := strings.Repeat(" ", indent)
+	maxlen := maxScopeLength()
 	for scope, desc := range validScopes {
 		var s string
 		if withDesc {
-			s = fmt.Sprintf("%s%s: %s", spaces, scope, desc)
+			s = fmt.Sprintf("%s%s%s\t\t%s", spaces, scope, strings.Repeat(" ", maxlen-len(scope)), desc)
 		} else {
 			s = fmt.Sprintf("%s%s", spaces, scope)
 		}

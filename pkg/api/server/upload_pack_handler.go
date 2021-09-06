@@ -42,11 +42,7 @@ func (s *Server) getUploadPackSession(r *http.Request, sessions UploadPackSessio
 		if err != nil {
 			panic(err)
 		}
-		var size uint64
-		if c.Pack != nil && c.Pack.MaxFileSize > 0 {
-			size = c.Pack.MaxFileSize
-		}
-		ses = NewUploadPackSession(db, rs, sid, size)
+		ses = NewUploadPackSession(db, rs, sid, c.MaxPackFileSize())
 		sessions.Set(sid, ses)
 	}
 	return
