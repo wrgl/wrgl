@@ -1,5 +1,10 @@
 package conffs
 
+import (
+	"os"
+	"path/filepath"
+)
+
 func globalConfigPath() (string, error) {
 	configDir := os.Getenv("LOCALAPPDATA")
 	if configDir == "" {
