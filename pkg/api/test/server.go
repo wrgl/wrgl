@@ -72,9 +72,6 @@ func NewServer(t *testing.T, opts ...apiserver.ServerOption) *Server {
 		func(r *http.Request) auth.AuthnStore {
 			return ts.GetAuthnS(getRepo(r))
 		},
-		func(r *http.Request) auth.AuthzStore {
-			return ts.GetAuthzS(getRepo(r))
-		},
 		func(r *http.Request) objects.Store {
 			return ts.GetDB(getRepo(r))
 		},
@@ -161,13 +158,6 @@ func (s *Server) GetRpSessions(repo string) apiserver.ReceivePackSessionStore {
 func (s *Server) NewRemote(t *testing.T, authenticate bool) (repo string, url string, m *RequestCaptureMiddleware, cleanup func()) {
 	t.Helper()
 	repo = testutils.BrokenRandomLowerAlphaString(6)
-	m = NewRequestCaptureMiddleware(&GZIPAwareHandler{
-		T: t,
-		HandlerFunc: func(rw http.ResponseWriter, r *http.Request) {
-			r = setRepo(r, repo)
-			s.s.ServeHTTP(rw, r)
-		},
-	})
 	cs := s.GetConfS(repo)
 	c, err := cs.Open()
 	require.NoError(t, err)
@@ -176,7 +166,21 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool) (repo string, url st
 		Name:  Name,
 	}
 	require.NoError(t, cs.Save(c))
-	ts := httptest.NewServer(m)
+	m = NewRequestCaptureMiddleware(&GZIPAwareHandler{
+		T: t,
+		HandlerFunc: func(rw http.ResponseWriter, r *http.Request) {
+			r = setRepo(r, repo)
+			s.s.ServeHTTP(rw, r)
+		},
+	})
+	ts := httptest.NewServer(apiserver.AuthenticateMiddleware(
+		apiserver.AuthorizeMiddleware(m, func(r *http.Request) auth.AuthzStore {
+			return s.GetAuthzS(repo)
+		}),
+		func(r *http.Request) auth.AuthnStore {
+			return s.GetAuthnS(repo)
+		},
+	))
 	if authenticate {
 		authnS := s.GetAuthnS(repo)
 		authzS := s.GetAuthzS(repo)

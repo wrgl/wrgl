@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http"
 	"regexp"
-	"strings"
 
 	"github.com/wrgl/core/pkg/auth"
 	"github.com/wrgl/core/pkg/conf"
@@ -15,6 +14,46 @@ import (
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/router"
 )
+
+var (
+	patAuthenticate *regexp.Regexp
+	patConfig       *regexp.Regexp
+	patRefs         *regexp.Regexp
+	patHead         *regexp.Regexp
+	patRefsHead     *regexp.Regexp
+	patUploadPack   *regexp.Regexp
+	patReceivePack  *regexp.Regexp
+	patCommits      *regexp.Regexp
+	patCommit       *regexp.Regexp
+	patSum          *regexp.Regexp
+	patTables       *regexp.Regexp
+	patTable        *regexp.Regexp
+	patBlocks       *regexp.Regexp
+	patTableBlocks  *regexp.Regexp
+	patRows         *regexp.Regexp
+	patTableRows    *regexp.Regexp
+	patDiff         *regexp.Regexp
+)
+
+func init() {
+	patAuthenticate = regexp.MustCompile(`^/authenticate/`)
+	patConfig = regexp.MustCompile(`^/config/`)
+	patRefs = regexp.MustCompile(`^/refs/`)
+	patHead = regexp.MustCompile(`^heads/[-_0-9a-zA-Z]+/`)
+	patRefsHead = regexp.MustCompile(`^/refs/heads/[-_0-9a-zA-Z]+/`)
+	patUploadPack = regexp.MustCompile(`^/upload-pack/`)
+	patReceivePack = regexp.MustCompile(`^/receive-pack/`)
+	patCommits = regexp.MustCompile(`^/commits/`)
+	patSum = regexp.MustCompile(`^[0-9a-f]{32}/`)
+	patCommit = regexp.MustCompile(`^/commits/[0-9a-f]{32}/`)
+	patTables = regexp.MustCompile(`^/tables/`)
+	patTable = regexp.MustCompile(`^/tables/[0-9a-f]{32}/`)
+	patBlocks = regexp.MustCompile(`^blocks/`)
+	patTableBlocks = regexp.MustCompile(`^/tables/[0-9a-f]{32}/blocks/`)
+	patRows = regexp.MustCompile(`^rows/`)
+	patTableRows = regexp.MustCompile(`^/tables/[0-9a-f]{32}/rows/`)
+	patDiff = regexp.MustCompile(`^/diff/[0-9a-f]{32}/[0-9a-f]{32}/`)
+}
 
 type emailKey struct{}
 
@@ -38,9 +77,8 @@ func WithPostCommitCallback(postCommit func(commit *objects.Commit, sum []byte, 
 }
 
 type Server struct {
-	getDB        func(r *http.Request) objects.Store
 	getAuthnS    func(r *http.Request) auth.AuthnStore
-	getAuthzS    func(r *http.Request) auth.AuthzStore
+	getDB        func(r *http.Request) objects.Store
 	getRS        func(r *http.Request) ref.Store
 	getConfS     func(r *http.Request) conf.Store
 	getUpSession func(r *http.Request) UploadPackSessionStore
@@ -50,14 +88,13 @@ type Server struct {
 }
 
 func NewServer(
-	getAuthnS func(r *http.Request) auth.AuthnStore, getAuthzS func(r *http.Request) auth.AuthzStore, getDB func(r *http.Request) objects.Store,
-	getRS func(r *http.Request) ref.Store, getConfS func(r *http.Request) conf.Store, getUpSession func(r *http.Request) UploadPackSessionStore,
-	getRPSession func(r *http.Request) ReceivePackSessionStore, opts ...ServerOption,
+	getAuthnS func(r *http.Request) auth.AuthnStore, getDB func(r *http.Request) objects.Store, getRS func(r *http.Request) ref.Store,
+	getConfS func(r *http.Request) conf.Store, getUpSession func(r *http.Request) UploadPackSessionStore, getRPSession func(r *http.Request) ReceivePackSessionStore,
+	opts ...ServerOption,
 ) *Server {
 	s := &Server{
-		getDB:        getDB,
 		getAuthnS:    getAuthnS,
-		getAuthzS:    getAuthzS,
+		getDB:        getDB,
 		getRS:        getRS,
 		getConfS:     getConfS,
 		getUpSession: getUpSession,
@@ -67,87 +104,87 @@ func NewServer(
 		Subs: []*router.Routes{
 			{
 				Method:      http.MethodPost,
-				Pat:         regexp.MustCompile(`^/authenticate/`),
+				Pat:         patAuthenticate,
 				HandlerFunc: s.handleAuthenticate,
 			},
 			{
-				Pat: regexp.MustCompile(`^/config/`),
+				Pat: patConfig,
 				Subs: []*router.Routes{
 					{
 						Method:      http.MethodGet,
-						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetConfig, auth.ScopeReadConfig)),
+						HandlerFunc: s.handleGetConfig,
 					},
 					{
 						Method:      http.MethodPut,
-						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handlePutConfig, auth.ScopeWriteConfig)),
+						HandlerFunc: s.handlePutConfig,
 					},
 				},
 			},
 			{
-				Pat: regexp.MustCompile(`^/refs/`),
+				Pat: patRefs,
 				Subs: []*router.Routes{
 					{
 						Method:      http.MethodGet,
-						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetRefs, auth.ScopeRead)),
+						HandlerFunc: s.handleGetRefs,
 					},
 					{
 						Method:      http.MethodGet,
-						Pat:         regexp.MustCompile(`^heads/[-_0-9a-zA-Z]+/`),
-						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetHead, auth.ScopeRead)),
+						Pat:         patHead,
+						HandlerFunc: s.handleGetHead,
 					},
 				},
 			},
 			{
 				Method:      http.MethodPost,
-				Pat:         regexp.MustCompile(`^/upload-pack/`),
-				HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleUploadPack, auth.ScopeRead)),
+				Pat:         patUploadPack,
+				HandlerFunc: s.handleUploadPack,
 			},
 			{
 				Method:      http.MethodPost,
-				Pat:         regexp.MustCompile(`^/receive-pack/`),
-				HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleReceivePack, auth.ScopeWrite)),
+				Pat:         patReceivePack,
+				HandlerFunc: s.handleReceivePack,
 			},
 			{
-				Pat: regexp.MustCompile(`^/commits/`),
+				Pat: patCommits,
 				Subs: []*router.Routes{
 					{
 						Method:      http.MethodPost,
-						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleCommit, auth.ScopeWrite)),
+						HandlerFunc: s.handleCommit,
 					},
 					{
 						Method:      http.MethodGet,
-						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetCommits, auth.ScopeRead)),
+						HandlerFunc: s.handleGetCommits,
 					},
 					{
 						Method:      http.MethodGet,
-						Pat:         regexp.MustCompile(`^[0-9a-f]{32}/`),
-						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetCommit, auth.ScopeRead)),
+						Pat:         patSum,
+						HandlerFunc: s.handleGetCommit,
 					},
 				}},
 			{
-				Pat: regexp.MustCompile(`^/tables/`),
+				Pat: patTables,
 				Subs: []*router.Routes{
 					{
 						Method:      http.MethodGet,
-						Pat:         regexp.MustCompile(`^[0-9a-f]{32}/`),
-						HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetTable, auth.ScopeRead)),
+						Pat:         patSum,
+						HandlerFunc: s.handleGetTable,
 						Subs: []*router.Routes{
 							{
 								Method:      http.MethodGet,
-								Pat:         regexp.MustCompile(`^blocks/`),
-								HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetBlocks, auth.ScopeRead)),
+								Pat:         patBlocks,
+								HandlerFunc: s.handleGetBlocks,
 							},
 							{
 								Method:      http.MethodGet,
-								Pat:         regexp.MustCompile(`^rows/`),
-								HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleGetRows, auth.ScopeRead)),
+								Pat:         patRows,
+								HandlerFunc: s.handleGetRows,
 							},
 						}},
 				}},
 			{
 				Method:      http.MethodGet,
-				Pat:         regexp.MustCompile(`^/diff/[0-9a-f]{32}/[0-9a-f]{32}/`),
-				HandlerFunc: s.authenticateMiddleware(s.authorizeMiddleware(s.handleDiff, auth.ScopeRead)),
+				Pat:         patDiff,
+				HandlerFunc: s.handleDiff,
 			},
 		},
 	})
@@ -155,42 +192,6 @@ func NewServer(
 		opt(s)
 	}
 	return s
-}
-
-func (s *Server) authenticateMiddleware(handle http.HandlerFunc) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		if h := r.Header.Get("Authorization"); h != "" && strings.HasPrefix(h, "Bearer ") {
-			authnS := s.getAuthnS(r)
-			claims, err := authnS.CheckToken(h[7:])
-			if err != nil {
-				if strings.HasPrefix(err.Error(), "unexpected signing method: ") || err.Error() == "invalid token" {
-					http.Error(rw, "invalid token", http.StatusUnauthorized)
-					return
-				}
-				panic(err)
-			}
-			r = setEmail(r, claims.Email)
-		}
-		handle(rw, r)
-	}
-}
-
-func (s *Server) authorizeMiddleware(handle http.HandlerFunc, requiredScope string) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		authzS := s.getAuthzS(r)
-		email := getEmail(r)
-		if ok, err := authzS.Authorized(email, requiredScope); err != nil {
-			panic(err)
-		} else if !ok {
-			if email == "" {
-				http.Error(rw, "unauthorized", http.StatusUnauthorized)
-			} else {
-				http.Error(rw, "forbidden", http.StatusForbidden)
-			}
-			return
-		}
-		handle(rw, r)
-	}
 }
 
 func (s *Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {

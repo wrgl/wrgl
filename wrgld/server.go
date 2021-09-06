@@ -33,7 +33,6 @@ func NewServer(authnS auth.AuthnStore, authzS auth.AuthzStore, db objects.Store,
 		db: db,
 		s: apiserver.NewServer(
 			func(r *http.Request) auth.AuthnStore { return authnS },
-			func(r *http.Request) auth.AuthzStore { return authzS },
 			func(r *http.Request) objects.Store { return db },
 			func(r *http.Request) ref.Store { return rs },
 			func(r *http.Request) conf.Store { return c },
@@ -41,7 +40,10 @@ func NewServer(authnS auth.AuthnStore, authzS auth.AuthzStore, db objects.Store,
 			func(r *http.Request) apiserver.ReceivePackSessionStore { return rpSessions },
 		),
 	}
-	s.srv.Handler = RecoveryMiddleware(LoggingMiddleware(s.s))
+	s.srv.Handler = RecoveryMiddleware(LoggingMiddleware(apiserver.AuthenticateMiddleware(
+		apiserver.AuthorizeMiddleware(s.s, func(r *http.Request) auth.AuthzStore { return authzS }),
+		func(r *http.Request) auth.AuthnStore { return authnS },
+	)))
 	return s
 }
 
