@@ -44,21 +44,21 @@ func TestJoinChannels(t *testing.T) {
 	c := tr.Start()
 
 	tr1.SetCurrent(3)
-	time.Sleep(3 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	assert.Equal(t, Event{
 		Progress: 3,
 		Total:    52,
 	}, <-c)
 
 	tr2.SetCurrent(2)
-	time.Sleep(3 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	assert.Equal(t, Event{
 		Progress: 5,
 		Total:    52,
 	}, <-c)
 
 	tr3.SetCurrent(12)
-	time.Sleep(3 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	assert.Equal(t, Event{
 		Progress: 17,
 		Total:    52,
