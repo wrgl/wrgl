@@ -3,10 +3,12 @@
 
 package auth
 
+import "net/http"
+
 type AuthnStore interface {
 	SetPassword(email, password string) error
 	Authenticate(email, password string) (token string, err error)
-	CheckToken(token string) (claims *Claims, err error)
+	CheckToken(r *http.Request, token string) (*http.Request, *Claims, error)
 	RemoveUser(email string) error
 	ListUsers() (emails []string, err error)
 	Exist(email string) bool

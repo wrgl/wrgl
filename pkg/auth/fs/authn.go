@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -94,12 +95,16 @@ func (s *AuthnStore) Authenticate(email, password string) (token string, err err
 	return createIDToken(email, sec, s.tokenDuration)
 }
 
-func (s *AuthnStore) CheckToken(token string) (claims *auth.Claims, err error) {
+func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *auth.Claims, error) {
 	sec, err := s.getSecret()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return validateIDToken(token, sec)
+	claims, err := validateIDToken(token, sec)
+	if err != nil {
+		return nil, nil, err
+	}
+	return r, claims, nil
 }
 
 func (s *AuthnStore) Flush() error {

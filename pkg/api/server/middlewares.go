@@ -23,7 +23,9 @@ func AuthenticateMiddleware(handler http.Handler, getAuthnS func(r *http.Request
 func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if h := r.Header.Get("Authorization"); h != "" && strings.HasPrefix(h, "Bearer ") {
 		authnS := m.getAuthnS(r)
-		claims, err := authnS.CheckToken(h[7:])
+		var claims *auth.Claims
+		var err error
+		r, claims, err = authnS.CheckToken(r, h[7:])
 		if err != nil {
 			if strings.HasPrefix(err.Error(), "unexpected signing method: ") || err.Error() == "invalid token" {
 				http.Error(rw, "invalid token", http.StatusUnauthorized)
@@ -142,7 +144,7 @@ func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request)
 	if route.Scope != "" {
 		authzS := m.getAuthzS(r)
 		email := getEmail(r)
-		if ok, err := authzS.Authorized(email, route.Scope); err != nil {
+		if ok, err := authzS.Authorized(r, email, route.Scope); err != nil {
 			panic(err)
 		} else if !ok {
 			if email == "" {

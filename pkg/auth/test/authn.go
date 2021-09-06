@@ -2,6 +2,7 @@ package authtest
 
 import (
 	"fmt"
+	"net/http"
 	"sort"
 
 	"github.com/wrgl/core/pkg/auth"
@@ -29,13 +30,13 @@ func (s *AuthnStore) Authenticate(email, password string) (token string, err err
 	return "", fmt.Errorf("email/password invalid")
 }
 
-func (s *AuthnStore) CheckToken(token string) (claims *auth.Claims, err error) {
+func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *auth.Claims, error) {
 	if _, ok := s.m[token]; ok {
-		return &auth.Claims{
+		return r, &auth.Claims{
 			Email: token,
 		}, nil
 	}
-	return nil, fmt.Errorf("invalid token")
+	return nil, nil, fmt.Errorf("invalid token")
 }
 
 func (s *AuthnStore) RemoveUser(email string) error {

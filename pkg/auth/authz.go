@@ -3,6 +3,8 @@
 
 package auth
 
+import "net/http"
+
 const (
 	ScopeRead        = "read"
 	ScopeWrite       = "write"
@@ -13,7 +15,7 @@ const (
 type AuthzStore interface {
 	AddPolicy(email, scope string) error
 	RemovePolicy(email, scope string) error
-	Authorized(email, scope string) (bool, error)
+	Authorized(r *http.Request, email, scope string) (bool, error)
 	ListPolicies(email string) (scopes []string, err error)
 	Flush() error
 }

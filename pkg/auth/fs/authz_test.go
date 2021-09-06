@@ -5,6 +5,7 @@ package authfs
 
 import (
 	"io/ioutil"
+	"net/http"
 	"os"
 	"testing"
 
@@ -27,13 +28,16 @@ func TestAuthzStore(t *testing.T) {
 	require.NoError(t, s.AddPolicy(email2, auth.ScopeRead))
 	require.NoError(t, s.AddPolicy(email2, auth.ScopeWrite))
 
-	ok, err := s.Authorized(email1, auth.ScopeRead)
+	r, err := http.NewRequest(http.MethodGet, "/", nil)
+	require.NoError(t, err)
+
+	ok, err := s.Authorized(r, email1, auth.ScopeRead)
 	require.NoError(t, err)
 	assert.True(t, ok)
-	ok, err = s.Authorized(email1, auth.ScopeWrite)
+	ok, err = s.Authorized(r, email1, auth.ScopeWrite)
 	require.NoError(t, err)
 	assert.False(t, ok)
-	ok, err = s.Authorized(email2, auth.ScopeWrite)
+	ok, err = s.Authorized(r, email2, auth.ScopeWrite)
 	require.NoError(t, err)
 	assert.True(t, ok)
 
@@ -48,11 +52,11 @@ func TestAuthzStore(t *testing.T) {
 
 	s, err = NewAuthzStore(dir)
 	require.NoError(t, err)
-	ok, err = s.Authorized(email1, auth.ScopeRead)
+	ok, err = s.Authorized(r, email1, auth.ScopeRead)
 	require.NoError(t, err)
 	assert.True(t, ok)
 	require.NoError(t, s.RemovePolicy(email1, auth.ScopeRead))
-	ok, err = s.Authorized(email1, auth.ScopeRead)
+	ok, err = s.Authorized(r, email1, auth.ScopeRead)
 	require.NoError(t, err)
 	assert.False(t, ok)
 
@@ -60,7 +64,7 @@ func TestAuthzStore(t *testing.T) {
 
 	s, err = NewAuthzStore(dir)
 	require.NoError(t, err)
-	ok, err = s.Authorized(email1, auth.ScopeRead)
+	ok, err = s.Authorized(r, email1, auth.ScopeRead)
 	require.NoError(t, err)
 	assert.False(t, ok)
 }

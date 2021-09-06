@@ -6,6 +6,7 @@ package authfs
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"testing"
 
@@ -53,7 +54,10 @@ func TestAuthnStore(t *testing.T) {
 	require.NoError(t, err)
 	for email := range peoples {
 		assert.True(t, s.Exist(email))
-		c, err := s.CheckToken(tokens[email])
+		r, err := http.NewRequest(http.MethodGet, "/", nil)
+		require.NoError(t, err)
+		req, c, err := s.CheckToken(r, tokens[email])
+		assert.Equal(t, r, req)
 		require.NoError(t, err)
 		assert.Equal(t, email, c.Email)
 	}

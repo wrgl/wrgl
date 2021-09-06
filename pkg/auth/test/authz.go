@@ -1,5 +1,7 @@
 package authtest
 
+import "net/http"
+
 type AuthzStore struct {
 	m map[string][]string
 }
@@ -29,7 +31,7 @@ func (s *AuthzStore) RemovePolicy(email, scope string) error {
 	return nil
 }
 
-func (s *AuthzStore) Authorized(email, scope string) (bool, error) {
+func (s *AuthzStore) Authorized(r *http.Request, email, scope string) (bool, error) {
 	if sl, ok := s.m[email]; ok {
 		for _, v := range sl {
 			if v == scope {

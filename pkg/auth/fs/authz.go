@@ -5,6 +5,7 @@ package authfs
 
 import (
 	_ "embed"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -55,8 +56,8 @@ func (s *AuthzStore) RemovePolicy(email, act string) error {
 	return err
 }
 
-func (s *AuthzStore) Authorized(email, act string) (bool, error) {
-	return s.e.Enforce(email, "-", act)
+func (s *AuthzStore) Authorized(r *http.Request, email, scope string) (bool, error) {
+	return s.e.Enforce(email, "-", scope)
 }
 
 func (s *AuthzStore) Flush() error {
