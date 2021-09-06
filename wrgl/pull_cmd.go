@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/pkg/conf"
 	conffs "github.com/wrgl/core/pkg/conf/fs"
+	"github.com/wrgl/core/pkg/credentials"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -71,9 +72,17 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			err = fetch(cmd, db, rs, c.User, remote, rem, specs, force)
+			cs, err := credentials.NewStore()
 			if err != nil {
 				return err
+			}
+			uri, tok, err := getCredentials(cmd, cs, rem.URL)
+			if err != nil {
+				return err
+			}
+			err = fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force)
+			if err != nil {
+				return handleHTTPError(cmd, cs, *uri, err)
 			}
 			if setUpstream && len(args) > 2 {
 				err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{

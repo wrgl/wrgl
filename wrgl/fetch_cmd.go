@@ -7,6 +7,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
 	"sort"
 	"strings"
 
@@ -14,6 +17,7 @@ import (
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/conf"
 	conffs "github.com/wrgl/core/pkg/conf/fs"
+	"github.com/wrgl/core/pkg/credentials"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -48,11 +52,19 @@ func newFetchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cs, err := credentials.NewStore()
+			if err != nil {
+				return err
+			}
 			if all {
 				for k, v := range c.Remote {
-					err := fetch(cmd, db, rs, c.User, k, v, v.Fetch, force)
+					uri, tok, err := getCredentials(cmd, cs, v.URL)
 					if err != nil {
 						return err
+					}
+					err = fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force)
+					if err != nil {
+						return handleHTTPError(cmd, cs, *uri, err)
 					}
 				}
 				return nil
@@ -61,12 +73,51 @@ func newFetchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return fetch(cmd, db, rs, c.User, remote, rem, specs, force)
+			uri, tok, err := getCredentials(cmd, cs, rem.URL)
+			if err != nil {
+				return err
+			}
+			if err := fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force); err != nil {
+				return handleHTTPError(cmd, cs, *uri, err)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
 	return cmd
+}
+
+func handleHTTPError(cmd *cobra.Command, cs *credentials.Store, uri url.URL, err error) error {
+	if v, ok := err.(*apiclient.HTTPError); ok && v.Code == http.StatusUnauthorized {
+		cmd.PrintErrf("Credentials are invalid: %s\n", v.Error())
+		if err := discardCredentials(cmd, cs, uri); err != nil {
+			return err
+		}
+		os.Exit(1)
+	}
+	return err
+}
+
+func getCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (uri *url.URL, token string, err error) {
+	u, err := url.Parse(remote)
+	if err != nil {
+		return
+	}
+	uri, token = cs.GetTokenMatching(*u)
+	if uri == nil {
+		cmd.Printf("No credential found for %s\n", remote)
+		cmd.Printf("Run this command to authenticate:\n    wrgl credentials authenticate %s\n", remote)
+		err = fmt.Errorf("unauthorized")
+		return
+	}
+	return
+}
+
+func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri url.URL) error {
+	cmd.Printf("Discarding credentials for %s\n", uri.String())
+	cs.Delete(uri)
+	return cs.Flush()
 }
 
 func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, args []string) (string, *conf.Remote, []*conf.Refspec, error) {
@@ -285,8 +336,8 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 	return ses.Start()
 }
 
-func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote string, cr *conf.Remote, specs []*conf.Refspec, force bool) error {
-	client, err := apiclient.NewClient(cr.URL)
+func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool) error {
+	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(token))
 	if err != nil {
 		return err
 	}

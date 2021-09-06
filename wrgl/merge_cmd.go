@@ -26,7 +26,6 @@ import (
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/merge"
 	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/progress"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/pkg/slice"
 	"github.com/wrgl/core/pkg/widgets"
@@ -397,21 +396,6 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 		}
 	}
 	return bar.Finish()
-}
-
-func displayProgress(cmd *cobra.Command, pt progress.Tracker, total int64, desc string) {
-	pc := pt.Start()
-	bar := pbar(total, desc, cmd.OutOrStdout(), cmd.OutOrStderr())
-	for evt := range pc {
-		bar.Set64(evt.Progress)
-		if evt.Total != 0 && evt.Total != bar.GetMax64() {
-			bar.ChangeMax64(evt.Total)
-		}
-	}
-	if err := bar.Finish(); err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
-	}
 }
 
 func displayCommitProgress(cmd *cobra.Command) (sortPT, blkPT *progressbar.ProgressBar) {

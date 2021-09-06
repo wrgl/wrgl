@@ -7,11 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apitest "github.com/wrgl/core/pkg/api/test"
+	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/ref"
 )
 
 func TestPullCmd(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -37,6 +39,11 @@ func TestPullCmd(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url, "-t", "beta", "-t", "main"})
 	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"pull", "main", "origin", "refs/heads/main:refs/remotes/origin/main", "--set-upstream"})
+	assertCmdUnauthorized(t, cmd, url)
+	authenticate(t, url)
 
 	// pull set upstream
 	cmd = newRootCmd()

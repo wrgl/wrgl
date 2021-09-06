@@ -22,6 +22,7 @@ import (
 const (
 	Email    = "test@user.com"
 	Password = "password"
+	Name     = "Test User"
 )
 
 type Server struct {
@@ -128,6 +129,14 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool) (repo string, url st
 		T:           t,
 		HandlerFunc: s.s.RepoHandler(repo),
 	})
+	cs := s.GetConfS(repo)
+	c, err := cs.Open()
+	require.NoError(t, err)
+	c.User = &conf.User{
+		Email: Email,
+		Name:  Name,
+	}
+	require.NoError(t, cs.Save(c))
 	ts := httptest.NewServer(m)
 	if authenticate {
 		authnS := s.GetAuthnS(repo)

@@ -53,7 +53,7 @@ func (s *ReceivePackSession) saveRefs() error {
 		}
 		var sum []byte
 		if u.Sum == nil {
-			if *s.c.Receive.DenyDeletes {
+			if s.c.Receive != nil && *s.c.Receive.DenyDeletes {
 				u.ErrMsg = "remote does not support deleting refs"
 			} else {
 				err := ref.DeleteRef(s.rs, strings.TrimPrefix(dst, "refs/"))
@@ -71,7 +71,7 @@ func (s *ReceivePackSession) saveRefs() error {
 		}
 		var msg string
 		if oldSum != nil {
-			if *s.c.Receive.DenyNonFastForwards {
+			if s.c.Receive != nil && *s.c.Receive.DenyNonFastForwards {
 				fastForward, err := ref.IsAncestorOf(s.db, oldSum, sum)
 				if err != nil {
 					return err

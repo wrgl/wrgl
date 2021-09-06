@@ -14,6 +14,7 @@ import (
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/conf"
 	conffs "github.com/wrgl/core/pkg/conf/fs"
+	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/ref"
 )
@@ -30,6 +31,7 @@ func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {
 }
 
 func TestPushCmd(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -69,6 +71,7 @@ func TestPushCmd(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
+	authenticate(t, url)
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{
 		"push", "my-repo",
@@ -121,6 +124,7 @@ func TestPushCmd(t *testing.T) {
 }
 
 func TestPushCmdForce(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -154,6 +158,7 @@ func TestPushCmdForce(t *testing.T) {
 		require.NoError(t, cmd.Execute())
 	}
 
+	authenticate(t, url)
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"push", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
@@ -171,6 +176,7 @@ func TestPushCmdForce(t *testing.T) {
 }
 
 func TestPushCmdSetUpstream(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -194,6 +200,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
+	authenticate(t, url)
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{
 		"push", "my-repo", "--set-upstream",
@@ -225,6 +232,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 }
 
 func TestPushCmdDepthGreaterThanOne(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -248,9 +256,12 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
-	cmd.SetArgs([]string{
-		"push", "my-repo", "refs/heads/alpha:",
-	})
+	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:"})
+	assertCmdUnauthorized(t, cmd, url)
+	authenticate(t, url)
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("To %s", url),
 		" * [new branch]      alpha       -> alpha",

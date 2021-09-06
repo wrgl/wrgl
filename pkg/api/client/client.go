@@ -89,9 +89,59 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 		if err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+		return nil, NewHTTPError(resp.StatusCode, string(b))
 	}
 	return
+}
+
+func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]io.Reader, opts ...RequestOption) (*http.Response, error) {
+	buf := bytes.NewBuffer(nil)
+	w := multipart.NewWriter(buf)
+	for k, sl := range value {
+		for _, v := range sl {
+			err := w.WriteField(k, v)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	for k, r := range files {
+		if r == nil {
+			continue
+		}
+		w, err := w.CreateFormFile(k, k)
+		if err != nil {
+			return nil, err
+		}
+		io.Copy(w, r)
+	}
+	err := w.Close()
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPost, c.origin+path, bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	for _, opt := range c.requestOptions {
+		opt(req)
+	}
+	for _, opt := range opts {
+		opt(req)
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		return nil, NewHTTPError(resp.StatusCode, string(b))
+	}
+	return resp, nil
 }
 
 func (c *Client) Authenticate(email, password string, opts ...RequestOption) (token string, err error) {
@@ -195,49 +245,6 @@ func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error)
 	return
 }
 
-func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]io.Reader, opts ...RequestOption) (*http.Response, error) {
-	buf := bytes.NewBuffer(nil)
-	w := multipart.NewWriter(buf)
-	for k, sl := range value {
-		for _, v := range sl {
-			err := w.WriteField(k, v)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	for k, r := range files {
-		if r == nil {
-			continue
-		}
-		w, err := w.CreateFormFile(k, k)
-		if err != nil {
-			return nil, err
-		}
-		io.Copy(w, r)
-	}
-	err := w.Close()
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequest(http.MethodPost, c.origin+path, bytes.NewReader(buf.Bytes()))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", w.FormDataContentType())
-	for _, opt := range c.requestOptions {
-		opt(req)
-	}
-	for _, opt := range opts {
-		opt(req)
-	}
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
 func (c *Client) Commit(branch, message, authorEmail, authorName string, file io.Reader, primaryKey []string, opts ...RequestOption) (cr *payload.CommitResponse, err error) {
 	resp, err := c.PostMultipartForm(api.PathCommit, map[string][]string{
 		"branch":      {branch},
@@ -254,9 +261,6 @@ func (c *Client) Commit(branch, message, authorEmail, authorName string, file io
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)

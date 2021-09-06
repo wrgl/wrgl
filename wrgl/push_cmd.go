@@ -12,6 +12,7 @@ import (
 	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/conf"
 	conffs "github.com/wrgl/core/pkg/conf/fs"
+	"github.com/wrgl/core/pkg/credentials"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 	"github.com/wrgl/core/wrgl/utils"
@@ -53,13 +54,21 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, err := apiclient.NewClient(cr.URL)
+			cs, err := credentials.NewStore()
+			if err != nil {
+				return err
+			}
+			uri, tok, err := getCredentials(cmd, cs, cr.URL)
+			if err != nil {
+				return err
+			}
+			client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(tok))
 			if err != nil {
 				return err
 			}
 			remoteRefs, err := client.GetRefs()
 			if err != nil {
-				return err
+				return handleHTTPError(cmd, cs, *uri, err)
 			}
 			cmd.Printf("To %s\n", cr.URL)
 			upToDateRefspecs, updates, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
@@ -75,7 +84,7 @@ func newPushCmd() *cobra.Command {
 			}
 			ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, 0)
 			if err != nil {
-				return err
+				return handleHTTPError(cmd, cs, *uri, err)
 			}
 			um, err = ses.Start()
 			if err != nil {

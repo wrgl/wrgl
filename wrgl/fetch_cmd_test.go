@@ -7,19 +7,48 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apiclient "github.com/wrgl/core/pkg/api/client"
 	apitest "github.com/wrgl/core/pkg/api/test"
+	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
+	"github.com/wrgl/core/pkg/credentials"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/ref"
 	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
 )
 
+func authenticate(t *testing.T, uri string) {
+	t.Helper()
+	cs, err := credentials.NewStore()
+	require.NoError(t, err)
+	cli, err := apiclient.NewClient(uri)
+	require.NoError(t, err)
+	tok, err := cli.Authenticate(apitest.Email, apitest.Password)
+	require.NoError(t, err)
+	u, err := url.Parse(uri)
+	require.NoError(t, err)
+	cs.Set(*u, tok)
+	require.NoError(t, cs.Flush())
+}
+
+func assertCmdUnauthorized(t *testing.T, cmd *cobra.Command, url string) {
+	t.Helper()
+	assertCmdFailed(t, cmd, strings.Join([]string{
+		fmt.Sprintf("No credential found for %s", url),
+		"Run this command to authenticate:",
+		fmt.Sprintf("    wrgl credentials authenticate %s", url),
+		"",
+	}, "\n"), fmt.Errorf("unauthorized"))
+}
+
 func TestFetchCmd(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -46,6 +75,12 @@ func TestFetchCmd(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	require.NoError(t, cmd.Execute())
+
+	cmd = newRootCmd()
+	cmd.SetArgs([]string{"fetch"})
+	assertCmdUnauthorized(t, cmd, url)
+
+	authenticate(t, url)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch"})
@@ -97,6 +132,7 @@ func assertCommandNoErr(t *testing.T, cmd *cobra.Command) {
 }
 
 func TestFetchCmdAllRepos(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url1, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -133,6 +169,10 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "home", url3})
 	assertCommandNoErr(t, cmd)
 
+	authenticate(t, url1)
+	authenticate(t, url2)
+	authenticate(t, url3)
+
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "acme"})
 	assertCommandNoErr(t, cmd)
@@ -164,6 +204,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 }
 
 func TestFetchCmdCustomRefSpec(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -179,6 +220,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	assertCommandNoErr(t, cmd)
+	authenticate(t, url)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/custom/abc:refs/custom/abc"})
@@ -204,6 +246,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 }
 
 func TestFetchCmdTag(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -228,6 +271,8 @@ func TestFetchCmdTag(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	assertCommandNoErr(t, cmd)
+
+	authenticate(t, url)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/202*:refs/tags/202*"})
@@ -286,6 +331,7 @@ func TestFetchCmdTag(t *testing.T) {
 }
 
 func TestFetchCmdForceUpdate(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t)
 	repo, url, _, cleanup := ts.NewRemote(t, true)
 	defer cleanup()
@@ -306,6 +352,8 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	cmd := newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	require.NoError(t, cmd.Execute())
+
+	authenticate(t, url)
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/heads/abc:refs/heads/abc"})
