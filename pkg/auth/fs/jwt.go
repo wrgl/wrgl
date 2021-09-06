@@ -5,6 +5,7 @@ package authfs
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -32,6 +33,11 @@ func validateIDToken(tokenString string, jwtSecret []byte) (claims *auth.Claims,
 		return jwtSecret, nil
 	})
 	if err != nil {
+		if strings.HasPrefix(err.Error(), "token is expired by") && token != nil {
+			claims := token.Claims.(*auth.Claims)
+			fmt.Printf("expires at: %v\n", claims.ExpiresAt)
+			fmt.Printf("now: %v\n", time.Now())
+		}
 		return
 	}
 	if claims, ok := token.Claims.(*auth.Claims); ok && token.Valid {
