@@ -50,8 +50,9 @@ func TestAuthnStore(t *testing.T) {
 
 	require.NoError(t, s.Flush())
 
-	s, err = NewAuthnStore(dir, 1*time.Second)
+	s, err = NewAuthnStore(dir, 3*time.Second)
 	require.NoError(t, err)
+	start := time.Now()
 	for email := range peoples {
 		assert.True(t, s.Exist(email))
 		c, err := s.CheckToken(tokens[email])
@@ -59,7 +60,7 @@ func TestAuthnStore(t *testing.T) {
 		assert.Equal(t, email, c.Email)
 	}
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5*time.Second - time.Since(start))
 
 	for email := range peoples {
 		_, err := s.CheckToken(tokens[email])
