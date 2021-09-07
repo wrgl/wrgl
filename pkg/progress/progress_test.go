@@ -44,22 +44,28 @@ func TestJoinChannels(t *testing.T) {
 	c := tr.Start()
 
 	tr1.SetCurrent(3)
-	assert.Equal(t, Event{
-		Progress: 3,
-		Total:    52,
-	}, <-c)
+	for e := range c {
+		assert.Equal(t, int64(52), e.Total)
+		if e.Progress == 3 {
+			break
+		}
+	}
 
 	tr2.SetCurrent(2)
-	assert.Equal(t, Event{
-		Progress: 5,
-		Total:    52,
-	}, <-c)
+	for e := range c {
+		assert.Equal(t, int64(52), e.Total)
+		if e.Progress == 5 {
+			break
+		}
+	}
 
 	tr3.SetCurrent(12)
-	assert.Equal(t, Event{
-		Progress: 17,
-		Total:    52,
-	}, <-c)
+	for e := range c {
+		assert.Equal(t, int64(52), e.Total)
+		if e.Progress == 17 {
+			break
+		}
+	}
 
 	tr.Stop()
 	ok := true
