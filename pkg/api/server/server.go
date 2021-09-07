@@ -5,8 +5,10 @@ package apiserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/wrgl/core/pkg/auth"
 	"github.com/wrgl/core/pkg/conf"
@@ -85,6 +87,7 @@ type Server struct {
 	getRPSession func(r *http.Request) ReceivePackSessionStore
 	postCommit   func(commit *objects.Commit, sum []byte, branch string)
 	router       *router.Router
+	maxAge       time.Duration
 }
 
 func NewServer(
@@ -99,6 +102,7 @@ func NewServer(
 		getConfS:     getConfS,
 		getUpSession: getUpSession,
 		getRPSession: getRPSession,
+		maxAge:       90 * 24 * time.Hour,
 	}
 	s.router = router.NewRouter(&router.Routes{
 		Subs: []*router.Routes{
@@ -196,4 +200,11 @@ func NewServer(
 
 func (s *Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(rw, r)
+}
+
+func (s *Server) cacheControlImmutable(rw http.ResponseWriter) {
+	rw.Header().Set(
+		"Cache-Control",
+		fmt.Sprintf("public, immutable, max-age=%d", int(s.maxAge.Seconds())),
+	)
 }

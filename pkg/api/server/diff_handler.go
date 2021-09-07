@@ -76,5 +76,6 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	if ok {
 		panic(err)
 	}
+	s.cacheControlImmutable(rw)
 	writeJSON(rw, resp)
 }

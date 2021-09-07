@@ -47,5 +47,6 @@ func (s *Server) handleGetCommit(rw http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	db := s.getDB(r)
+	s.cacheControlImmutable(rw)
 	writeCommitJSON(rw, r, db, sum)
 }

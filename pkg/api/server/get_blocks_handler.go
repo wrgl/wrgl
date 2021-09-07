@@ -64,6 +64,7 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 	if v, ok := values["format"]; ok {
 		format = payload.BlockFormat(v[0])
 	}
+	s.cacheControlImmutable(rw)
 	switch format {
 	case payload.BlockFormatBinary:
 		rw.Header().Set("Content-Encoding", "gzip")

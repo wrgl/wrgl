@@ -35,5 +35,6 @@ func (s *Server) handleGetTable(rw http.ResponseWriter, r *http.Request) {
 		PK:        tbl.PK,
 		RowsCount: tbl.RowsCount,
 	}
+	s.cacheControlImmutable(rw)
 	writeJSON(rw, resp)
 }

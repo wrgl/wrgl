@@ -67,6 +67,7 @@ func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
+	s.cacheControlImmutable(rw)
 	rw.Header().Set("Content-Encoding", "gzip")
 	gzw := gzip.NewWriter(rw)
 	defer gzw.Close()
