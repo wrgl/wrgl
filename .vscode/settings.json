@@ -9,4 +9,5 @@
       ]
     }
   }
+  // "go.testFlags": ["-run", "//GetConfig"]
 }

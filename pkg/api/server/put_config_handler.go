@@ -23,5 +23,8 @@ func (s *Server) handlePutConfig(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-
+	cs := s.getConfS(r)
+	if err := cs.Save(req); err != nil {
+		panic(err)
+	}
 }

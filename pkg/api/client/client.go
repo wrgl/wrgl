@@ -18,6 +18,7 @@ import (
 
 	"github.com/wrgl/core/pkg/api"
 	"github.com/wrgl/core/pkg/api/payload"
+	"github.com/wrgl/core/pkg/conf"
 	"github.com/wrgl/core/pkg/encoding"
 	"golang.org/x/net/publicsuffix"
 )
@@ -172,6 +173,37 @@ func (c *Client) Authenticate(email, password string, opts ...RequestOption) (to
 		return
 	}
 	return ar.IDToken, nil
+}
+
+func (c *Client) GetConfig(opts ...RequestOption) (cfg *conf.Config, err error) {
+	resp, err := c.Request(http.MethodGet, "/config/", nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	cfg = &conf.Config{}
+	err = json.Unmarshal(b, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (c *Client) PutConfig(cfg *conf.Config, opts ...RequestOption) (resp *http.Response, err error) {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return
+	}
+	return c.Request(http.MethodPut, "/config/", bytes.NewReader(b), map[string]string{
+		"Content-Type": CTJSON,
+	}, opts...)
 }
 
 func (c *Client) GetHead(branch string, opts ...RequestOption) (com *payload.Commit, err error) {
