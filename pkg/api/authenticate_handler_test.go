@@ -20,7 +20,7 @@ import (
 
 func (s *testSuite) TestAuthenticate(t *testing.T) {
 	srv := apitest.NewServer(t, regexp.MustCompile(`^/my-repo/`))
-	repo, cli, _, cleanup := srv.NewClient(t, false, "/my-repo/", regexp.MustCompile(`^/my-repo`))
+	repo, cli, _, cleanup := srv.NewClient(t, false, "/my-repo/", regexp.MustCompile(`^/my-repo/`))
 	defer cleanup()
 	authnS := srv.GetAuthnS(repo)
 	authzS := srv.GetAuthzS(repo)

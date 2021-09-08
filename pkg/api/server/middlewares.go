@@ -161,6 +161,9 @@ func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request)
 	p := r.URL.Path
 	if m.pathPrefix != nil {
 		p = strings.TrimPrefix(p, m.pathPrefix.FindString(p))
+		if !strings.HasPrefix(p, "/") {
+			p = "/" + p
+		}
 	}
 	for _, o := range routeScopes {
 		if o.Pat.MatchString(p) && o.Method == r.Method {
