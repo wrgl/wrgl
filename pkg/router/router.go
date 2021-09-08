@@ -18,18 +18,28 @@ type Routes struct {
 }
 
 type Router struct {
-	c *Routes
+	c        *Routes
+	rootPath *regexp.Regexp
 }
 
-func NewRouter(c *Routes) *Router {
+func NewRouter(rootPath *regexp.Regexp, c *Routes) *Router {
 	return &Router{
-		c: c,
+		c:        c,
+		rootPath: rootPath,
 	}
 }
 
 func (router *Router) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	routes := router.c
 	path := r.URL.Path
+	if router.rootPath != nil {
+		if s := router.rootPath.FindString(path); s == "" {
+			http.NotFound(rw, r)
+			return
+		} else {
+			path = "/" + strings.TrimPrefix(path, s)
+		}
+	}
 	redirect := !strings.HasSuffix(path, "/")
 	if redirect {
 		path = path + "/"

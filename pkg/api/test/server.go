@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
+	"strings"
 	"sync"
 	"testing"
 
@@ -58,7 +60,7 @@ type Server struct {
 	s          *apiserver.Server
 }
 
-func NewServer(t *testing.T, opts ...apiserver.ServerOption) *Server {
+func NewServer(t *testing.T, rootPath *regexp.Regexp, opts ...apiserver.ServerOption) *Server {
 	ts := &Server{
 		db:         map[string]objects.Store{},
 		rs:         map[string]ref.Store{},
@@ -69,6 +71,7 @@ func NewServer(t *testing.T, opts ...apiserver.ServerOption) *Server {
 		rpSessions: map[string]apiserver.ReceivePackSessionStore{},
 	}
 	ts.s = apiserver.NewServer(
+		rootPath,
 		func(r *http.Request) auth.AuthnStore {
 			return ts.GetAuthnS(getRepo(r))
 		},
@@ -155,7 +158,7 @@ func (s *Server) GetRpSessions(repo string) apiserver.ReceivePackSessionStore {
 	return s.rpSessions[repo]
 }
 
-func (s *Server) NewRemote(t *testing.T, authenticate bool) (repo string, url string, m *RequestCaptureMiddleware, cleanup func()) {
+func (s *Server) NewRemote(t *testing.T, authenticate bool, pathPrefix string, pathPrefixPat *regexp.Regexp) (repo string, url string, m *RequestCaptureMiddleware, cleanup func()) {
 	t.Helper()
 	repo = testutils.BrokenRandomLowerAlphaString(6)
 	cs := s.GetConfS(repo)
@@ -173,13 +176,20 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool) (repo string, url st
 			s.s.ServeHTTP(rw, r)
 		},
 	})
-	ts := httptest.NewServer(apiserver.AuthenticateMiddleware(
+	handler := apiserver.AuthenticateMiddleware(
 		func(r *http.Request) auth.AuthnStore {
 			return s.GetAuthnS(repo)
 		},
-	)(apiserver.AuthorizeMiddleware(func(r *http.Request) auth.AuthzStore {
-		return s.GetAuthzS(repo)
-	})(m)))
+	)(apiserver.AuthorizeMiddleware(
+		func(r *http.Request) auth.AuthzStore { return s.GetAuthzS(repo) },
+		pathPrefixPat,
+	)(m))
+	if pathPrefix != "" {
+		mux := http.NewServeMux()
+		mux.Handle(pathPrefix, handler)
+		handler = mux
+	}
+	ts := httptest.NewServer(handler)
 	if authenticate {
 		authnS := s.GetAuthnS(repo)
 		authzS := s.GetAuthzS(repo)
@@ -190,12 +200,12 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool) (repo string, url st
 			require.NoError(t, authzS.AddPolicy(Email, s))
 		}
 	}
-	return repo, ts.URL, m, ts.Close
+	return repo, strings.TrimSuffix(ts.URL+pathPrefix, "/"), m, ts.Close
 }
 
-func (s *Server) NewClient(t *testing.T, authenticate bool) (string, *apiclient.Client, *RequestCaptureMiddleware, func()) {
+func (s *Server) NewClient(t *testing.T, authenticate bool, pathPrefix string, pathPrefixPat *regexp.Regexp) (string, *apiclient.Client, *RequestCaptureMiddleware, func()) {
 	t.Helper()
-	repo, url, m, cleanup := s.NewRemote(t, authenticate)
+	repo, url, m, cleanup := s.NewRemote(t, authenticate, pathPrefix, pathPrefixPat)
 	var opts []apiclient.RequestOption
 	if authenticate {
 		authnS := s.GetAuthnS(repo)

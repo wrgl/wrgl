@@ -18,7 +18,7 @@ import (
 )
 
 func (s *testSuite) TestUploadPack(t *testing.T) {
-	repo, cli, _, cleanup := s.s.NewClient(t, true)
+	repo, cli, _, cleanup := s.s.NewClient(t, true, "", nil)
 	defer cleanup()
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)
@@ -47,7 +47,7 @@ func (s *testSuite) TestUploadPack(t *testing.T) {
 }
 
 func (s *testSuite) TestUploadPackMultiplePackfiles(t *testing.T) {
-	repo, cli, _, cleanup := s.s.NewClient(t, true)
+	repo, cli, _, cleanup := s.s.NewClient(t, true, "", nil)
 	defer cleanup()
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)
@@ -71,7 +71,7 @@ func (s *testSuite) TestUploadPackMultiplePackfiles(t *testing.T) {
 }
 
 func (s *testSuite) TestUploadPackCustomHeader(t *testing.T) {
-	repo, cli, m, cleanup := s.s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true, "", nil)
 	defer cleanup()
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)

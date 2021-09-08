@@ -140,15 +140,17 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 }
 
 type authorizeMiddleware struct {
-	handler   http.Handler
-	getAuthzS func(r *http.Request) auth.AuthzStore
+	handler    http.Handler
+	getAuthzS  func(r *http.Request) auth.AuthzStore
+	pathPrefix *regexp.Regexp
 }
 
-func AuthorizeMiddleware(getAuthzS func(r *http.Request) auth.AuthzStore) func(handler http.Handler) http.Handler {
+func AuthorizeMiddleware(getAuthzS func(r *http.Request) auth.AuthzStore, pathPrefix *regexp.Regexp) func(handler http.Handler) http.Handler {
 	return func(handler http.Handler) http.Handler {
 		m := &authorizeMiddleware{
-			handler:   handler,
-			getAuthzS: getAuthzS,
+			handler:    handler,
+			getAuthzS:  getAuthzS,
+			pathPrefix: pathPrefix,
 		}
 		return m
 	}
@@ -156,8 +158,12 @@ func AuthorizeMiddleware(getAuthzS func(r *http.Request) auth.AuthzStore) func(h
 
 func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	var route *routeScope
+	p := r.URL.Path
+	if m.pathPrefix != nil {
+		p = strings.TrimPrefix(p, m.pathPrefix.FindString(p))
+	}
 	for _, o := range routeScopes {
-		if o.Pat.MatchString(r.URL.Path) && o.Method == r.Method {
+		if o.Pat.MatchString(p) && o.Method == r.Method {
 			route = &o
 			break
 		}

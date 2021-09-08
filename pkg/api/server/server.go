@@ -71,7 +71,7 @@ type Server struct {
 }
 
 func NewServer(
-	getAuthnS func(r *http.Request) auth.AuthnStore, getDB func(r *http.Request) objects.Store, getRS func(r *http.Request) ref.Store,
+	rootPath *regexp.Regexp, getAuthnS func(r *http.Request) auth.AuthnStore, getDB func(r *http.Request) objects.Store, getRS func(r *http.Request) ref.Store,
 	getConfS func(r *http.Request) conf.Store, getUpSession func(r *http.Request) UploadPackSessionStore, getRPSession func(r *http.Request) ReceivePackSessionStore,
 	opts ...ServerOption,
 ) *Server {
@@ -84,7 +84,7 @@ func NewServer(
 		getRPSession: getRPSession,
 		maxAge:       90 * 24 * time.Hour,
 	}
-	s.router = router.NewRouter(&router.Routes{
+	s.router = router.NewRouter(rootPath, &router.Routes{
 		Subs: []*router.Routes{
 			{
 				Method:      http.MethodPost,

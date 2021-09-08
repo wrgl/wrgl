@@ -17,7 +17,7 @@ import (
 )
 
 func (s *testSuite) TestGetCommitHandler(t *testing.T) {
-	repo, cli, m, cleanup := s.s.NewClient(t, true)
+	repo, cli, m, cleanup := s.s.NewClient(t, true, "", nil)
 	defer cleanup()
 	db := s.s.GetDB(repo)
 	parent, _ := factory.CommitRandom(t, db, nil)

@@ -17,45 +17,13 @@ type testSuite struct {
 
 func newSuite(t *testing.T) *testSuite {
 	ts := &testSuite{}
-	ts.s = apitest.NewServer(t, apiserver.WithPostCommitCallback(func(commit *objects.Commit, sum []byte, branch string) {
+	ts.s = apitest.NewServer(t, nil, apiserver.WithPostCommitCallback(func(commit *objects.Commit, sum []byte, branch string) {
 		if ts.postCommit != nil {
 			ts.postCommit(commit, sum, branch)
 		}
 	}))
 	return ts
 }
-
-// func (s *testSuite) getAuthnS(r *http.Request) auth.AuthnStore {
-// 	return s.s.GetAuthnS(repo)
-// }
-
-// func (s *testSuite) getAuthzS(r *http.Request) auth.AuthzStore {
-// 	return s.s.GetAuthzS(repo)
-// }
-
-// func (s *testSuite) getDB(r *http.Request) objects.Store {
-// 	return s.s.GetDB(repo)
-// }
-
-// func (s *testSuite) getRS(r *http.Request) ref.Store {
-// 	return s.s.GetRS(repo)
-// }
-
-// func (s *testSuite) getConf(r *http.Request) *conf.Config {
-// 	return s.s.GetConf(repo)
-// }
-
-// func (s *testSuite) getUpSessions(r *http.Request) apiserver.UploadPackSessionStore {
-// 	return s.s.GetUpSessions(repo)
-// }
-
-// func (s *testSuite) getRpSessions(r *http.Request) apiserver.ReceivePackSessionStore {
-// 	return s.s.GetRpSessions(repo)
-// }
-
-// func (s *testSuite) NewClient(t *testing.T, authenticate bool) (string, *apiclient.Client, *apitest.RequestCaptureMiddleware, func()) {
-// 	return s.s.s.NewClient(t, authenticate)
-// }
 
 func TestSuite(t *testing.T) {
 	suite := newSuite(t)

@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/csv"
 	"net/http"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
+	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/auth"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/ref"
@@ -17,12 +19,13 @@ import (
 )
 
 func (s *testSuite) TestAuthenticate(t *testing.T) {
-	repo, cli, _, cleanup := s.s.NewClient(t, false)
+	srv := apitest.NewServer(t, regexp.MustCompile(`^/my-repo/`))
+	repo, cli, _, cleanup := srv.NewClient(t, false, "/my-repo/", regexp.MustCompile(`^/my-repo`))
 	defer cleanup()
-	authnS := s.s.GetAuthnS(repo)
-	authzS := s.s.GetAuthzS(repo)
-	db := s.s.GetDB(repo)
-	rs := s.s.GetRS(repo)
+	authnS := srv.GetAuthnS(repo)
+	authzS := srv.GetAuthzS(repo)
+	db := srv.GetDB(repo)
+	rs := srv.GetRS(repo)
 	sum1, _ := factory.CommitRandom(t, db, nil)
 	sum2, com := factory.CommitRandom(t, db, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rs, "main", sum2, com))

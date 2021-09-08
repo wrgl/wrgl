@@ -14,8 +14,8 @@ import (
 
 func TestPullCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t)
-	repo, url, _, cleanup := ts.NewRemote(t, true)
+	ts := apitest.NewServer(t, nil)
+	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
