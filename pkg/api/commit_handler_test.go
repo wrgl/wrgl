@@ -109,12 +109,12 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 	repo, cli, _, cleanup := s.s.NewClient(t, true, "", nil)
 	defer cleanup()
 	var com = &objects.Commit{}
-	var r string
+	var zeRef string
 	var comSum = make([]byte, 16)
-	s.postCommit = func(commit *objects.Commit, sum []byte, branch string) {
+	s.postCommit = func(r *http.Request, commit *objects.Commit, sum []byte, branch string) {
 		*com = *commit
 		copy(comSum, sum)
-		r = branch
+		zeRef = branch
 	}
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)
@@ -139,5 +139,5 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 	assert.Equal(t, "initial commit", com.Message)
 	assert.Equal(t, [][]byte{parent}, com.Parents)
 	assert.Equal(t, (*cr.Sum)[:], comSum)
-	assert.Equal(t, "alpha", r)
+	assert.Equal(t, "alpha", zeRef)
 }

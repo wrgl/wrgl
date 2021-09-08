@@ -90,7 +90,7 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	if s.postCommit != nil {
-		s.postCommit(commit, commitSum, branch)
+		s.postCommit(r, commit, commitSum, branch)
 	}
 	resp := &payload.CommitResponse{
 		Sum:   &payload.Hex{},

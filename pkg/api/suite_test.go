@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,14 +13,14 @@ import (
 
 type testSuite struct {
 	s          *apitest.Server
-	postCommit func(commit *objects.Commit, sum []byte, branch string)
+	postCommit func(r *http.Request, commit *objects.Commit, sum []byte, branch string)
 }
 
 func newSuite(t *testing.T) *testSuite {
 	ts := &testSuite{}
-	ts.s = apitest.NewServer(t, nil, apiserver.WithPostCommitCallback(func(commit *objects.Commit, sum []byte, branch string) {
+	ts.s = apitest.NewServer(t, nil, apiserver.WithPostCommitCallback(func(r *http.Request, commit *objects.Commit, sum []byte, branch string) {
 		if ts.postCommit != nil {
-			ts.postCommit(commit, sum, branch)
+			ts.postCommit(r, commit, sum, branch)
 		}
 	}))
 	return ts

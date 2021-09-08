@@ -52,7 +52,7 @@ func getEmail(r *http.Request) string {
 
 type ServerOption func(s *Server)
 
-func WithPostCommitCallback(postCommit func(commit *objects.Commit, sum []byte, branch string)) ServerOption {
+func WithPostCommitCallback(postCommit func(r *http.Request, commit *objects.Commit, sum []byte, branch string)) ServerOption {
 	return func(s *Server) {
 		s.postCommit = postCommit
 	}
@@ -65,7 +65,7 @@ type Server struct {
 	getConfS     func(r *http.Request) conf.Store
 	getUpSession func(r *http.Request) UploadPackSessionStore
 	getRPSession func(r *http.Request) ReceivePackSessionStore
-	postCommit   func(commit *objects.Commit, sum []byte, branch string)
+	postCommit   func(r *http.Request, commit *objects.Commit, sum []byte, branch string)
 	router       *router.Router
 	maxAge       time.Duration
 }
