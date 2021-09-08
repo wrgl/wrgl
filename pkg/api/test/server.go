@@ -174,13 +174,12 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool) (repo string, url st
 		},
 	})
 	ts := httptest.NewServer(apiserver.AuthenticateMiddleware(
-		apiserver.AuthorizeMiddleware(m, func(r *http.Request) auth.AuthzStore {
-			return s.GetAuthzS(repo)
-		}),
 		func(r *http.Request) auth.AuthnStore {
 			return s.GetAuthnS(repo)
 		},
-	))
+	)(apiserver.AuthorizeMiddleware(func(r *http.Request) auth.AuthzStore {
+		return s.GetAuthzS(repo)
+	})(m)))
 	if authenticate {
 		authnS := s.GetAuthnS(repo)
 		authzS := s.GetAuthzS(repo)

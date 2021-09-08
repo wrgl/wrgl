@@ -8,15 +8,116 @@ import (
 	"github.com/wrgl/core/pkg/auth"
 )
 
+type routeScope struct {
+	Pat    *regexp.Regexp
+	Method string
+	Scope  string
+}
+
+var routeScopes []routeScope
+
+func init() {
+	patAuthenticate = regexp.MustCompile(`^/authenticate/`)
+	patConfig = regexp.MustCompile(`^/config/`)
+	patRefs = regexp.MustCompile(`^/refs/`)
+	patHead = regexp.MustCompile(`^heads/[-_0-9a-zA-Z]+/`)
+	patRefsHead = regexp.MustCompile(`^/refs/heads/[-_0-9a-zA-Z]+/`)
+	patUploadPack = regexp.MustCompile(`^/upload-pack/`)
+	patReceivePack = regexp.MustCompile(`^/receive-pack/`)
+	patCommits = regexp.MustCompile(`^/commits/`)
+	patSum = regexp.MustCompile(`^[0-9a-f]{32}/`)
+	patCommit = regexp.MustCompile(`^/commits/[0-9a-f]{32}/`)
+	patTables = regexp.MustCompile(`^/tables/`)
+	patTable = regexp.MustCompile(`^/tables/[0-9a-f]{32}/`)
+	patBlocks = regexp.MustCompile(`^blocks/`)
+	patTableBlocks = regexp.MustCompile(`^/tables/[0-9a-f]{32}/blocks/`)
+	patRows = regexp.MustCompile(`^rows/`)
+	patTableRows = regexp.MustCompile(`^/tables/[0-9a-f]{32}/rows/`)
+	patDiff = regexp.MustCompile(`^/diff/[0-9a-f]{32}/[0-9a-f]{32}/`)
+	routeScopes = []routeScope{
+		{
+			Pat:    patAuthenticate,
+			Method: http.MethodPost,
+		},
+		{
+			Pat:    patConfig,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeReadConfig,
+		},
+		{
+			Pat:    patConfig,
+			Method: http.MethodPut,
+			Scope:  auth.ScopeWriteConfig,
+		},
+		{
+			Pat:    patRefsHead,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRead,
+		},
+		{
+			Pat:    patRefs,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRead,
+		},
+		{
+			Pat:    patUploadPack,
+			Method: http.MethodPost,
+			Scope:  auth.ScopeRead,
+		},
+		{
+			Pat:    patReceivePack,
+			Method: http.MethodPost,
+			Scope:  auth.ScopeWrite,
+		},
+		{
+			Pat:    patCommit,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRead,
+		},
+		{
+			Pat:    patCommits,
+			Method: http.MethodPost,
+			Scope:  auth.ScopeWrite,
+		},
+		{
+			Pat:    patCommits,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRead,
+		},
+		{
+			Pat:    patTableBlocks,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRead,
+		},
+		{
+			Pat:    patTableRows,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRead,
+		},
+		{
+			Pat:    patTable,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRead,
+		},
+		{
+			Pat:    patDiff,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRead,
+		},
+	}
+}
+
 type authenticateMiddleware struct {
 	handler   http.Handler
 	getAuthnS func(r *http.Request) auth.AuthnStore
 }
 
-func AuthenticateMiddleware(handler http.Handler, getAuthnS func(r *http.Request) auth.AuthnStore) http.Handler {
-	return &authenticateMiddleware{
-		handler:   handler,
-		getAuthnS: getAuthnS,
+func AuthenticateMiddleware(getAuthnS func(r *http.Request) auth.AuthnStore) func(handler http.Handler) http.Handler {
+	return func(handler http.Handler) http.Handler {
+		return &authenticateMiddleware{
+			handler:   handler,
+			getAuthnS: getAuthnS,
+		}
 	}
 }
 
@@ -38,100 +139,24 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 	m.handler.ServeHTTP(rw, r)
 }
 
-type routeScope struct {
-	Pat    *regexp.Regexp
-	Method string
-	Scope  string
-}
-
 type authorizeMiddleware struct {
 	handler   http.Handler
 	getAuthzS func(r *http.Request) auth.AuthzStore
-	routes    []routeScope
 }
 
-func AuthorizeMiddleware(handler http.Handler, getAuthzS func(r *http.Request) auth.AuthzStore) http.Handler {
-	m := &authorizeMiddleware{
-		handler:   handler,
-		getAuthzS: getAuthzS,
-		routes: []routeScope{
-			{
-				Pat:    patAuthenticate,
-				Method: http.MethodPost,
-			},
-			{
-				Pat:    patConfig,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeReadConfig,
-			},
-			{
-				Pat:    patConfig,
-				Method: http.MethodPut,
-				Scope:  auth.ScopeWriteConfig,
-			},
-			{
-				Pat:    patRefsHead,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeRead,
-			},
-			{
-				Pat:    patRefs,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeRead,
-			},
-			{
-				Pat:    patUploadPack,
-				Method: http.MethodPost,
-				Scope:  auth.ScopeRead,
-			},
-			{
-				Pat:    patReceivePack,
-				Method: http.MethodPost,
-				Scope:  auth.ScopeWrite,
-			},
-			{
-				Pat:    patCommit,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeRead,
-			},
-			{
-				Pat:    patCommits,
-				Method: http.MethodPost,
-				Scope:  auth.ScopeWrite,
-			},
-			{
-				Pat:    patCommits,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeRead,
-			},
-			{
-				Pat:    patTableBlocks,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeRead,
-			},
-			{
-				Pat:    patTableRows,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeRead,
-			},
-			{
-				Pat:    patTable,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeRead,
-			},
-			{
-				Pat:    patDiff,
-				Method: http.MethodGet,
-				Scope:  auth.ScopeRead,
-			},
-		},
+func AuthorizeMiddleware(getAuthzS func(r *http.Request) auth.AuthzStore) func(handler http.Handler) http.Handler {
+	return func(handler http.Handler) http.Handler {
+		m := &authorizeMiddleware{
+			handler:   handler,
+			getAuthzS: getAuthzS,
+		}
+		return m
 	}
-	return m
 }
 
 func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	var route *routeScope
-	for _, o := range m.routes {
+	for _, o := range routeScopes {
 		if o.Pat.MatchString(r.URL.Path) && o.Method == r.Method {
 			route = &o
 			break

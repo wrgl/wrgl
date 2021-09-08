@@ -37,26 +37,6 @@ var (
 	patDiff         *regexp.Regexp
 )
 
-func init() {
-	patAuthenticate = regexp.MustCompile(`^/authenticate/`)
-	patConfig = regexp.MustCompile(`^/config/`)
-	patRefs = regexp.MustCompile(`^/refs/`)
-	patHead = regexp.MustCompile(`^heads/[-_0-9a-zA-Z]+/`)
-	patRefsHead = regexp.MustCompile(`^/refs/heads/[-_0-9a-zA-Z]+/`)
-	patUploadPack = regexp.MustCompile(`^/upload-pack/`)
-	patReceivePack = regexp.MustCompile(`^/receive-pack/`)
-	patCommits = regexp.MustCompile(`^/commits/`)
-	patSum = regexp.MustCompile(`^[0-9a-f]{32}/`)
-	patCommit = regexp.MustCompile(`^/commits/[0-9a-f]{32}/`)
-	patTables = regexp.MustCompile(`^/tables/`)
-	patTable = regexp.MustCompile(`^/tables/[0-9a-f]{32}/`)
-	patBlocks = regexp.MustCompile(`^blocks/`)
-	patTableBlocks = regexp.MustCompile(`^/tables/[0-9a-f]{32}/blocks/`)
-	patRows = regexp.MustCompile(`^rows/`)
-	patTableRows = regexp.MustCompile(`^/tables/[0-9a-f]{32}/rows/`)
-	patDiff = regexp.MustCompile(`^/diff/[0-9a-f]{32}/[0-9a-f]{32}/`)
-}
-
 type emailKey struct{}
 
 func setEmail(r *http.Request, email string) *http.Request {
