@@ -182,7 +182,7 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool, pathPrefix string, p
 		},
 	)(apiserver.AuthorizeMiddleware(
 		func(r *http.Request) auth.AuthzStore { return s.GetAuthzS(repo) },
-		pathPrefixPat,
+		pathPrefixPat, false,
 	)(m))
 	if pathPrefix != "" {
 		mux := http.NewServeMux()

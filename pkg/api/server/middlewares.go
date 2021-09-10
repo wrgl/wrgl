@@ -140,17 +140,19 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 }
 
 type authorizeMiddleware struct {
-	handler    http.Handler
-	getAuthzS  func(r *http.Request) auth.AuthzStore
-	pathPrefix *regexp.Regexp
+	handler              http.Handler
+	getAuthzS            func(r *http.Request) auth.AuthzStore
+	pathPrefix           *regexp.Regexp
+	maskUnauthorizedPath bool
 }
 
-func AuthorizeMiddleware(getAuthzS func(r *http.Request) auth.AuthzStore, pathPrefix *regexp.Regexp) func(handler http.Handler) http.Handler {
+func AuthorizeMiddleware(getAuthzS func(r *http.Request) auth.AuthzStore, pathPrefix *regexp.Regexp, maskUnauthorizedPath bool) func(handler http.Handler) http.Handler {
 	return func(handler http.Handler) http.Handler {
 		m := &authorizeMiddleware{
-			handler:    handler,
-			getAuthzS:  getAuthzS,
-			pathPrefix: pathPrefix,
+			handler:              handler,
+			getAuthzS:            getAuthzS,
+			pathPrefix:           pathPrefix,
+			maskUnauthorizedPath: maskUnauthorizedPath,
 		}
 		return m
 	}
@@ -181,7 +183,9 @@ func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request)
 		if ok, err := authzS.Authorized(r, email, route.Scope); err != nil {
 			panic(err)
 		} else if !ok {
-			if email == "" {
+			if m.maskUnauthorizedPath {
+				http.Error(rw, "not found", http.StatusNotFound)
+			} else if email == "" {
 				http.Error(rw, "unauthorized", http.StatusUnauthorized)
 			} else {
 				http.Error(rw, "forbidden", http.StatusForbidden)
