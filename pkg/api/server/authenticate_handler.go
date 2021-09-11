@@ -11,7 +11,7 @@ import (
 
 func (s *Server) handleAuthenticate(rw http.ResponseWriter, r *http.Request) {
 	if v := r.Header.Get("Content-Type"); v != api.CTJSON {
-		http.Error(rw, "json expected", http.StatusUnsupportedMediaType)
+		sendError(rw, http.StatusUnsupportedMediaType, "json expected")
 		return
 	}
 	b, err := ioutil.ReadAll(r.Body)
@@ -27,7 +27,7 @@ func (s *Server) handleAuthenticate(rw http.ResponseWriter, r *http.Request) {
 	tok, err := authnS.Authenticate(req.Email, req.Password)
 	if err != nil {
 		if err.Error() == "email/password invalid" {
-			http.Error(rw, err.Error(), http.StatusUnauthorized)
+			sendError(rw, http.StatusUnauthorized, err.Error())
 			return
 		}
 		panic(err)

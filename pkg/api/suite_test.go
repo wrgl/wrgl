@@ -6,6 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	apiclient "github.com/wrgl/core/pkg/api/client"
+	"github.com/wrgl/core/pkg/api/payload"
 	apiserver "github.com/wrgl/core/pkg/api/server"
 	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/objects"
@@ -24,6 +28,23 @@ func newSuite(t *testing.T) *testSuite {
 		}
 	}))
 	return ts
+}
+
+func assertHTTPError(t *testing.T, err error, code int, message string) {
+	t.Helper()
+	v, ok := err.(*apiclient.HTTPError)
+	require.True(t, ok)
+	assert.Equal(t, code, v.Code)
+	assert.Equal(t, message, v.Body.Message)
+}
+
+func assertCSVError(t *testing.T, err error, message string, csvLoc *payload.CSVLocation) {
+	t.Helper()
+	v, ok := err.(*apiclient.HTTPError)
+	require.True(t, ok)
+	assert.Equal(t, http.StatusBadRequest, v.Code)
+	assert.Equal(t, message, v.Body.Message)
+	assert.Equal(t, csvLoc, v.Body.CSV)
 }
 
 func TestSuite(t *testing.T) {

@@ -86,11 +86,7 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 		return
 	}
 	if resp.StatusCode >= 400 {
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		return nil, NewHTTPError(resp.StatusCode, string(b))
+		return nil, NewHTTPError(resp)
 	}
 	return
 }
@@ -136,11 +132,7 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 		return nil, err
 	}
 	if resp.StatusCode >= 400 {
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		return nil, NewHTTPError(resp.StatusCode, string(b))
+		return nil, NewHTTPError(resp)
 	}
 	return resp, nil
 }

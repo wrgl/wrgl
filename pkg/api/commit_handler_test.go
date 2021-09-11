@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
+	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
@@ -25,31 +26,47 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 
 	// missing branch
 	_, err := cli.Commit("", "", "", "", nil, nil)
-	assert.Equal(t, "status 400: missing branch name", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "missing branch name")
 
 	// invalid branch
 	_, err = cli.Commit("123 kjl", "", "", "", nil, nil)
-	assert.Equal(t, "status 400: invalid branch name", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "invalid branch name")
 
 	// missing message
 	_, err = cli.Commit("alpha", "", "", "", nil, nil)
-	assert.Equal(t, "status 400: missing message", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "missing message")
 
 	// missing author email
 	_, err = cli.Commit("alpha", "initial commit", "", "", nil, nil)
-	assert.Equal(t, "status 400: missing author email", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "missing author email")
 
 	// missing author name
 	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "", nil, nil)
-	assert.Equal(t, "status 400: missing author name", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "missing author name")
 
 	// missing file
 	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", nil, nil)
-	assert.Equal(t, "status 400: missing file", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "missing file")
 
-	// valid request
+	// invalid CSV
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
+	require.NoError(t, w.WriteAll([][]string{
+		{"a", "b", "c"},
+		{"1", "q"},
+		{"2", "a", "s"},
+	}))
+	w.Flush()
+	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), []string{"a"})
+	assertCSVError(t, err, "wrong number of fields", &payload.CSVLocation{
+		StartLine: 2,
+		Line:      2,
+		Column:    1,
+	})
+
+	// valid request
+	buf = bytes.NewBuffer(nil)
+	w = csv.NewWriter(buf)
 	require.NoError(t, w.WriteAll([][]string{
 		{"a", "b", "c"},
 		{"1", "q", "w"},

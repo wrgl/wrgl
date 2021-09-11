@@ -38,18 +38,18 @@ func (s *Server) getTable(db objects.Store, x string) (*objects.Table, [][]strin
 func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	m := diffURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		http.NotFound(rw, r)
+		sendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	db := s.getDB(r)
 	tbl1, idx1 := s.getTable(db, m[1])
 	if tbl1 == nil {
-		http.NotFound(rw, r)
+		sendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	tbl2, idx2 := s.getTable(db, m[2])
 	if tbl2 == nil {
-		http.NotFound(rw, r)
+		sendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	errCh := make(chan error, 10)

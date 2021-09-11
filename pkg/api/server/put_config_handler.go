@@ -11,7 +11,7 @@ import (
 
 func (s *Server) handlePutConfig(rw http.ResponseWriter, r *http.Request) {
 	if v := r.Header.Get("Content-Type"); v != api.CTJSON {
-		http.Error(rw, "json expected", http.StatusUnsupportedMediaType)
+		sendError(rw, http.StatusUnsupportedMediaType, "json expected")
 		return
 	}
 	b, err := ioutil.ReadAll(r.Body)

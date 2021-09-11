@@ -103,7 +103,7 @@ func (s *ReceivePackSession) saveRefs() error {
 func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	var err error
 	if v := r.Header.Get("Content-Type"); v != api.CTJSON {
-		http.Error(rw, "updates expected", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "updates expected")
 		return nil
 	}
 	b, err := ioutil.ReadAll(r.Body)
@@ -147,7 +147,7 @@ func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nex
 
 func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	if v := r.Header.Get("Content-Type"); v != api.CTPackfile {
-		http.Error(rw, "packfile expected", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "packfile expected")
 		return nil
 	}
 	body := r.Body

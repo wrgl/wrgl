@@ -104,23 +104,23 @@ func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
 	rs := s.getRS(r)
 	query := r.URL.Query()
 	if s := query.Get("ref"); s == "" {
-		http.Error(rw, "missing ref query param", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "missing ref query param")
 		return
 	} else {
 		sum, err = ref.GetRef(rs, s)
 		if err != nil {
-			http.NotFound(rw, r)
+			sendHTTPError(rw, http.StatusNotFound)
 			return
 		}
 	}
 	minDepth, err := getQueryInt(query, "minDepth", 0)
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, err.Error())
 		return
 	}
 	maxDepth, err := getQueryInt(query, "maxDepth", 0)
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, err.Error())
 		return
 	}
 

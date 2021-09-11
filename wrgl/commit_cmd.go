@@ -98,7 +98,7 @@ func ensureUserSet(cmd *cobra.Command, c *conf.Config) {
 
 func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, memLimit uint64, rd *local.RepoDir, c *conf.Config) error {
 	if !ref.HeadPattern.MatchString(branchName) {
-		return fmt.Errorf("invalid repo name, must consist of only alphanumeric letters, hyphen and underscore")
+		return fmt.Errorf("invalid branch name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
 	db, err := rd.OpenObjectsStore()
 	if err != nil {

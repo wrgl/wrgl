@@ -42,10 +42,10 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 	}, []uint32{0}, nil)
 
 	_, err := cli.Diff(testutils.SecureRandomBytes(16), sum2)
-	assert.Equal(t, "status 404: 404 page not found", err.Error())
+	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
 
 	_, err = cli.Diff(sum1, testutils.SecureRandomBytes(16))
-	assert.Equal(t, "status 404: 404 page not found", err.Error())
+	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
 
 	dr, err := cli.Diff(sum1, sum2)
 	require.NoError(t, err)

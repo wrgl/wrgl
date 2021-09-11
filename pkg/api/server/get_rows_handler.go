@@ -24,7 +24,7 @@ var rowsURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/rows/`)
 func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 	m := rowsURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		http.NotFound(rw, r)
+		sendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	sum, err := hex.DecodeString(m[1])
@@ -34,7 +34,7 @@ func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
 	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
-		http.NotFound(rw, r)
+		sendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	values := r.URL.Query()
@@ -45,11 +45,11 @@ func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 		for i, s := range sl {
 			u, err := strconv.Atoi(s)
 			if err != nil {
-				http.Error(rw, fmt.Sprintf("invalid offset %q", s), http.StatusBadRequest)
+				sendError(rw, http.StatusBadRequest, fmt.Sprintf("invalid offset %q", s))
 				return
 			}
 			if u < 0 || u > int(tbl.RowsCount) {
-				http.Error(rw, fmt.Sprintf("offset out of range %q", s), http.StatusBadRequest)
+				sendError(rw, http.StatusBadRequest, fmt.Sprintf("offset out of range %q", s))
 				return
 			}
 			offsets[i] = uint32(u)

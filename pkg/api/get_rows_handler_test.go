@@ -30,17 +30,17 @@ func (s *testSuite) TestGetRowsHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = cli.GetRows(testutils.SecureRandomBytes(16), nil)
-	assert.Equal(t, "status 404: 404 page not found", err.Error())
+	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
 
 	resp, err := cli.GetRows(com.Table, nil)
 	require.NoError(t, err)
 	assertBlocksCSV(t, db, tbl.Blocks, resp)
 
 	_, err = cli.GetRows(com.Table, []int{-1})
-	assert.Equal(t, "status 400: offset out of range \"-1\"", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "offset out of range \"-1\"")
 
 	_, err = cli.GetRows(com.Table, []int{10})
-	assert.Equal(t, "status 400: offset out of range \"10\"", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "offset out of range \"10\"")
 
 	resp, err = cli.GetRows(com.Table, []int{0, 1})
 	require.NoError(t, err)

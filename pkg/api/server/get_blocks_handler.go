@@ -21,7 +21,7 @@ var blocksURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/blocks/`)
 func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 	m := blocksURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		http.NotFound(rw, r)
+		sendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	sum, err := hex.DecodeString(m[1])
@@ -31,7 +31,7 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
 	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
-		http.NotFound(rw, r)
+		sendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	blkCount := len(tbl.Blocks)
@@ -40,24 +40,24 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 	if v, ok := values["start"]; ok {
 		start, err = strconv.Atoi(v[0])
 		if err != nil {
-			http.Error(rw, "invalid start", http.StatusBadRequest)
+			sendError(rw, http.StatusBadRequest, "invalid start")
 			return
 		}
 	}
 	if start < 0 || start >= int(blkCount) {
-		http.Error(rw, "start out of range", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "start out of range")
 		return
 	}
 	end := blkCount
 	if v, ok := values["end"]; ok {
 		end, err = strconv.Atoi(v[0])
 		if err != nil {
-			http.Error(rw, "invalid end", http.StatusBadRequest)
+			sendError(rw, http.StatusBadRequest, "invalid end")
 			return
 		}
 	}
 	if end < start || end > int(blkCount) {
-		http.Error(rw, "end out of range", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "end out of range")
 		return
 	}
 	format := payload.BlockFormatCSV
@@ -99,7 +99,7 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 			}
 		}
 	default:
-		http.Error(rw, "invalid format", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "invalid format")
 		return
 	}
 }

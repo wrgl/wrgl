@@ -28,7 +28,7 @@ func (s *testSuite) TestGetCommitHandler(t *testing.T) {
 
 	// get commit not found
 	_, err = cli.GetCommit(testutils.SecureRandomBytes(16))
-	assert.Equal(t, "status 404: 404 page not found", err.Error())
+	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
 
 	// get commit OK
 	cr, err := cli.GetCommit(sum)
@@ -48,7 +48,7 @@ func (s *testSuite) TestGetCommitHandler(t *testing.T) {
 
 	// get table not found
 	_, err = cli.GetTable(testutils.SecureRandomBytes(16))
-	assert.Equal(t, "status 404: 404 page not found", err.Error())
+	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
 
 	// get table OK
 	tr, err := cli.GetTable(com.Table)

@@ -64,13 +64,13 @@ func (s *testSuite) TestGetBlocksHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = cli.GetBlocks(testutils.SecureRandomBytes(16), 0, 0, "")
-	assert.Equal(t, "status 404: 404 page not found", err.Error())
+	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
 
 	_, err = cli.GetBlocks(com.Table, 7, 0, "")
-	assert.Equal(t, "status 400: start out of range", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "start out of range")
 
 	_, err = cli.GetBlocks(com.Table, 0, 7, "")
-	assert.Equal(t, "status 400: end out of range", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "end out of range")
 
 	resp, err := cli.GetBlocks(com.Table, 0, 0, "")
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func (s *testSuite) TestGetBlocksHandler(t *testing.T) {
 	assertBlocksCSV(t, db, tbl.Blocks[1:2], resp)
 
 	_, err = cli.GetBlocks(com.Table, 0, 0, "abc")
-	assert.Equal(t, "status 400: invalid format", err.Error())
+	assertHTTPError(t, err, http.StatusBadRequest, "invalid format")
 
 	resp, err = cli.GetBlocks(com.Table, 0, 0, payload.BlockFormatBinary)
 	require.NoError(t, err)

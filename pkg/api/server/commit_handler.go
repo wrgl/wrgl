@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"bytes"
+	"encoding/csv"
 	"net/http"
 	"time"
 
@@ -18,37 +19,37 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	err := r.ParseMultipartForm(0)
 	if err != nil {
 		if err == http.ErrNotMultipart || err == http.ErrMissingBoundary {
-			http.Error(rw, err.Error(), http.StatusUnsupportedMediaType)
+			sendError(rw, http.StatusUnsupportedMediaType, err.Error())
 			return
 		}
 		panic(err)
 	}
 	branch := r.PostFormValue("branch")
 	if branch == "" {
-		http.Error(rw, "missing branch name", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "missing branch name")
 		return
 	}
 	if !ref.HeadPattern.MatchString(branch) {
-		http.Error(rw, "invalid branch name", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "invalid branch name")
 		return
 	}
 	message := r.PostFormValue("message")
 	if message == "" {
-		http.Error(rw, "missing message", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "missing message")
 		return
 	}
 	email := r.PostFormValue("authorEmail")
 	if email == "" {
-		http.Error(rw, "missing author email", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "missing author email")
 		return
 	}
 	name := r.PostFormValue("authorName")
 	if name == "" {
-		http.Error(rw, "missing author name", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "missing author name")
 		return
 	}
 	if len(r.MultipartForm.File["file"]) == 0 {
-		http.Error(rw, "missing file", http.StatusBadRequest)
+		sendError(rw, http.StatusBadRequest, "missing file")
 		return
 	}
 	fh := r.MultipartForm.File["file"][0]
@@ -61,7 +62,12 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
 	sum, err := ingest.IngestTable(db, f, primaryKey, 0, 1, nil, nil)
 	if err != nil {
-		panic(err)
+		if v, ok := err.(*csv.ParseError); ok {
+			sendCSVError(rw, v)
+			return
+		} else {
+			panic(err)
+		}
 	}
 
 	commit := &objects.Commit{

@@ -129,7 +129,7 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 		r, claims, err = authnS.CheckToken(r, h[7:])
 		if err != nil {
 			if strings.HasPrefix(err.Error(), "unexpected signing method: ") || err.Error() == "invalid token" {
-				http.Error(rw, "invalid token", http.StatusUnauthorized)
+				sendError(rw, http.StatusUnauthorized, "invalid token")
 				return
 			}
 			panic(err)
@@ -174,7 +174,7 @@ func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request)
 		}
 	}
 	if route == nil {
-		http.Error(rw, "not found", http.StatusNotFound)
+		sendError(rw, http.StatusNotFound, "not found")
 		return
 	}
 	if route.Scope != "" {
@@ -184,11 +184,11 @@ func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request)
 			panic(err)
 		} else if !ok {
 			if m.maskUnauthorizedPath {
-				http.Error(rw, "not found", http.StatusNotFound)
+				sendError(rw, http.StatusNotFound, "not found")
 			} else if email == "" {
-				http.Error(rw, "unauthorized", http.StatusUnauthorized)
+				sendError(rw, http.StatusUnauthorized, "unauthorized")
 			} else {
-				http.Error(rw, "forbidden", http.StatusForbidden)
+				sendError(rw, http.StatusForbidden, "forbidden")
 			}
 			return
 		}
