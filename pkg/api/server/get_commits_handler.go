@@ -30,8 +30,10 @@ func CommitPayload(com *objects.Commit) *payload.Commit {
 		AuthorName:  com.AuthorName,
 		AuthorEmail: com.AuthorEmail,
 		Message:     com.Message,
-		Table:       payload.BytesToHex(com.Table),
-		Time:        com.Time,
+		Table: &payload.Table{
+			Sum: payload.BytesToHex(com.Table),
+		},
+		Time: com.Time,
 	}
 	for _, sum := range com.Parents {
 		obj.Parents = append(obj.Parents, payload.BytesToHex(sum))

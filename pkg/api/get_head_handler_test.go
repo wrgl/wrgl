@@ -8,7 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
+	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
 
@@ -20,13 +22,20 @@ func (s *testSuite) TestGetHead(t *testing.T) {
 	parent, _ := factory.CommitRandom(t, db, nil)
 	sum, com := factory.CommitRandom(t, db, [][]byte{parent})
 	require.NoError(t, ref.CommitHead(rs, "main", sum, com))
+	tbl, err := objects.GetTable(db, com.Table)
+	require.NoError(t, err)
 
-	_, err := cli.GetHead("beta")
+	_, err = cli.GetHead("beta")
 	assert.Error(t, err)
 
 	cr, err := cli.GetHead("main")
 	require.NoError(t, err)
-	assert.Equal(t, com.Table, (*cr.Table)[:])
+	assert.Equal(t, &payload.Table{
+		Sum:       payload.BytesToHex(com.Table),
+		Columns:   tbl.Columns,
+		RowsCount: tbl.RowsCount,
+		PK:        tbl.PK,
+	}, cr.Table)
 	assert.Equal(t, com.AuthorName, cr.AuthorName)
 	assert.Equal(t, com.AuthorEmail, cr.AuthorEmail)
 	assert.Equal(t, com.Message, cr.Message)

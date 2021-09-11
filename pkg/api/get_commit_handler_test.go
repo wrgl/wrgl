@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
+	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/testutils"
@@ -22,15 +23,22 @@ func (s *testSuite) TestGetCommitHandler(t *testing.T) {
 	db := s.s.GetDB(repo)
 	parent, _ := factory.CommitRandom(t, db, nil)
 	sum, com := factory.CommitRandom(t, db, [][]byte{parent})
+	tbl, err := objects.GetTable(db, com.Table)
+	require.NoError(t, err)
 
 	// get commit not found
-	_, err := cli.GetCommit(testutils.SecureRandomBytes(16))
+	_, err = cli.GetCommit(testutils.SecureRandomBytes(16))
 	assert.Equal(t, "status 404: 404 page not found", err.Error())
 
 	// get commit OK
 	cr, err := cli.GetCommit(sum)
 	require.NoError(t, err)
-	assert.Equal(t, com.Table, (*cr.Table)[:])
+	assert.Equal(t, &payload.Table{
+		Sum:       payload.BytesToHex(com.Table),
+		Columns:   tbl.Columns,
+		RowsCount: tbl.RowsCount,
+		PK:        tbl.PK,
+	}, cr.Table)
 	assert.Equal(t, com.AuthorName, cr.AuthorName)
 	assert.Equal(t, com.AuthorEmail, cr.AuthorEmail)
 	assert.Equal(t, com.Message, cr.Message)
@@ -44,8 +52,6 @@ func (s *testSuite) TestGetCommitHandler(t *testing.T) {
 
 	// get table OK
 	tr, err := cli.GetTable(com.Table)
-	require.NoError(t, err)
-	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 	assert.Equal(t, tbl.Columns, tr.Columns)
 	assert.Equal(t, tbl.PK, tr.PK)

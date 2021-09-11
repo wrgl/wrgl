@@ -20,14 +20,23 @@ func writeCommitJSON(rw http.ResponseWriter, r *http.Request, db objects.Store, 
 		http.NotFound(rw, r)
 		return
 	}
+	tbl, err := objects.GetTable(db, com.Table)
+	if err != nil {
+		panic(err)
+	}
 	resp := &payload.Commit{
 		AuthorName:  com.AuthorName,
 		AuthorEmail: com.AuthorEmail,
 		Message:     com.Message,
 		Time:        com.Time,
-		Table:       &payload.Hex{},
+		Table: &payload.Table{
+			Sum:       &payload.Hex{},
+			Columns:   tbl.Columns,
+			RowsCount: tbl.RowsCount,
+			PK:        tbl.PK,
+		},
 	}
-	copy((*resp.Table)[:], com.Table)
+	copy((*resp.Table.Sum)[:], com.Table)
 	for _, sum := range com.Parents {
 		h := &payload.Hex{}
 		copy((*h)[:], sum)
