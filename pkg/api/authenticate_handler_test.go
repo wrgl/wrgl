@@ -82,7 +82,7 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	_, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithAuthorization(tok))
 	assert.Error(t, err)
 
-	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRead))
+	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRepoRead))
 
 	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), nil, apiclient.WithAuthorization(tok))
 	assert.Error(t, err)
@@ -109,7 +109,7 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	_, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithAuthorization(tok))
 	assert.Error(t, err)
 
-	require.NoError(t, authzS.AddPolicy(email, auth.ScopeWrite))
+	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRepoWrite))
 
 	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), nil, apiclient.WithAuthorization(tok))
 	require.NoError(t, err)

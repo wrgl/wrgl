@@ -6,10 +6,10 @@ package auth
 import "net/http"
 
 const (
-	ScopeRead        = "read"
-	ScopeWrite       = "write"
-	ScopeReadConfig  = "readConfig"
-	ScopeWriteConfig = "writeConfig"
+	ScopeRepoRead        = "repo.read"
+	ScopeRepoWrite       = "repo.write"
+	ScopeRepoReadConfig  = "repo.readConfig"
+	ScopeRepoWriteConfig = "repo.writeConfig"
 )
 
 type AuthzStore interface {

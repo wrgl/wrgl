@@ -195,7 +195,7 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool, pathPrefix string, p
 		authzS := s.GetAuthzS(repo)
 		require.NoError(t, authnS.SetPassword(Email, Password))
 		for _, s := range []string{
-			auth.ScopeRead, auth.ScopeReadConfig, auth.ScopeWrite, auth.ScopeWriteConfig,
+			auth.ScopeRepoRead, auth.ScopeRepoReadConfig, auth.ScopeRepoWrite, auth.ScopeRepoWriteConfig,
 		} {
 			require.NoError(t, authzS.AddPolicy(Email, s))
 		}

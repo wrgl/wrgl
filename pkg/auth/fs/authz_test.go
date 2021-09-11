@@ -24,39 +24,39 @@ func TestAuthzStore(t *testing.T) {
 
 	email1 := "alice@domain.com"
 	email2 := "bob@domain.com"
-	require.NoError(t, s.AddPolicy(email1, auth.ScopeRead))
-	require.NoError(t, s.AddPolicy(email2, auth.ScopeRead))
-	require.NoError(t, s.AddPolicy(email2, auth.ScopeWrite))
+	require.NoError(t, s.AddPolicy(email1, auth.ScopeRepoRead))
+	require.NoError(t, s.AddPolicy(email2, auth.ScopeRepoRead))
+	require.NoError(t, s.AddPolicy(email2, auth.ScopeRepoWrite))
 
 	r, err := http.NewRequest(http.MethodGet, "/", nil)
 	require.NoError(t, err)
 
-	ok, err := s.Authorized(r, email1, auth.ScopeRead)
+	ok, err := s.Authorized(r, email1, auth.ScopeRepoRead)
 	require.NoError(t, err)
 	assert.True(t, ok)
-	ok, err = s.Authorized(r, email1, auth.ScopeWrite)
+	ok, err = s.Authorized(r, email1, auth.ScopeRepoWrite)
 	require.NoError(t, err)
 	assert.False(t, ok)
-	ok, err = s.Authorized(r, email2, auth.ScopeWrite)
+	ok, err = s.Authorized(r, email2, auth.ScopeRepoWrite)
 	require.NoError(t, err)
 	assert.True(t, ok)
 
 	scopes, err := s.ListPolicies(email1)
 	require.NoError(t, err)
-	assert.Equal(t, []string{auth.ScopeRead}, scopes)
+	assert.Equal(t, []string{auth.ScopeRepoRead}, scopes)
 	scopes, err = s.ListPolicies(email2)
 	require.NoError(t, err)
-	assert.Equal(t, []string{auth.ScopeRead, auth.ScopeWrite}, scopes)
+	assert.Equal(t, []string{auth.ScopeRepoRead, auth.ScopeRepoWrite}, scopes)
 
 	require.NoError(t, s.Flush())
 
 	s, err = NewAuthzStore(dir)
 	require.NoError(t, err)
-	ok, err = s.Authorized(r, email1, auth.ScopeRead)
+	ok, err = s.Authorized(r, email1, auth.ScopeRepoRead)
 	require.NoError(t, err)
 	assert.True(t, ok)
-	require.NoError(t, s.RemovePolicy(email1, auth.ScopeRead))
-	ok, err = s.Authorized(r, email1, auth.ScopeRead)
+	require.NoError(t, s.RemovePolicy(email1, auth.ScopeRepoRead))
+	ok, err = s.Authorized(r, email1, auth.ScopeRepoRead)
 	require.NoError(t, err)
 	assert.False(t, ok)
 
@@ -64,7 +64,7 @@ func TestAuthzStore(t *testing.T) {
 
 	s, err = NewAuthzStore(dir)
 	require.NoError(t, err)
-	ok, err = s.Authorized(r, email1, auth.ScopeRead)
+	ok, err = s.Authorized(r, email1, auth.ScopeRepoRead)
 	require.NoError(t, err)
 	assert.False(t, ok)
 }

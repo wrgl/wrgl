@@ -42,67 +42,67 @@ func init() {
 		{
 			Pat:    patConfig,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeReadConfig,
+			Scope:  auth.ScopeRepoReadConfig,
 		},
 		{
 			Pat:    patConfig,
 			Method: http.MethodPut,
-			Scope:  auth.ScopeWriteConfig,
+			Scope:  auth.ScopeRepoWriteConfig,
 		},
 		{
 			Pat:    patRefsHead,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patRefs,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patUploadPack,
 			Method: http.MethodPost,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patReceivePack,
 			Method: http.MethodPost,
-			Scope:  auth.ScopeWrite,
+			Scope:  auth.ScopeRepoWrite,
 		},
 		{
 			Pat:    patCommit,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patCommits,
 			Method: http.MethodPost,
-			Scope:  auth.ScopeWrite,
+			Scope:  auth.ScopeRepoWrite,
 		},
 		{
 			Pat:    patCommits,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patTableBlocks,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patTableRows,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patTable,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patDiff,
 			Method: http.MethodGet,
-			Scope:  auth.ScopeRead,
+			Scope:  auth.ScopeRepoRead,
 		},
 	}
 }

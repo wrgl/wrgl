@@ -13,10 +13,10 @@ import (
 )
 
 var validScopes = map[string]string{
-	auth.ScopeRead:        "covers view-only actions such as fetch, diff, etc...",
-	auth.ScopeReadConfig:  "covers read config action",
-	auth.ScopeWrite:       "covers write actions such as push, commit, etc...",
-	auth.ScopeWriteConfig: "covers write config action",
+	auth.ScopeRepoRead:        "covers view-only actions such as fetch, diff, etc...",
+	auth.ScopeRepoReadConfig:  "covers read config action",
+	auth.ScopeRepoWrite:       "covers write actions such as push, commit, etc...",
+	auth.ScopeRepoWriteConfig: "covers write config action",
 }
 
 func maxScopeLength() int {

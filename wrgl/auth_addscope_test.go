@@ -25,7 +25,7 @@ func TestAuthAddScopeCmd(t *testing.T) {
 
 	cmd = newRootCmd()
 	email := testutils.RandomEmail()
-	cmd.SetArgs([]string{"auth", "addscope", email, auth.ScopeRead})
+	cmd.SetArgs([]string{"auth", "addscope", email, auth.ScopeRepoRead})
 	assertCmdFailed(t, cmd, "", authcmd.UserNotFoundErr(email))
 
 	cmd = newRootCmd()
@@ -33,7 +33,7 @@ func TestAuthAddScopeCmd(t *testing.T) {
 	assertCmdFailed(t, cmd, "", authcmd.InvalidScopeErr("abcd"))
 
 	cmd = newRootCmd()
-	cmd.SetArgs([]string{"auth", "addscope", email1, auth.ScopeRead, auth.ScopeWrite})
+	cmd.SetArgs([]string{"auth", "addscope", email1, auth.ScopeRepoRead, auth.ScopeRepoWrite})
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
@@ -43,13 +43,13 @@ func TestAuthAddScopeCmd(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"auth", "listscope", email1})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		auth.ScopeRead,
-		auth.ScopeWrite,
+		auth.ScopeRepoRead,
+		auth.ScopeRepoWrite,
 		"",
 	}, "\n"))
 
 	cmd = newRootCmd()
-	cmd.SetArgs([]string{"auth", "removescope", email, auth.ScopeWrite})
+	cmd.SetArgs([]string{"auth", "removescope", email, auth.ScopeRepoWrite})
 	assertCmdFailed(t, cmd, "", authcmd.UserNotFoundErr(email))
 
 	cmd = newRootCmd()
@@ -57,13 +57,13 @@ func TestAuthAddScopeCmd(t *testing.T) {
 	assertCmdFailed(t, cmd, "", authcmd.InvalidScopeErr("qwer"))
 
 	cmd = newRootCmd()
-	cmd.SetArgs([]string{"auth", "removescope", email1, auth.ScopeWrite})
+	cmd.SetArgs([]string{"auth", "removescope", email1, auth.ScopeRepoWrite})
 	require.NoError(t, cmd.Execute())
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"auth", "listscope", email1})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		auth.ScopeRead,
+		auth.ScopeRepoRead,
 		"",
 	}, "\n"))
 }
