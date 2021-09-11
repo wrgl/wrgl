@@ -6,9 +6,12 @@ package apiserver
 import (
 	"bytes"
 	"encoding/csv"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/klauspost/compress/gzip"
 	"github.com/wrgl/core/pkg/api/payload"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/objects"
@@ -53,9 +56,18 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fh := r.MultipartForm.File["file"][0]
-	f, err := fh.Open()
+	var f io.ReadCloser
+	f, err = fh.Open()
 	if err != nil {
 		panic(err)
+	}
+	defer f.Close()
+	if strings.HasSuffix(fh.Filename, ".gz") {
+		f, err = gzip.NewReader(f)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
 	}
 	primaryKey := r.MultipartForm.Value["primaryKey"]
 

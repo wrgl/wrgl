@@ -45,9 +45,9 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	w := csv.NewWriter(buf)
 	require.NoError(t, w.WriteAll(testutils.BuildRawCSV(4, 4)))
 	w.Flush()
-	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), nil)
+	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "file.csv", bytes.NewReader(buf.Bytes()), nil)
 	assert.Error(t, err)
-	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), nil, apiclient.WithAuthorization(tok))
+	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "file.csv", bytes.NewReader(buf.Bytes()), nil, apiclient.WithAuthorization(tok))
 	assert.Error(t, err)
 	_, err = cli.GetCommit(sum2)
 	assert.Error(t, err)
@@ -84,7 +84,7 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 
 	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRepoRead))
 
-	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), nil, apiclient.WithAuthorization(tok))
+	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "file.csv", bytes.NewReader(buf.Bytes()), nil, apiclient.WithAuthorization(tok))
 	assert.Error(t, err)
 	gcr, err := cli.GetCommit(sum2, apiclient.WithAuthorization(tok))
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 
 	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRepoWrite))
 
-	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", bytes.NewReader(buf.Bytes()), nil, apiclient.WithAuthorization(tok))
+	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "file.csv", bytes.NewReader(buf.Bytes()), nil, apiclient.WithAuthorization(tok))
 	require.NoError(t, err)
 	assert.NotEmpty(t, cr.Sum)
 	resp, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithAuthorization(tok))

@@ -91,7 +91,12 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 	return
 }
 
-func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]io.Reader, opts ...RequestOption) (*http.Response, error) {
+type formFile struct {
+	FileName string
+	Content  io.Reader
+}
+
+func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]formFile, opts ...RequestOption) (*http.Response, error) {
 	buf := bytes.NewBuffer(nil)
 	w := multipart.NewWriter(buf)
 	for k, sl := range value {
@@ -103,14 +108,14 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 		}
 	}
 	for k, r := range files {
-		if r == nil {
+		if r.Content == nil {
 			continue
 		}
-		w, err := w.CreateFormFile(k, k)
+		w, err := w.CreateFormFile(k, r.FileName)
 		if err != nil {
 			return nil, err
 		}
-		io.Copy(w, r)
+		io.Copy(w, r.Content)
 	}
 	err := w.Close()
 	if err != nil {
@@ -269,15 +274,18 @@ func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error)
 	return
 }
 
-func (c *Client) Commit(branch, message, authorEmail, authorName string, file io.Reader, primaryKey []string, opts ...RequestOption) (cr *payload.CommitResponse, err error) {
+func (c *Client) Commit(branch, message, authorEmail, authorName, fileName string, file io.Reader, primaryKey []string, opts ...RequestOption) (cr *payload.CommitResponse, err error) {
 	resp, err := c.PostMultipartForm(api.PathCommit, map[string][]string{
 		"branch":      {branch},
 		"message":     {message},
 		"authorName":  {authorName},
 		"authorEmail": {authorEmail},
 		"primaryKey":  primaryKey,
-	}, map[string]io.Reader{
-		"file": file,
+	}, map[string]formFile{
+		"file": {
+			FileName: fileName,
+			Content:  file,
+		},
 	}, opts...)
 	if err != nil {
 		return nil, err
