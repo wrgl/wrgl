@@ -21,15 +21,10 @@ func setParentCommits(com *payload.Commit, m map[string]*payload.Commit) *payloa
 	return com
 }
 
-func assertCommitTreeEqual(t *testing.T, m1, m2 map[string]*payload.Commit) {
+func assertCommitTreeEqual(t *testing.T, com1, com2 *payload.Commit) {
 	t.Helper()
 	q := list.New()
-	assert.Len(t, m1, len(m2))
-	for k, com1 := range m1 {
-		com2, ok := m2[k]
-		require.True(t, ok)
-		q.PushFront([]*payload.Commit{com1, com2})
-	}
+	q.PushFront([]*payload.Commit{com1, com2})
 	for q.Len() > 0 {
 		sl := q.Remove(q.Front()).([]*payload.Commit)
 		assert.Equal(t, sl[0].AuthorName, sl[1].AuthorName)
@@ -63,29 +58,29 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 
 	gcr, err := cli.GetCommits("heads/main", 0)
 	require.NoError(t, err)
-	assertCommitTreeEqual(t, map[string]*payload.Commit{
-		hex.EncodeToString(sum7): apiserver.CommitPayload(com7),
-	}, gcr.Commits)
+	assertCommitTreeEqual(t, apiserver.CommitPayload(com7), &gcr.Root)
 
 	gcr, err = cli.GetCommits("heads/main", 1)
 	require.NoError(t, err)
-	assertCommitTreeEqual(t, map[string]*payload.Commit{
-		hex.EncodeToString(sum7): setParentCommits(apiserver.CommitPayload(com7), map[string]*payload.Commit{
+	assertCommitTreeEqual(t,
+		setParentCommits(apiserver.CommitPayload(com7), map[string]*payload.Commit{
 			hex.EncodeToString(sum5): apiserver.CommitPayload(com5),
 			hex.EncodeToString(sum6): apiserver.CommitPayload(com6),
 		}),
-	}, gcr.Commits)
+		&gcr.Root,
+	)
 
 	gcr, err = cli.GetCommits(hex.EncodeToString(sum4), 2)
 	require.NoError(t, err)
-	assertCommitTreeEqual(t, map[string]*payload.Commit{
-		hex.EncodeToString(sum4): setParentCommits(apiserver.CommitPayload(com4), map[string]*payload.Commit{
+	assertCommitTreeEqual(t,
+		setParentCommits(apiserver.CommitPayload(com4), map[string]*payload.Commit{
 			hex.EncodeToString(sum2): setParentCommits(apiserver.CommitPayload(com2), map[string]*payload.Commit{
 				hex.EncodeToString(sum1): apiserver.CommitPayload(com1),
 			}),
 			hex.EncodeToString(sum3): apiserver.CommitPayload(com3),
 		}),
-	}, gcr.Commits)
+		&gcr.Root,
+	)
 
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {

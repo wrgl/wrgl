@@ -44,39 +44,18 @@ func CommitPayload(com *objects.Commit) *payload.Commit {
 	return obj
 }
 
-func getCommitTree(db objects.Store, sum []byte, minDepth, maxDepth int) (map[string]*payload.Commit, error) {
-	if maxDepth < minDepth {
-		return nil, nil
-	}
-	current := [][]byte{sum}
-	for i := 0; i < minDepth; i++ {
-		next := [][]byte{}
-		for _, sum := range current {
-			com, err := objects.GetCommit(db, sum)
-			if err != nil {
-				return nil, err
-			}
-			next = append(next, com.Parents...)
-		}
-		if len(next) == 0 {
-			return nil, nil
-		}
-		current = next
-	}
-
+func getCommitTree(db objects.Store, sum []byte, maxDepth int) (*payload.Commit, error) {
 	result := map[string]*payload.Commit{}
 	commits := []*payload.Commit{}
-	for _, sum := range current {
-		com, err := objects.GetCommit(db, sum)
-		if err != nil {
-			return nil, err
-		}
-		obj := CommitPayload(com)
-		commits = append(commits, obj)
-		result[hex.EncodeToString(sum)] = obj
+	com, err := objects.GetCommit(db, sum)
+	if err != nil {
+		return nil, err
 	}
+	obj := CommitPayload(com)
+	commits = append(commits, obj)
+	result[hex.EncodeToString(sum)] = obj
 
-	for i := minDepth + 1; i <= maxDepth; i++ {
+	for i := 1; i <= maxDepth; i++ {
 		next := []*payload.Commit{}
 		for _, com := range commits {
 			for _, sum := range com.Parents {
@@ -97,7 +76,7 @@ func getCommitTree(db objects.Store, sum []byte, minDepth, maxDepth int) (map[st
 		}
 		commits = next
 	}
-	return result, nil
+	return obj, nil
 }
 
 func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
@@ -125,12 +104,12 @@ func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	db := s.getDB(r)
-	commits, err := getCommitTree(db, sum, 0, maxDepth)
+	root, err := getCommitTree(db, sum, maxDepth)
 	if err != nil {
 		panic(err)
 	}
 	resp := &payload.GetCommitsResponse{
-		Commits: commits,
+		Root: *root,
 	}
 	b, err := json.Marshal(resp)
 	if err != nil {

@@ -25,5 +25,5 @@ type Commit struct {
 }
 
 type GetCommitsResponse struct {
-	Commits map[string]*Commit `json:"commits"`
+	Root Commit `json:"root"`
 }
