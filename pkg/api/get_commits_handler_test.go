@@ -58,16 +58,16 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 	sum7, com7 := factory.CommitRandom(t, db, [][]byte{sum5, sum6})
 	require.NoError(t, ref.CommitHead(rs, "main", sum7, com7))
 
-	_, err := cli.GetCommits("heads/beta", 0, 0)
+	_, err := cli.GetCommits("heads/beta", 0)
 	assert.Error(t, err)
 
-	gcr, err := cli.GetCommits("heads/main", 0, 0)
+	gcr, err := cli.GetCommits("heads/main", 0)
 	require.NoError(t, err)
 	assertCommitTreeEqual(t, map[string]*payload.Commit{
 		hex.EncodeToString(sum7): apiserver.CommitPayload(com7),
 	}, gcr.Commits)
 
-	gcr, err = cli.GetCommits("heads/main", 0, 1)
+	gcr, err = cli.GetCommits("heads/main", 1)
 	require.NoError(t, err)
 	assertCommitTreeEqual(t, map[string]*payload.Commit{
 		hex.EncodeToString(sum7): setParentCommits(apiserver.CommitPayload(com7), map[string]*payload.Commit{
@@ -76,14 +76,9 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 		}),
 	}, gcr.Commits)
 
-	gcr, err = cli.GetCommits("heads/main", 2, 1)
-	require.NoError(t, err)
-	assert.Len(t, gcr.Commits, 0)
-
-	gcr, err = cli.GetCommits("heads/main", 2, 4)
+	gcr, err = cli.GetCommits(hex.EncodeToString(sum4), 2)
 	require.NoError(t, err)
 	assertCommitTreeEqual(t, map[string]*payload.Commit{
-		hex.EncodeToString(sum3): apiserver.CommitPayload(com3),
 		hex.EncodeToString(sum4): setParentCommits(apiserver.CommitPayload(com4), map[string]*payload.Commit{
 			hex.EncodeToString(sum2): setParentCommits(apiserver.CommitPayload(com2), map[string]*payload.Commit{
 				hex.EncodeToString(sum1): apiserver.CommitPayload(com1),
@@ -95,7 +90,7 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "123")
-		gcr, err = cli.GetCommits("heads/main", 0, 1, apiclient.WithHeader(header))
+		gcr, err = cli.GetCommits("heads/main", 1, apiclient.WithHeader(header))
 		require.NoError(t, err)
 		assert.NotEmpty(t, gcr)
 	})

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 
 	"github.com/wrgl/core/pkg/api"
@@ -13,6 +14,8 @@ import (
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
+
+var sumRegexp = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 func getQueryInt(query url.Values, key string, initial int) (res int, err error) {
 	res = initial
@@ -103,9 +106,11 @@ func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
 
 	rs := s.getRS(r)
 	query := r.URL.Query()
-	if s := query.Get("ref"); s == "" {
-		sendError(rw, http.StatusBadRequest, "missing ref query param")
+	if s := query.Get("head"); s == "" {
+		sendError(rw, http.StatusBadRequest, "missing head query param")
 		return
+	} else if sumRegexp.MatchString(s) {
+		sum, _ = hex.DecodeString(s)
 	} else {
 		sum, err = ref.GetRef(rs, s)
 		if err != nil {
@@ -113,19 +118,14 @@ func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	minDepth, err := getQueryInt(query, "minDepth", 0)
-	if err != nil {
-		sendError(rw, http.StatusBadRequest, err.Error())
-		return
-	}
-	maxDepth, err := getQueryInt(query, "maxDepth", 0)
+	maxDepth, err := getQueryInt(query, "maxDepth", 20)
 	if err != nil {
 		sendError(rw, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	db := s.getDB(r)
-	commits, err := getCommitTree(db, sum, minDepth, maxDepth)
+	commits, err := getCommitTree(db, sum, 0, maxDepth)
 	if err != nil {
 		panic(err)
 	}

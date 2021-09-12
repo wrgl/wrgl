@@ -224,10 +224,9 @@ func (c *Client) GetHead(branch string, opts ...RequestOption) (com *payload.Com
 	return
 }
 
-func (c *Client) GetCommits(ref string, minDepth, maxDepth int, opts ...RequestOption) (gcr *payload.GetCommitsResponse, err error) {
+func (c *Client) GetCommits(head string, maxDepth int, opts ...RequestOption) (gcr *payload.GetCommitsResponse, err error) {
 	query := url.Values{}
-	query.Set("ref", ref)
-	query.Set("minDepth", strconv.Itoa(minDepth))
+	query.Set("head", head)
 	query.Set("maxDepth", strconv.Itoa(maxDepth))
 	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/commits/?%s", query.Encode()), nil, nil, opts...)
 	if err != nil {
