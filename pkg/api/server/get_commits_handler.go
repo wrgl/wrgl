@@ -109,6 +109,7 @@ func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	resp := &payload.GetCommitsResponse{
+		Sum:  payload.BytesToHex(sum),
 		Root: *root,
 	}
 	b, err := json.Marshal(resp)

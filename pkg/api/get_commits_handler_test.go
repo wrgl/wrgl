@@ -62,6 +62,7 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 
 	gcr, err = cli.GetCommits("heads/main", 1)
 	require.NoError(t, err)
+	assert.Equal(t, sum7, (*gcr.Sum)[:])
 	assertCommitTreeEqual(t,
 		setParentCommits(apiserver.CommitPayload(com7), map[string]*payload.Commit{
 			hex.EncodeToString(sum5): apiserver.CommitPayload(com5),
@@ -72,6 +73,7 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 
 	gcr, err = cli.GetCommits(hex.EncodeToString(sum4), 2)
 	require.NoError(t, err)
+	assert.Equal(t, sum4, (*gcr.Sum)[:])
 	assertCommitTreeEqual(t,
 		setParentCommits(apiserver.CommitPayload(com4), map[string]*payload.Commit{
 			hex.EncodeToString(sum2): setParentCommits(apiserver.CommitPayload(com2), map[string]*payload.Commit{

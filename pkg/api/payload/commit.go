@@ -25,5 +25,6 @@ type Commit struct {
 }
 
 type GetCommitsResponse struct {
+	Sum  *Hex   `json:"sum,omitempty"`
 	Root Commit `json:"root"`
 }
