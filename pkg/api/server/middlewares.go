@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/wrgl/core/pkg/auth"
 )
 
@@ -128,7 +129,7 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 		var err error
 		r, claims, err = authnS.CheckToken(r, h[7:])
 		if err != nil {
-			if strings.HasPrefix(err.Error(), "unexpected signing method: ") || err.Error() == "invalid token" {
+			if _, ok := err.(*jwt.ValidationError); ok {
 				sendError(rw, http.StatusUnauthorized, "invalid token")
 				return
 			}
