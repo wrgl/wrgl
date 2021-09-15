@@ -39,7 +39,7 @@ var (
 
 type claimsKey struct{}
 
-func SetClaims(r *http.Request, claims *auth.Claims) *http.Request {
+func setClaims(r *http.Request, claims *auth.Claims) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), claimsKey{}, claims))
 }
 

@@ -135,7 +135,7 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 			}
 			panic(err)
 		}
-		r = SetClaims(r, claims)
+		r = setClaims(r, claims)
 	}
 	m.handler.ServeHTTP(rw, r)
 }
@@ -181,19 +181,17 @@ func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request)
 	if route.Scope != "" {
 		authzS := m.getAuthzS(r)
 		claims := getClaims(r)
-		if claims == nil {
-			if m.maskUnauthorizedPath {
-				sendError(rw, http.StatusNotFound, "not found")
-			} else {
-				sendError(rw, http.StatusUnauthorized, "unauthorized")
-			}
-			return
+		var email string
+		if claims != nil {
+			email = claims.Email
 		}
-		if ok, err := authzS.Authorized(r, claims.Email, route.Scope); err != nil {
+		if ok, err := authzS.Authorized(r, email, route.Scope); err != nil {
 			panic(err)
 		} else if !ok {
 			if m.maskUnauthorizedPath {
 				sendError(rw, http.StatusNotFound, "not found")
+			} else if claims == nil {
+				sendError(rw, http.StatusUnauthorized, "unauthorized")
 			} else {
 				sendError(rw, http.StatusForbidden, "forbidden")
 			}
