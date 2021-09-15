@@ -40,6 +40,14 @@ func WithHeader(header http.Header) RequestOption {
 	}
 }
 
+func WithCookies(cookies []*http.Cookie) RequestOption {
+	return func(r *http.Request) {
+		for _, c := range cookies {
+			r.AddCookie(c)
+		}
+	}
+}
+
 func WithAuthorization(token string) RequestOption {
 	return func(r *http.Request) {
 		r.Header.Set("Authorization", "Bearer "+token)

@@ -9,5 +9,5 @@
       ]
     }
   }
-  // "go.testFlags": ["-run", "//GetConfig"]
+  // "go.testFlags": ["-run", "//CookieAuthentication"]
 }

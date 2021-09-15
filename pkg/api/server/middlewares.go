@@ -1,6 +1,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -123,11 +124,23 @@ func AuthenticateMiddleware(getAuthnS func(r *http.Request) auth.AuthnStore) fun
 }
 
 func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	var token string
 	if h := r.Header.Get("Authorization"); h != "" && strings.HasPrefix(h, "Bearer ") {
+		token = h[7:]
+	}
+	if token == "" && r.Method == http.MethodGet {
+		cookie, err := r.Cookie("Authorization")
+		if err == nil && strings.HasPrefix(cookie.Value, "Bearer ") {
+			token = cookie.Value[7:]
+		}
+	}
+	fmt.Printf("token: %q\n", token)
+	if token != "" {
 		authnS := m.getAuthnS(r)
 		var claims *auth.Claims
 		var err error
-		r, claims, err = authnS.CheckToken(r, h[7:])
+		r, claims, err = authnS.CheckToken(r, token)
+		fmt.Printf("request: %v claims: %v err: %v\n", r, claims, err)
 		if err != nil {
 			if _, ok := err.(*jwt.ValidationError); ok {
 				sendError(rw, http.StatusUnauthorized, "invalid token")

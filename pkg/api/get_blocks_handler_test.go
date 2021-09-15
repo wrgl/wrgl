@@ -4,7 +4,9 @@
 package api_test
 
 import (
+	"bytes"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -99,4 +101,35 @@ func (s *testSuite) TestGetBlocksHandler(t *testing.T) {
 		assertBlocksCSV(t, db, tbl.Blocks, resp)
 	})
 	assert.Equal(t, "4567", req.Header.Get("Custom-Header"))
+}
+
+func (s *testSuite) TestCookieAuthentication(t *testing.T) {
+	repo, cli, _, cleanup := s.s.NewClient(t, false, "", nil)
+	defer cleanup()
+	s.s.AddUser(t, repo)
+	tok := s.s.GetToken(t, repo)
+	db := s.s.GetDB(repo)
+	_, com := apitest.CreateRandomCommit(t, db, 5, 700, nil)
+
+	// no authentication mechanism
+	_, err := cli.GetBlocks(com.Table, 0, 0, "")
+	assertHTTPError(t, err, http.StatusUnauthorized, "unauthorized")
+
+	// authenticate via cookie
+	opt := apiclient.WithCookies([]*http.Cookie{
+		{
+			Name:  "Authorization",
+			Value: fmt.Sprintf("Bearer %s", tok),
+		},
+	})
+	_, err = cli.GetBlocks(com.Table, 0, 0, "", opt)
+	require.NoError(t, err)
+
+	// authenticate via cookie doesn't work for methods other than GET
+	buf := bytes.NewBuffer(nil)
+	w := csv.NewWriter(buf)
+	require.NoError(t, w.WriteAll(testutils.BuildRawCSV(4, 4)))
+	w.Flush()
+	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), nil, opt)
+	assertHTTPError(t, err, http.StatusUnauthorized, "unauthorized")
 }

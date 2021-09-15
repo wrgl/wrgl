@@ -1,6 +1,7 @@
 package authtest
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -40,14 +41,18 @@ func (s *AuthnStore) Authenticate(email, password string) (token string, err err
 		if err != nil {
 			return "", err
 		}
-		return string(b), nil
+		return base64.RawStdEncoding.EncodeToString(b), nil
 	}
 	return "", fmt.Errorf("email/password invalid")
 }
 
 func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *auth.Claims, error) {
 	c := &auth.Claims{}
-	if err := json.Unmarshal([]byte(token), c); err != nil {
+	b, err := base64.RawStdEncoding.DecodeString(token)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := json.Unmarshal([]byte(b), c); err != nil {
 		return nil, nil, err
 	}
 	if _, ok := s.pass[c.Email]; ok {

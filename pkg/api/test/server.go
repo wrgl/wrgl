@@ -158,6 +158,18 @@ func (s *Server) GetRpSessions(repo string) apiserver.ReceivePackSessionStore {
 	return s.rpSessions[repo]
 }
 
+func (s *Server) AddUser(t *testing.T, repo string) {
+	t.Helper()
+	authnS := s.GetAuthnS(repo)
+	authzS := s.GetAuthzS(repo)
+	require.NoError(t, authnS.SetPassword(Email, Password))
+	for _, s := range []string{
+		auth.ScopeRepoRead, auth.ScopeRepoReadConfig, auth.ScopeRepoWrite, auth.ScopeRepoWriteConfig,
+	} {
+		require.NoError(t, authzS.AddPolicy(Email, s))
+	}
+}
+
 func (s *Server) NewRemote(t *testing.T, authenticate bool, pathPrefix string, pathPrefixPat *regexp.Regexp) (repo string, url string, m *RequestCaptureMiddleware, cleanup func()) {
 	t.Helper()
 	repo = testutils.BrokenRandomLowerAlphaString(6)
@@ -191,16 +203,18 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool, pathPrefix string, p
 	}
 	ts := httptest.NewServer(handler)
 	if authenticate {
-		authnS := s.GetAuthnS(repo)
-		authzS := s.GetAuthzS(repo)
-		require.NoError(t, authnS.SetPassword(Email, Password))
-		for _, s := range []string{
-			auth.ScopeRepoRead, auth.ScopeRepoReadConfig, auth.ScopeRepoWrite, auth.ScopeRepoWriteConfig,
-		} {
-			require.NoError(t, authzS.AddPolicy(Email, s))
-		}
+		s.AddUser(t, repo)
 	}
 	return repo, strings.TrimSuffix(ts.URL+pathPrefix, "/"), m, ts.Close
+}
+
+func (s *Server) GetToken(t *testing.T, repo string) string {
+	t.Helper()
+	authnS := s.GetAuthnS(repo)
+	require.NoError(t, authnS.SetName(Email, Name))
+	tok, err := authnS.Authenticate(Email, Password)
+	require.NoError(t, err)
+	return tok
 }
 
 func (s *Server) NewClient(t *testing.T, authenticate bool, pathPrefix string, pathPrefixPat *regexp.Regexp) (string, *apiclient.Client, *RequestCaptureMiddleware, func()) {
@@ -208,10 +222,7 @@ func (s *Server) NewClient(t *testing.T, authenticate bool, pathPrefix string, p
 	repo, url, m, cleanup := s.NewRemote(t, authenticate, pathPrefix, pathPrefixPat)
 	var opts []apiclient.RequestOption
 	if authenticate {
-		authnS := s.GetAuthnS(repo)
-		require.NoError(t, authnS.SetName(Email, Name))
-		tok, err := authnS.Authenticate(Email, Password)
-		require.NoError(t, err)
+		tok := s.GetToken(t, repo)
 		opts = []apiclient.RequestOption{apiclient.WithAuthorization(tok)}
 	}
 	cli, err := apiclient.NewClient(url, opts...)
