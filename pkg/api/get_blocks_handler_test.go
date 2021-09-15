@@ -22,12 +22,17 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func assertBlocksCSV(t *testing.T, db objects.Store, blocks [][]byte, resp *http.Response) {
+func assertBlocksCSV(t *testing.T, db objects.Store, blocks [][]byte, columns []string, resp *http.Response) {
 	t.Helper()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, api.CTCSV, resp.Header.Get("Content-Type"))
 	defer resp.Body.Close()
 	r := csv.NewReader(resp.Body)
+	if columns != nil {
+		row, err := r.Read()
+		require.NoError(t, err)
+		assert.Equal(t, columns, row)
+	}
 	for i, sum := range blocks {
 		blk, err := objects.GetBlock(db, sum)
 		require.NoError(t, err)
@@ -66,40 +71,44 @@ func (s *testSuite) TestGetBlocksHandler(t *testing.T) {
 	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 
-	_, err = cli.GetBlocks(testutils.SecureRandomBytes(16), 0, 0, "")
+	_, err = cli.GetBlocks(testutils.SecureRandomBytes(16), 0, 0, "", false)
 	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
 
-	_, err = cli.GetBlocks(com.Table, 7, 0, "")
+	_, err = cli.GetBlocks(com.Table, 7, 0, "", false)
 	assertHTTPError(t, err, http.StatusBadRequest, "start out of range")
 
-	_, err = cli.GetBlocks(com.Table, 0, 7, "")
+	_, err = cli.GetBlocks(com.Table, 0, 7, "", false)
 	assertHTTPError(t, err, http.StatusBadRequest, "end out of range")
 
-	resp, err := cli.GetBlocks(com.Table, 0, 0, "")
+	resp, err := cli.GetBlocks(com.Table, 0, 0, "", false)
 	require.NoError(t, err)
-	assertBlocksCSV(t, db, tbl.Blocks, resp)
+	assertBlocksCSV(t, db, tbl.Blocks, nil, resp)
 
-	resp, err = cli.GetBlocks(com.Table, 0, 1, "")
+	resp, err = cli.GetBlocks(com.Table, 0, 1, "", false)
 	require.NoError(t, err)
-	assertBlocksCSV(t, db, tbl.Blocks[:1], resp)
+	assertBlocksCSV(t, db, tbl.Blocks[:1], nil, resp)
 
-	resp, err = cli.GetBlocks(com.Table, 1, 2, "")
+	resp, err = cli.GetBlocks(com.Table, 1, 2, "", false)
 	require.NoError(t, err)
-	assertBlocksCSV(t, db, tbl.Blocks[1:2], resp)
+	assertBlocksCSV(t, db, tbl.Blocks[1:2], nil, resp)
 
-	_, err = cli.GetBlocks(com.Table, 0, 0, "abc")
+	resp, err = cli.GetBlocks(com.Table, 0, 0, "", true)
+	require.NoError(t, err)
+	assertBlocksCSV(t, db, tbl.Blocks, tbl.Columns, resp)
+
+	_, err = cli.GetBlocks(com.Table, 0, 0, "abc", false)
 	assertHTTPError(t, err, http.StatusBadRequest, "invalid format")
 
-	resp, err = cli.GetBlocks(com.Table, 0, 0, payload.BlockFormatBinary)
+	resp, err = cli.GetBlocks(com.Table, 0, 0, payload.BlockFormatBinary, false)
 	require.NoError(t, err)
 	assertBlocksBinary(t, db, tbl.Blocks, resp)
 
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "4567")
-		resp, err = cli.GetBlocks(com.Table, 0, 0, "", apiclient.WithHeader(header))
+		resp, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithHeader(header))
 		require.NoError(t, err)
-		assertBlocksCSV(t, db, tbl.Blocks, resp)
+		assertBlocksCSV(t, db, tbl.Blocks, nil, resp)
 	})
 	assert.Equal(t, "4567", req.Header.Get("Custom-Header"))
 }
@@ -113,7 +122,7 @@ func (s *testSuite) TestCookieAuthentication(t *testing.T) {
 	_, com := apitest.CreateRandomCommit(t, db, 5, 700, nil)
 
 	// no authentication mechanism
-	_, err := cli.GetBlocks(com.Table, 0, 0, "")
+	_, err := cli.GetBlocks(com.Table, 0, 0, "", false)
 	assertHTTPError(t, err, http.StatusUnauthorized, "unauthorized")
 
 	// authenticate via cookie
@@ -123,18 +132,18 @@ func (s *testSuite) TestCookieAuthentication(t *testing.T) {
 			Value: fmt.Sprintf("Bearer %s", tok),
 		},
 	})
-	_, err = cli.GetBlocks(com.Table, 0, 0, "", opt)
+	_, err = cli.GetBlocks(com.Table, 0, 0, "", false, opt)
 	require.NoError(t, err)
 
 	// authenticate with url-encoded token
-	_, err = cli.GetBlocks(com.Table, 0, 0, "", apiclient.WithCookies([]*http.Cookie{
+	_, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithCookies([]*http.Cookie{
 		{
 			Name:  "Authorization",
 			Value: url.PathEscape(fmt.Sprintf("Bearer %s", tok)),
 		},
 	}))
 	require.NoError(t, err)
-	_, err = cli.GetBlocks(com.Table, 0, 0, "", apiclient.WithCookies([]*http.Cookie{
+	_, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithCookies([]*http.Cookie{
 		{
 			Name:  "Authorization",
 			Value: url.QueryEscape(fmt.Sprintf("Bearer %s", tok)),

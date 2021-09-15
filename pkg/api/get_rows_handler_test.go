@@ -34,7 +34,7 @@ func (s *testSuite) TestGetRowsHandler(t *testing.T) {
 
 	resp, err := cli.GetRows(com.Table, nil)
 	require.NoError(t, err)
-	assertBlocksCSV(t, db, tbl.Blocks, resp)
+	assertBlocksCSV(t, db, tbl.Blocks, nil, resp)
 
 	_, err = cli.GetRows(com.Table, []int{-1})
 	assertHTTPError(t, err, http.StatusBadRequest, "offset out of range \"-1\"")

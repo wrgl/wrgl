@@ -331,7 +331,7 @@ func (c *Client) Diff(sum1, sum2 []byte, opts ...RequestOption) (dr *payload.Dif
 	return dr, nil
 }
 
-func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockFormat, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockFormat, columns bool, opts ...RequestOption) (resp *http.Response, err error) {
 	v := url.Values{}
 	if start > 0 {
 		v.Set("start", strconv.Itoa(start))
@@ -341,6 +341,9 @@ func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockForma
 	}
 	if format != "" {
 		v.Set("format", string(format))
+	}
+	if columns {
+		v.Set("columns", "true")
 	}
 	var qs string
 	if len(v) > 0 {

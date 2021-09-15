@@ -88,6 +88,11 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("Content-Type", api.CTCSV)
 		w := csv.NewWriter(gzw)
 		defer w.Flush()
+		if v, ok := values["columns"]; ok && v[0] == "true" {
+			if err := w.Write(tbl.Columns); err != nil {
+				panic(err)
+			}
+		}
 		for i := start; i < end; i++ {
 			blk, err := objects.GetBlock(db, tbl.Blocks[i])
 			if err != nil {
