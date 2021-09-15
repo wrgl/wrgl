@@ -16,11 +16,13 @@ import (
 func TestIDToken(t *testing.T) {
 	sec := []byte(random.RandomAlphaNumericString(10))
 	email := "test@domain.com"
-	ts, err := createIDToken(email, sec, 100*time.Millisecond)
+	name := "John Doe"
+	ts, err := createIDToken(email, name, sec, 100*time.Millisecond)
 	require.NoError(t, err)
 	c, err := validateIDToken(ts, sec)
 	require.NoError(t, err)
 	assert.Equal(t, email, c.Email)
+	assert.Equal(t, name, c.Name)
 	_, err = validateIDToken(ts, testutils.SecureRandomBytes(20))
 	assert.Error(t, err)
 

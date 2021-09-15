@@ -18,8 +18,9 @@ func TestAuthAddScopeCmd(t *testing.T) {
 
 	cmd := newRootCmd()
 	email1 := testutils.RandomEmail()
+	name1 := testutils.BrokenRandomLowerAlphaString(10)
 	password1 := testutils.BrokenRandomAlphaNumericString(10)
-	ctx := utils.SetPassword(context.Background(), password1)
+	ctx := utils.SetPromptValues(context.Background(), []string{name1, password1})
 	cmd.SetArgs([]string{"auth", "adduser", email1})
 	require.NoError(t, cmd.ExecuteContext(ctx))
 

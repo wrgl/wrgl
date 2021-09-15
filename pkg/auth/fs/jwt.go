@@ -11,7 +11,7 @@ import (
 	"github.com/wrgl/core/pkg/auth"
 )
 
-func createIDToken(email string, jwtSecret []byte, duration time.Duration) (string, error) {
+func createIDToken(email, name string, jwtSecret []byte, duration time.Duration) (string, error) {
 	claims := &auth.Claims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    "Wrgld",
@@ -19,6 +19,7 @@ func createIDToken(email string, jwtSecret []byte, duration time.Duration) (stri
 			IssuedAt:  time.Now().Unix(),
 		},
 		Email: email,
+		Name:  name,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecret)

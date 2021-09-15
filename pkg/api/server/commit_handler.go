@@ -19,6 +19,7 @@ import (
 )
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
+	claims := getClaims(r)
 	err := r.ParseMultipartForm(0)
 	if err != nil {
 		if err == http.ErrNotMultipart || err == http.ErrMissingBoundary {
@@ -39,16 +40,6 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	message := r.PostFormValue("message")
 	if message == "" {
 		sendError(rw, http.StatusBadRequest, "missing message")
-		return
-	}
-	email := r.PostFormValue("authorEmail")
-	if email == "" {
-		sendError(rw, http.StatusBadRequest, "missing author email")
-		return
-	}
-	name := r.PostFormValue("authorName")
-	if name == "" {
-		sendError(rw, http.StatusBadRequest, "missing author name")
 		return
 	}
 	if len(r.MultipartForm.File["file"]) == 0 {
@@ -86,8 +77,8 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		Table:       sum,
 		Message:     message,
 		Time:        time.Now(),
-		AuthorEmail: email,
-		AuthorName:  name,
+		AuthorEmail: claims.Email,
+		AuthorName:  claims.Name,
 	}
 	rs := s.getRS(r)
 	parent, _ := ref.GetHead(rs, branch)

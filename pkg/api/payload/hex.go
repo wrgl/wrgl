@@ -10,6 +10,10 @@ import (
 
 type Hex [16]byte
 
+func (x *Hex) String() string {
+	return hex.EncodeToString(x[:])
+}
+
 func (x *Hex) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%x"`, *x)), nil
 }

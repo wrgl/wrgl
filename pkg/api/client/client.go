@@ -273,13 +273,11 @@ func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error)
 	return
 }
 
-func (c *Client) Commit(branch, message, authorEmail, authorName, fileName string, file io.Reader, primaryKey []string, opts ...RequestOption) (cr *payload.CommitResponse, err error) {
+func (c *Client) Commit(branch, message, fileName string, file io.Reader, primaryKey []string, opts ...RequestOption) (cr *payload.CommitResponse, err error) {
 	resp, err := c.PostMultipartForm(api.PathCommit, map[string][]string{
-		"branch":      {branch},
-		"message":     {message},
-		"authorName":  {authorName},
-		"authorEmail": {authorEmail},
-		"primaryKey":  primaryKey,
+		"branch":     {branch},
+		"message":    {message},
+		"primaryKey": primaryKey,
 	}, map[string]formFile{
 		"file": {
 			FileName: fileName,

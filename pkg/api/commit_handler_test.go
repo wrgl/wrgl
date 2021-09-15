@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/core/pkg/api/client"
 	"github.com/wrgl/core/pkg/api/payload"
+	apitest "github.com/wrgl/core/pkg/api/test"
 	"github.com/wrgl/core/pkg/factory"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
@@ -26,27 +27,19 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
 
 	// missing branch
-	_, err := cli.Commit("", "", "", "", "", nil, nil)
+	_, err := cli.Commit("", "", "", nil, nil)
 	assertHTTPError(t, err, http.StatusBadRequest, "missing branch name")
 
 	// invalid branch
-	_, err = cli.Commit("123 kjl", "", "", "", "", nil, nil)
+	_, err = cli.Commit("123 kjl", "", "", nil, nil)
 	assertHTTPError(t, err, http.StatusBadRequest, "invalid branch name")
 
 	// missing message
-	_, err = cli.Commit("alpha", "", "", "", "", nil, nil)
+	_, err = cli.Commit("alpha", "", "", nil, nil)
 	assertHTTPError(t, err, http.StatusBadRequest, "missing message")
 
-	// missing author email
-	_, err = cli.Commit("alpha", "initial commit", "", "", "", nil, nil)
-	assertHTTPError(t, err, http.StatusBadRequest, "missing author email")
-
-	// missing author name
-	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "", "", nil, nil)
-	assertHTTPError(t, err, http.StatusBadRequest, "missing author name")
-
 	// missing file
-	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "", nil, nil)
+	_, err = cli.Commit("alpha", "initial commit", "", nil, nil)
 	assertHTTPError(t, err, http.StatusBadRequest, "missing file")
 
 	// invalid CSV
@@ -58,7 +51,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 		{"2", "a", "s"},
 	}))
 	w.Flush()
-	_, err = cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
+	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
 	assertCSVError(t, err, "wrong number of fields", &payload.CSVLocation{
 		StartLine: 2,
 		Line:      2,
@@ -75,7 +68,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 		{"3", "z", "x"},
 	}))
 	w.Flush()
-	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
+	cr, err := cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, cr.Sum)
 	assert.NotEmpty(t, cr.Table)
@@ -83,8 +76,8 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	com, err := objects.GetCommit(db, (*cr.Sum)[:])
 	require.NoError(t, err)
 	assert.Equal(t, "initial commit", com.Message)
-	assert.Equal(t, "John Doe", com.AuthorName)
-	assert.Equal(t, "john@doe.com", com.AuthorEmail)
+	assert.Equal(t, apitest.Name, com.AuthorName)
+	assert.Equal(t, apitest.Email, com.AuthorEmail)
 	assert.Equal(t, [][]byte{parent}, com.Parents)
 	assert.Equal(t, (*cr.Table)[:], com.Table)
 	tbl, err := objects.GetTable(db, com.Table)
@@ -114,7 +107,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Abcd", "qwer")
 		cr, err = cli.Commit(
-			"alpha", "initial commit", "john@doe.com", "John Doe", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"},
+			"alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"},
 			apiclient.WithHeader(header),
 		)
 		require.NoError(t, err)
@@ -148,11 +141,11 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 		{"3", "z", "x"},
 	}))
 	w.Flush()
-	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
+	cr, err := cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
 	require.NoError(t, err)
 	assert.Equal(t, (*cr.Table)[:], com.Table)
-	assert.Equal(t, "John Doe", com.AuthorName)
-	assert.Equal(t, "john@doe.com", com.AuthorEmail)
+	assert.Equal(t, apitest.Name, com.AuthorName)
+	assert.Equal(t, apitest.Email, com.AuthorEmail)
 	assert.False(t, com.Time.IsZero())
 	assert.Equal(t, "initial commit", com.Message)
 	assert.Equal(t, [][]byte{parent}, com.Parents)
@@ -176,7 +169,7 @@ func (s *testSuite) TestCommitGzip(t *testing.T) {
 	w.Flush()
 	require.NoError(t, gw.Flush())
 	require.NoError(t, gw.Close())
-	cr, err := cli.Commit("alpha", "initial commit", "john@doe.com", "John Doe", "file.csv.gz", bytes.NewReader(buf.Bytes()), []string{"a"})
+	cr, err := cli.Commit("alpha", "initial commit", "file.csv.gz", bytes.NewReader(buf.Bytes()), []string{"a"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, cr.Sum)
 	assert.NotEmpty(t, cr.Table)

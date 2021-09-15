@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"sort"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -16,24 +16,28 @@ func TestAuthAddUserCmd(t *testing.T) {
 	defer cleanup()
 
 	cmd := newRootCmd()
-	email1 := testutils.RandomEmail()
+	email1 := "a" + testutils.RandomEmail()
+	name1 := testutils.BrokenRandomLowerAlphaString(10)
 	password1 := testutils.BrokenRandomAlphaNumericString(10)
-	ctx := utils.SetPassword(context.Background(), password1)
+	ctx := utils.SetPromptValues(context.Background(), []string{name1, password1})
 	cmd.SetArgs([]string{"auth", "adduser", email1})
 	require.NoError(t, cmd.ExecuteContext(ctx))
 
 	cmd = newRootCmd()
-	email2 := testutils.RandomEmail()
+	email2 := "b" + testutils.RandomEmail()
+	name2 := testutils.BrokenRandomLowerAlphaString(10)
 	password2 := testutils.BrokenRandomAlphaNumericString(10)
-	ctx = utils.SetPassword(context.Background(), password2)
+	ctx = utils.SetPromptValues(context.Background(), []string{name2, password2})
 	cmd.SetArgs([]string{"auth", "adduser", email2})
 	require.NoError(t, cmd.ExecuteContext(ctx))
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"auth", "listuser"})
-	emails := []string{email1, email2}
-	sort.Strings(emails)
-	assertCmdOutput(t, cmd, strings.Join(append(emails, ""), "\n"))
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		fmt.Sprintf("%s <%s>", name1, email1),
+		fmt.Sprintf("%s <%s>", name2, email2),
+		"",
+	}, "\n"))
 
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"auth", "removeuser", email1})
@@ -42,7 +46,7 @@ func TestAuthAddUserCmd(t *testing.T) {
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"auth", "listuser"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		email2,
+		fmt.Sprintf("%s <%s>", name2, email2),
 		"",
 	}, "\n"))
 }

@@ -209,6 +209,7 @@ func (s *Server) NewClient(t *testing.T, authenticate bool, pathPrefix string, p
 	var opts []apiclient.RequestOption
 	if authenticate {
 		authnS := s.GetAuthnS(repo)
+		require.NoError(t, authnS.SetName(Email, Name))
 		tok, err := authnS.Authenticate(Email, Password)
 		require.NoError(t, err)
 		opts = []apiclient.RequestOption{apiclient.WithAuthorization(tok)}

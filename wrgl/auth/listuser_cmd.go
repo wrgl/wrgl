@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -25,14 +26,21 @@ func listuserCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			emails, err := authnS.ListUsers()
+			users, err := authnS.ListUsers()
 			if err != nil {
 				return err
 			}
-			sort.Strings(emails)
-			for _, email := range emails {
-				cmd.Println(email)
+			sort.Slice(users, func(i, j int) bool {
+				return users[i][0] < users[j][0]
+			})
+			rows := make([][]string, len(users))
+			for _, sl := range users {
+				email, name := sl[0], sl[1]
+				rows = append(rows, []string{
+					name, fmt.Sprintf("<%s>", email),
+				})
 			}
+			utils.PrintTable(cmd.OutOrStdout(), rows, 0)
 			return nil
 		},
 	}

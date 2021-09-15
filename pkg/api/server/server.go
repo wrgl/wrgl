@@ -37,17 +37,17 @@ var (
 	patDiff         *regexp.Regexp
 )
 
-type emailKey struct{}
+type claimsKey struct{}
 
-func setEmail(r *http.Request, email string) *http.Request {
-	return r.WithContext(context.WithValue(r.Context(), emailKey{}, email))
+func setClaims(r *http.Request, claims *auth.Claims) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), claimsKey{}, claims))
 }
 
-func getEmail(r *http.Request) string {
-	if i := r.Context().Value(emailKey{}); i != nil {
-		return i.(string)
+func getClaims(r *http.Request) *auth.Claims {
+	if i := r.Context().Value(claimsKey{}); i != nil {
+		return i.(*auth.Claims)
 	}
-	return ""
+	return nil
 }
 
 type ServerOption func(s *Server)

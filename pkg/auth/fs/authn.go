@@ -21,6 +21,7 @@ import (
 const DefaultTokenDuration time.Duration = time.Hour * 24 * 90 // 90 days
 
 type AuthnStore struct {
+	// sl is all current data, each element is a list of {email, name, passwordHash}
 	sl            [][]string
 	rootDir       string
 	secret        []byte
@@ -84,7 +85,7 @@ func (s *AuthnStore) getSecret() ([]byte, error) {
 }
 
 func (s *AuthnStore) Authenticate(email, password string) (token string, err error) {
-	ok := s.checkPassword(email, password)
+	i, ok := s.checkPassword(email, password)
 	if !ok {
 		return "", fmt.Errorf("email/password invalid")
 	}
@@ -92,7 +93,8 @@ func (s *AuthnStore) Authenticate(email, password string) (token string, err err
 	if err != nil {
 		return "", err
 	}
-	return createIDToken(email, sec, s.tokenDuration)
+	name := s.sl[i][1]
+	return createIDToken(email, name, sec, s.tokenDuration)
 }
 
 func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *auth.Claims, error) {
@@ -138,23 +140,38 @@ func (s *AuthnStore) SetPassword(email, password string) error {
 	}
 	i := s.search(email)
 	if i < s.Len() && s.sl[i][0] == email {
-		s.sl[i][1] = string(passwordHash)
+		s.sl[i][2] = string(passwordHash)
 		return nil
 	}
 	if i < s.Len() {
 		s.sl = append(s.sl[:i+1], s.sl[i:]...)
-		s.sl[i] = []string{email, string(passwordHash)}
+		s.sl[i] = []string{email, "", string(passwordHash)}
 	} else {
-		s.sl = append(s.sl, []string{email, string(passwordHash)})
+		s.sl = append(s.sl, []string{email, "", string(passwordHash)})
 	}
 	return nil
 }
 
-func (s *AuthnStore) checkPassword(email, password string) bool {
-	if i := s.findUserIndex(email); i != -1 {
-		return bcrypt.CompareHashAndPassword([]byte(s.sl[i][1]), []byte(password)) == nil
+func (s *AuthnStore) SetName(email, name string) error {
+	i := s.search(email)
+	if i < s.Len() && s.sl[i][0] == email {
+		s.sl[i][1] = name
+		return nil
 	}
-	return false
+	if i < s.Len() {
+		s.sl = append(s.sl[:i+1], s.sl[i:]...)
+		s.sl[i] = []string{email, name, ""}
+	} else {
+		s.sl = append(s.sl, []string{email, name, ""})
+	}
+	return nil
+}
+
+func (s *AuthnStore) checkPassword(email, password string) (int, bool) {
+	if i := s.findUserIndex(email); i != -1 {
+		return i, bcrypt.CompareHashAndPassword([]byte(s.sl[i][2]), []byte(password)) == nil
+	}
+	return 0, false
 }
 
 func (s *AuthnStore) RemoveUser(email string) error {
@@ -165,12 +182,12 @@ func (s *AuthnStore) RemoveUser(email string) error {
 	return nil
 }
 
-func (s *AuthnStore) ListUsers() (emails []string, err error) {
-	emails = make([]string, s.Len())
+func (s *AuthnStore) ListUsers() (users [][]string, err error) {
+	users = make([][]string, s.Len())
 	for i, entry := range s.sl {
-		emails[i] = entry[0]
+		users[i] = []string{entry[0], entry[1]}
 	}
-	return emails, nil
+	return users, nil
 }
 
 func (s *AuthnStore) Exist(email string) bool {

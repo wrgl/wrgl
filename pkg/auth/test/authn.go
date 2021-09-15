@@ -1,6 +1,7 @@
 package authtest
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -9,38 +10,54 @@ import (
 )
 
 type AuthnStore struct {
-	m map[string]string
+	pass map[string]string
+	name map[string]string
 }
 
 func NewAuthnStore() *AuthnStore {
 	return &AuthnStore{
-		m: map[string]string{},
+		pass: map[string]string{},
+		name: map[string]string{},
 	}
 }
 
+func (s *AuthnStore) SetName(email, name string) error {
+	s.name[email] = name
+	return nil
+}
+
 func (s *AuthnStore) SetPassword(email, password string) error {
-	s.m[email] = password
+	s.pass[email] = password
 	return nil
 }
 
 func (s *AuthnStore) Authenticate(email, password string) (token string, err error) {
-	if v, ok := s.m[email]; ok && v == password {
-		return email, nil
+	if v, ok := s.pass[email]; ok && v == password {
+		b, err := json.Marshal(&auth.Claims{
+			Email: email,
+			Name:  s.name[email],
+		})
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
 	}
 	return "", fmt.Errorf("email/password invalid")
 }
 
 func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *auth.Claims, error) {
-	if _, ok := s.m[token]; ok {
-		return r, &auth.Claims{
-			Email: token,
-		}, nil
+	c := &auth.Claims{}
+	if err := json.Unmarshal([]byte(token), c); err != nil {
+		return nil, nil, err
+	}
+	if _, ok := s.pass[c.Email]; ok {
+		return r, c, nil
 	}
 	return nil, nil, fmt.Errorf("invalid token")
 }
 
 func (s *AuthnStore) RemoveUser(email string) error {
-	delete(s.m, email)
+	delete(s.pass, email)
 	return nil
 }
 
@@ -48,16 +65,18 @@ func (s *AuthnStore) Flush() error {
 	return nil
 }
 
-func (s *AuthnStore) ListUsers() (emails []string, err error) {
-	emails = make([]string, len(s.m))
-	for email := range s.m {
-		emails = append(emails, email)
+func (s *AuthnStore) ListUsers() (users [][]string, err error) {
+	users = make([][]string, len(s.pass))
+	for email, name := range s.name {
+		users = append(users, []string{email, name})
 	}
-	sort.Strings(emails)
-	return emails, nil
+	sort.Slice(users, func(i, j int) bool {
+		return users[i][0] < users[j][0]
+	})
+	return users, nil
 }
 
 func (s *AuthnStore) Exist(email string) bool {
-	_, ok := s.m[email]
+	_, ok := s.pass[email]
 	return ok
 }
