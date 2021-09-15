@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -123,6 +124,22 @@ func (s *testSuite) TestCookieAuthentication(t *testing.T) {
 		},
 	})
 	_, err = cli.GetBlocks(com.Table, 0, 0, "", opt)
+	require.NoError(t, err)
+
+	// authenticate with url-encoded token
+	_, err = cli.GetBlocks(com.Table, 0, 0, "", apiclient.WithCookies([]*http.Cookie{
+		{
+			Name:  "Authorization",
+			Value: url.PathEscape(fmt.Sprintf("Bearer %s", tok)),
+		},
+	}))
+	require.NoError(t, err)
+	_, err = cli.GetBlocks(com.Table, 0, 0, "", apiclient.WithCookies([]*http.Cookie{
+		{
+			Name:  "Authorization",
+			Value: url.QueryEscape(fmt.Sprintf("Bearer %s", tok)),
+		},
+	}))
 	require.NoError(t, err)
 
 	// authenticate via cookie doesn't work for methods other than GET

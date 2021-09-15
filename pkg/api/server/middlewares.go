@@ -3,6 +3,7 @@ package apiserver
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -130,17 +131,25 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 	}
 	if token == "" && r.Method == http.MethodGet {
 		cookie, err := r.Cookie("Authorization")
-		if err == nil && strings.HasPrefix(cookie.Value, "Bearer ") {
-			token = cookie.Value[7:]
+		if err == nil {
+			fmt.Printf("cookie: %s\n", cookie.Value)
+			if strings.HasPrefix(cookie.Value, "Bearer ") {
+				token = cookie.Value[7:]
+			} else if strings.HasPrefix(cookie.Value, "Bearer%20") || strings.HasPrefix(cookie.Value, "Bearer+") {
+				s, err := url.QueryUnescape(cookie.Value)
+				if err != nil {
+					sendError(rw, http.StatusUnauthorized, "invalid token")
+					return
+				}
+				token = s[7:]
+			}
 		}
 	}
-	fmt.Printf("token: %q\n", token)
 	if token != "" {
 		authnS := m.getAuthnS(r)
 		var claims *auth.Claims
 		var err error
 		r, claims, err = authnS.CheckToken(r, token)
-		fmt.Printf("request: %v claims: %v err: %v\n", r, claims, err)
 		if err != nil {
 			if _, ok := err.(*jwt.ValidationError); ok {
 				sendError(rw, http.StatusUnauthorized, "invalid token")
