@@ -135,7 +135,7 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 			}
 			panic(err)
 		}
-		r = setClaims(r, claims)
+		r = SetClaims(r, claims)
 	}
 	m.handler.ServeHTTP(rw, r)
 }
