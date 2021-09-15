@@ -25,6 +25,7 @@ func writeCommitJSON(rw http.ResponseWriter, r *http.Request, db objects.Store, 
 		panic(err)
 	}
 	resp := &payload.Commit{
+		Sum:         payload.BytesToHex(sum),
 		AuthorName:  com.AuthorName,
 		AuthorEmail: com.AuthorEmail,
 		Message:     com.Message,

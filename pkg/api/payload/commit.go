@@ -15,6 +15,7 @@ type Table struct {
 }
 
 type Commit struct {
+	Sum           *Hex               `json:"sum,omitempty"`
 	AuthorName    string             `json:"authorName,omitempty"`
 	AuthorEmail   string             `json:"authorEmail,omitempty"`
 	Message       string             `json:"message,omitempty"`
