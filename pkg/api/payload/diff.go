@@ -19,6 +19,8 @@ type RowDiff struct {
 }
 
 type DiffResponse struct {
-	ColDiff *ColDiff   `json:"colDiff"`
-	RowDiff []*RowDiff `json:"rowDiff"`
+	TableSum    *Hex       `json:"tableSum"`
+	OldTableSum *Hex       `json:"oldTableSum"`
+	ColDiff     *ColDiff   `json:"colDiff"`
+	RowDiff     []*RowDiff `json:"rowDiff"`
 }

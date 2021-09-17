@@ -28,13 +28,13 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 	defer cleanup()
 	db := s.s.GetDB(repo)
 
-	sum1, _ := factory.Commit(t, db, []string{
+	sum1, com1 := factory.Commit(t, db, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"3,z,x",
 	}, []uint32{0}, nil)
-	sum2, _ := factory.Commit(t, db, []string{
+	sum2, com2 := factory.Commit(t, db, []string{
 		"a,b,d",
 		"1,q,e",
 		"2,a,d",
@@ -50,6 +50,8 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 	dr, err := cli.Diff(sum1, sum2)
 	require.NoError(t, err)
 	assert.Equal(t, &payload.DiffResponse{
+		TableSum:    payload.BytesToHex(com1.Table),
+		OldTableSum: payload.BytesToHex(com2.Table),
 		ColDiff: &payload.ColDiff{
 			Columns:    []string{"a", "b", "c"},
 			OldColumns: []string{"a", "b", "d"},
