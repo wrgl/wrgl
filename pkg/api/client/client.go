@@ -165,7 +165,7 @@ func (c *Client) Authenticate(email, password string, opts ...RequestOption) (to
 		return
 	}
 	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return "", fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	b, err = ioutil.ReadAll(resp.Body)

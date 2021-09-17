@@ -1,7 +1,6 @@
 package apiserver
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -132,7 +131,6 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 	if token == "" && r.Method == http.MethodGet {
 		cookie, err := r.Cookie("Authorization")
 		if err == nil {
-			fmt.Printf("cookie: %s\n", cookie.Value)
 			if strings.HasPrefix(cookie.Value, "Bearer ") {
 				token = cookie.Value[7:]
 			} else if strings.HasPrefix(cookie.Value, "Bearer%20") || strings.HasPrefix(cookie.Value, "Bearer+") {

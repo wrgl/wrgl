@@ -102,7 +102,7 @@ func (s *ReceivePackSession) saveRefs() error {
 
 func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	var err error
-	if v := r.Header.Get("Content-Type"); v != api.CTJSON {
+	if v := r.Header.Get("Content-Type"); !strings.Contains(v, api.CTJSON) {
 		sendError(rw, http.StatusBadRequest, "updates expected")
 		return nil
 	}
