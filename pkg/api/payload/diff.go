@@ -11,11 +11,8 @@ type ColDiff struct {
 }
 
 type RowDiff struct {
-	PK        *Hex   `json:"pk,omitempty"`
-	Sum       *Hex   `json:"sum,omitempty"`
-	OldSum    *Hex   `json:"oldSum,omitempty"`
-	Offset    uint32 `json:"offset"`
-	OldOffset uint32 `json:"oldOffset"`
+	Offset1 *uint32 `json:"off1,omitempty"`
+	Offset2 *uint32 `json:"off2,omitempty"`
 }
 
 type DiffResponse struct {

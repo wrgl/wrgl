@@ -65,13 +65,16 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 		},
 	}
 	for obj := range diffChan {
-		resp.RowDiff = append(resp.RowDiff, &payload.RowDiff{
-			PK:        payload.BytesToHex(obj.PK),
-			Sum:       payload.BytesToHex(obj.Sum),
-			OldSum:    payload.BytesToHex(obj.OldSum),
-			Offset:    obj.Offset,
-			OldOffset: obj.OldOffset,
-		})
+		rd := &payload.RowDiff{}
+		if obj.Sum != nil {
+			u := obj.Offset
+			rd.Offset1 = &u
+		}
+		if obj.OldSum != nil {
+			u := obj.OldOffset
+			rd.Offset2 = &u
+		}
+		resp.RowDiff = append(resp.RowDiff, rd)
 	}
 	close(errCh)
 	err, ok := <-errCh

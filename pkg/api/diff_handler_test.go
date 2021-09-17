@@ -4,8 +4,6 @@
 package api_test
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -17,10 +15,8 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func hexFromString(t *testing.T, s string) *payload.Hex {
-	h := &payload.Hex{}
-	require.NoError(t, json.Unmarshal([]byte(fmt.Sprintf("%q", s)), h))
-	return h
+func uint32Ptr(u uint32) *uint32 {
+	return &u
 }
 
 func (s *testSuite) TestDiffHandler(t *testing.T) {
@@ -32,13 +28,13 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
-		"3,z,x",
+		"4,z,x",
 	}, []uint32{0}, nil)
 	sum2, com2 := factory.Commit(t, db, []string{
 		"a,b,d",
 		"1,q,e",
 		"2,a,d",
-		"3,z,c",
+		"5,z,c",
 	}, []uint32{0}, nil)
 
 	_, err := cli.Diff(testutils.SecureRandomBytes(16), sum2)
@@ -60,23 +56,18 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 		},
 		RowDiff: []*payload.RowDiff{
 			{
-				PK:     hexFromString(t, "fd1c9513cc47feaf59fa9b76008f2521"),
-				Sum:    hexFromString(t, "60f1c744d65482e468bfac458a7131fe"),
-				OldSum: hexFromString(t, "472dc02a63f3a555b9b39cf6c953a3ea"),
+				Offset1: uint32Ptr(0),
+				Offset2: uint32Ptr(0),
 			},
 			{
-				PK:        hexFromString(t, "00259da5fe4e202b974d64009944ccfe"),
-				Sum:       hexFromString(t, "e4f37424a61671456b0be328e4f3719c"),
-				OldSum:    hexFromString(t, "00200e2c0e125fb15980d68112d5fa52"),
-				Offset:    1,
-				OldOffset: 1,
+				Offset1: uint32Ptr(1),
+				Offset2: uint32Ptr(1),
 			},
 			{
-				PK:        hexFromString(t, "e3c37d3bfd03aef8fac2794539e39160"),
-				Sum:       hexFromString(t, "1c51f6044190122c554cc6794585e654"),
-				OldSum:    hexFromString(t, "3ef97e9414bbb071eb8d1175e2cf3ef4"),
-				Offset:    2,
-				OldOffset: 2,
+				Offset1: uint32Ptr(2),
+			},
+			{
+				Offset2: uint32Ptr(2),
 			},
 		},
 	}, dr)
