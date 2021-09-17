@@ -20,7 +20,7 @@ func TestRemoteAddCmd(t *testing.T) {
 
 	// add remote
 	cmd := newRootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", "https://my-repo.com"})
+	cmd.SetArgs([]string{"remote", "add", "origin", "https://my-repo.com/"})
 	require.NoError(t, cmd.Execute())
 	cmd = newRootCmd()
 	cmd.SetArgs([]string{"remote", "add", "acme", "https://acme.com", "--tags"})

@@ -5,6 +5,7 @@ package remote
 
 import (
 	"net/url"
+	"strings"
 
 	"github.com/spf13/cobra"
 	conffs "github.com/wrgl/core/pkg/conf/fs"
@@ -18,7 +19,7 @@ func setURLCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			u := args[1]
+			u := strings.TrimSuffix(args[1], "/")
 			_, err := url.ParseRequestURI(u)
 			if err != nil {
 				return err
