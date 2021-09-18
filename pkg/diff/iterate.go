@@ -97,6 +97,9 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 		prevStart, prevEnd = start, end
 
 		for rowOff1, b := range idx1.Rows {
+			if debugOut != nil {
+				fmt.Fprintf(debugOut, "%x:\n  [%d:%d] %x\n", b[:16], i, rowOff1, b[16:])
+			}
 			var row2 []byte
 			var rowOff2 byte
 			var blkOff2 uint32
@@ -106,7 +109,7 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 					rowOff2 = off
 					blkOff2 = uint32(k + start)
 					if debugOut != nil {
-						fmt.Fprintf(debugOut, "%x:\n  [%d:%d] %x\n  [%d:%d] %x\n", b[:16], i, rowOff1, b[16:], blkOff2, rowOff2, row2)
+						fmt.Fprintf(debugOut, "  [%d:%d] %x\n", blkOff2, rowOff2, row2)
 					}
 					break
 				}
