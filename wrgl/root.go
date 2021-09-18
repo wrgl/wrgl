@@ -4,6 +4,7 @@
 package main
 
 import (
+	"io"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -92,26 +93,32 @@ func newRootCmd() *cobra.Command {
 	return rootCmd
 }
 
-func setupDebug(cmd *cobra.Command) func() {
+func setupDebug(cmd *cobra.Command) (io.Writer, func(), error) {
 	name, err := cmd.Flags().GetString("debug-file")
 	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
+		return nil, nil, err
 	}
 	var f *os.File
 	if name != "" {
 		f, err = os.Create(name)
 		if err != nil {
-			cmd.PrintErrln(err)
-			os.Exit(1)
+			return nil, nil, err
 		}
-		log.SetOutput(f)
 	}
-	return func() {
+	return f, func() {
 		if f != nil {
 			f.Close()
 		}
+	}, nil
+}
+
+func setupDebugLog(cmd *cobra.Command) (func(), error) {
+	r, cleanup, err := setupDebug(cmd)
+	if err != nil {
+		return nil, err
 	}
+	log.SetOutput(r)
+	return cleanup, nil
 }
 
 func execute() error {

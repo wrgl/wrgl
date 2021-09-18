@@ -49,6 +49,11 @@ func newDiffCmd() *cobra.Command {
 		}, "\n"),
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			debugFile, cleanup, err := setupDebug(cmd)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
 			rd := getRepoDir(cmd)
 			var db objects.Store
 			var rs ref.Store
@@ -105,7 +110,13 @@ func newDiffCmd() *cobra.Command {
 				[2][]string{tbl1.Columns, tbl1.PrimaryKey()},
 			)
 			errChan := make(chan error, 10)
-			diffChan, pt := diff.DiffTables(db1, db2, tbl1, tbl2, tblIdx1, tblIdx2, 65*time.Millisecond, errChan, false)
+			opts := []diff.DiffOption{
+				diff.WithProgressInterval(65 * time.Millisecond),
+			}
+			if debugFile != nil {
+				opts = append(opts, diff.WithDebugOutput(debugFile))
+			}
+			diffChan, pt := diff.DiffTables(db1, db2, tbl1, tbl2, tblIdx1, tblIdx2, errChan, opts...)
 			if noGUI {
 				err = outputDiffToCSV(
 					cmd, db1, db2, name1, name2, commitHash1, commitHash2,

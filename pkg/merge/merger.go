@@ -166,7 +166,11 @@ func (m *Merger) Start() (ch <-chan *Merge, err error) {
 		if err != nil {
 			return nil, err
 		}
-		diffChan, progTracker := diff.DiffTables(m.db, m.db, t, m.baseT, idx, baseIdx, m.progressPeriod*time.Duration(n), m.errChan, true)
+		diffChan, progTracker := diff.DiffTables(
+			m.db, m.db, t, m.baseT, idx, baseIdx, m.errChan,
+			diff.WithProgressInterval(m.progressPeriod*time.Duration(n)),
+			diff.WithEmitUnchangedRow(),
+		)
 		diffs[i] = diffChan
 		progs[i] = progTracker
 		cols[i] = [2][]string{t.Columns, t.PrimaryKey()}

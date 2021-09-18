@@ -1,6 +1,9 @@
 package diff
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/wrgl/core/pkg/objects"
 )
 
@@ -78,7 +81,7 @@ func getBlockIndices(db objects.Store, tbl *objects.Table, start, end int, prevS
 }
 
 // iterateAndMatch iterates through a single table while trying to match its rows with another table
-func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, cb func(pk, row1, row2 []byte, off1, off2 uint32)) error {
+func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, debugOut io.Writer, cb func(pk, row1, row2 []byte, off1, off2 uint32)) error {
 	var prevStart, prevEnd int
 	var indices2 []*objects.BlockIndex
 	for i, sum := range tbl1.Blocks {
@@ -102,6 +105,9 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 					row2 = sum
 					rowOff2 = off
 					blkOff2 = uint32(k + start)
+					if debugOut != nil {
+						fmt.Fprintf(debugOut, "%x:\n  [%d:%d] %x\n  [%d:%d] %x\n", b[:16], i, rowOff1, b[16:], blkOff2, rowOff2, row2)
+					}
 					break
 				}
 			}

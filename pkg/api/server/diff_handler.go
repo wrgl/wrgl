@@ -53,7 +53,11 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	errCh := make(chan error, 10)
-	diffChan, _ := diff.DiffTables(db, db, tbl1, tbl2, idx1, idx2, 0, errCh, false)
+	opts := []diff.DiffOption{}
+	if s.diffDebugOut != nil {
+		opts = append(opts, diff.WithDebugOutput(s.diffDebugOut))
+	}
+	diffChan, _ := diff.DiffTables(db, db, tbl1, tbl2, idx1, idx2, errCh, opts...)
 	resp := &payload.DiffResponse{
 		TableSum:    payload.BytesToHex(sum1),
 		OldTableSum: payload.BytesToHex(sum2),

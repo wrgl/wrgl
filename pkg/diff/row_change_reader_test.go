@@ -31,7 +31,7 @@ func TestRowChangeReader(t *testing.T) {
 	tbl1, tblIdx1 := getTable(t, db, sum1)
 	tbl2, tblIdx2 := getTable(t, db, sum2)
 	errCh := make(chan error, 1)
-	diffCh, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, 0, errCh, false)
+	diffCh, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errCh)
 	close(errCh)
 	err, ok := <-errCh
 	assert.False(t, ok)

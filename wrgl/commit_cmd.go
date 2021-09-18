@@ -28,7 +28,11 @@ func newCommitCmd() *cobra.Command {
 		Short: "Commit CSV file to a repo",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			defer setupDebug(cmd)()
+			cleanup, err := setupDebugLog(cmd)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
 			branchName := args[0]
 			csvFilePath := args[1]
 			message := args[2]

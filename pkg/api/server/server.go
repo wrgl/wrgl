@@ -6,6 +6,7 @@ package apiserver
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"time"
@@ -58,6 +59,12 @@ func WithPostCommitCallback(postCommit func(r *http.Request, commit *objects.Com
 	}
 }
 
+func WithDiffDebug(w io.Writer) ServerOption {
+	return func(s *Server) {
+		s.diffDebugOut = w
+	}
+}
+
 type Server struct {
 	getAuthnS    func(r *http.Request) auth.AuthnStore
 	getDB        func(r *http.Request) objects.Store
@@ -68,6 +75,7 @@ type Server struct {
 	postCommit   func(r *http.Request, commit *objects.Commit, sum []byte, branch string)
 	router       *router.Router
 	maxAge       time.Duration
+	diffDebugOut io.Writer
 }
 
 func NewServer(
