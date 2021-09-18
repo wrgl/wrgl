@@ -19,3 +19,6 @@
 
 # build folder
 build
+
+# log files
+*.log

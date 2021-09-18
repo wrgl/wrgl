@@ -107,7 +107,7 @@ func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byt
 		require.NoError(t, err)
 		_, err = objects.SaveCommit(dst, buf.Bytes())
 		require.NoError(t, err)
-		require.NoError(t, ingest.IndexTable(dst, c.Table, tbl))
+		require.NoError(t, ingest.IndexTable(dst, c.Table, tbl, nil))
 	}
 }
 
@@ -143,7 +143,7 @@ func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, pa
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
 	require.NoError(t, w.WriteAll(rows))
-	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1], 0, 1, nil, nil)
+	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1])
 	require.NoError(t, err)
 	com := &objects.Commit{
 		Table:       sum,

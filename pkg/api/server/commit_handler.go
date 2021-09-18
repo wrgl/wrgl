@@ -63,7 +63,7 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	primaryKey := r.MultipartForm.Value["primaryKey"]
 
 	db := s.getDB(r)
-	sum, err := ingest.IngestTable(db, f, primaryKey, 0, 1, nil, nil)
+	sum, err := ingest.IngestTable(db, f, primaryKey)
 	if err != nil {
 		if v, ok := err.(*csv.ParseError); ok {
 			sendCSVError(rw, v)

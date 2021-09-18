@@ -54,8 +54,8 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	}
 	errCh := make(chan error, 10)
 	opts := []diff.DiffOption{}
-	if s.diffDebugOut != nil {
-		opts = append(opts, diff.WithDebugOutput(s.diffDebugOut))
+	if s.debugOut != nil {
+		opts = append(opts, diff.WithDebugOutput(s.debugOut))
 	}
 	diffChan, _ := diff.DiffTables(db, db, tbl1, tbl2, idx1, idx2, errCh, opts...)
 	resp := &payload.DiffResponse{

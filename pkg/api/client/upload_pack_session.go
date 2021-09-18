@@ -45,7 +45,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised 
 	if len(neg.wants) == 0 {
 		return nil, fmt.Errorf("nothing wanted")
 	}
-	neg.receiver = apiutils.NewObjectReceiver(db, neg.wants)
+	neg.receiver = apiutils.NewObjectReceiver(db, neg.wants, nil)
 	return neg, nil
 }
 

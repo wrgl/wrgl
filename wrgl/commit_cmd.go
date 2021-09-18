@@ -28,7 +28,7 @@ func newCommitCmd() *cobra.Command {
 		Short: "Commit CSV file to a repo",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cleanup, err := setupDebugLog(cmd)
+			debugFile, cleanup, err := setupDebug(cmd)
 			if err != nil {
 				return err
 			}
@@ -56,7 +56,7 @@ func newCommitCmd() *cobra.Command {
 				return err
 			}
 			ensureUserSet(cmd, c)
-			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, rd, c)
+			return commit(cmd, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, rd, c, debugFile)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
@@ -100,7 +100,7 @@ func ensureUserSet(cmd *cobra.Command, c *conf.Config) {
 	}
 }
 
-func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, memLimit uint64, rd *local.RepoDir, c *conf.Config) error {
+func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, memLimit uint64, rd *local.RepoDir, c *conf.Config, debugFile io.Writer) error {
 	if !ref.HeadPattern.MatchString(branchName) {
 		return fmt.Errorf("invalid branch name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
@@ -126,7 +126,13 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	}
 
 	sortPT, blkPT := displayCommitProgress(cmd)
-	sum, err := ingest.IngestTable(db, f, primaryKey, memLimit, numWorkers, sortPT, blkPT)
+	sum, err := ingest.IngestTable(db, f, primaryKey,
+		ingest.WithSortRunSize(memLimit),
+		ingest.WithNumWorkers(numWorkers),
+		ingest.WithSortProgressBar(sortPT),
+		ingest.WithProgressBar(blkPT),
+		ingest.WithDebugOutput(debugFile),
+	)
 	if err != nil {
 		return err
 	}

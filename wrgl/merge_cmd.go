@@ -167,7 +167,11 @@ func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store
 			return err
 		}
 		sortPT, blkPT := displayCommitProgress(cmd)
-		sum, err := ingest.IngestTable(db, file, pk, 0, numWorkers, sortPT, blkPT)
+		sum, err := ingest.IngestTable(db, file, pk,
+			ingest.WithNumWorkers(numWorkers),
+			ingest.WithSortProgressBar(sortPT),
+			ingest.WithProgressBar(blkPT),
+		)
 		if err != nil {
 			return err
 		}
@@ -430,7 +434,10 @@ func commitMergeResult(
 		return err
 	}
 	blkPT := pbar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
-	sum, err := ingest.IngestTableFromBlocks(db, columns, pk, rowsCount, blocks, numWorkers, blkPT)
+	sum, err := ingest.IngestTableFromBlocks(db, columns, pk, rowsCount, blocks,
+		ingest.WithNumWorkers(numWorkers),
+		ingest.WithProgressBar(blkPT),
+	)
 	if err != nil {
 		return err
 	}

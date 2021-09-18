@@ -33,7 +33,7 @@ func TestIngestTable(t *testing.T) {
 	defer os.Remove(f.Name())
 	db := objmock.NewStore()
 
-	sum, err := IngestTable(db, f, rows[0][:1], 0, 1, nil, nil)
+	sum, err := IngestTable(db, f, rows[0][:1])
 	require.NoError(t, err)
 
 	tbl, err := objects.GetTable(db, sum)
@@ -70,6 +70,6 @@ func BenchmarkIngestTable(b *testing.B) {
 	defer os.Remove(f.Name())
 	db := objmock.NewStore()
 	b.ResetTimer()
-	_, err := IngestTable(db, f, rows[0][:1], 0, 1, nil, nil)
+	_, err := IngestTable(db, f, rows[0][:1])
 	require.NoError(b, err)
 }

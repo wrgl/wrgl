@@ -18,81 +18,147 @@ type ProgressBar interface {
 	Finish() error
 }
 
-func insertBlock(db objects.Store, pt ProgressBar, tbl *objects.Table, tblIdx [][]string, blocks <-chan *sorter.Block, wg *sync.WaitGroup, errChan chan<- error) {
+type Inserter struct {
+	db          objects.Store
+	pt          ProgressBar
+	sortPT      ProgressBar
+	tbl         *objects.Table
+	tblIdx      [][]string
+	wg          sync.WaitGroup
+	errChan     chan error
+	blocks      <-chan *sorter.Block
+	numWorkers  int
+	sortRunSize uint64
+	debugOut    io.Writer
+}
+
+type InserterOption func(*Inserter)
+
+func WithProgressBar(pt ProgressBar) InserterOption {
+	return func(i *Inserter) {
+		i.pt = pt
+	}
+}
+
+func WithSortProgressBar(pt ProgressBar) InserterOption {
+	return func(i *Inserter) {
+		i.sortPT = pt
+	}
+}
+
+func WithNumWorkers(n int) InserterOption {
+	return func(i *Inserter) {
+		i.numWorkers = n
+	}
+}
+
+func WithSortRunSize(u uint64) InserterOption {
+	return func(i *Inserter) {
+		i.sortRunSize = u
+	}
+}
+
+func WithDebugOutput(w io.Writer) InserterOption {
+	return func(i *Inserter) {
+		i.debugOut = w
+	}
+}
+
+func (i *Inserter) insertBlock() {
 	buf := bytes.NewBuffer(nil)
-	defer wg.Done()
+	defer i.wg.Done()
 	dec := objects.NewStrListDecoder(true)
 	hash := meow.New(0)
-	e := objects.NewStrListEditor(tbl.PK)
-	for blk := range blocks {
+	e := objects.NewStrListEditor(i.tbl.PK)
+	for blk := range i.blocks {
 		// write block and add block to table
-		sum, err := objects.SaveBlock(db, blk.Block)
+		sum, err := objects.SaveBlock(i.db, blk.Block)
 		if err != nil {
-			errChan <- err
+			i.errChan <- err
 			return
 		}
-		tbl.Blocks[blk.Offset] = sum
+		i.tbl.Blocks[blk.Offset] = sum
 
 		// write block index and add pk sums to table index
-		idx, err := objects.IndexBlockFromBytes(dec, hash, e, blk.Block, tbl.PK)
+		idx, err := objects.IndexBlockFromBytes(dec, hash, e, blk.Block, i.tbl.PK)
 		if err != nil {
-			errChan <- err
+			i.errChan <- err
 			return
 		}
 		buf.Reset()
 		idx.WriteTo(buf)
-		err = objects.SaveBlockIndex(db, sum, buf.Bytes())
+		if i.debugOut != nil {
+			hash.Reset()
+			hash.Write(buf.Bytes())
+			idxSum := hash.Sum(nil)
+			fmt.Fprintf(i.debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
+		}
+		err = objects.SaveBlockIndex(i.db, sum, buf.Bytes())
 		if err != nil {
-			errChan <- err
+			i.errChan <- err
 			return
 		}
-		tblIdx[blk.Offset] = blk.PK
-		if pt != nil {
-			pt.Add(1)
+		i.tblIdx[blk.Offset] = blk.PK
+		if i.pt != nil {
+			i.pt.Add(1)
 		}
 	}
 }
 
-func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rowsCount uint32, blocks <-chan *sorter.Block, numWorkers int, pt ProgressBar) ([]byte, error) {
-	tbl := objects.NewTable(columns, pk, rowsCount)
-	tblIdx := make([][]string, objects.BlocksCount(rowsCount))
-	wg := &sync.WaitGroup{}
-	errChan := make(chan error, numWorkers)
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go insertBlock(db, pt, tbl, tblIdx, blocks, wg, errChan)
+func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rowsCount uint32, blocks <-chan *sorter.Block, opts ...InserterOption) ([]byte, error) {
+	i := &Inserter{
+		db:         db,
+		blocks:     blocks,
+		numWorkers: 1,
 	}
-	wg.Wait()
+	for _, opt := range opts {
+		opt(i)
+	}
+	return i.ingestTableFromBlocks(columns, pk, rowsCount)
+}
+
+func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCount uint32) ([]byte, error) {
+	i.tbl = objects.NewTable(columns, pk, rowsCount)
+	i.tblIdx = make([][]string, objects.BlocksCount(rowsCount))
+	errChan := make(chan error, i.numWorkers)
+	for j := 0; j < i.numWorkers; j++ {
+		i.wg.Add(1)
+		go i.insertBlock()
+	}
+	i.wg.Wait()
 	close(errChan)
 	err, ok := <-errChan
 	if ok {
 		return nil, err
 	}
-	if pt != nil {
-		if err := pt.Finish(); err != nil {
+	if i.pt != nil {
+		if err := i.pt.Finish(); err != nil {
 			return nil, err
 		}
 	}
 
 	// write and save table
 	buf := bytes.NewBuffer(nil)
-	_, err = tbl.WriteTo(buf)
+	_, err = i.tbl.WriteTo(buf)
 	if err != nil {
 		return nil, err
 	}
-	sum, err := objects.SaveTable(db, buf.Bytes())
+	sum, err := objects.SaveTable(i.db, buf.Bytes())
 	if err != nil {
 		return nil, err
+	}
+	if i.debugOut != nil {
+		fmt.Fprintf(i.debugOut, "Saved table %x\n", sum)
 	}
 
 	// write and save table index
 	buf.Reset()
 	enc := objects.NewStrListEncoder(true)
-	_, err = objects.WriteBlockTo(enc, buf, tblIdx)
+	_, err = objects.WriteBlockTo(enc, buf, i.tblIdx)
 	if err != nil {
 		return nil, err
 	}
-	err = objects.SaveTableIndex(db, sum, buf.Bytes())
+	err = objects.SaveTableIndex(i.db, sum, buf.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +166,19 @@ func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rows
 	return sum, nil
 }
 
-func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uint64, numWorkers int, sortPT, blkPT ProgressBar) ([]byte, error) {
-	s, err := sorter.NewSorter(sortRunSize, sortPT)
+func IngestTable(db objects.Store, f io.ReadCloser, pk []string, opts ...InserterOption) ([]byte, error) {
+	i := &Inserter{
+		db:         db,
+		numWorkers: 1,
+	}
+	for _, opt := range opts {
+		opt(i)
+	}
+	return i.ingestTable(f, pk)
+}
+
+func (i *Inserter) ingestTable(f io.ReadCloser, pk []string) ([]byte, error) {
+	s, err := sorter.NewSorter(i.sortRunSize, i.sortPT)
 	if err != nil {
 		return nil, err
 	}
@@ -116,17 +193,17 @@ func IngestTable(db objects.Store, f io.ReadCloser, pk []string, sortRunSize uin
 		}
 		os.Exit(0)
 	}()
-	numWorkers -= 2
-	if numWorkers <= 0 {
-		numWorkers = 1
+	i.numWorkers -= 2
+	if i.numWorkers <= 0 {
+		i.numWorkers = 1
 	}
 	err = s.SortFile(f, pk)
 	if err != nil {
 		return nil, err
 	}
-	errChan := make(chan error, numWorkers)
-	blocks := s.SortedBlocks(nil, errChan)
-	sum, err := IngestTableFromBlocks(db, s.Columns, s.PK, s.RowsCount, blocks, numWorkers, blkPT)
+	errChan := make(chan error, i.numWorkers)
+	i.blocks = s.SortedBlocks(nil, errChan)
+	sum, err := i.ingestTableFromBlocks(s.Columns, s.PK, s.RowsCount)
 	if err != nil {
 		return nil, err
 	}

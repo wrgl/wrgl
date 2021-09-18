@@ -31,14 +31,16 @@ type ReceivePackSession struct {
 	state    stateFn
 	receiver *apiutils.ObjectReceiver
 	id       uuid.UUID
+	debugOut io.Writer
 }
 
-func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, id uuid.UUID) *ReceivePackSession {
+func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, id uuid.UUID, debugOut io.Writer) *ReceivePackSession {
 	s := &ReceivePackSession{
-		db: db,
-		rs: rs,
-		c:  c,
-		id: id,
+		db:       db,
+		rs:       rs,
+		c:        c,
+		id:       id,
+		debugOut: debugOut,
 	}
 	s.state = s.greet
 	return s
@@ -135,7 +137,7 @@ func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nex
 		return s.reportStatus(rw, r)
 	}
 	if len(commits) > 0 {
-		s.receiver = apiutils.NewObjectReceiver(s.db, commits)
+		s.receiver = apiutils.NewObjectReceiver(s.db, commits, s.debugOut)
 		return s.askForMore(rw, r)
 	}
 	err = s.saveRefs()

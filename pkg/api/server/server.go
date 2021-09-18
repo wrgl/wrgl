@@ -59,9 +59,9 @@ func WithPostCommitCallback(postCommit func(r *http.Request, commit *objects.Com
 	}
 }
 
-func WithDiffDebug(w io.Writer) ServerOption {
+func WithDebug(w io.Writer) ServerOption {
 	return func(s *Server) {
-		s.diffDebugOut = w
+		s.debugOut = w
 	}
 }
 
@@ -75,7 +75,7 @@ type Server struct {
 	postCommit   func(r *http.Request, commit *objects.Commit, sum []byte, branch string)
 	router       *router.Router
 	maxAge       time.Duration
-	diffDebugOut io.Writer
+	debugOut     io.Writer
 }
 
 func NewServer(

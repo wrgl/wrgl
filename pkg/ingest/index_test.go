@@ -17,7 +17,7 @@ func TestIndexTable(t *testing.T) {
 	defer os.Remove(f.Name())
 	db := objmock.NewStore()
 
-	sum, err := IngestTable(db, f, rows[0][:1], 0, 1, nil, nil)
+	sum, err := IngestTable(db, f, rows[0][:1])
 	require.NoError(t, err)
 	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)
@@ -32,7 +32,7 @@ func TestIndexTable(t *testing.T) {
 		require.NoError(t, objects.DeleteBlockIndex(db, sum))
 	}
 
-	require.NoError(t, IndexTable(db, sum, tbl))
+	require.NoError(t, IndexTable(db, sum, tbl, nil))
 	tblIdx2, err := objects.GetTableIndex(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, tblIdx, tblIdx2)

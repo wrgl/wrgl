@@ -41,7 +41,7 @@ func (s *Server) getReceivePackSession(r *http.Request, sessions ReceivePackSess
 		if err != nil {
 			panic(err)
 		}
-		ses = NewReceivePackSession(db, rs, c, sid)
+		ses = NewReceivePackSession(db, rs, c, sid, s.debugOut)
 		sessions.Set(sid, ses)
 	}
 	return

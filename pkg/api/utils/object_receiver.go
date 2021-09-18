@@ -18,12 +18,14 @@ type ObjectReceiver struct {
 	db              objects.Store
 	expectedCommits map[string]struct{}
 	ReceivedCommits [][]byte
+	debugOut        io.Writer
 }
 
-func NewObjectReceiver(db objects.Store, expectedCommits [][]byte) *ObjectReceiver {
+func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, debugOut io.Writer) *ObjectReceiver {
 	r := &ObjectReceiver{
 		db:              db,
 		expectedCommits: map[string]struct{}{},
+		debugOut:        debugOut,
 	}
 	for _, com := range expectedCommits {
 		r.expectedCommits[string(com)] = struct{}{}
@@ -46,7 +48,7 @@ func (r *ObjectReceiver) saveTable(b []byte) (err error) {
 		return
 	}
 	sum := meow.Checksum(0, b)
-	err = ingest.IndexTable(r.db, sum[:], tbl)
+	err = ingest.IndexTable(r.db, sum[:], tbl, r.debugOut)
 	if err != nil {
 		return
 	}
