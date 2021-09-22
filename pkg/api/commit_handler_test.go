@@ -98,6 +98,13 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, (*cr.Sum)[:], sum)
 
+	// commit 2 pk
+	cr, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a", "b"})
+	require.NoError(t, err)
+	tbl, err = objects.GetTable(db, cr.Table[:])
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a", "b"}, tbl.PrimaryKey())
+
 	// pass custom headers
 	buf = bytes.NewBuffer(nil)
 	w = csv.NewWriter(buf)

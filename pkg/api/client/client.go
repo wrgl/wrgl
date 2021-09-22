@@ -285,7 +285,7 @@ func (c *Client) Commit(branch, message, fileName string, file io.Reader, primar
 	resp, err := c.PostMultipartForm(api.PathCommit, map[string][]string{
 		"branch":     {branch},
 		"message":    {message},
-		"primaryKey": primaryKey,
+		"primaryKey": {strings.Join(primaryKey, ",")},
 	}, map[string]formFile{
 		"file": {
 			FileName: fileName,

@@ -60,7 +60,10 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		}
 		defer f.Close()
 	}
-	primaryKey := r.MultipartForm.Value["primaryKey"]
+	var primaryKey []string
+	if sl := r.MultipartForm.Value["primaryKey"]; len(sl) > 0 && len(sl[0]) > 0 {
+		primaryKey = strings.Split(sl[0], ",")
+	}
 
 	db := s.getDB(r)
 	sum, err := ingest.IngestTable(db, f, primaryKey)
