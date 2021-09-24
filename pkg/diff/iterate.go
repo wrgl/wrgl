@@ -85,6 +85,9 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 	var prevStart, prevEnd int
 	var indices2 []*objects.BlockIndex
 	for i, sum := range tbl1.Blocks {
+		if debugOut != nil {
+			fmt.Fprintf(debugOut, "iterating block %x\n", sum)
+		}
 		idx1, err := objects.GetBlockIndex(db1, sum)
 		if err != nil {
 			return err
@@ -98,7 +101,7 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 
 		for rowOff1, b := range idx1.Rows {
 			if debugOut != nil {
-				fmt.Fprintf(debugOut, "%x:\n  [%d:%d] %x\n", b[:16], i, rowOff1, b[16:])
+				fmt.Fprintf(debugOut, "  pk: %x:\n    [blk: %d, off: %d] row: %x\n", b[:16], i, rowOff1, b[16:])
 			}
 			var row2 []byte
 			var rowOff2 byte
@@ -109,7 +112,7 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 					rowOff2 = off
 					blkOff2 = uint32(k + start)
 					if debugOut != nil {
-						fmt.Fprintf(debugOut, "  [%d:%d] %x\n", blkOff2, rowOff2, row2)
+						fmt.Fprintf(debugOut, "    [blk: %d, off: %d] row: %x\n", blkOff2, rowOff2, row2)
 					}
 					break
 				}
