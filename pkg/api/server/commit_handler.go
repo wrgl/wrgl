@@ -66,7 +66,11 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	db := s.getDB(r)
-	sum, err := ingest.IngestTable(db, f, primaryKey)
+	var opts = []ingest.InserterOption{}
+	if s.debugOut != nil {
+		opts = append(opts, ingest.WithDebugOutput(s.debugOut))
+	}
+	sum, err := ingest.IngestTable(db, f, primaryKey, opts...)
 	if err != nil {
 		if v, ok := err.(*csv.ParseError); ok {
 			sendCSVError(rw, v)
