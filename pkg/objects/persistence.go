@@ -53,8 +53,13 @@ func SaveBlock(s Store, content []byte) (sum []byte, err error) {
 	return arr[:], nil
 }
 
-func SaveBlockIndex(s Store, sum, content []byte) (err error) {
-	return saveObj(s, blockIndexKey(sum), content)
+func SaveBlockIndex(s Store, content []byte) (sum []byte, err error) {
+	arr := meow.Checksum(0, content)
+	err = saveObj(s, blockIndexKey(arr[:]), content)
+	if err != nil {
+		return
+	}
+	return arr[:], nil
 }
 
 func SaveTable(s Store, content []byte) (sum []byte, err error) {

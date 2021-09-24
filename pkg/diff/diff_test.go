@@ -208,13 +208,13 @@ func TestDiffTables(t *testing.T) {
 		tbl1, tblIdx1 := getTable(t, db, c.Sum1)
 		tbl2, tblIdx2 := getTable(t, db, c.Sum2)
 		diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan)
-		close(errChan)
-		_, ok := <-errChan
-		assert.False(t, ok)
 		events := []*objects.Diff{}
 		for e := range diffChan {
 			events = append(events, e)
 		}
+		close(errChan)
+		err, ok := <-errChan
+		assert.False(t, ok, "error was %v", err)
 		assert.Equal(t, c.Events, events, "case %d", i)
 	}
 }
@@ -265,6 +265,44 @@ func TestDiffEmitUnchangedRow(t *testing.T) {
 			OldOffset: 2,
 		},
 	}, events)
+}
+
+func TestDiffSameBlockDifferentPK(t *testing.T) {
+	db := objmock.NewStore()
+	sum1 := factory.BuildTable(t, db, []string{
+		"a,b",
+		"1,q",
+		"2,a",
+		"3,z",
+	}, []uint32{0})
+	// this table has the same block but different pk
+	// it should not interfere with diff results below
+	factory.BuildTable(t, db, []string{
+		"a,b",
+		"1,q",
+		"2,a",
+		"3,z",
+	}, []uint32{})
+	sum2 := factory.BuildTable(t, db, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	}, []uint32{0})
+	errChan := make(chan error, 10)
+	tbl1, tblIdx1 := getTable(t, db, sum1)
+	tbl2, tblIdx2 := getTable(t, db, sum2)
+	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan)
+	close(errChan)
+	_, ok := <-errChan
+	assert.False(t, ok)
+	events := []*objects.Diff{}
+	for e := range diffChan {
+		assert.NotEmpty(t, e.Sum)
+		assert.NotEmpty(t, e.OldSum)
+		events = append(events, e)
+	}
+	assert.Len(t, events, 3)
 }
 
 func ingestRawCSV(b *testing.B, db objects.Store, rows [][]string) (*objects.Table, [][]string) {

@@ -72,7 +72,7 @@ func getBlockIndices(db objects.Store, tbl *objects.Table, start, end int, prevS
 	}
 	var err error
 	for j := start; j < end; j++ {
-		sl[j-slStart], err = objects.GetBlockIndex(db, tbl.Blocks[j])
+		sl[j-slStart], err = objects.GetBlockIndex(db, tbl.BlockIndices[j])
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +88,7 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 		if debugOut != nil {
 			fmt.Fprintf(debugOut, "iterating block %x\n", sum)
 		}
-		idx1, err := objects.GetBlockIndex(db1, sum)
+		idx1, err := objects.GetBlockIndex(db1, tbl1.BlockIndices[i])
 		if err != nil {
 			return err
 		}

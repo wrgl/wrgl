@@ -13,10 +13,11 @@ import (
 )
 
 type Table struct {
-	Columns   []string
-	PK        []uint32
-	RowsCount uint32
-	Blocks    [][]byte
+	Columns      []string
+	PK           []uint32
+	RowsCount    uint32
+	Blocks       [][]byte
+	BlockIndices [][]byte
 }
 
 func BlocksCount(rowsCount uint32) uint32 {
@@ -24,11 +25,13 @@ func BlocksCount(rowsCount uint32) uint32 {
 }
 
 func NewTable(columns []string, pk []uint32, rowsCount uint32) *Table {
+	bc := BlocksCount(rowsCount)
 	return &Table{
-		Columns:   columns,
-		PK:        pk,
-		RowsCount: rowsCount,
-		Blocks:    make([][]byte, BlocksCount(rowsCount)),
+		Columns:      columns,
+		PK:           pk,
+		RowsCount:    rowsCount,
+		Blocks:       make([][]byte, bc),
+		BlockIndices: make([][]byte, bc),
 	}
 }
 
@@ -73,6 +76,13 @@ func (t *Table) WriteTo(w io.Writer) (int64, error) {
 	}
 	total := n
 	for _, b := range t.Blocks {
+		n, err := w.Write(b)
+		if err != nil {
+			return total, err
+		}
+		total += int64(n)
+	}
+	for _, b := range t.BlockIndices {
 		n, err := w.Write(b)
 		if err != nil {
 			return total, err
@@ -163,6 +173,7 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 	total := int64(n)
 	blocksCount := uint32(math.Ceil(float64(t.RowsCount) / float64(255)))
 	t.Blocks = make([][]byte, blocksCount)
+	t.BlockIndices = make([][]byte, blocksCount)
 	for i := range t.Blocks {
 		n, b, err := t.readBlock(r)
 		if err != nil {
@@ -170,6 +181,14 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 		}
 		total += int64(n)
 		t.Blocks[i] = b
+	}
+	for i := range t.BlockIndices {
+		n, b, err := t.readBlock(r)
+		if err != nil {
+			return 0, err
+		}
+		total += int64(n)
+		t.BlockIndices[i] = b
 	}
 	return total, nil
 }

@@ -38,9 +38,12 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 			idxSum := hash.Sum(nil)
 			fmt.Fprintf(debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
 		}
-		err = objects.SaveBlockIndex(db, sum, buf.Bytes())
+		tblIdxSum, err := objects.SaveBlockIndex(db, buf.Bytes())
 		if err != nil {
 			return err
+		}
+		if !bytes.Equal(tblIdxSum, tbl.BlockIndices[i]) {
+			return fmt.Errorf("block index at offset %d has different sum: %x != %x", i, tblIdxSum, tbl.BlockIndices[i])
 		}
 		buf.Reset()
 	}

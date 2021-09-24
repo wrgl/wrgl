@@ -47,8 +47,8 @@ func TestSaveBlockIndex(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	_, err = idx.WriteTo(buf)
 	require.NoError(t, err)
-	sum := testutils.SecureRandomBytes(16)
-	require.NoError(t, objects.SaveBlockIndex(s, sum, buf.Bytes()))
+	sum, err := objects.SaveBlockIndex(s, buf.Bytes())
+	require.NoError(t, err)
 	assert.True(t, objects.BlockIndexExist(s, sum))
 	obj, err := objects.GetBlockIndex(s, sum)
 	require.NoError(t, err)
@@ -67,6 +67,11 @@ func TestSaveTable(t *testing.T) {
 		PK:        []uint32{0},
 		RowsCount: 700,
 		Blocks: [][]byte{
+			testutils.SecureRandomBytes(16),
+			testutils.SecureRandomBytes(16),
+			testutils.SecureRandomBytes(16),
+		},
+		BlockIndices: [][]byte{
 			testutils.SecureRandomBytes(16),
 			testutils.SecureRandomBytes(16),
 			testutils.SecureRandomBytes(16),

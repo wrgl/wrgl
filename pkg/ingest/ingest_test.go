@@ -58,7 +58,7 @@ func TestIngestTable(t *testing.T) {
 			assert.Equal(t, rows[i*255+j+1], row)
 		}
 
-		blkIdx, err := objects.GetBlockIndex(db, sum)
+		blkIdx, err := objects.GetBlockIndex(db, tbl.BlockIndices[i])
 		require.NoError(t, err)
 		assert.Len(t, blkIdx.Rows, len(blk))
 	}

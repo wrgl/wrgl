@@ -29,6 +29,11 @@ func TestTableReader(t *testing.T) {
 			testutils.SecureRandomBytes(16),
 			testutils.SecureRandomBytes(16),
 		},
+		BlockIndices: [][]byte{
+			testutils.SecureRandomBytes(16),
+			testutils.SecureRandomBytes(16),
+			testutils.SecureRandomBytes(16),
+		},
 	}
 	n, err := table.WriteTo(buf)
 	require.NoError(t, err)

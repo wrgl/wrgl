@@ -14,22 +14,23 @@ import (
 	"github.com/wrgl/core/pkg/testutils"
 )
 
-func saveBlock(t *testing.T, db objects.Store, blk [][]string, pk []uint32) ([]byte, *objects.BlockIndex) {
+func saveBlock(t *testing.T, db objects.Store, blk [][]string, pk []uint32) (sum []byte, idxSum []byte, idx *objects.BlockIndex) {
 	t.Helper()
 	buf := bytes.NewBuffer(nil)
 	enc := objects.NewStrListEncoder(true)
 	_, err := objects.WriteBlockTo(enc, buf, blk)
 	require.NoError(t, err)
-	sum, err := objects.SaveBlock(db, buf.Bytes())
+	sum, err = objects.SaveBlock(db, buf.Bytes())
 	require.NoError(t, err)
 	hash := meow.New(0)
-	idx, err := objects.IndexBlock(enc, hash, blk, pk)
+	idx, err = objects.IndexBlock(enc, hash, blk, pk)
 	require.NoError(t, err)
 	buf.Reset()
 	_, err = idx.WriteTo(buf)
 	require.NoError(t, err)
-	require.NoError(t, objects.SaveBlockIndex(db, sum[:], buf.Bytes()))
-	return sum[:], idx
+	idxSum, err = objects.SaveBlockIndex(db, buf.Bytes())
+	require.NoError(t, err)
+	return sum, idxSum, idx
 }
 
 func createTableFromBlock(t *testing.T, db objects.Store, columns []string, pk []uint32, blks [][][]string) (*objects.Table, [][]string) {
@@ -39,8 +40,9 @@ func createTableFromBlock(t *testing.T, db objects.Store, columns []string, pk [
 	}
 	tblIdx := make([][]string, len(blks))
 	for i, blk := range blks {
-		sum, _ := saveBlock(t, db, blk, pk)
+		sum, idxSum, _ := saveBlock(t, db, blk, pk)
 		tbl.Blocks = append(tbl.Blocks, sum)
+		tbl.BlockIndices = append(tbl.BlockIndices, idxSum)
 		tbl.RowsCount += uint32(len(blk))
 		tblIdx[i] = slice.IndicesToValues(blk[0], pk)
 	}
@@ -120,8 +122,9 @@ func TestGetBlockIndices(t *testing.T) {
 	tbl := &objects.Table{}
 	for i := 0; i < 10; i++ {
 		blk := testutils.BuildRawCSV(4, 255)[1:]
-		sum, idx := saveBlock(t, db, blk, []uint32{0})
+		sum, idxSum, idx := saveBlock(t, db, blk, []uint32{0})
 		tbl.Blocks = append(tbl.Blocks, sum)
+		tbl.BlockIndices = append(tbl.BlockIndices, idxSum)
 		indices = append(indices, idx)
 	}
 

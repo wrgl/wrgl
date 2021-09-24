@@ -25,7 +25,7 @@ func TestIndexTable(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, objects.DeleteTableIndex(db, sum))
 	blkIndices := []*objects.BlockIndex{}
-	for _, sum := range tbl.Blocks {
+	for _, sum := range tbl.BlockIndices {
 		idx, err := objects.GetBlockIndex(db, sum)
 		require.NoError(t, err)
 		blkIndices = append(blkIndices, idx)
@@ -36,7 +36,7 @@ func TestIndexTable(t *testing.T) {
 	tblIdx2, err := objects.GetTableIndex(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, tblIdx, tblIdx2)
-	for i, sum := range tbl.Blocks {
+	for i, sum := range tbl.BlockIndices {
 		idx, err := objects.GetBlockIndex(db, sum)
 		require.NoError(t, err)
 		assert.Equal(t, blkIndices[i], idx)

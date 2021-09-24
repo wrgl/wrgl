@@ -93,11 +93,12 @@ func (i *Inserter) insertBlock() {
 			idxSum := hash.Sum(nil)
 			fmt.Fprintf(i.debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
 		}
-		err = objects.SaveBlockIndex(i.db, sum, buf.Bytes())
+		blkIdxSum, err := objects.SaveBlockIndex(i.db, buf.Bytes())
 		if err != nil {
 			i.errChan <- err
 			return
 		}
+		i.tbl.BlockIndices[blk.Offset] = blkIdxSum
 		i.tblIdx[blk.Offset] = blk.PK
 		if i.pt != nil {
 			i.pt.Add(1)
