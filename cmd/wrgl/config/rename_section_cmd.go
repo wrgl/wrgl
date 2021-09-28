@@ -14,8 +14,15 @@ import (
 func renameSectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rename-section OLD_NAME NEW_NAME",
-		Short: "Rename the given section to a new name.",
-		Args:  cobra.ExactArgs(2),
+		Short: "Rename a config section.",
+		Long:  "Rename a config section. This is equivalent to moving a config section to a different location. Note that the new destination's type must match that of the old location.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "rename a remote",
+				Line:    "wrgl config rename-section remote.origin remote.old_origin",
+			},
+		}),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			s := writeableConfigStore(cmd, dir)

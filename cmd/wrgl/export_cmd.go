@@ -15,14 +15,14 @@ import (
 func newExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export COMMIT",
-		Short: "Output commit content as CSV",
+		Short: "Print commit content as CSV",
 		Args:  cobra.ExactArgs(1),
 		Example: strings.Join([]string{
 			`  # export latest commit to CSV file`,
 			`  wrgl export my-branch > my_branch.csv`,
 			"",
 			`  # export commit to CSV file`,
-			`  wrgl export 1a2ed6248c7243cdaaecb98ac12213a7 > my_branch.csv`,
+			`  wrgl export 1a2ed6248c7243cdaaecb98ac12213a7 > my_data.csv`,
 		}, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cStr := args[0]

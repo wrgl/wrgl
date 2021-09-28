@@ -36,7 +36,7 @@ func TestConfigReplaceAllCmd(t *testing.T) {
 	}
 
 	cmd := RootCmd()
-	cmd.SetArgs([]string{"config", "replace-all", "remote.origin.push", "refs/heads/theta", "^refs/heads/.+"})
+	cmd.SetArgs([]string{"config", "replace-all", "remote.origin.push", "refs/heads/theta", "^refs/heads/"})
 	require.NoError(t, cmd.Execute())
 	cmd = RootCmd()
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push"})

@@ -11,9 +11,24 @@ import (
 
 func setCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "set NAME VALUE [VALUE_PATTERN]",
-		Short: "Set the value for a given key",
-		Args:  cobra.RangeArgs(2, 3),
+		Use:   "set NAME VALUE",
+		Short: "Set the value for a field.",
+		Long:  "Set the value for a field. This command only work with single-valued fields. For multi-valued fields, use \"wrgl config add\" or \"wrgl config replace-all\" instead. For boolean fields, only \"true\" or \"false\" value can be set.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "alter setting in the local config",
+				Line:    "wrgl config set receive.denyNonFastForwards true",
+			},
+			{
+				Comment: "alter system-wide config",
+				Line:    "wrgl config set pack.maxFileSize 1048576 --system",
+			},
+			{
+				Comment: "alter global config",
+				Line:    "wrgl config set user.name \"Jane Lane\" --global",
+			},
+		}),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			s := writeableConfigStore(cmd, dir)

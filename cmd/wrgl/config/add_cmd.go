@@ -11,8 +11,15 @@ import (
 func addCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add NAME VALUE",
-		Short: "Add a new value to the option without altering any existing values.",
+		Short: "Add VALUE to the field NAME without altering any existing values.",
+		Long:  "Add VALUE to the field NAME without altering any existing values. This command can only be used on fields that accept multiple values.",
 		Args:  cobra.ExactArgs(2),
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "Add new value to remote.origin.push",
+				Line:    "wrgl config add remote.origin.push refs/heads/main",
+			},
+		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			s := writeableConfigStore(cmd, dir)

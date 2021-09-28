@@ -17,7 +17,7 @@ import (
 func showCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show NAME",
-		Short: "Gives some information about the remote NAME",
+		Short: "Prints some information about a remote.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
@@ -32,6 +32,20 @@ func showCmd() *cobra.Command {
 			rs := rd.OpenRefStore()
 			cmd.Printf("* %s\n", name)
 			cmd.Printf("  URL: %s\n", rem.URL)
+
+			if len(rem.Fetch) > 0 {
+				cmd.Println("  Fetch:")
+				for _, rs := range rem.Fetch {
+					cmd.Printf("    %s\n", rs)
+				}
+			}
+
+			if len(rem.Push) > 0 {
+				cmd.Println("  Push:")
+				for _, rs := range rem.Push {
+					cmd.Printf("    %s\n", rs)
+				}
+			}
 
 			refs, err := ref.ListRemoteRefs(rs, name)
 			if err != nil {

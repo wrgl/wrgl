@@ -12,7 +12,7 @@ import (
 
 func listuserCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "listuser",
+		Use:   "list-user",
 		Short: "List registered users.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {

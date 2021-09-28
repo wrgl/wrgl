@@ -182,7 +182,7 @@ wantsLoop:
 }
 
 func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]byte, err error) {
-	m, err := ref.ListLocalRefs(f.rs)
+	m, err := ref.ListAllRefs(f.rs)
 	if err != nil {
 		return
 	}

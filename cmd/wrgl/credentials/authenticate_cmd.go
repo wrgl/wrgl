@@ -18,8 +18,19 @@ import (
 func authenticateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "authenticate { REMOTE_URI | REMOTE_NAME }",
-		Short: "Authenticate with email/password and save credentials for future use.",
-		Args:  cobra.ExactArgs(1),
+		Short: "Authenticate for one or more remotes with email/password.",
+		Long:  "Authenticate for one or more remotes with email/password and save credentials for future use. If REMOTE_NAME is given, then login and save credentials for that remote. If REMOTE_URI is given, login at REMOTE_URI/authenticate/ and save credentials for all remotes that have REMOTE_URI as prefix.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "authenticate for origin",
+				Line:    "wrgl credentials authenticate origin",
+			},
+			{
+				Comment: "authenticate for all repositories on wrgl hub",
+				Line:    "wrgl credentials authenticate https://hub.wrgl.co/api",
+			},
+		}),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			cfs := conffs.NewStore(dir, conffs.LocalSource, "")

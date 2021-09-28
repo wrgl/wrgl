@@ -16,8 +16,9 @@ import (
 
 func newCatFileCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cat-file OBJECT_HASH",
-		Short: "Provide content information for repository object",
+		Use:   "cat-obj OBJECT_SUM",
+		Short: "Print information for an object.",
+		Long:  "Print information for an object. This command only work for 3 types of objects: commit, table, and block.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			hash, err := hex.DecodeString(args[0])
@@ -68,21 +69,18 @@ func catTable(cmd *cobra.Command, tbl *objects.Table) error {
 		SetDynamicColors(true)
 	fmt.Fprintf(textView, "[yellow]columns[white] ([cyan]%d[white])\n\n", len(cols))
 	for _, col := range cols {
-		fmt.Fprintf(textView, "%s\n", col)
+		fmt.Fprintf(textView, "  %s\n", col)
 	}
 	if len(pk) > 0 {
 		fmt.Fprintf(textView, "\n[yellow]primary key[white] ([cyan]%d[white])\n\n", len(pk))
 		for _, col := range pk {
-			fmt.Fprintf(textView, "%s\n", col)
+			fmt.Fprintf(textView, "  %s\n", col)
 		}
 	}
-	fmt.Fprintf(textView, "\n[yellow]rows[white] ([cyan]%d[white])\n\n", tbl.RowsCount)
-	err := textView.PullText()
-	if err != nil {
-		return err
-	}
+	fmt.Fprintf(textView, "\n[yellow]rows[white]: [cyan]%d[white]\n\n", tbl.RowsCount)
+	fmt.Fprintf(textView, "[yellow]blocks[white] ([cyan]%d[white])\n\n", len(tbl.Blocks))
 	for _, blk := range tbl.Blocks {
-		fmt.Fprintf(textView, "[aquaMarine]%x[white]\n", blk)
+		fmt.Fprintf(textView, "  [aquaMarine]%x[white]\n", blk)
 	}
 	return app.SetRoot(textView, true).SetFocus(textView).Run()
 }

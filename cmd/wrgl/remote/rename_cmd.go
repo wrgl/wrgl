@@ -14,8 +14,8 @@ import (
 func renameCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rename OLD NEW",
-		Short: "Rename the remote named OLD to NEW.",
-		Long:  "All remote-tracking branches and configuration settings for the remote are updated",
+		Short: "Rename a remote.",
+		Long:  "Rename a remote. All remote-tracking branches and configuration settings for the remote are updated.",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			oldRem := args[0]

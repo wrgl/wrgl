@@ -35,6 +35,8 @@ func TestRemoteShowCmd(t *testing.T) {
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"* origin",
 		"  URL: https://my-repo.com",
+		"  Fetch:",
+		"    +refs/heads/my-branch:refs/remotes/origin/my-branch",
 		"  Remote branches:",
 		"    another-branch",
 		"    my-branch      tracked",

@@ -9,7 +9,7 @@ import (
 
 func listscopeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "listscope EMAIL",
+		Use:   "list-scope EMAIL",
 		Short: "List scopes for a user.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

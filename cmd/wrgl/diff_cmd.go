@@ -30,10 +30,14 @@ import (
 func newDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff COMMIT_OR_FILE [COMMIT_OR_FILE]",
-		Short: "Shows diff between 2 commits",
+		Short: "Shows changes between two commits",
+		Long:  "Shows changes between two commits with an interactive diff table. A commit can be specified using shorten sum, full sum, or a reference name. If only one commit is specified, it will be compared with a parent commit. It is also possible to specify a local CSV file instead of a commit, in which case both arguments must be given and the flag --primary-key should also be set.",
 		Example: strings.Join([]string{
-			`  # show changes compared to previous commit`,
+			`  # show changes compared to the previous commit`,
 			`  wrgl diff 1a2ed62`,
+			``,
+			`  # don't show the interactive table, output to a CSV file instead`,
+			`  wrgl diff 1a2ed62 --no-gui`,
 			``,
 			`  # show changes between branches`,
 			`  wrgl diff branch-1 branch-2`,
@@ -44,7 +48,7 @@ func newDiffCmd() *cobra.Command {
 			`  # show changes between files`,
 			`  wrgl diff file-1.csv file-2.csv --primary-key id,name`,
 			``,
-			`  # show changes between a file and a branch`,
+			`  # show changes between a file and the head commit from a branch`,
 			`  wrgl diff my-file.csv my-branch`,
 		}, "\n"),
 		Args: cobra.RangeArgs(1, 2),
@@ -139,7 +143,7 @@ func newDiffCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().Bool("no-gui", false, "don't show diff table, instead output changes to file DIFF_SUM1_SUM2.csv")
+	cmd.Flags().Bool("no-gui", false, "don't show the diff table, instead output changes to file DIFF_SUM1_SUM2.csv")
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key (only applicable if diff target is a file)")
 	return cmd
 }

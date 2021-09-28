@@ -13,8 +13,19 @@ import (
 func unsetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unset NAME [VALUE_PATTERN]",
-		Short: "Remove the value matching the key from config file.",
-		Args:  cobra.RangeArgs(1, 2),
+		Short: "Remove a single value.",
+		Long:  "Remove a single value. If VALUE_PATTERN is not given then the matching field must be single-valued. If VALUE_PATTERN is given then there must be only one matching value.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "remove an option",
+				Line:    "wrgl config unset receive.denyNonFastForwards",
+			},
+			{
+				Comment: "remove the main branch from remote.origin.push",
+				Line:    "wrgl config unset remote.origin.push refs/heads/main --fixed-value",
+			},
+		}),
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			s := writeableConfigStore(cmd, dir)

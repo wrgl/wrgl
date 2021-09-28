@@ -6,11 +6,11 @@ package wrgl
 import (
 	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/cmd/wrgl/utils"
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
@@ -20,12 +20,18 @@ import (
 func newPreviewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "preview COMMIT",
-		Short: "Shows commit data in a table view",
-		Example: strings.Join([]string{
-			`  wrgl preview my-branch`,
-			`  wrgl preview 1a2ed6248c7243cdaaecb98ac12213a7`,
-			`  wrgl preview my-file.csv`,
-		}, "\n"),
+		Short: "Shows a commit's content in an interactive table",
+		Long:  "Shows a commit's content in an interactive table. To output as a CSV file, use command \"wrgl export\" instead.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "preview the head commit of a branch",
+				Line:    "wrgl preview my-branch",
+			},
+			{
+				Comment: "preview an arbitrary commit by specifying the full sum",
+				Line:    "wrgl preview 1a2ed6248c7243cdaaecb98ac12213a7",
+			},
+		}),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cleanup, err := setupDebugLog(cmd)

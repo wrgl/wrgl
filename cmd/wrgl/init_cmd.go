@@ -15,7 +15,8 @@ import (
 func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Initialize repository in current directory",
+		Short: "Initialize a repository in current directory",
+		Long:  "Initialize a repository in current directory. The repository will live under <current directory>/.wrgl.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wd, err := os.Getwd()

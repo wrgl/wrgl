@@ -30,6 +30,9 @@ func NewPaginatedTextView() *PaginatedTextView {
 }
 
 func (v *PaginatedTextView) PullText() error {
+	if v.pullText == nil {
+		return nil
+	}
 	b, err := v.pullText()
 	if err == io.EOF {
 		return nil

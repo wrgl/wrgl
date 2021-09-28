@@ -4,7 +4,9 @@
 package wrgl
 
 import (
+	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -45,14 +47,20 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			mirror, err := cmd.Flags().GetBool("mirror")
+			if err != nil {
+				return err
+			}
 
 			remote, cr, args, err := getRepoToPush(c, args)
 			if err != nil {
 				return err
 			}
-			refspecs, err := getRefspecsToPush(cr, args)
-			if err != nil {
-				return err
+			if cr.Mirror {
+				mirror = true
+			}
+			if mirror {
+				force = true
 			}
 			cs, err := credentials.NewStore()
 			if err != nil {
@@ -71,6 +79,10 @@ func newPushCmd() *cobra.Command {
 				return handleHTTPError(cmd, cs, *uri, err)
 			}
 			cmd.Printf("To %s\n", cr.URL)
+			refspecs, err := getRefspecsToPush(cmd, rs, cr, args, remoteRefs, mirror)
+			if err != nil {
+				return err
+			}
 			upToDateRefspecs, updates, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
 			if err != nil {
 				return err
@@ -118,7 +130,18 @@ func newPushCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update remote branch in certain conditions.")
-	cmd.Flags().BoolP("set-upstream", "u", false, "for every branch that is up to date or successfully pushed, add upstream (tracking) reference, used by argument-less `wrgl pull`.")
+	cmd.Flags().BoolP("set-upstream", "u", false, strings.Join([]string{
+		"for every branch that is up to date or successfully pushed, add upstream",
+		"(tracking) reference, used by argument-less `wrgl pull`.",
+	}, " "))
+	cmd.Flags().Bool("mirror", false, strings.Join([]string{
+		"instead of naming each ref to push, specifies that all refs (which includes",
+		"but not limited to refs/heads/ and refs/remotes/) be mirrored to the remote",
+		"repository. Newly created local refs will be pushed to the remote end, locally",
+		"updated refs will be force updated on the remote end, and deleted refs will be",
+		"removed from the remote end. This is the default if the configuration option",
+		"remote.<remote>.mirror is set.",
+	}, " "))
 	return cmd
 }
 
@@ -158,8 +181,31 @@ func getRepoToPush(c *conf.Config, args []string) (remote string, cr *conf.Remot
 	return "", nil, nil, fmt.Errorf("repository name not specified")
 }
 
-func getRefspecsToPush(cr *conf.Remote, args []string) (refspecs []*conf.Refspec, err error) {
-	if len(args) > 0 {
+func getRefspecsToPush(cmd *cobra.Command, rs ref.Store, cr *conf.Remote, args []string, remoteRefs map[string][]byte, mirror bool) (refspecs []*conf.Refspec, err error) {
+	if mirror {
+		var localRefs map[string][]byte
+		localRefs, err = ref.ListAllRefs(rs)
+		if err != nil {
+			return
+		}
+		for ref, sum := range localRefs {
+			if v, ok := remoteRefs[ref]; !ok {
+				refspecs = append(refspecs, conf.MustParseRefspec(fmt.Sprintf("refs/%s:refs/%s", ref, ref)))
+			} else if !bytes.Equal(v, sum) {
+				refspecs = append(refspecs, conf.MustParseRefspec(fmt.Sprintf("+refs/%s:refs/%s", ref, ref)))
+			} else {
+				displayRefUpdate(cmd, '=', "[up to date]", "", ref, ref)
+			}
+		}
+		for ref := range remoteRefs {
+			if _, ok := localRefs[ref]; !ok {
+				refspecs = append(refspecs, conf.MustParseRefspec(fmt.Sprintf(":refs/%s", ref)))
+			}
+		}
+		sort.Slice(refspecs, func(i, j int) bool {
+			return refspecs[i].Dst() < refspecs[j].Dst()
+		})
+	} else if len(args) > 0 {
 		for _, s := range args {
 			rs, err := conf.ParseRefspec(s)
 			if err != nil {

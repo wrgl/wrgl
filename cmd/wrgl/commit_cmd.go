@@ -24,9 +24,19 @@ import (
 
 func newCommitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "commit BRANCH CSV_FILE_PATH MESSAGE",
-		Short: "Commit CSV file to a repo",
-		Args:  cobra.ExactArgs(3),
+		Use:   "commit BRANCH CSV_FILE_PATH COMMIT_MESSAGE",
+		Short: "Commit a CSV file under a branch",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "commit using primary key id",
+				Line:    "wrgl commit main data.csv \"initial commit\" -p id",
+			},
+			{
+				Comment: "commit using composite primary key",
+				Line:    "wrgl commit main data.csv \"new data\" -p id,date",
+			},
+		}),
+		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			debugFile, cleanup, err := setupDebug(cmd)
 			if err != nil {
@@ -60,8 +70,8 @@ func newCommitCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
-	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
-	cmd.Flags().Uint64("mem-limit", 0, "limit memory consumption (in bytes). If this is not set then memory limit is automatically calculated.")
+	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize")
+	cmd.Flags().Uint64("mem-limit", 0, "limit memory consumption (in bytes). If not set then memory limit is automatically calculated.")
 	return cmd
 }
 

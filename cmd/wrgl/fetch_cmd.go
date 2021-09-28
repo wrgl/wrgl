@@ -27,8 +27,22 @@ func newFetchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "fetch [REPOSITORY [REFSPEC...]]",
 		Short: "Download objects and refs from another repository",
-		Long:  "Fetch branches and/or tags (collectively, \"refs\") from one or more other repositories, along with the objects necessary to complete their histories. Remote-tracking branches are updated.",
-		Args:  cobra.ArbitraryArgs,
+		Long:  "Fetch branches and/or tags (collectively, \"refs\") from one or another repository, along with the objects necessary to complete their histories. Remote-tracking branches are updated.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "fetch from origin according to remote.origin.fetch",
+				Line:    "wrgl fetch",
+			},
+			{
+				Comment: "fetch from another named repository",
+				Line:    "wrgl fetch my-repo",
+			},
+			{
+				Comment: "fetch only the main branch from origin",
+				Line:    "wrgl fetch origin refs/heads/main:refs/remotes/origin/main",
+			},
+		}),
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
 			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")

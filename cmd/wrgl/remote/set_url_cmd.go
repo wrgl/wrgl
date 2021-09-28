@@ -15,7 +15,7 @@ import (
 func setURLCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set-url NAME URL",
-		Short: "Changes URL for the remote",
+		Short: "Set URL for the remote",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]

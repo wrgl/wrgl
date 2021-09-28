@@ -16,8 +16,18 @@ import (
 func newResetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reset BRANCH COMMIT",
-		Short: "Reset branch head commit to the specified commit",
-		Args:  cobra.ExactArgs(2),
+		Short: "Reset branch ref to the specified commit.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "reset branch to the previous commit",
+				Line:    "wrgl reset main main^",
+			},
+			{
+				Comment: "reset branch to an arbitrary commit",
+				Line:    "wrgl reset main 43a5f3447e82b53a2574ef5af470df96",
+			},
+		}),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]
 			rd := getRepoDir(cmd)

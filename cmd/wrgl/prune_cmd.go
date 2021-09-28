@@ -18,7 +18,7 @@ import (
 func newPruneCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "prune",
-		Short: "Prune all unreachable objects from the object database",
+		Short: "Prune all unreachable objects from the object database.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)

@@ -245,9 +245,7 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
 	sum1, _ := factory.CommitRandom(t, db, nil)
-	t.Logf("sum1: %x", sum1)
 	sum2, c2 := factory.CommitRandom(t, db, [][]byte{sum1})
-	t.Logf("sum2: %x", sum2)
 	require.NoError(t, ref.CommitHead(rs, "alpha", sum2, c2))
 	require.NoError(t, db.Close())
 
@@ -270,4 +268,54 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 
 	apitest.AssertCommitsPersisted(t, dbs, [][]byte{sum1, sum2})
 	assertRefStore(t, rss, "heads/alpha", sum2)
+}
+
+func TestPushMirror(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
+	ts := apitest.NewServer(t, nil)
+	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
+	sum1, _ := factory.CommitHead(t, dbs, rss, "main", nil, nil)
+	factory.CommitHead(t, dbs, rss, "alpha", nil, nil)
+	sum2, c2 := factory.CommitHead(t, dbs, rss, "beta", nil, nil)
+
+	rd, cleanUp := createRepoDir(t)
+	defer cleanUp()
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	rs := rd.OpenRefStore()
+	apitest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum2})
+	require.NoError(t, ref.CommitHead(rs, "beta", sum2, c2))
+	sum3, _ := factory.CommitHead(t, db, rs, "main", nil, nil)
+	sum4, _ := factory.CommitTag(t, db, rs, "dec-2021", nil, nil, nil)
+	sum5, c5 := factory.CommitRandom(t, db, nil)
+	require.NoError(t, ref.SaveRemoteRef(rs, "origin", "main", sum5, c5.AuthorName, c5.AuthorEmail, "fetch", "update head"))
+	require.NoError(t, db.Close())
+
+	cmd := RootCmd()
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
+	require.NoError(t, cmd.Execute())
+	authenticate(t, url)
+
+	cmd = RootCmd()
+	cmd.SetArgs([]string{"push", "my-repo", "--mirror"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		fmt.Sprintf("To %s", url),
+		" = [up to date]      beta        -> beta",
+		" - [deleted]                     -> alpha",
+		fmt.Sprintf(" + %s...%s main        -> main (forced update)", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum3)[:7]),
+		" * [new reference]   origin/main -> origin/main",
+		" * [new tag]         dec-2021    -> dec-2021",
+		"",
+	}, "\n"))
+
+	apitest.AssertCommitsPersisted(t, dbs, [][]byte{sum1, sum2, sum3, sum4, sum5})
+	assertRefStore(t, rss, "heads/beta", sum2)
+	assertRefStore(t, rss, "heads/main", sum3)
+	assertRefStore(t, rss, "tags/dec-2021", sum4)
+	assertRefStore(t, rss, "remotes/origin/main", sum5)
+	_, err = ref.GetHead(rss, "alpha")
+	assert.Equal(t, ref.ErrKeyNotFound, err)
 }

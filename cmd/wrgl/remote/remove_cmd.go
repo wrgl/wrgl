@@ -15,8 +15,8 @@ func removeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "remove NAME",
 		Aliases: []string{"rm"},
-		Short:   "Remove the remote named NAME.",
-		Long:    "All remote-tracking branches and configuration settings for the remote are removed.",
+		Short:   "Remove a remote.",
+		Long:    "Remote a remote. All remote-tracking branches and configuration settings for the remote are removed. This won't remove the credentials for this remote however. To remove the credentials, use \"wrgl credentials remove\".",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)

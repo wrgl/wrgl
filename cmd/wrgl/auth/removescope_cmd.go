@@ -19,9 +19,9 @@ func InvalidScopeErr(scope string) error {
 
 func removescopeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "removescope EMAIL SCOPE...",
+		Use:   "remove-scope EMAIL SCOPE...",
 		Short: "Remove one or more scopes for a user.",
-		Long:  "Remove one or more scopes for a user. Valid scopes are:\n" + allScopesString(4, true),
+		Long:  "Remove one or more scopes for a user. Scope represents what actions are allowed via the Wrgld HTTP API for a users. Valid scopes are:\n" + allScopesString(2, true),
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)

@@ -10,8 +10,19 @@ import (
 func getAllCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-all NAME [VALUE_PATTERN]",
-		Short: "Like get, but returns all values for a multi-valued key.",
-		Args:  cobra.RangeArgs(1, 2),
+		Short: "Get all values for a multi-valued field.",
+		Long:  "Get all values for a multi-valued field. If VALUE_PATTERN is given, then only returns the values that match the pattern (a regular expression if --fixed-value is not set).",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "get all values in field remote.origin.push",
+				Line:    "wrgl config get-all remote.origin.push",
+			},
+			{
+				Comment: "get all values in field remote.origin.push that is a branch",
+				Line:    "wrgl config get-all remote.origin.push ^refs/heads/",
+			},
+		}),
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			s := readableConfigStore(cmd, dir)

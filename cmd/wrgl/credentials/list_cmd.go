@@ -8,7 +8,7 @@ import (
 func listCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List credentials by URI prefix",
+		Short: "List saved credentials by URI prefix.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s, err := credentials.NewStore()

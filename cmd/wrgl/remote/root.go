@@ -14,7 +14,8 @@ import (
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remote",
-		Short: "Manage set of tracked repositories",
+		Short: "Manage remote repositories.",
+		Long:  "Manage remote repositories. Running this command without any sub-command prints registered remotes and their URLs.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)

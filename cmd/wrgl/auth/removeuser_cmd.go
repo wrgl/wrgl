@@ -9,8 +9,8 @@ import (
 
 func removeuserCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "removeuser EMAIL...",
-		Short: "Remove user with EMAIL",
+		Use:   "remove-user EMAIL...",
+		Short: "Remove users that have the given EMAILs. Removed users can not log-in nor access the Wrgld HTTP API.",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)

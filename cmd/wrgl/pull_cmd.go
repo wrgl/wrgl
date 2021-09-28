@@ -18,8 +18,19 @@ import (
 func pullCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pull BRANCH [REPOSITORY [REFSPEC...]]",
-		Short: "Fetch from and integrate with another repository. This is shorthand for `wrgl fetch [REPOSITORY [REFSPEC...]]` followed by `wrgl merge BRANCH FETCHED_COMMIT...`",
-		Args:  cobra.MinimumNArgs(1),
+		Short: "Fetch from and integrate with another repository.",
+		Long:  "Fetch from and integrate with another repository. This is shorthand for `wrgl fetch [REPOSITORY [REFSPEC...]]` followed by `wrgl merge BRANCH FETCHED_COMMIT...`",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "pull a branch from remote, setting upstream to the main branch at repo origin",
+				Line:    "wrgl pull main origin refs/heads/main:refs/remotes/origin/main --set-upstream",
+			},
+			{
+				Comment: "pull a branch from remote with upstream already set",
+				Line:    "wrgl pull main",
+			},
+		}),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
 			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")

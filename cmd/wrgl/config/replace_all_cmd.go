@@ -13,8 +13,19 @@ import (
 func replaceAllCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "replace-all NAME VALUE [VALUE_PATTERN]",
-		Short: "Replace all values matching the keys (and optionally the VALUE_PATTERN)",
-		Args:  cobra.RangeArgs(2, 3),
+		Short: "Replace all values in a field with a single value.",
+		Long:  "Replace all values in a field with a single value. Optionally only replace the values matching VALUE_PATTERN if it is given.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "replace all values under remote.origin.push with refs/heads/main",
+				Line:    "wrgl config replace-all remote.origin.push refs/heads/main",
+			},
+			{
+				Comment: "replace all branches under remote.origin.push with refs/heads/main",
+				Line:    "wrgl config replace-all remote.origin.push refs/heads/main ^refs/heads/",
+			},
+		}),
+		Args: cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			s := writeableConfigStore(cmd, dir)

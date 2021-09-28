@@ -20,6 +20,7 @@ import (
 	"github.com/rivo/tview"
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/cmd/wrgl/utils"
 	"github.com/wrgl/core/pkg/conf"
 	conffs "github.com/wrgl/core/pkg/conf/fs"
 	"github.com/wrgl/core/pkg/diff"
@@ -46,8 +47,31 @@ func getTable(db objects.Store, comSum []byte) (sum []byte, tbl *objects.Table, 
 func mergeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "merge BRANCH COMMIT...",
-		Short: "Merge two or more data histories together. If merge is successful then create a merge commit under BRANCH.",
-		Args:  cobra.MinimumNArgs(2),
+		Short: "Merge two or more commits together.",
+		Long:  "Merge two or more commits together using an interactive UI. If merge is successful then create a merge commit under BRANCH.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "merge two branches",
+				Line:    "wrgl merge branch-1 branch-2",
+			},
+			{
+				Comment: "merge a commit into a branch",
+				Line:    "wrgl merge my-branch 43a5f3447e82b53a2574ef5af470df96",
+			},
+			{
+				Comment: "perform merge but don't create a merge commit, output result to file MERGE_SUM1_SUM2.csv instead",
+				Line:    "wrgl merge branch-1 branch-2 --no-commit",
+			},
+			{
+				Comment: "don't show merge UI, output conflicts and resolved rows to CONFLICTS_SUM1_SUM2.csv instead",
+				Line:    "wrgl merge branch-1 branch-2 --no-gui",
+			},
+			{
+				Comment: "create a merge commit from an already resolved CSV file",
+				Line:    "wrgl merge branch-1 branch-2 --commit-csv resolved.csv",
+			},
+		}),
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := getRepoDir(cmd)
 			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")

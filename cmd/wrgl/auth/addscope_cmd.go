@@ -36,7 +36,7 @@ func allScopesString(indent int, withDesc bool) string {
 	for scope, desc := range validScopes {
 		var s string
 		if withDesc {
-			s = fmt.Sprintf("%s%s%s\t\t%s", spaces, scope, strings.Repeat(" ", maxlen-len(scope)), desc)
+			s = fmt.Sprintf("%s%s%s\t%s", spaces, scope, strings.Repeat(" ", maxlen-len(scope)), desc)
 		} else {
 			s = fmt.Sprintf("%s%s", spaces, scope)
 		}
@@ -48,10 +48,20 @@ func allScopesString(indent int, withDesc bool) string {
 
 func addscopeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "addscope EMAIL SCOPE...",
+		Use:   "add-scope EMAIL SCOPE...",
 		Short: "Add one or more scopes for a user.",
-		Long:  "Add one or more scopes for a user. Valid scopes are:\n" + allScopesString(4, true),
-		Args:  cobra.MinimumNArgs(2),
+		Long:  "Add one or more scopes for a user. Scope represents what actions are allowed via the Wrgld HTTP API for a users. Valid scopes are:\n" + allScopesString(2, true),
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "authorize user to fetch & push data",
+				Line:    fmt.Sprintf("wrgl auth add-scope user@email.com %s %s", auth.ScopeRepoRead, auth.ScopeRepoWrite),
+			},
+			{
+				Comment: "authorize user to do everything",
+				Line:    "wrgl auth add-scope user@email.com --all",
+			},
+		}),
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			cs := conffs.NewStore(dir, conffs.AggregateSource, "")
@@ -70,10 +80,27 @@ func addscopeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			for _, scope := range args[1:] {
-				if _, ok := validScopes[scope]; !ok {
-					return InvalidScopeErr(scope)
+			all, err := cmd.Flags().GetBool("all")
+			if err != nil {
+				return err
+			}
+			var scopes []string
+			if all {
+				scopes = []string{
+					auth.ScopeRepoRead,
+					auth.ScopeRepoReadConfig,
+					auth.ScopeRepoWrite,
+					auth.ScopeRepoWriteConfig,
 				}
+			} else {
+				for _, scope := range args[1:] {
+					if _, ok := validScopes[scope]; !ok {
+						return InvalidScopeErr(scope)
+					}
+					scopes = append(scopes, scope)
+				}
+			}
+			for _, scope := range scopes {
 				if err := authzS.AddPolicy(args[0], scope); err != nil {
 					return err
 				}
@@ -81,5 +108,6 @@ func addscopeCmd() *cobra.Command {
 			return authzS.Flush()
 		},
 	}
+	cmd.Flags().Bool("all", false, "add all scopes to user")
 	return cmd
 }

@@ -10,8 +10,19 @@ import (
 func getCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get NAME [VALUE_PATTERN]",
-		Short: "Get the value for a given key. Returns error code 1 if the key was not found and the last value if multiple key values were found.",
-		Args:  cobra.RangeArgs(1, 2),
+		Short: "Get the value for field NAME.",
+		Long:  "Get the value for field NAME. Returns the last value if there are multiple values in this field. If VALUE_PATTERN is given then only return the value if it matches pattern (a regular expression if --fixed-value is not set). Returns error code 1 if the key was not found.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "get current user email",
+				Line:    "wrgl config get user.email",
+			},
+			{
+				Comment: "get the last branch reference in field remote.origin.push",
+				Line:    "wrgl config get remote.origin.push ^refs/heads/",
+			},
+		}),
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			s := readableConfigStore(cmd, dir)

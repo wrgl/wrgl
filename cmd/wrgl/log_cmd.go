@@ -17,7 +17,7 @@ import (
 func newLogCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "log BRANCH_NAME",
-		Short: "Shows commits log",
+		Short: "Show commits log for a branch.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branchName := args[0]

@@ -18,8 +18,19 @@ import (
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reflog REFERENCE",
-		Short: "show the logs of the REFERENCE",
-		Args:  cobra.ExactArgs(1),
+		Short: "Show the logs of REFERENCE",
+		Long:  "Show the logs of REFERENCE. REFERENCE can be complete reference like \"refs/heads/main\" or shorten to just \"main\".",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "show logs for main branch",
+				Line:    "wrgl reflog heads/main",
+			},
+			{
+				Comment: "show logs for remote tracking branch",
+				Line:    "wrgl reflog remotes/origin/main",
+			},
+		}),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
 			rd := local.NewRepoDir(wrglDir, false, false)

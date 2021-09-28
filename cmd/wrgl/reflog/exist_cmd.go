@@ -14,8 +14,8 @@ import (
 
 func existCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "exist REF",
-		Short: "checks whether a ref has a reflog",
+		Use:   "exist REFERENCE",
+		Short: "Checks whether a ref has a reflog",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
