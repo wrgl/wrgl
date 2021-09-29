@@ -19,7 +19,7 @@ func TestRepoDirInit(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	wrglDir := filepath.Join(dir, ".wrgl")
-	rd := NewRepoDir(wrglDir, false, false)
+	rd := NewRepoDir(wrglDir, "")
 	assert.Equal(t, wrglDir, rd.FullPath)
 	assert.False(t, rd.Exist())
 	err = rd.Init()

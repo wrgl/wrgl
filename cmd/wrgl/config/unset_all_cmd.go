@@ -12,7 +12,7 @@ func unsetAllCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unset-all NAME [VALUE_PATTERN]",
 		Short: "Remove all values from a field.",
-		Long:  "Remove all values from a field. If VALUE_PATTERN is given then only remove values that match the pattern.",
+		Long:  "Remove all values from a field. If VALUE_PATTERN is given, only remove values that match the pattern.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "remove all values under remote.origin.push",

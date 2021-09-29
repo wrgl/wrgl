@@ -11,8 +11,7 @@ import (
 func addCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add NAME VALUE",
-		Short: "Add VALUE to the field NAME without altering any existing values.",
-		Long:  "Add VALUE to the field NAME without altering any existing values. This command can only be used on fields that accept multiple values.",
+		Short: "Add to a multi-valued field without altering any existing values.",
 		Args:  cobra.ExactArgs(2),
 		Example: utils.CombineExamples([]utils.Example{
 			{

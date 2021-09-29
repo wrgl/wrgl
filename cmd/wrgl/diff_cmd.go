@@ -17,6 +17,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/cmd/wrgl/utils"
 	"github.com/wrgl/core/pkg/diff"
 	"github.com/wrgl/core/pkg/ingest"
 	"github.com/wrgl/core/pkg/objects"
@@ -58,7 +59,7 @@ func newDiffCmd() *cobra.Command {
 				return err
 			}
 			defer cleanup()
-			rd := getRepoDir(cmd)
+			rd := utils.GetRepoDir(cmd)
 			var db objects.Store
 			var rs ref.Store
 			if rd.Exist() {

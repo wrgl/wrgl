@@ -11,6 +11,7 @@ import (
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/cmd/wrgl/utils"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
@@ -21,7 +22,7 @@ func newPruneCmd() *cobra.Command {
 		Short: "Prune all unreachable objects from the object database.",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rd := getRepoDir(cmd)
+			rd := utils.GetRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
 			db, err := rd.OpenObjectsStore()
 			if err != nil {

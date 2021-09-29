@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/core/cmd/wrgl/utils"
 	"github.com/wrgl/core/pkg/objects"
 	"github.com/wrgl/core/pkg/ref"
 )
@@ -33,7 +34,7 @@ func newExportCmd() *cobra.Command {
 }
 
 func exportCommit(cmd *cobra.Command, cStr string) error {
-	rd := getRepoDir(cmd)
+	rd := utils.GetRepoDir(cmd)
 	quitIfRepoDirNotExist(cmd, rd)
 	db, err := rd.OpenObjectsStore()
 	if err != nil {

@@ -6,26 +6,43 @@ package conf
 import "time"
 
 type User struct {
+	// Email is the current user's email. Just like
+	// with Git, most operations that alter data record the user's
+	// email. Unlike Git however, email is always required.
 	Email string `yaml:"email,omitempty" json:"email,omitempty"`
-	Name  string `yaml:"name,omitempty" json:"name,omitempty"`
+
+	// Name is the current user's name.
+	Name string `yaml:"name,omitempty" json:"name,omitempty"`
 }
 
 type Receive struct {
+	// DenyNonFastForwards, when set to `true`, during push, Wrgld denies all updates that
+	// are not fast-forwards.
 	DenyNonFastForwards *bool `yaml:"denyNonFastForwards,omitempty" json:"denyNonFastForwards,omitempty"`
-	DenyDeletes         *bool `yaml:"denyDeletes,omitempty" json:"denyDeletes,omitempty"`
+
+	// DenyDeletes, when set to `true`, during push, Wrgld denies all reference deletes.
+	DenyDeletes *bool `yaml:"denyDeletes,omitempty" json:"denyDeletes,omitempty"`
 }
 
 type Branch struct {
+	// Remote is the upstream remote of this branch. When both this setting and Merge is set,
+	// user can run `wrgl pull <branch>` without specifying remote and refspec.
 	Remote string `yaml:"remote,omitempty" json:"remote,omitempty"`
-	Merge  string `yaml:"merge,omitempty" json:"merge,omitempty"`
+
+	// Merge is the upstream destination of this branch. When both this setting and Remote is
+	// set, user can run `wrgl pull <branch>` without specifying remote and refspec.
+	Merge string `yaml:"merge,omitempty" json:"merge,omitempty"`
 }
 
 type Auth struct {
+	// TokenDuration specifies how long before a JWT token given by the `/authenticate/`
+	// endpoint of Wrgld expire. This is a string in the format "72h3m0.5s". Tokens last for
+	// 90 days by default.
 	TokenDuration time.Duration `yaml:"tokenDuration,omitempty" json:"tokenDuration,omitempty"`
 }
 
 type Pack struct {
-	// MaxFileSize is the maximum pack file size in bytes. Note that unlike in Git, pack format
+	// MaxFileSize is the maximum packfile size in bytes. Note that unlike in Git, pack format
 	// is only used as a transport format during fetch and push. This size is pre-compression.
 	MaxFileSize uint64 `yaml:"maxFileSize,omitempty" json:"maxFileSize,omitempty"`
 }

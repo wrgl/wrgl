@@ -43,7 +43,7 @@ func newBranchCmd() *cobra.Command {
 			`  wrgl branch -d <branchname>`,
 		}, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rd := getRepoDir(cmd)
+			rd := utils.GetRepoDir(cmd)
 			wrglDir := utils.MustWRGLDir(cmd)
 			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
 			c, err := s.Open()

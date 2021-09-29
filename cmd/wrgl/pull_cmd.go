@@ -39,7 +39,7 @@ func pullCmd() *cobra.Command {
 				return err
 			}
 			ensureUserSet(cmd, c)
-			rd := getRepoDir(cmd)
+			rd := utils.GetRepoDir(cmd)
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
@@ -79,7 +79,7 @@ func pullCmd() *cobra.Command {
 			if !strings.HasPrefix(name, "heads/") {
 				return fmt.Errorf("%q is not a branch name", args[0])
 			}
-			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, args[1:])
+			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, name[6:], args[1:])
 			if err != nil {
 				return err
 			}

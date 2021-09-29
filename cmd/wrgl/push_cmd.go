@@ -32,7 +32,7 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rd := getRepoDir(cmd)
+			rd := utils.GetRepoDir(cmd)
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

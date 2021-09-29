@@ -45,15 +45,11 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return
 			}
-			badgerLogInfo, err := cmd.Flags().GetBool("badger-log-info")
+			badgerLog, err := cmd.Flags().GetString("badger-log")
 			if err != nil {
 				return
 			}
-			badgerLogDebug, err := cmd.Flags().GetBool("badger-log-debug")
-			if err != nil {
-				return
-			}
-			rd := local.NewRepoDir(dir, badgerLogInfo, badgerLogDebug)
+			rd := local.NewRepoDir(dir, badgerLog)
 			objstore, err := rd.OpenObjectsStore()
 			if err != nil {
 				return
@@ -80,8 +76,7 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().IntP("port", "p", 80, "port number to listen to")
 	cmd.Flags().Duration("read-timeout", 30*time.Second, "request read timeout as described at https://pkg.go.dev/net/http#Server.ReadTimeout")
 	cmd.Flags().Duration("write-timeout", 30*time.Second, "response write timeout as described at https://pkg.go.dev/net/http#Server.WriteTimeout")
-	cmd.Flags().Bool("badger-log-info", false, "set Badger log level to INFO")
-	cmd.Flags().Bool("badger-log-debug", false, "set Badger log level to DEBUG")
+	cmd.PersistentFlags().String("badger-log", "", `set Badger log level, valid options are "error", "warning", "debug", and "info" (defaults to "error")`)
 	cmd.AddCommand(newVersionCmd())
 	return cmd
 }

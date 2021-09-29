@@ -27,7 +27,7 @@ func createRepoDir(t *testing.T) (rd *local.RepoDir, cleanup func()) {
 	rootDir, err := ioutil.TempDir("", "test_wrgl_*")
 	require.NoError(t, err)
 	wrglDir := filepath.Join(rootDir, ".wrgl")
-	rd = local.NewRepoDir(wrglDir, false, false)
+	rd = local.NewRepoDir(wrglDir, "")
 	err = rd.Init()
 	require.NoError(t, err)
 	viper.Set("wrgl_dir", wrglDir)

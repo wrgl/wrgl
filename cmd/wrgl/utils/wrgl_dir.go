@@ -32,3 +32,14 @@ func MustWRGLDir(cmd *cobra.Command) string {
 	}
 	return d
 }
+
+func GetRepoDir(cmd *cobra.Command) *local.RepoDir {
+	wrglDir := MustWRGLDir(cmd)
+	badgerLog, err := cmd.Flags().GetString("badger-log")
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
+	rd := local.NewRepoDir(wrglDir, badgerLog)
+	return rd
+}

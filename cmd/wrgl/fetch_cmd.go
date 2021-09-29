@@ -51,7 +51,7 @@ func newFetchCmd() *cobra.Command {
 				return err
 			}
 			ensureUserSet(cmd, c)
-			rd := getRepoDir(cmd)
+			rd := utils.GetRepoDir(cmd)
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
@@ -83,7 +83,7 @@ func newFetchCmd() *cobra.Command {
 				}
 				return nil
 			}
-			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, args)
+			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, "", args)
 			if err != nil {
 				return err
 			}
@@ -134,12 +134,18 @@ func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri url.URL) 
 	return cs.Flush()
 }
 
-func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, args []string) (string, *conf.Remote, []*conf.Refspec, error) {
+func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, args []string) (string, *conf.Remote, []*conf.Refspec, error) {
 	var remote = "origin"
-	if len(args) > 0 {
+	b, ok := c.Branch[branch]
+	if ok {
+		remote = b.Remote
+	} else if len(args) > 0 {
 		remote = args[0]
 	}
-	rem := utils.MustGetRemote(cmd, c, remote)
+	rem, ok := c.Remote[remote]
+	if !ok {
+		return "", nil, nil, fmt.Errorf("remote not found: %s", remote)
+	}
 	specs := rem.Fetch
 	if len(args) > 1 {
 		specs = make([]*conf.Refspec, len(args)-1)

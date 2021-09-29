@@ -16,16 +16,14 @@ import (
 )
 
 type RepoDir struct {
-	FullPath       string
-	badgerLogInfo  bool
-	badgerLogDebug bool
+	FullPath  string
+	badgerLog string
 }
 
-func NewRepoDir(wrglDir string, badgerLogInfo, badgerLogDebug bool) *RepoDir {
+func NewRepoDir(wrglDir string, badgerLog string) *RepoDir {
 	return &RepoDir{
-		FullPath:       wrglDir,
-		badgerLogInfo:  badgerLogInfo,
-		badgerLogDebug: badgerLogDebug,
+		FullPath:  wrglDir,
+		badgerLog: strings.ToLower(badgerLog),
 	}
 }
 
@@ -40,10 +38,13 @@ func (d *RepoDir) KVPath() string {
 func (d *RepoDir) openBadger() (*badger.DB, error) {
 	opts := badger.DefaultOptions(d.KVPath()).
 		WithLoggingLevel(badger.ERROR)
-	if d.badgerLogDebug {
+	switch d.badgerLog {
+	case "debug":
 		opts = opts.WithLoggingLevel(badger.DEBUG)
-	} else if d.badgerLogInfo {
+	case "info":
 		opts = opts.WithLoggingLevel(badger.INFO)
+	case "warning":
+		opts = opts.WithLoggingLevel(badger.WARNING)
 	}
 	return badger.Open(opts)
 }

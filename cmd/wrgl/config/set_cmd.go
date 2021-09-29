@@ -12,8 +12,8 @@ import (
 func setCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set NAME VALUE",
-		Short: "Set the value for a field.",
-		Long:  "Set the value for a field. This command only work with single-valued fields. For multi-valued fields, use \"wrgl config add\" or \"wrgl config replace-all\" instead. For boolean fields, only \"true\" or \"false\" value can be set.",
+		Short: "Set value for a field.",
+		Long:  "Set value for a field. This command only work with single-valued fields. For multi-valued fields, use \"wrgl config add\" or \"wrgl config replace-all\" instead. For boolean fields, only \"true\" or \"false\" value can be set.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "alter setting in the local config",

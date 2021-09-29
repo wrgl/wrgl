@@ -37,17 +37,17 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := RootCmd()
-	cmd.SetArgs([]string{"remote", "add", "origin", url, "-t", "beta", "-t", "main"})
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url, "-t", "beta", "-t", "main"})
 	require.NoError(t, cmd.Execute())
 
 	cmd = RootCmd()
-	cmd.SetArgs([]string{"pull", "main", "origin", "refs/heads/main:refs/remotes/origin/main", "--set-upstream"})
+	cmd.SetArgs([]string{"pull", "main", "my-repo", "refs/heads/main:refs/remotes/my-repo/main", "--set-upstream"})
 	assertCmdUnauthorized(t, cmd, url)
 	authenticate(t, url)
 
 	// pull set upstream
 	cmd = RootCmd()
-	cmd.SetArgs([]string{"pull", "main", "origin", "refs/heads/main:refs/remotes/origin/main", "--set-upstream"})
+	cmd.SetArgs([]string{"pull", "main", "my-repo", "refs/heads/main:refs/remotes/my-repo/main", "--set-upstream"})
 	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
@@ -76,7 +76,7 @@ func TestPullCmd(t *testing.T) {
 
 	// pull merge first fetch refspec
 	cmd = RootCmd()
-	cmd.SetArgs([]string{"pull", "beta"})
+	cmd.SetArgs([]string{"pull", "beta", "my-repo"})
 	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 

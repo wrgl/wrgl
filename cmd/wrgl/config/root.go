@@ -24,12 +24,12 @@ func RootCmd() *cobra.Command {
 			return cmd.Usage()
 		},
 	}
-	cmd.PersistentFlags().Bool("system", false, "For writing commands: write to system-wide /usr/local/etc/wrgl/config.yaml rather than the repository .wrgl/config.yaml. For reading commands: read only from global file /usr/local/etc/wrgl/config.yaml rather than from all available files.")
-	cmd.PersistentFlags().Bool("global", false, "For writing commands: write to global $XDG_CONFIG_HOME/wrgl/config.yaml rather than the repository .wrgl/config.yaml. For reading commands: read only from global $XDG_CONFIG_HOME/wrgl/config.yaml rather than from all available files.")
-	cmd.PersistentFlags().Bool("local", false, "For writing commands: write to file .wrgl/config.yaml. This is the default behavior. For reading commands: read only from the repository .wrgl/config.yaml rather than from all available files.")
-	cmd.PersistentFlags().StringP("file", "f", "", "Use the given config file instead of .wrgl/config.yaml")
-	cmd.PersistentFlags().Bool("fixed-value", false, "When used with the VALUE_PATTERN argument, treat VALUE_PATTERN as an exact string instead of a regular expression.")
-	cmd.PersistentFlags().BoolP("null", "z", false, "For all options that output values and/or keys, always end values with the null character (instead of a newline). Use newline instead as a delimiter between key and value. This allows for secure parsing of the output without getting confused e.g. by values that contain line breaks.")
+	cmd.PersistentFlags().Bool("system", false, "for writing commands: write to system-wide /usr/local/etc/wrgl/config.yaml rather than the repository .wrgl/config.yaml. For reading commands: read only from global file /usr/local/etc/wrgl/config.yaml rather than from all available files.")
+	cmd.PersistentFlags().Bool("global", false, "for writing commands: write to global $XDG_CONFIG_HOME/wrgl/config.yaml rather than the repository .wrgl/config.yaml. For reading commands: read only from global $XDG_CONFIG_HOME/wrgl/config.yaml rather than from all available files.")
+	cmd.PersistentFlags().Bool("local", false, "for writing commands: write to file .wrgl/config.yaml. This is the default behavior. For reading commands: read only from the repository .wrgl/config.yaml rather than from all available files.")
+	cmd.PersistentFlags().StringP("file", "f", "", "use the given config file instead of .wrgl/config.yaml")
+	cmd.PersistentFlags().Bool("fixed-value", false, "when used with the VALUE_PATTERN argument, treat VALUE_PATTERN as an exact string instead of a regular expression.")
+	cmd.PersistentFlags().BoolP("null", "z", false, "for all options that output values and/or keys, always end values with the null character (instead of a newline). Use newline instead as a delimiter between key and value. This allows for secure parsing of the output without getting confused e.g. by values that contain line breaks.")
 	cmd.AddCommand(getCmd())
 	cmd.AddCommand(getAllCmd())
 	cmd.AddCommand(setCmd())

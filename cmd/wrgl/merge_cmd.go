@@ -73,7 +73,7 @@ func mergeCmd() *cobra.Command {
 		}),
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rd := getRepoDir(cmd)
+			rd := utils.GetRepoDir(cmd)
 			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
 			c, err := s.Open()
 			if err != nil {

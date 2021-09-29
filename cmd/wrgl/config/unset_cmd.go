@@ -14,7 +14,7 @@ func unsetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unset NAME [VALUE_PATTERN]",
 		Short: "Remove a single value.",
-		Long:  "Remove a single value. If VALUE_PATTERN is not given then the matching field must be single-valued. If VALUE_PATTERN is given then there must be only one matching value.",
+		Long:  "Remove a single value. If VALUE_PATTERN is not given, the matching field must be single-valued. If VALUE_PATTERN is given and the field is multi-valued, there must be only one matching value.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "remove an option",

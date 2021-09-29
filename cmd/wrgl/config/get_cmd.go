@@ -10,8 +10,8 @@ import (
 func getCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get NAME [VALUE_PATTERN]",
-		Short: "Get the value for field NAME.",
-		Long:  "Get the value for field NAME. Returns the last value if there are multiple values in this field. If VALUE_PATTERN is given then only return the value if it matches pattern (a regular expression if --fixed-value is not set). Returns error code 1 if the key was not found.",
+		Short: "Get value of a field.",
+		Long:  "Get value of a field. Return the last value if there are multiple values in this field. If VALUE_PATTERN is given then only return the value if it matches pattern (a regular expression if --fixed-value is not set). Returns error code 1 if the key was not found.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "get current user email",

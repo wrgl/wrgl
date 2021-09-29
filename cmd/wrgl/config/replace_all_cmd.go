@@ -13,8 +13,8 @@ import (
 func replaceAllCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "replace-all NAME VALUE [VALUE_PATTERN]",
-		Short: "Replace all values in a field with a single value.",
-		Long:  "Replace all values in a field with a single value. Optionally only replace the values matching VALUE_PATTERN if it is given.",
+		Short: "Replace all values with a single value.",
+		Long:  "Replace all values with a single value. If VALUE_PATTERN is given, only replace the values matching it.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "replace all values under remote.origin.push with refs/heads/main",

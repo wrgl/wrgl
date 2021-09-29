@@ -58,7 +58,7 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rd := getRepoDir(cmd)
+			rd := utils.GetRepoDir(cmd)
 			quitIfRepoDirNotExist(cmd, rd)
 			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
 			c, err := s.Open()
@@ -73,22 +73,6 @@ func newCommitCmd() *cobra.Command {
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize")
 	cmd.Flags().Uint64("mem-limit", 0, "limit memory consumption (in bytes). If not set then memory limit is automatically calculated.")
 	return cmd
-}
-
-func getRepoDir(cmd *cobra.Command) *local.RepoDir {
-	wrglDir := utils.MustWRGLDir(cmd)
-	badgerLogInfo, err := cmd.Flags().GetBool("badger-log-info")
-	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
-	}
-	badgerLogDebug, err := cmd.Flags().GetBool("badger-log-debug")
-	if err != nil {
-		cmd.PrintErrln(err)
-		os.Exit(1)
-	}
-	rd := local.NewRepoDir(wrglDir, badgerLogInfo, badgerLogDebug)
-	return rd
 }
 
 func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) {

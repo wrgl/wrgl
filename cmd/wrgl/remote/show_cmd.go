@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/core/cmd/wrgl/utils"
 	conffs "github.com/wrgl/core/pkg/conf/fs"
-	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/ref"
 )
 
@@ -28,7 +27,7 @@ func showCmd() *cobra.Command {
 				return err
 			}
 			rem := utils.MustGetRemote(cmd, c, name)
-			rd := local.NewRepoDir(wrglDir, false, false)
+			rd := utils.GetRepoDir(cmd)
 			rs := rd.OpenRefStore()
 			cmd.Printf("* %s\n", name)
 			cmd.Printf("  URL: %s\n", rem.URL)
