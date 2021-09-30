@@ -35,6 +35,7 @@ func newExportCmd() *cobra.Command {
 
 func exportCommit(cmd *cobra.Command, cStr string) error {
 	rd := utils.GetRepoDir(cmd)
+	defer rd.Close()
 	quitIfRepoDirNotExist(cmd, rd)
 	db, err := rd.OpenObjectsStore()
 	if err != nil {

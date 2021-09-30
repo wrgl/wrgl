@@ -4,22 +4,28 @@
 package authfs
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/core/pkg/auth"
+	"github.com/wrgl/core/pkg/local"
 )
 
 func TestAuthzStore(t *testing.T) {
 	dir, err := ioutil.TempDir("", "test_flatdb")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
+	rd := local.NewRepoDir(dir, "")
+	defer rd.Close()
 
-	s, err := NewAuthzStore(dir)
+	s, err := NewAuthzStore(rd)
 	require.NoError(t, err)
 
 	email1 := "alice@domain.com"
@@ -50,7 +56,7 @@ func TestAuthzStore(t *testing.T) {
 
 	require.NoError(t, s.Flush())
 
-	s, err = NewAuthzStore(dir)
+	s, err = NewAuthzStore(rd)
 	require.NoError(t, err)
 	ok, err = s.Authorized(r, email1, auth.ScopeRepoRead)
 	require.NoError(t, err)
@@ -62,9 +68,31 @@ func TestAuthzStore(t *testing.T) {
 
 	require.NoError(t, s.Flush())
 
-	s, err = NewAuthzStore(dir)
+	s, err = NewAuthzStore(rd)
 	require.NoError(t, err)
 	ok, err = s.Authorized(r, email1, auth.ScopeRepoRead)
 	require.NoError(t, err)
 	assert.False(t, ok)
+}
+
+func TestAuthzStoreWatchFile(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_flatdb")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+	rd := local.NewRepoDir(dir, "")
+	defer rd.Close()
+
+	s, err := NewAuthzStore(rd)
+	require.NoError(t, err)
+
+	f, err := os.Create(filepath.Join(dir, "authz.csv"))
+	require.NoError(t, err)
+	_, err = f.Write([]byte(fmt.Sprintf("p, john.doe@domain.com, -, %s\n", auth.ScopeRepoRead)))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	time.Sleep(time.Millisecond * 100)
+	scopes, err := s.ListPolicies("john.doe@domain.com")
+	require.NoError(t, err)
+	assert.Equal(t, []string{auth.ScopeRepoRead}, scopes)
 }

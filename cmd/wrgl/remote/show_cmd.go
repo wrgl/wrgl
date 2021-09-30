@@ -28,6 +28,7 @@ func showCmd() *cobra.Command {
 			}
 			rem := utils.MustGetRemote(cmd, c, name)
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			rs := rd.OpenRefStore()
 			cmd.Printf("* %s\n", name)
 			cmd.Printf("  URL: %s\n", rem.URL)

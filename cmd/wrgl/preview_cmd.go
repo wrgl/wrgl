@@ -41,6 +41,7 @@ func newPreviewCmd() *cobra.Command {
 			defer cleanup()
 			cStr := args[0]
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			quitIfRepoDirNotExist(cmd, rd)
 			db, err := rd.OpenObjectsStore()
 			if err != nil {

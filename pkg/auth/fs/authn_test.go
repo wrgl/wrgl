@@ -8,10 +8,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/core/pkg/local"
 	"github.com/wrgl/core/pkg/testutils"
 )
 
@@ -19,8 +22,10 @@ func TestAuthnStore(t *testing.T) {
 	dir, err := ioutil.TempDir("", "test_flatdb")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
+	rd := local.NewRepoDir(dir, "")
+	defer rd.Close()
 
-	s, err := NewAuthnStore(dir, 0)
+	s, err := NewAuthnStore(rd, 0)
 	require.NoError(t, err)
 
 	peoples := map[string][]string{}
@@ -55,7 +60,7 @@ func TestAuthnStore(t *testing.T) {
 
 	require.NoError(t, s.Flush())
 
-	s, err = NewAuthnStore(dir, 0)
+	s, err = NewAuthnStore(rd, 0)
 	require.NoError(t, err)
 	for email, sl := range peoples {
 		name := sl[0]
@@ -78,7 +83,7 @@ func TestAuthnStore(t *testing.T) {
 	}
 	require.NoError(t, s.Flush())
 
-	s, err = NewAuthnStore(dir, 0)
+	s, err = NewAuthnStore(rd, 0)
 	require.NoError(t, err)
 	for email, sl := range peoples {
 		pass := sl[1]
@@ -86,4 +91,28 @@ func TestAuthnStore(t *testing.T) {
 		assert.Error(t, err)
 		assert.False(t, s.Exist(email))
 	}
+}
+
+func TestAuthnStoreWatchFile(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_flatdb")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+	rd := local.NewRepoDir(dir, "")
+	defer rd.Close()
+
+	s, err := NewAuthnStore(rd, 0)
+	require.NoError(t, err)
+
+	f, err := os.Create(filepath.Join(dir, "authn.csv"))
+	require.NoError(t, err)
+	_, err = f.Write([]byte("john.doe@domain.com,John Doe,password"))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	time.Sleep(time.Millisecond * 100)
+	sl, err := s.ListUsers()
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{
+		{"john.doe@domain.com", "John Doe"},
+	}, sl)
 }

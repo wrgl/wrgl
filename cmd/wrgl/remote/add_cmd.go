@@ -18,7 +18,7 @@ func addCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add REMOTE_NAME URL",
 		Short: "Add a remote repository.",
-		Long:  "Add a remote repository at the specified URL. Track remote branches with refspec +refs/heads/*:refs/remotes/REMOTE_NAME/* by default (saved to remote.<remote>.fetch). You can then use the command \"wrgl fetch REMOTE_NAME\" to fetch remote refs and save under remote tracking references.",
+		Long:  "Add a remote repository at the specified URL. Track remote branches with refspec +refs/heads/*:refs/remotes/REMOTE_NAME/* by default (save to configuration option remote.<remote>.fetch). You can then use the command \"wrgl fetch REMOTE_NAME\" to fetch remote refs.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "add a remote repository tracking all remote branches",

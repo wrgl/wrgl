@@ -25,6 +25,7 @@ func removeCmd() *cobra.Command {
 				return err
 			}
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			rs := rd.OpenRefStore()
 			err = ref.DeleteAllRemoteRefs(rs, args[0])
 			if err != nil {

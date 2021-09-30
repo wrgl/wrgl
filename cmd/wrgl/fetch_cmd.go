@@ -26,11 +26,11 @@ import (
 func newFetchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "fetch [REPOSITORY [REFSPEC...]]",
-		Short: "Download objects and refs from another repository",
-		Long:  "Fetch branches and/or tags (collectively, \"refs\") from one or another repository, along with the objects necessary to complete their histories. Remote-tracking branches are updated.",
+		Short: "Download objects and refs from another repository.",
+		Long:  "Fetch branches and/or tags (collectively, \"refs\") from another repository, along with the objects necessary to complete their histories. Remote-tracking branches are then updated.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
-				Comment: "fetch from origin according to remote.origin.fetch",
+				Comment: "fetch from origin",
 				Line:    "wrgl fetch",
 			},
 			{
@@ -52,6 +52,7 @@ func newFetchCmd() *cobra.Command {
 			}
 			ensureUserSet(cmd, c)
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

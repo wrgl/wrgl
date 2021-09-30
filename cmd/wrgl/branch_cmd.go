@@ -44,6 +44,7 @@ func newBranchCmd() *cobra.Command {
 		}, "\n"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			wrglDir := utils.MustWRGLDir(cmd)
 			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
 			c, err := s.Open()

@@ -19,14 +19,16 @@ func listscopeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			authnS, err := authfs.NewAuthnStore(dir, c.TokenDuration())
+			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
+			authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
 			if err != nil {
 				return err
 			}
 			if !authnS.Exist(args[0]) {
 				return UserNotFoundErr(args[0])
 			}
-			authzS, err := authfs.NewAuthzStore(dir)
+			authzS, err := authfs.NewAuthzStore(rd)
 			if err != nil {
 				return err
 			}

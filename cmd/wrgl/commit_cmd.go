@@ -59,6 +59,7 @@ func newCommitCmd() *cobra.Command {
 				return err
 			}
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			quitIfRepoDirNotExist(cmd, rd)
 			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
 			c, err := s.Open()

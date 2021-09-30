@@ -10,7 +10,7 @@ import (
 func removeuserCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove-user EMAIL...",
-		Short: "Remove users that have the given EMAILs. Removed users can not log-in nor access the Wrgld HTTP API.",
+		Short: "Remove users with email.",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
@@ -19,7 +19,9 @@ func removeuserCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			authnS, err := authfs.NewAuthnStore(dir, c.TokenDuration())
+			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
+			authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
 			if err != nil {
 				return err
 			}

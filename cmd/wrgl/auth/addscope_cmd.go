@@ -50,7 +50,7 @@ func addscopeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-scope EMAIL SCOPE...",
 		Short: "Add one or more scopes for a user.",
-		Long:  "Add one or more scopes for a user. Scope represents what actions are allowed via the Wrgld HTTP API for a users. Valid scopes are:\n" + allScopesString(2, true),
+		Long:  "Add one or more scopes for a user. Scopes represent what actions are allowed via the Wrgld HTTP API for a users. Valid scopes are:\n" + allScopesString(2, true),
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "authorize user to fetch & push data",
@@ -69,14 +69,16 @@ func addscopeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			authnS, err := authfs.NewAuthnStore(dir, c.TokenDuration())
+			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
+			authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
 			if err != nil {
 				return err
 			}
 			if !authnS.Exist(args[0]) {
 				return UserNotFoundErr(args[0])
 			}
-			authzS, err := authfs.NewAuthzStore(dir)
+			authzS, err := authfs.NewAuthzStore(rd)
 			if err != nil {
 				return err
 			}

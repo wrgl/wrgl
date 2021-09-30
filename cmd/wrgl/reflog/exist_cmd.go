@@ -14,10 +14,11 @@ import (
 func existCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "exist REFERENCE",
-		Short: "Checks whether a ref has a reflog",
+		Short: "Checks whether a reference has any log",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

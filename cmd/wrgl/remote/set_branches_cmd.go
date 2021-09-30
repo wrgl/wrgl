@@ -15,8 +15,8 @@ import (
 func setBranchesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set-branches NAME BRANCH",
-		Short: "Set the list of branches tracked by the named remote.",
-		Long:  "Set the list of branches tracked by the named remote. By default, this command replaces the refspec list found in remote.<remote>.fetch.",
+		Short: "Set the list of branches tracked by this remote.",
+		Long:  "Set the list of branches tracked by this remote. By default, this command replaces the refspec list found in remote.<remote>.fetch.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "track only branch main, and nothing else",

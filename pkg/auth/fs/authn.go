@@ -13,8 +13,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/wrgl/core/pkg/auth"
 	"github.com/wrgl/core/pkg/auth/random"
+	"github.com/wrgl/core/pkg/local"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -26,26 +28,67 @@ type AuthnStore struct {
 	rootDir       string
 	secret        []byte
 	tokenDuration time.Duration
+	watcher       *fsnotify.Watcher
 }
 
-func NewAuthnStore(rootDir string, tokenDuration time.Duration) (s *AuthnStore, err error) {
+func NewAuthnStore(rd *local.RepoDir, tokenDuration time.Duration) (s *AuthnStore, err error) {
 	if tokenDuration == 0 {
 		tokenDuration = DefaultTokenDuration
 	}
 	s = &AuthnStore{
-		rootDir:       rootDir,
+		rootDir:       rd.FullPath,
 		tokenDuration: tokenDuration,
 	}
-	f, err := os.Open(filepath.Join(rootDir, "authn.csv"))
+	if err = s.read(); err != nil {
+		return nil, err
+	}
+	s.watcher, err = rd.Watcher()
+	if err != nil {
+		return nil, err
+	}
+	go s.watch()
+	return s, nil
+}
+
+func (s *AuthnStore) filepath() string {
+	return filepath.Join(s.rootDir, "authn.csv")
+}
+
+func (s *AuthnStore) read() error {
+	fp := s.filepath()
+	f, err := os.Open(fp)
 	if err == nil {
 		defer f.Close()
 		r := csv.NewReader(f)
 		s.sl, err = r.ReadAll()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return s, nil
+	return nil
+}
+
+func (s *AuthnStore) watch() {
+	for {
+		select {
+		case event, ok := <-s.watcher.Events:
+			if !ok {
+				return
+			}
+			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+				if event.Name == s.filepath() {
+					if err := s.read(); err != nil {
+						panic(err)
+					}
+				}
+			}
+		case err, ok := <-s.watcher.Errors:
+			if !ok {
+				return
+			}
+			panic(err)
+		}
+	}
 }
 
 func (s *AuthnStore) Len() int {
@@ -110,7 +153,7 @@ func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *
 }
 
 func (s *AuthnStore) Flush() error {
-	f, err := os.OpenFile(filepath.Join(s.rootDir, "authn.csv"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(s.filepath(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}

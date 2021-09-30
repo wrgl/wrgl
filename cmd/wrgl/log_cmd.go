@@ -27,6 +27,7 @@ func newLogCmd() *cobra.Command {
 			}
 			defer cleanOut()
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			quitIfRepoDirNotExist(cmd, rd)
 			db, err := rd.OpenObjectsStore()
 			if err != nil {

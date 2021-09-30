@@ -3,6 +3,7 @@ package utils
 import (
 	"bufio"
 	"context"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -50,6 +51,5 @@ func Prompt(cmd *cobra.Command, name string) (value string, err error) {
 	if err != nil {
 		return "", err
 	}
-	cmd.Println("")
-	return val, nil
+	return strings.Trim(val, "\n "), nil
 }

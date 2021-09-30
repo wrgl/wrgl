@@ -23,6 +23,7 @@ func newPruneCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			quitIfRepoDirNotExist(cmd, rd)
 			db, err := rd.OpenObjectsStore()
 			if err != nil {

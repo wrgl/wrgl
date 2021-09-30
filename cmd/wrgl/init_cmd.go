@@ -35,6 +35,7 @@ func newInitCmd() *cobra.Command {
 				return nil
 			}
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			err = rd.Init()
 			if err != nil {
 				return err

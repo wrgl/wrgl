@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
@@ -88,4 +89,26 @@ func TestFindWrglDir(t *testing.T) {
 	p, err = FindWrglDir()
 	require.NoError(t, err)
 	assert.Equal(t, wrglDir, p)
+}
+
+func TestRepoDirWatcher(t *testing.T) {
+	dir, err := ioutil.TempDir("", "test_repo_dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+	rd := NewRepoDir(dir, "")
+	defer rd.Close()
+
+	w, err := rd.Watcher()
+	require.NoError(t, err)
+	fp := filepath.Join(dir, "abc.txt")
+	f, err := os.Create(fp)
+	require.NoError(t, err)
+	_, err = f.Write([]byte("def"))
+	require.NoError(t, err)
+	require.NoError(t, err)
+	event := <-w.Events
+	assert.Equal(t, fsnotify.Event{
+		Name: fp,
+		Op:   fsnotify.Create,
+	}, event)
 }

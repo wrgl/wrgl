@@ -6,12 +6,14 @@ require (
 	github.com/casbin/casbin/v2 v2.36.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2103.1
+	github.com/fsnotify/fsnotify v1.5.1
 	github.com/gdamore/tcell/v2 v2.3.9
 	github.com/gobwas/glob v0.2.3
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.0.0
 	github.com/imdario/mergo v0.3.12
+	github.com/klauspost/compress v1.12.3
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-runewidth v0.0.10
 	github.com/mmcloughlin/meow v0.0.0-20200201185800-3501c7c05d21
@@ -23,7 +25,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210314154223-e6e6c4f2bb5b
 	golang.org/x/net v0.0.0-20210508051633-16afe75a6701
-	golang.org/x/sys v0.0.0-20210903071746-97244b99971b // indirect
+	golang.org/x/sys v0.0.0-20210927094055-39ccf1dd6fa6 // indirect
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
@@ -34,7 +36,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
@@ -43,7 +44,6 @@ require (
 	github.com/google/flatbuffers v1.12.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/klauspost/compress v1.12.3 // indirect
 	github.com/magiconair/properties v1.8.1 // indirect
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
 	github.com/mitchellh/mapstructure v1.1.2 // indirect

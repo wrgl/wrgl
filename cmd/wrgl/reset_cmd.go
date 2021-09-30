@@ -31,6 +31,7 @@ func newResetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			wrglDir := utils.MustWRGLDir(cmd)
 			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
 			c, err := s.Open()

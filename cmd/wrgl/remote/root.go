@@ -45,7 +45,7 @@ func RootCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolP("verbose", "v", false, "Be a little more verbose and show remote url after name.")
+	cmd.Flags().BoolP("verbose", "v", false, "print remote url as well")
 	cmd.AddCommand(addCmd())
 	cmd.AddCommand(renameCmd())
 	cmd.AddCommand(removeCmd())

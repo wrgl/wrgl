@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger/v3"
+	"github.com/fsnotify/fsnotify"
 	"github.com/wrgl/core/pkg/objects"
 	objbadger "github.com/wrgl/core/pkg/objects/badger"
 	"github.com/wrgl/core/pkg/ref"
@@ -18,6 +19,7 @@ import (
 type RepoDir struct {
 	FullPath  string
 	badgerLog string
+	watcher   *fsnotify.Watcher
 }
 
 func NewRepoDir(wrglDir string, badgerLog string) *RepoDir {
@@ -25,6 +27,21 @@ func NewRepoDir(wrglDir string, badgerLog string) *RepoDir {
 		FullPath:  wrglDir,
 		badgerLog: strings.ToLower(badgerLog),
 	}
+}
+
+// Watcher returns a watcher that watch the repository directory
+func (d *RepoDir) Watcher() (*fsnotify.Watcher, error) {
+	if d.watcher == nil {
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return nil, err
+		}
+		if err := watcher.Add(d.FullPath); err != nil {
+			return nil, err
+		}
+		d.watcher = watcher
+	}
+	return d.watcher, nil
 }
 
 func (d *RepoDir) FilesPath() string {
@@ -120,4 +137,11 @@ func FindWrglDir() (string, error) {
 		d = filepath.Dir(d)
 	}
 	return "", nil
+}
+
+func (d *RepoDir) Close() error {
+	if d.watcher != nil {
+		return d.watcher.Close()
+	}
+	return nil
 }

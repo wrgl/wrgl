@@ -33,6 +33,7 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

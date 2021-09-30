@@ -50,6 +50,7 @@ func newRootCmd() *cobra.Command {
 				return
 			}
 			rd := local.NewRepoDir(dir, badgerLog)
+			defer rd.Close()
 			objstore, err := rd.OpenObjectsStore()
 			if err != nil {
 				return
@@ -60,11 +61,11 @@ func newRootCmd() *cobra.Command {
 			if err != nil {
 				return
 			}
-			authnS, err := authfs.NewAuthnStore(rd.FullPath, c.TokenDuration())
+			authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
 			if err != nil {
 				return
 			}
-			authzS, err := authfs.NewAuthzStore(rd.FullPath)
+			authzS, err := authfs.NewAuthzStore(rd)
 			if err != nil {
 				return
 			}

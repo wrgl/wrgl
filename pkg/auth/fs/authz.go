@@ -12,38 +12,82 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
+	"github.com/fsnotify/fsnotify"
+	"github.com/wrgl/core/pkg/local"
 )
 
 //go:embed casbin_model.conf
 var casbinModel string
 
 type AuthzStore struct {
-	e *casbin.Enforcer
+	e       *casbin.Enforcer
+	rootDir string
+	watcher *fsnotify.Watcher
 }
 
-func NewAuthzStore(rootDir string) (s *AuthzStore, err error) {
+func NewAuthzStore(rd *local.RepoDir) (s *AuthzStore, err error) {
+	s = &AuthzStore{
+		rootDir: rd.FullPath,
+	}
+	if err := s.read(); err != nil {
+		return nil, err
+	}
+	s.watcher, err = rd.Watcher()
+	if err != nil {
+		return nil, err
+	}
+	go s.watch()
+	return s, nil
+}
+
+func (s *AuthzStore) filepath() string {
+	return filepath.Join(s.rootDir, "authz.csv")
+}
+
+func (s *AuthzStore) read() error {
 	m, err := model.NewModelFromString(casbinModel)
 	if err != nil {
-		return
+		return err
 	}
-	fp := filepath.Join(rootDir, "authz.csv")
+	fp := s.filepath()
 	if _, err := os.Stat(fp); os.IsNotExist(err) {
 		f, err := os.OpenFile(fp, os.O_CREATE, 0600)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if err := f.Close(); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	e, err := casbin.NewEnforcer(m, fileadapter.NewAdapter(fp))
 	if err != nil {
-		return
+		return err
 	}
-	s = &AuthzStore{
-		e: e,
+	s.e = e
+	return nil
+}
+
+func (s *AuthzStore) watch() {
+	for {
+		select {
+		case event, ok := <-s.watcher.Events:
+			if !ok {
+				return
+			}
+			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
+				if event.Name == s.filepath() {
+					if err := s.e.LoadPolicy(); err != nil {
+						panic(err)
+					}
+				}
+			}
+		case err, ok := <-s.watcher.Errors:
+			if !ok {
+				return
+			}
+			panic(err)
+		}
 	}
-	return s, nil
 }
 
 func (s *AuthzStore) AddPolicy(email, act string) error {

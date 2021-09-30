@@ -30,6 +30,7 @@ func renameCmd() *cobra.Command {
 			}
 			utils.MustGetRemote(cmd, c, oldRem)
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			rs := rd.OpenRefStore()
 			err = ref.RenameAllRemoteRefs(rs, oldRem, newRem)
 			if err != nil {

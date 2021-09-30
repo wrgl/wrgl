@@ -40,6 +40,7 @@ func pullCmd() *cobra.Command {
 			}
 			ensureUserSet(cmd, c)
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

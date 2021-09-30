@@ -32,6 +32,7 @@ func RootCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

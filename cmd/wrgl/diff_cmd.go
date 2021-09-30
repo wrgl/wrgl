@@ -31,8 +31,8 @@ import (
 func newDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff COMMIT_OR_FILE [COMMIT_OR_FILE]",
-		Short: "Shows changes between two commits",
-		Long:  "Shows changes between two commits with an interactive diff table. A commit can be specified using shorten sum, full sum, or a reference name. If only one commit is specified, it will be compared with a parent commit. It is also possible to specify a local CSV file instead of a commit, in which case both arguments must be given and the flag --primary-key should also be set.",
+		Short: "Show changes between two commits",
+		Long:  "Show changes between two commits with an interactive diff table. A commit can be specified using shorten sum, full sum, or a reference name. If only one commit is specified, it will be compared with a parent commit. It is also possible to specify a local CSV file instead of a commit, in which case both arguments must be given and the flag --primary-key should also be set.",
 		Example: strings.Join([]string{
 			`  # show changes compared to the previous commit`,
 			`  wrgl diff 1a2ed62`,
@@ -60,6 +60,7 @@ func newDiffCmd() *cobra.Command {
 			}
 			defer cleanup()
 			rd := utils.GetRepoDir(cmd)
+			defer rd.Close()
 			var db objects.Store
 			var rs ref.Store
 			if rd.Exist() {
