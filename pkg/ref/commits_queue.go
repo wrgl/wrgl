@@ -12,6 +12,7 @@ import (
 
 const maxQueueGrow = 1 << 10
 
+// CommitsQueue is a queue sorted by commit time (newer commit first, older commit last).
 type CommitsQueue struct {
 	db      objects.Store
 	commits []*objects.Commit

@@ -363,7 +363,7 @@ mainLoop:
 				}
 			} else {
 				err = w.Write(append(
-					[]string{rowLabel("BASE ROW IN", name2, commitHash2)},
+					[]string{rowLabel("BASE ROW FROM", name2, commitHash2)},
 					oldRow...,
 				))
 				if err != nil {
@@ -453,7 +453,7 @@ func outputDiffToCSV(
 	}
 
 	w.Flush()
-	cmd.Printf("saved conflicts to file %s\n", filename)
+	cmd.Printf("saved changes to file %s\n", filename)
 	return nil
 }
 
