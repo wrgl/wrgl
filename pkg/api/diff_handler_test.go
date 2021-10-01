@@ -48,12 +48,10 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 	assert.Equal(t, &payload.DiffResponse{
 		TableSum:    payload.BytesToHex(com1.Table),
 		OldTableSum: payload.BytesToHex(com2.Table),
-		ColDiff: &payload.ColDiff{
-			Columns:    []string{"a", "b", "c"},
-			OldColumns: []string{"a", "b", "d"},
-			PK:         []uint32{0},
-			OldPK:      []uint32{0},
-		},
+		Columns:     []string{"a", "b", "c"},
+		OldColumns:  []string{"a", "b", "d"},
+		PK:          []uint32{0},
+		OldPK:       []uint32{0},
 		RowDiff: []*payload.RowDiff{
 			{
 				Offset1: uint32Ptr(0),

@@ -9,9 +9,9 @@ type CommitResponse struct {
 
 type Table struct {
 	Sum       *Hex     `json:"sum,omitempty"`
-	Columns   []string `json:"columns"`
+	Columns   []string `json:"columns,omitempty"`
 	PK        []uint32 `json:"pk,omitempty"`
-	RowsCount uint32   `json:"rowsCount"`
+	RowsCount uint32   `json:"rowsCount,omitempty"`
 }
 
 type Commit struct {

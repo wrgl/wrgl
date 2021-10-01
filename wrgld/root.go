@@ -56,7 +56,7 @@ func newRootCmd() *cobra.Command {
 				return
 			}
 			refstore := rd.OpenRefStore()
-			cs := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
+			cs := conffs.NewStore(rd.FullPath, conffs.LocalSource, "")
 			c, err := cs.Open()
 			if err != nil {
 				return

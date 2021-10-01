@@ -61,12 +61,10 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	resp := &payload.DiffResponse{
 		TableSum:    payload.BytesToHex(sum1),
 		OldTableSum: payload.BytesToHex(sum2),
-		ColDiff: &payload.ColDiff{
-			Columns:    tbl1.Columns,
-			OldColumns: tbl2.Columns,
-			PK:         tbl1.PK,
-			OldPK:      tbl2.PK,
-		},
+		Columns:     tbl1.Columns,
+		OldColumns:  tbl2.Columns,
+		PK:          tbl1.PK,
+		OldPK:       tbl2.PK,
 	}
 	for obj := range diffChan {
 		rd := &payload.RowDiff{}
