@@ -9,15 +9,25 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/wrgl/core/cmd/wrgl/utils"
 	"github.com/wrgl/core/pkg/local"
 )
 
 func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Initialize a repository in current directory",
-		Long:  "Initialize a repository in current directory. The repository will live under <current directory>/.wrgl.",
-		Args:  cobra.ExactArgs(0),
+		Short: "Initialize a repository in the working directory.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "initialize repository at <working directory>/.wrgl",
+				Line:    "wrgl init",
+			},
+			{
+				Comment: "initialize at directory \"my-repo\"",
+				Line:    "wrgl init --wrgl-dir my-repo",
+			},
+		}),
+		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wd, err := os.Getwd()
 			if err != nil {

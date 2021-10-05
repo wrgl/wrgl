@@ -18,7 +18,17 @@ func newLogCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "log BRANCH_NAME",
 		Short: "Show commits log for a branch.",
-		Args:  cobra.ExactArgs(1),
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "displays logs in PAGER",
+				Line:    "wrgl log main",
+			},
+			{
+				Comment: "print logs to stdout",
+				Line:    "wrgl log main --no-pager",
+			},
+		}),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branchName := args[0]
 			out, cleanOut, err := utils.PagerOrOut(cmd)

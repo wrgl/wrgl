@@ -20,7 +20,7 @@ import (
 func newPreviewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "preview COMMIT",
-		Short: "Shows a commit's content in an interactive table",
+		Short: "Shows a commit's content in an interactive table.",
 		Long:  "Shows a commit's content in an interactive table. To output as a CSV file, use command \"wrgl export\" instead.",
 		Example: utils.CombineExamples([]utils.Example{
 			{

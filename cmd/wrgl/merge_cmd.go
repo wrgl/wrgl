@@ -48,7 +48,7 @@ func mergeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "merge BRANCH COMMIT...",
 		Short: "Merge two or more commits together.",
-		Long:  "Merge two or more commits together using an interactive UI. If merge is successful then create a merge commit under BRANCH.",
+		Long:  "Merge two or more commits together using merge UI. If merge is successful then create a merge commit under BRANCH.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "merge two branches",

@@ -23,8 +23,42 @@ import (
 func newPushCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "push [REPOSITORY [REFSPEC...]]",
-		Short: "Updates remote refs using local refs, while sending objects necessary to complete the given refs.",
-		Args:  cobra.ArbitraryArgs,
+		Short: "Updates remote refs using local refs, sending objects necessary to complete the given refs.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "push changes of two branches to origin",
+				Line:    "wrgl push origin refs/heads/main:main refs/heads/beta:beta",
+			},
+			{
+				Comment: "push to main branch (destination ref is assumed to be the same as source ref)",
+				Line:    "wrgl push origin refs/heads/main:",
+			},
+			{
+				Comment: "push and set branch upstream",
+				Line:    "wrgl push origin refs/heads/main:main --set-upstream",
+			},
+			{
+				Comment: "remove branch main",
+				Line:    "wrgl push origin :refs/heads/main",
+			},
+			{
+				Comment: "force update branch (non-fast-forward)",
+				Line:    "wrgl push origin +refs/heads/beta:beta",
+			},
+			{
+				Comment: "push to my-repo reading from remote.my-repo.push",
+				Line:    "wrgl push my-repo",
+			},
+			{
+				Comment: "force update my-repo",
+				Line:    "wrgl push my-repo --force",
+			},
+			{
+				Comment: "turn the remote into a mirror of local repository",
+				Line:    "wrgl push my-mirror-repo --mirror",
+			},
+		}),
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
 			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")

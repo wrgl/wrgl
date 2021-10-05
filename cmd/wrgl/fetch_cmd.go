@@ -30,16 +30,24 @@ func newFetchCmd() *cobra.Command {
 		Long:  "Fetch branches and/or tags (collectively, \"refs\") from another repository, along with the objects necessary to complete their histories. Remote-tracking branches are then updated.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
-				Comment: "fetch from origin",
+				Comment: "fetch the main branch from origin",
+				Line:    "wrgl fetch origin refs/heads/main:refs/remotes/origin/main",
+			},
+			{
+				Comment: "fetch multiple branches with glob pattern",
+				Line:    "wrgl fetch origin refs/heads/*:refs/remotes/origin/*",
+			},
+			{
+				Comment: "fetch from origin, reading refspec from remote.origin.fetch",
 				Line:    "wrgl fetch",
 			},
 			{
-				Comment: "fetch from another named repository",
-				Line:    "wrgl fetch my-repo",
+				Comment: "fetch and force update a single branch",
+				Line:    "wrgl fetch +refs/heads/main:refs/remotes/origin/main",
 			},
 			{
-				Comment: "fetch only the main branch from origin",
-				Line:    "wrgl fetch origin refs/heads/main:refs/remotes/origin/main",
+				Comment: "fetch and force all non-fast-forward updates",
+				Line:    "wrgl fetch my-repo --force",
 			},
 		}),
 		Args: cobra.ArbitraryArgs,
