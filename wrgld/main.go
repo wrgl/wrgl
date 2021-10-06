@@ -6,10 +6,14 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/wrgl/wrgl/cmd/wrgld"
 )
 
 func main() {
-	if err := newRootCmd().Execute(); err != nil {
+	rootCmd := wrgld.RootCmd()
+	rootCmd.SetOut(os.Stdout)
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		os.Exit(1)
 	}

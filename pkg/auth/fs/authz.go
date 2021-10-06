@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
@@ -23,6 +24,7 @@ type AuthzStore struct {
 	e       *casbin.Enforcer
 	rootDir string
 	watcher *fsnotify.Watcher
+	mutex   sync.Mutex
 }
 
 func NewAuthzStore(rd *local.RepoDir) (s *AuthzStore, err error) {
@@ -67,6 +69,12 @@ func (s *AuthzStore) read() error {
 	return nil
 }
 
+func (s *AuthzStore) reload() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.e.LoadPolicy()
+}
+
 func (s *AuthzStore) watch() {
 	for {
 		select {
@@ -76,7 +84,7 @@ func (s *AuthzStore) watch() {
 			}
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 				if event.Name == s.filepath() {
-					if err := s.e.LoadPolicy(); err != nil {
+					if err := s.reload(); err != nil {
 						panic(err)
 					}
 				}
@@ -105,6 +113,8 @@ func (s *AuthzStore) Authorized(r *http.Request, email, scope string) (bool, err
 }
 
 func (s *AuthzStore) Flush() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	return s.e.SavePolicy()
 }
 

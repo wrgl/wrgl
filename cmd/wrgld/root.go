@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package main
+package wrgld
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/local"
 )
 
-func newRootCmd() *cobra.Command {
+func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wrgld [WRGL_DIR]",
 		Short: "Starts an HTTP server providing access to the repository at <current_dir>/.wrgl or WRGL_DIR folder if it is given.",
