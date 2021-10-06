@@ -159,14 +159,18 @@ func (s *AuthnStore) Flush() error {
 		return err
 	}
 	defer f.Close()
-	w := csv.NewWriter(f)
-	if err := w.WriteAll(s.sl); err != nil {
+	_, err = f.WriteString(s.InternalState())
+	if err != nil {
 		return err
 	}
-	w.Flush()
-	if err := w.Error(); err != nil {
-		return err
-	}
+	// w := csv.NewWriter(f)
+	// if err := w.WriteAll(s.sl); err != nil {
+	// 	return err
+	// }
+	// w.Flush()
+	// if err := w.Error(); err != nil {
+	// 	return err
+	// }
 	return f.Close()
 }
 
