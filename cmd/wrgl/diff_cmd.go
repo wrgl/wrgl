@@ -54,7 +54,7 @@ func newDiffCmd() *cobra.Command {
 		}, "\n"),
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			debugFile, cleanup, err := setupDebug(cmd)
+			debugFile, cleanup, err := utils.SetupDebug(cmd)
 			if err != nil {
 				return err
 			}

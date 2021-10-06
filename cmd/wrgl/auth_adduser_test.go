@@ -3,13 +3,29 @@ package wrgl
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
+
+func execPrintDebug(t *testing.T, cmd *cobra.Command, ctx context.Context, args []string) {
+	t.Helper()
+	f, err := ioutil.TempFile("", "")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	defer os.Remove(f.Name())
+	cmd.SetArgs(append(args, "--debug-file", f.Name()))
+	require.NoError(t, cmd.ExecuteContext(ctx))
+	b, err := ioutil.ReadFile(f.Name())
+	require.NoError(t, err)
+	t.Logf("debug file content:\n%s", string(b))
+}
 
 func TestAuthAddUserCmd(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
@@ -20,8 +36,9 @@ func TestAuthAddUserCmd(t *testing.T) {
 	name1 := testutils.BrokenRandomLowerAlphaString(10)
 	password1 := testutils.BrokenRandomAlphaNumericString(10)
 	ctx := utils.SetPromptValues(context.Background(), []string{name1, password1})
-	cmd.SetArgs([]string{"auth", "add-user", email1})
-	require.NoError(t, cmd.ExecuteContext(ctx))
+	// cmd.SetArgs([]string{"auth", "add-user", email1})
+	// require.NoError(t, cmd.ExecuteContext(ctx))
+	execPrintDebug(t, cmd, ctx, []string{"auth", "add-user", email1})
 
 	logAuthnContent(t, rd)
 	cmd = RootCmd()
@@ -36,8 +53,9 @@ func TestAuthAddUserCmd(t *testing.T) {
 	name2 := testutils.BrokenRandomLowerAlphaString(10)
 	password2 := testutils.BrokenRandomAlphaNumericString(10)
 	ctx = utils.SetPromptValues(context.Background(), []string{name2, password2})
-	cmd.SetArgs([]string{"auth", "add-user", email2})
-	require.NoError(t, cmd.ExecuteContext(ctx))
+	// cmd.SetArgs([]string{"auth", "add-user", email2})
+	// require.NoError(t, cmd.ExecuteContext(ctx))
+	execPrintDebug(t, cmd, ctx, []string{"auth", "add-user", email2})
 
 	logAuthnContent(t, rd)
 	cmd = RootCmd()

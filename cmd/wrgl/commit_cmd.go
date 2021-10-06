@@ -38,7 +38,7 @@ func newCommitCmd() *cobra.Command {
 		}),
 		Args: cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			debugFile, cleanup, err := setupDebug(cmd)
+			debugFile, cleanup, err := utils.SetupDebug(cmd)
 			if err != nil {
 				return err
 			}

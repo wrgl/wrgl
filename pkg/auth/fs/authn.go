@@ -4,6 +4,7 @@
 package authfs
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
@@ -50,12 +51,12 @@ func NewAuthnStore(rd *local.RepoDir, tokenDuration time.Duration) (s *AuthnStor
 	return s, nil
 }
 
-func (s *AuthnStore) filepath() string {
+func (s *AuthnStore) Filepath() string {
 	return filepath.Join(s.rootDir, "authn.csv")
 }
 
 func (s *AuthnStore) read() error {
-	fp := s.filepath()
+	fp := s.Filepath()
 	f, err := os.Open(fp)
 	if err == nil {
 		defer f.Close()
@@ -76,7 +77,7 @@ func (s *AuthnStore) watch() {
 				return
 			}
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-				if event.Name == s.filepath() {
+				if event.Name == s.Filepath() {
 					if err := s.read(); err != nil {
 						panic(err)
 					}
@@ -153,7 +154,7 @@ func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *
 }
 
 func (s *AuthnStore) Flush() error {
-	f, err := os.OpenFile(s.filepath(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(s.Filepath(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
@@ -235,4 +236,12 @@ func (s *AuthnStore) ListUsers() (users [][]string, err error) {
 
 func (s *AuthnStore) Exist(email string) bool {
 	return s.findUserIndex(email) != -1
+}
+
+// InternalState returns internal state as a CSV string for debugging purpose
+func (s *AuthnStore) InternalState() string {
+	buf := bytes.NewBuffer(nil)
+	w := csv.NewWriter(buf)
+	w.WriteAll(s.sl)
+	return buf.String()
 }

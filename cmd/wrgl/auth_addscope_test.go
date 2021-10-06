@@ -17,6 +17,7 @@ import (
 )
 
 func logAuthnContent(t *testing.T, rd *local.RepoDir) {
+	t.Helper()
 	f, err := os.Open(filepath.Join(rd.FullPath, "authn.csv"))
 	require.NoError(t, err)
 	b, err := ioutil.ReadAll(f)

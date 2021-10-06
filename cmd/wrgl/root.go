@@ -4,7 +4,6 @@
 package wrgl
 
 import (
-	"io"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -16,6 +15,7 @@ import (
 	"github.com/wrgl/wrgl/cmd/wrgl/credentials"
 	"github.com/wrgl/wrgl/cmd/wrgl/reflog"
 	"github.com/wrgl/wrgl/cmd/wrgl/remote"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 )
 
 func RootCmd() *cobra.Command {
@@ -92,27 +92,8 @@ func RootCmd() *cobra.Command {
 	return rootCmd
 }
 
-func setupDebug(cmd *cobra.Command) (io.Writer, func(), error) {
-	name, err := cmd.Flags().GetString("debug-file")
-	if err != nil {
-		return nil, nil, err
-	}
-	var f *os.File
-	if name != "" {
-		f, err = os.Create(name)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	return f, func() {
-		if f != nil {
-			f.Close()
-		}
-	}, nil
-}
-
 func setupDebugLog(cmd *cobra.Command) (func(), error) {
-	r, cleanup, err := setupDebug(cmd)
+	r, cleanup, err := utils.SetupDebug(cmd)
 	if err != nil {
 		return nil, err
 	}

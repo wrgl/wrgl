@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"fmt"
+	"io/ioutil"
+
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
@@ -27,6 +30,13 @@ func adduserCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			dw, cleanup, err := utils.SetupDebug(cmd)
+			if err != nil {
+				return err
+			}
+			if cleanup != nil {
+				defer cleanup()
+			}
 			name, err := utils.Prompt(cmd, "Name")
 			if err != nil {
 				return err
@@ -41,7 +51,20 @@ func adduserCmd() *cobra.Command {
 			if err := authnS.SetPassword(email, password); err != nil {
 				return err
 			}
-			return authnS.Flush()
+			if dw != nil {
+				fmt.Fprintf(dw, "authn store internal state:\n%s\n", authnS.InternalState())
+			}
+			if err := authnS.Flush(); err != nil {
+				return err
+			}
+			if dw != nil {
+				b, err := ioutil.ReadFile(authnS.Filepath())
+				if err != nil {
+					fmt.Fprintf(dw, "error opening authn.csv: %v\n", err)
+				}
+				fmt.Fprintf(dw, "content from authn.csv:\n%s\n", string(b))
+			}
+			return nil
 		},
 	}
 	return cmd
