@@ -12,7 +12,7 @@ import (
 )
 
 func TestAuthAddUserCmd(t *testing.T) {
-	_, cleanup := createRepoDir(t)
+	rd, cleanup := createRepoDir(t)
 	defer cleanup()
 
 	cmd := RootCmd()
@@ -23,6 +23,7 @@ func TestAuthAddUserCmd(t *testing.T) {
 	cmd.SetArgs([]string{"auth", "add-user", email1})
 	require.NoError(t, cmd.ExecuteContext(ctx))
 
+	require.DirExists(t, rd.FullPath)
 	cmd = RootCmd()
 	cmd.SetArgs([]string{"auth", "list-user"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
@@ -38,6 +39,7 @@ func TestAuthAddUserCmd(t *testing.T) {
 	cmd.SetArgs([]string{"auth", "add-user", email2})
 	require.NoError(t, cmd.ExecuteContext(ctx))
 
+	require.DirExists(t, rd.FullPath)
 	cmd = RootCmd()
 	cmd.SetArgs([]string{"auth", "list-user"})
 	assertCmdOutput(t, cmd, strings.Join([]string{

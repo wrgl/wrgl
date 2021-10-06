@@ -74,6 +74,7 @@ func TestAuthnStore(t *testing.T) {
 		assert.Equal(t, name, c.Name)
 	}
 
+	require.DirExists(t, rd.FullPath)
 	for email, sl := range peoples {
 		pass := sl[1]
 		require.NoError(t, s.RemoveUser(email))
