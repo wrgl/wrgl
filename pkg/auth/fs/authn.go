@@ -154,23 +154,31 @@ func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *
 }
 
 func (s *AuthnStore) Flush() error {
-	f, err := os.OpenFile(s.Filepath(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	// touch file if it doesn't exist
+	fp := s.Filepath()
+	_, err := os.Stat(fp)
+	if os.IsNotExist(err) {
+		f, err := os.Create(fp)
+		if err != nil {
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
+	}
+	f, err := os.OpenFile(fp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	_, err = f.WriteString(s.InternalState())
-	if err != nil {
+	w := csv.NewWriter(f)
+	if err := w.WriteAll(s.sl); err != nil {
 		return err
 	}
-	// w := csv.NewWriter(f)
-	// if err := w.WriteAll(s.sl); err != nil {
-	// 	return err
-	// }
-	// w.Flush()
-	// if err := w.Error(); err != nil {
-	// 	return err
-	// }
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return err
+	}
 	return f.Close()
 }
 
