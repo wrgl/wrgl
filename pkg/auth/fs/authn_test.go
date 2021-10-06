@@ -58,6 +58,7 @@ func TestAuthnStore(t *testing.T) {
 		assert.Equal(t, name, sl[0])
 	}
 
+	t.Logf("internal slice: %v", s.sl)
 	require.NoError(t, s.Flush())
 
 	s, err = NewAuthnStore(rd, 0)
@@ -74,7 +75,6 @@ func TestAuthnStore(t *testing.T) {
 		assert.Equal(t, name, c.Name)
 	}
 
-	require.DirExists(t, rd.FullPath)
 	for email, sl := range peoples {
 		pass := sl[1]
 		require.NoError(t, s.RemoveUser(email))

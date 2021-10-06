@@ -2,6 +2,9 @@ package wrgl
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -9,11 +12,21 @@ import (
 	authcmd "github.com/wrgl/wrgl/cmd/wrgl/auth"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
+func logAuthnContent(t *testing.T, rd *local.RepoDir) {
+	f, err := os.Open(filepath.Join(rd.FullPath, "authn.csv"))
+	require.NoError(t, err)
+	b, err := ioutil.ReadAll(f)
+	require.NoError(t, err)
+	t.Logf("data from authn.csv:\n%s", string(b))
+	require.NoError(t, f.Close())
+}
+
 func TestAuthAddScopeCmd(t *testing.T) {
-	_, cleanup := createRepoDir(t)
+	rd, cleanup := createRepoDir(t)
 	defer cleanup()
 
 	cmd := RootCmd()
@@ -23,6 +36,7 @@ func TestAuthAddScopeCmd(t *testing.T) {
 	ctx := utils.SetPromptValues(context.Background(), []string{name1, password1})
 	cmd.SetArgs([]string{"auth", "add-user", email1})
 	require.NoError(t, cmd.ExecuteContext(ctx))
+	logAuthnContent(t, rd)
 
 	cmd = RootCmd()
 	email := testutils.RandomEmail()
