@@ -160,6 +160,7 @@ func (s *AuthnStore) Flush() error {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
+	defer w.Flush()
 	return w.WriteAll(s.sl)
 }
 
