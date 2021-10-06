@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/conf"
 	"gopkg.in/yaml.v3"
 )
 

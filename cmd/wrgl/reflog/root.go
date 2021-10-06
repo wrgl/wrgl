@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func RootCmd() *cobra.Command {

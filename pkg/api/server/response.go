@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/wrgl/core/pkg/api"
-	"github.com/wrgl/core/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/api"
+	"github.com/wrgl/wrgl/pkg/api/payload"
 )
 
 func writeJSON(rw http.ResponseWriter, v interface{}) {

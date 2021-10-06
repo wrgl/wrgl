@@ -15,13 +15,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	"github.com/wrgl/core/pkg/api/payload"
-	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
-	"github.com/wrgl/core/pkg/testutils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/ingest"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func decodeGzipPayload(header *http.Header, r io.ReadCloser) (io.ReadCloser, error) {

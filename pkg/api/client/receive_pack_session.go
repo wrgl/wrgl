@@ -12,10 +12,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/wrgl/core/pkg/api/payload"
-	apiutils "github.com/wrgl/core/pkg/api/utils"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 type stateFn func() (stateFn, error)

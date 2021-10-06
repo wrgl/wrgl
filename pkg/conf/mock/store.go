@@ -1,6 +1,6 @@
 package confmock
 
-import "github.com/wrgl/core/pkg/conf"
+import "github.com/wrgl/wrgl/pkg/conf"
 
 type Store struct {
 	c conf.Config

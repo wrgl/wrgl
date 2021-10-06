@@ -11,7 +11,7 @@ import (
 	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func fromHex(t *testing.T, s string) []byte {

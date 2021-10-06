@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/ref"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestRemoteRenameCmd(t *testing.T) {

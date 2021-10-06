@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/objects"
-	objhelpers "github.com/wrgl/core/pkg/objects/helpers"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objhelpers "github.com/wrgl/wrgl/pkg/objects/helpers"
 )
 
 func TestWriteCommit(t *testing.T) {

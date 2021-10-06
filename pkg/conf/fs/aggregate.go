@@ -4,7 +4,7 @@ import (
 	"reflect"
 
 	"github.com/imdario/mergo"
-	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/conf"
 )
 
 type ptrTransformer struct {

@@ -8,10 +8,10 @@ import (
 	"github.com/mmcloughlin/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/slice"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func saveBlock(t *testing.T, db objects.Store, blk [][]string, pk []uint32) (sum []byte, idxSum []byte, idx *objects.BlockIndex) {

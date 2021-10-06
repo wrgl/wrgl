@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
-	"github.com/wrgl/core/pkg/credentials"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/credentials"
 )
 
 func authenticateCmd() *cobra.Command {

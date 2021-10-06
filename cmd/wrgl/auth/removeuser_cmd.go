@@ -2,9 +2,9 @@ package auth
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	authfs "github.com/wrgl/core/pkg/auth/fs"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 )
 
 func removeuserCmd() *cobra.Command {

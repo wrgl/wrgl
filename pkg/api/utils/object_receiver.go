@@ -9,9 +9,9 @@ import (
 	"io"
 
 	"github.com/mmcloughlin/meow"
-	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/ingest"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 type ObjectReceiver struct {

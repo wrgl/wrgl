@@ -12,7 +12,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
+	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 )
 
 func TestRepoDirInit(t *testing.T) {

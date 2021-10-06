@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/wrgl/core/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/auth"
 )
 
 type AuthnStore struct {

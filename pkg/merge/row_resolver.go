@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/wrgl/core/pkg/diff"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/diff"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 type RowResolver struct {

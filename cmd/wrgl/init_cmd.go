@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	"github.com/wrgl/core/pkg/local"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/local"
 )
 
 func newInitCmd() *cobra.Command {

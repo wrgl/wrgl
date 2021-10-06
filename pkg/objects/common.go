@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding"
 )
 
 func writeLine(w io.Writer, label string, b []byte) (n int, err error) {

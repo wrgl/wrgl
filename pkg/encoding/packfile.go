@@ -9,7 +9,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/wrgl/core/pkg/misc"
+	"github.com/wrgl/wrgl/pkg/misc"
 )
 
 const (

@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/ref"
-	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
-	"github.com/wrgl/core/pkg/testutils"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/ref"
+	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
+	refmock "github.com/wrgl/wrgl/pkg/ref/mock"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestSaveRef(t *testing.T) {

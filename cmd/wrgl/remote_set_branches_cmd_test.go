@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/conf"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/conf"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 )
 
 func TestRemoteSetBranches(t *testing.T) {

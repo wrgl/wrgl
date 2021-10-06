@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/ref"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func TestPullCmd(t *testing.T) {

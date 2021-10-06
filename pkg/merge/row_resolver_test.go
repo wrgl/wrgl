@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/merge"
-	mergehelpers "github.com/wrgl/core/pkg/merge/helpers"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/merge"
+	mergehelpers "github.com/wrgl/wrgl/pkg/merge/helpers"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
 func TestRowResolverSimpleCases(t *testing.T) {

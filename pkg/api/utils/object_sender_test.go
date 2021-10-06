@@ -10,11 +10,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	apiutils "github.com/wrgl/core/pkg/api/utils"
-	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
+	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
 )
 
 func TestObjectSender(t *testing.T) {

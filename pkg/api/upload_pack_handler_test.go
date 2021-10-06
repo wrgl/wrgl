@@ -9,12 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	"github.com/wrgl/core/pkg/conf"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/ref"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	"github.com/wrgl/wrgl/pkg/conf"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/ref"
+	refmock "github.com/wrgl/wrgl/pkg/ref/mock"
 )
 
 func (s *testSuite) TestUploadPack(t *testing.T) {

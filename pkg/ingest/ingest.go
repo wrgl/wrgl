@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/mmcloughlin/meow"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
 type ProgressBar interface {

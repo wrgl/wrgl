@@ -8,8 +8,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/progress"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/progress"
 )
 
 func strSliceEqual(s1, s2 []string) bool {

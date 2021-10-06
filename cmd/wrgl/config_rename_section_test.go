@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
+	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 )
 
 func TestConfigRenameSectionCmd(t *testing.T) {

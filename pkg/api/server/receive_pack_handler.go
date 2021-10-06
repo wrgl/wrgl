@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/wrgl/core/pkg/api"
+	"github.com/wrgl/wrgl/pkg/api"
 )
 
 type ReceivePackSessionStore interface {

@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/csvmod"
+	"github.com/wrgl/wrgl/pkg/csvmod"
 )
 
 func newRootCmd() *cobra.Command {

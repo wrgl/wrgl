@@ -14,12 +14,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/api"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	"github.com/wrgl/core/pkg/api/payload"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/api"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func assertBlocksCSV(t *testing.T, db objects.Store, blocks [][]byte, columns []string, resp *http.Response) {

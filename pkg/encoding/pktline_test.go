@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/misc"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/misc"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestPktLine(t *testing.T) {

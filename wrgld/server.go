@@ -9,11 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	apiserver "github.com/wrgl/core/pkg/api/server"
-	"github.com/wrgl/core/pkg/auth"
-	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	apiserver "github.com/wrgl/wrgl/pkg/api/server"
+	"github.com/wrgl/wrgl/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 type Server struct {

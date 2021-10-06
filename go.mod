@@ -1,4 +1,4 @@
-module github.com/wrgl/core
+module github.com/wrgl/wrgl
 
 go 1.17
 

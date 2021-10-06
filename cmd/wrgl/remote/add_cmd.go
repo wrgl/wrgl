@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	"github.com/wrgl/core/pkg/conf"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/conf"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 )
 
 func addCmd() *cobra.Command {

@@ -14,13 +14,13 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	"github.com/wrgl/core/pkg/conf"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
-	"github.com/wrgl/core/pkg/credentials"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/conf"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func newFetchCmd() *cobra.Command {

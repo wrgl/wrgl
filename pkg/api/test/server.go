@@ -10,17 +10,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	apiserver "github.com/wrgl/core/pkg/api/server"
-	"github.com/wrgl/core/pkg/auth"
-	authtest "github.com/wrgl/core/pkg/auth/test"
-	"github.com/wrgl/core/pkg/conf"
-	confmock "github.com/wrgl/core/pkg/conf/mock"
-	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/ref"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
-	"github.com/wrgl/core/pkg/testutils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	apiserver "github.com/wrgl/wrgl/pkg/api/server"
+	"github.com/wrgl/wrgl/pkg/auth"
+	authtest "github.com/wrgl/wrgl/pkg/auth/test"
+	"github.com/wrgl/wrgl/pkg/conf"
+	confmock "github.com/wrgl/wrgl/pkg/conf/mock"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/ref"
+	refmock "github.com/wrgl/wrgl/pkg/ref/mock"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 const (

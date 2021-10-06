@@ -6,8 +6,8 @@ package apiserver
 import (
 	"net/http"
 
-	"github.com/wrgl/core/pkg/api/payload"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func (s *Server) handleGetRefs(rw http.ResponseWriter, r *http.Request) {

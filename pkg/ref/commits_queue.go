@@ -7,7 +7,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 const maxQueueGrow = 1 << 10

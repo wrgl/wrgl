@@ -6,8 +6,8 @@ package reffs
 import (
 	"io"
 
-	"github.com/wrgl/core/pkg/misc"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/misc"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 type logReader struct {

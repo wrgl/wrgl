@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/factory"
 )
 
 func TestReflogCmd(t *testing.T) {

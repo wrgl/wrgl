@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/conf"
 )
 
 func MustGetRemote(cmd *cobra.Command, c *conf.Config, name string) *conf.Remote {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/auth/random"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/auth/random"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestIDToken(t *testing.T) {

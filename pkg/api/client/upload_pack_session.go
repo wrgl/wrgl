@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io"
 
-	apiutils "github.com/wrgl/core/pkg/api/utils"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 const defaultHavesPerRoundTrip = 32

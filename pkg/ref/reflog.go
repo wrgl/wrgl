@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding"
 )
 
 type Reflog struct {

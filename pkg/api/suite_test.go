@@ -8,11 +8,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	"github.com/wrgl/core/pkg/api/payload"
-	apiserver "github.com/wrgl/core/pkg/api/server"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	"github.com/wrgl/core/pkg/objects"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	apiserver "github.com/wrgl/wrgl/pkg/api/server"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 type testSuite struct {

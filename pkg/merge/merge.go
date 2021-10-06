@@ -3,7 +3,7 @@
 
 package merge
 
-import "github.com/wrgl/core/pkg/diff"
+import "github.com/wrgl/wrgl/pkg/diff"
 
 type Merge struct {
 	ColDiff        *diff.ColDiff

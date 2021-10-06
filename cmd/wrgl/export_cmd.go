@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func newExportCmd() *cobra.Command {

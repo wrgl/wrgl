@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/wrgl/core/pkg/api"
-	"github.com/wrgl/core/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/api"
+	"github.com/wrgl/wrgl/pkg/conf"
 )
 
 func (s *Server) handlePutConfig(rw http.ResponseWriter, r *http.Request) {

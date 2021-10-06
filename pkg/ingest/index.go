@@ -6,8 +6,8 @@ import (
 	"io"
 
 	"github.com/mmcloughlin/meow"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/slice"
 )
 
 func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io.Writer) error {

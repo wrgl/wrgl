@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wrgl/core/pkg/api"
-	"github.com/wrgl/core/pkg/diff"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/api"
+	"github.com/wrgl/wrgl/pkg/diff"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 var rowsURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/rows/`)

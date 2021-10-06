@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wrgl/core/pkg/local"
+	"github.com/wrgl/wrgl/pkg/local"
 )
 
 func GetWRGLDir() (string, error) {

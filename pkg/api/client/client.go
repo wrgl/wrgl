@@ -16,10 +16,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wrgl/core/pkg/api"
-	"github.com/wrgl/core/pkg/api/payload"
-	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/api"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/encoding"
 	"golang.org/x/net/publicsuffix"
 )
 

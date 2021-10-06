@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	authcmd "github.com/wrgl/core/cmd/wrgl/auth"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	"github.com/wrgl/core/pkg/auth"
-	"github.com/wrgl/core/pkg/testutils"
+	authcmd "github.com/wrgl/wrgl/cmd/wrgl/auth"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestAuthAddScopeCmd(t *testing.T) {

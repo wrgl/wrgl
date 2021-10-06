@@ -8,9 +8,9 @@ import (
 	"os"
 	"sort"
 
-	"github.com/wrgl/core/pkg/mem"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/mem"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/slice"
 )
 
 type ProgressBar interface {

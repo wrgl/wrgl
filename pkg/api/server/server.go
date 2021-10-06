@@ -11,11 +11,11 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/wrgl/core/pkg/auth"
-	"github.com/wrgl/core/pkg/conf"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
-	"github.com/wrgl/core/pkg/router"
+	"github.com/wrgl/wrgl/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/router"
 )
 
 var (

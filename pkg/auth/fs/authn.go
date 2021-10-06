@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/wrgl/core/pkg/auth"
-	"github.com/wrgl/core/pkg/auth/random"
-	"github.com/wrgl/core/pkg/local"
+	"github.com/wrgl/wrgl/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/auth/random"
+	"github.com/wrgl/wrgl/pkg/local"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	"github.com/wrgl/core/pkg/conf"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/conf"
 )
 
 func (s *testSuite) TestGetConfig(t *testing.T) {

@@ -11,11 +11,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wrgl/core/cmd/wrgl/auth"
-	"github.com/wrgl/core/cmd/wrgl/config"
-	"github.com/wrgl/core/cmd/wrgl/credentials"
-	"github.com/wrgl/core/cmd/wrgl/reflog"
-	"github.com/wrgl/core/cmd/wrgl/remote"
+	"github.com/wrgl/wrgl/cmd/wrgl/auth"
+	"github.com/wrgl/wrgl/cmd/wrgl/config"
+	"github.com/wrgl/wrgl/cmd/wrgl/credentials"
+	"github.com/wrgl/wrgl/cmd/wrgl/reflog"
+	"github.com/wrgl/wrgl/cmd/wrgl/remote"
 )
 
 func RootCmd() *cobra.Command {

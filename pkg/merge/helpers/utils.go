@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/diff"
-	"github.com/wrgl/core/pkg/index"
-	"github.com/wrgl/core/pkg/merge"
-	"github.com/wrgl/core/pkg/misc"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
-	"github.com/wrgl/core/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/diff"
+	"github.com/wrgl/wrgl/pkg/index"
+	"github.com/wrgl/wrgl/pkg/merge"
+	"github.com/wrgl/wrgl/pkg/misc"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
 func CreateCollector(t *testing.T, db objects.Store, baseCom *objects.Commit) *merge.RowCollector {

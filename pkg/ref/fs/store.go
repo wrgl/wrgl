@@ -9,7 +9,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 type Store struct {

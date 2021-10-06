@@ -8,8 +8,8 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/wrgl/core/pkg/diff"
-	"github.com/wrgl/core/pkg/merge"
+	"github.com/wrgl/wrgl/pkg/diff"
+	"github.com/wrgl/wrgl/pkg/merge"
 )
 
 const (

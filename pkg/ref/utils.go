@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 func SeekCommonAncestor(db objects.Store, commits ...[]byte) (baseCommit []byte, err error) {

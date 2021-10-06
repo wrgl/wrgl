@@ -9,15 +9,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	"github.com/wrgl/core/pkg/api/payload"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/ref"
-	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/ref"
+	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
+	refmock "github.com/wrgl/wrgl/pkg/ref/mock"
 )
 
 func assertRefEqual(t *testing.T, rs ref.Store, r string, sum []byte) {

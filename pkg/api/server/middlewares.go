@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/wrgl/core/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/auth"
 )
 
 type routeScope struct {

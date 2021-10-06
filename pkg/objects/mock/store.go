@@ -3,7 +3,7 @@ package objmock
 import (
 	"strings"
 
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 type Store struct {

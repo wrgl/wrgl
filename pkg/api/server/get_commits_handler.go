@@ -9,10 +9,10 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/wrgl/core/pkg/api"
-	"github.com/wrgl/core/pkg/api/payload"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/api"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 var sumRegexp = regexp.MustCompile(`^[0-9a-f]{32}$`)

@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
-	"github.com/wrgl/core/pkg/credentials"
+	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
+	"github.com/wrgl/wrgl/pkg/credentials"
 )
 
 func parseURL(t *testing.T, s string) url.URL {

@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/wrgl/core/pkg/diff"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/progress"
-	"github.com/wrgl/core/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/diff"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/progress"
+	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
 type Merger struct {

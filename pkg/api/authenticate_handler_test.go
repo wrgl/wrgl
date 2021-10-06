@@ -9,13 +9,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	"github.com/wrgl/core/pkg/api/payload"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	"github.com/wrgl/core/pkg/auth"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/ref"
-	"github.com/wrgl/core/pkg/testutils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	"github.com/wrgl/wrgl/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func (s *testSuite) TestAuthenticate(t *testing.T) {

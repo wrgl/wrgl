@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/sorter"
-	"github.com/wrgl/core/pkg/testutils"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestRowListReader(t *testing.T) {

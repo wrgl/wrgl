@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 type mockReflogReader struct {

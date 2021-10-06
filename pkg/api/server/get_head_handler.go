@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 var headURIPat = regexp.MustCompile(`/refs/heads/([^/]+)/`)

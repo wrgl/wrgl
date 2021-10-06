@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	"github.com/wrgl/core/pkg/conf"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
-	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/local"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/conf"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/ingest"
+	"github.com/wrgl/wrgl/pkg/local"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func newCommitCmd() *cobra.Command {

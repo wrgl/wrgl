@@ -12,7 +12,7 @@ import (
 	"github.com/dgraph-io/badger/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 func TestStore(t *testing.T) {

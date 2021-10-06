@@ -10,10 +10,10 @@ import (
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/fsnotify/fsnotify"
-	"github.com/wrgl/core/pkg/objects"
-	objbadger "github.com/wrgl/core/pkg/objects/badger"
-	"github.com/wrgl/core/pkg/ref"
-	reffs "github.com/wrgl/core/pkg/ref/fs"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objbadger "github.com/wrgl/wrgl/pkg/objects/badger"
+	"github.com/wrgl/wrgl/pkg/ref"
+	reffs "github.com/wrgl/wrgl/pkg/ref/fs"
 )
 
 type RepoDir struct {

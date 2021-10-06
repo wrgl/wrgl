@@ -2,7 +2,7 @@ package credentials
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/credentials"
 )
 
 func listCmd() *cobra.Command {

@@ -7,8 +7,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/misc"
+	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/misc"
 )
 
 type Commit struct {

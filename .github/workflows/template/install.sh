@@ -4,7 +4,7 @@
 # It should be run as root, and can be run directly from GitHub,
 # for example as:
 #
-#   sudo bash -c 'curl -L https://github.com/wrgl/core/releases/latest/download/install.sh | bash'
+#   sudo bash -c 'curl -L https://github.com/wrgl/wrgl/releases/latest/download/install.sh | bash'
 #
 # All downloads occur over HTTPS from the Github releases page.
 
@@ -18,7 +18,7 @@ _() {
 set -euo pipefail
 
 WRGL_VERSION=%%version%%
-RELEASES_BASE_URL=https://github.com/wrgl/core/releases/download/"$WRGL_VERSION"
+RELEASES_BASE_URL=https://github.com/wrgl/wrgl/releases/download/"$WRGL_VERSION"
 INSTALL_URL=$RELEASES_BASE_URL/install.sh
 
 CURL_USER_AGENT=${CURL_USER_AGENT:-wrgl-installer}
@@ -93,9 +93,10 @@ install_binary_release() {
   echo "Downloading:" $URL
   curl -A "$CURL_USER_AGENT" -fsL "$URL" > "$FILE"
   tar zxf "$FILE"
-  echo "Installing wrgl to /usr/local/bin."
+  echo "Installing wrgl & wrgld to /usr/local/bin."
   [ -d /usr/local/bin ] || install -o 0 -g 0 -d /usr/local/bin
   install -o 0 -g 0 wrgl-$PLATFORM_TUPLE/bin/wrgl /usr/local/bin
+  install -o 0 -g 0 wrgl-$PLATFORM_TUPLE/bin/wrgld /usr/local/bin
   install -o 0 -g 0 -d /usr/local/share/doc/wrgl/
   install -o 0 -g 0 -m 644 wrgl-$PLATFORM_TUPLE/LICENSE /usr/local/share/doc/wrgl/
 }

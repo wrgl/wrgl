@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 func findOverlappingBlocks(tblIdx1 [][]string, tblIdx2 [][]string, off1, prevEnd int) (start, end int) {

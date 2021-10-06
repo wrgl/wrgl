@@ -7,8 +7,8 @@ import (
 	"container/list"
 	"io"
 
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 // ClosedSetsFinder finds closed sets of commits to send.

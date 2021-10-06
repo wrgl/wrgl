@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/wrgl/core/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/auth"
 )
 
 func createIDToken(email, name string, jwtSecret []byte, duration time.Duration) (string, error) {

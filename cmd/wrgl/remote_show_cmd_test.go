@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/ref"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestRemoteShowCmd(t *testing.T) {

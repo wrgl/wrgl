@@ -14,13 +14,13 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
-	"github.com/wrgl/core/pkg/credentials"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/ref"
-	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
+	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/ref"
+	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
 )
 
 func authenticate(t *testing.T, uri string) {

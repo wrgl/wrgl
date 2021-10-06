@@ -11,11 +11,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/objects"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/ingest"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func getTable(t testing.TB, db objects.Store, sum []byte) (*objects.Table, [][]string) {

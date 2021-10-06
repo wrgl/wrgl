@@ -5,7 +5,7 @@ package objbadger
 
 import (
 	"github.com/dgraph-io/badger/v3"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 type Store struct {

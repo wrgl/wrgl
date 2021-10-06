@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	authfs "github.com/wrgl/core/pkg/auth/fs"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
-	"github.com/wrgl/core/pkg/local"
+	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/local"
 )
 
 func newRootCmd() *cobra.Command {

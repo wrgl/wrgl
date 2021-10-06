@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/core/pkg/api/client"
-	"github.com/wrgl/core/pkg/api/payload"
-	apiserver "github.com/wrgl/core/pkg/api/server"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/ref"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	apiserver "github.com/wrgl/wrgl/pkg/api/server"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func setParentCommits(com *payload.Commit, m map[string]*payload.Commit) *payload.Commit {

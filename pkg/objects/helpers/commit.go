@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func RandomCommit() *objects.Commit {

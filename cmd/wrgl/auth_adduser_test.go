@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestAuthAddUserCmd(t *testing.T) {

@@ -14,8 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/local"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/local"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestAuthnStore(t *testing.T) {

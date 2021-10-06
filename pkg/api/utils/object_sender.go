@@ -8,8 +8,8 @@ import (
 	"container/list"
 	"io"
 
-	"github.com/wrgl/core/pkg/encoding"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 const defaultMaxPackfileSize uint64 = 1024 * 1024 * 1024 * 2

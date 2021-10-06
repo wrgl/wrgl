@@ -12,10 +12,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/slice"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/ingest"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func parseRows(rows []string, pk []uint32) ([][]string, []uint32) {

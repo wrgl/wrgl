@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 var (

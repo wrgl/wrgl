@@ -4,7 +4,7 @@ import (
 	"net/url"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/credentials"
 )
 
 func removeCmd() *cobra.Command {

@@ -9,12 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/objects"
-	objhelpers "github.com/wrgl/core/pkg/objects/helpers"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/ref"
-	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objhelpers "github.com/wrgl/wrgl/pkg/objects/helpers"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/ref"
+	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestCommitQueue(t *testing.T) {

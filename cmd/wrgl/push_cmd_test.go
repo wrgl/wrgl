@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apitest "github.com/wrgl/core/pkg/api/test"
-	"github.com/wrgl/core/pkg/conf"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
-	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/ref"
+	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	"github.com/wrgl/wrgl/pkg/conf"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/wrgl/core/pkg/api/payload"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 var commitURIPat = regexp.MustCompile(`/commits/([0-9a-f]{32})/`)

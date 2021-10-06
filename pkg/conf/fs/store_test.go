@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/conf"
-	confhelpers "github.com/wrgl/core/pkg/conf/helpers"
-	"github.com/wrgl/core/pkg/testutils"
+	"github.com/wrgl/wrgl/pkg/conf"
+	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func randomConfig() *conf.Config {

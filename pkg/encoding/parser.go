@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/wrgl/core/pkg/misc"
+	"github.com/wrgl/wrgl/pkg/misc"
 )
 
 // Parser keep track of read position and read into a buffer

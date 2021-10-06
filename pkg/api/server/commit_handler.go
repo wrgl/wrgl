@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/gzip"
-	"github.com/wrgl/core/pkg/api/payload"
-	"github.com/wrgl/core/pkg/ingest"
-	"github.com/wrgl/core/pkg/objects"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/ingest"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {

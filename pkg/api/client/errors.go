@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/wrgl/core/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/api/payload"
 )
 
 type HTTPError struct {

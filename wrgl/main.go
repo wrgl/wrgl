@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/wrgl/core/cmd/wrgl"
+	"github.com/wrgl/wrgl/cmd/wrgl"
 )
 
 func main() {

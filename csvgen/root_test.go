@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/csvmod"
+	"github.com/wrgl/wrgl/pkg/csvmod"
 )
 
 func createRandomCSV(t *testing.T, n, m int) (string, [][]string, func()) {

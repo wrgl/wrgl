@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
-	conffs "github.com/wrgl/core/pkg/conf/fs"
-	"github.com/wrgl/core/pkg/ref"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func newResetCmd() *cobra.Command {

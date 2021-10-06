@@ -8,7 +8,7 @@ import (
 	"io"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/wrgl/core/pkg/diff"
+	"github.com/wrgl/wrgl/pkg/diff"
 )
 
 var (

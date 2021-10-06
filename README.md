@@ -4,8 +4,17 @@ Git-like data versioning. It can handle files up to 10s of Gigabytes.
 
 ## Installation
 
+Without Go:
+
 ```bash
-sudo bash -c 'curl -L https://github.com/wrgl/core/releases/latest/download/install.sh | bash'
+sudo bash -c 'curl -L https://github.com/wrgl/wrgl/releases/latest/download/install.sh | bash'
+```
+
+Install with Go:
+
+```bash
+go install github.com/wrgl/wrgl/wrgl
+go install github.com/wrgl/wrgl/wrgld
 ```
 
 ## Usage

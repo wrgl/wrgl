@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/dgraph-io/badger/v3"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 type Txn struct {

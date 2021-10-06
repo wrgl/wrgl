@@ -9,7 +9,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/wrgl/core/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/slice"
 )
 
 type Table struct {

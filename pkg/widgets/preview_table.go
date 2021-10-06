@@ -6,7 +6,7 @@ package widgets
 import (
 	"io"
 
-	"github.com/wrgl/core/pkg/diff"
+	"github.com/wrgl/wrgl/pkg/diff"
 )
 
 type PreviewTable struct {

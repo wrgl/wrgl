@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/wrgl/core/pkg/api/payload"
-	"github.com/wrgl/core/pkg/diff"
-	"github.com/wrgl/core/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/diff"
+	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 var diffURIPat = regexp.MustCompile(`/diff/([0-9a-f]{32})/([0-9a-f]{32})/`)

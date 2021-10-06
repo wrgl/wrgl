@@ -16,10 +16,10 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/core/pkg/factory"
-	"github.com/wrgl/core/pkg/local"
-	"github.com/wrgl/core/pkg/ref"
-	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
+	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/local"
+	"github.com/wrgl/wrgl/pkg/ref"
+	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
 )
 
 func createRepoDir(t *testing.T) (rd *local.RepoDir, cleanup func()) {

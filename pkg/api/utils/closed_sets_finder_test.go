@@ -11,14 +11,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiutils "github.com/wrgl/core/pkg/api/utils"
-	"github.com/wrgl/core/pkg/objects"
-	objhelpers "github.com/wrgl/core/pkg/objects/helpers"
-	objmock "github.com/wrgl/core/pkg/objects/mock"
-	"github.com/wrgl/core/pkg/ref"
-	refhelpers "github.com/wrgl/core/pkg/ref/helpers"
-	refmock "github.com/wrgl/core/pkg/ref/mock"
-	"github.com/wrgl/core/pkg/testutils"
+	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
+	"github.com/wrgl/wrgl/pkg/objects"
+	objhelpers "github.com/wrgl/wrgl/pkg/objects/helpers"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/ref"
+	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
+	refmock "github.com/wrgl/wrgl/pkg/ref/mock"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func assertSumsEqual(t *testing.T, a, b [][]byte, ignoreOrder bool) {

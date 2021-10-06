@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/core/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 )
 
 func setCmd() *cobra.Command {
