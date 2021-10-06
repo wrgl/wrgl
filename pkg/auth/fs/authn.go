@@ -154,18 +154,7 @@ func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *
 }
 
 func (s *AuthnStore) Flush() error {
-	// touch file if it doesn't exist
 	fp := s.Filepath()
-	_, err := os.Stat(fp)
-	if os.IsNotExist(err) {
-		f, err := os.Create(fp)
-		if err != nil {
-			return err
-		}
-		if err := f.Close(); err != nil {
-			return err
-		}
-	}
 	f, err := os.OpenFile(fp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
