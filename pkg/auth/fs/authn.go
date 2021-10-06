@@ -171,6 +171,7 @@ func (s *AuthnStore) search(email string) int {
 
 func (s *AuthnStore) findUserIndex(email string) int {
 	ind := s.search(email)
+	fmt.Printf("index of email %s: %d\n", email, ind)
 	if ind < s.Len() && s.sl[ind][0] == email {
 		return ind
 	}
