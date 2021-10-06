@@ -1,7 +1,6 @@
 package index
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -11,7 +10,7 @@ import (
 )
 
 func TestHashSet(t *testing.T) {
-	f, err := ioutil.TempFile("", "test_hash_set")
+	f, err := testutils.TempFile("", "test_hash_set")
 	require.NoError(t, err)
 	defer os.Remove(f.Name())
 

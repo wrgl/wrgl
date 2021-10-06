@@ -5,7 +5,6 @@ package authfs
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,7 +18,7 @@ import (
 )
 
 func TestAuthnStore(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_flatdb")
+	dir, err := testutils.TempDir("", "test_flatdb")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	rd := local.NewRepoDir(dir, "")
@@ -96,7 +95,7 @@ func TestAuthnStore(t *testing.T) {
 }
 
 func TestAuthnStoreWatchFile(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_flatdb")
+	dir, err := testutils.TempDir("", "test_flatdb")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	rd := local.NewRepoDir(dir, "")

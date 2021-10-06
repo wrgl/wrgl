@@ -16,11 +16,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func createCSVFile(t *testing.T, content []string) (filePath string) {
 	t.Helper()
-	file, err := ioutil.TempFile("", "test_commit_*.csv")
+	file, err := testutils.TempFile("", "test_commit_*.csv")
 	require.NoError(t, err)
 	defer file.Close()
 	for _, line := range content {

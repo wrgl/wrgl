@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/csv"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -16,7 +15,7 @@ import (
 
 func writeCSV(t *testing.T, rows [][]string) *os.File {
 	t.Helper()
-	f, err := ioutil.TempFile("", "test_sorter_*")
+	f, err := testutils.TempFile("", "test_sorter_*")
 	require.NoError(t, err)
 	w := csv.NewWriter(f)
 	require.NoError(t, w.WriteAll(rows))

@@ -4,7 +4,6 @@
 package objbadger
 
 import (
-	"io/ioutil"
 	"os"
 	"sort"
 	"testing"
@@ -13,10 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestStore(t *testing.T) {
-	dir, err := ioutil.TempDir("", "badger")
+	dir, err := testutils.TempDir("", "badger")
 	require.NoError(t, err)
 	db, err := badger.Open(badger.DefaultOptions(dir).WithLoggingLevel(badger.ERROR))
 	require.NoError(t, err)

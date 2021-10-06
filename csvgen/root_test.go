@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"encoding/csv"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -14,11 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/csvmod"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func createRandomCSV(t *testing.T, n, m int) (string, [][]string, func()) {
 	t.Helper()
-	f, err := ioutil.TempFile("", "*.csv")
+	f, err := testutils.TempFile("", "*.csv")
 	require.NoError(t, err)
 	w := csv.NewWriter(f)
 	rows := make([][]string, n)

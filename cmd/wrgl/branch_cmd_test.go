@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,11 +19,12 @@ import (
 	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/ref"
 	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func createRepoDir(t *testing.T) (rd *local.RepoDir, cleanup func()) {
 	t.Helper()
-	rootDir, err := ioutil.TempDir("", "test_wrgl_*")
+	rootDir, err := testutils.TempDir("", "test_wrgl_*")
 	require.NoError(t, err)
 	wrglDir := filepath.Join(rootDir, ".wrgl")
 	rd = local.NewRepoDir(wrglDir, "")

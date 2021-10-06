@@ -2,7 +2,6 @@ package credentials
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"testing"
@@ -22,7 +21,7 @@ func mockEnv(t *testing.T, key, val string) func() {
 }
 
 func mockConfigHome(t *testing.T) func() {
-	dir, err := ioutil.TempDir("", "test_creds")
+	dir, err := testutils.TempDir("", "test_creds")
 	require.NoError(t, err)
 	cleanup := mockEnv(t, "XDG_CONFIG_HOME", dir)
 	return func() {

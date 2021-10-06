@@ -1,13 +1,13 @@
 package confhelpers
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func MockEnv(t *testing.T, key, val string) func() {
@@ -21,7 +21,7 @@ func MockEnv(t *testing.T, key, val string) func() {
 
 func MockHomeDir(t *testing.T, parent_dir string) (string, func()) {
 	t.Helper()
-	name, err := ioutil.TempDir(parent_dir, "test_wrgl_home")
+	name, err := testutils.TempDir(parent_dir, "test_wrgl_home")
 	require.NoError(t, err)
 	name, err = filepath.EvalSymlinks(name)
 	require.NoError(t, err)
@@ -41,7 +41,7 @@ func MockHomeDir(t *testing.T, parent_dir string) (string, func()) {
 
 func MockGlobalConf(t *testing.T, setXDGConfigHome bool) func() {
 	t.Helper()
-	name, err := ioutil.TempDir("", "test_wrgl_config")
+	name, err := testutils.TempDir("", "test_wrgl_config")
 	require.NoError(t, err)
 	var cleanup1, cleanup2 func()
 	if setXDGConfigHome {
@@ -61,7 +61,7 @@ func MockGlobalConf(t *testing.T, setXDGConfigHome bool) func() {
 
 func MockSystemConf(t *testing.T) func() {
 	t.Helper()
-	dir, err := ioutil.TempDir("", "test_wrgl_config")
+	dir, err := testutils.TempDir("", "test_wrgl_config")
 	require.NoError(t, err)
 	cleanup := MockEnv(t, "WRGL_SYSTEM_CONFIG_DIR", dir)
 	return func() {

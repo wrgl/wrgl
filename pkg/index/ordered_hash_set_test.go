@@ -5,7 +5,6 @@ package index
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -66,7 +65,7 @@ func TestOrderedHashSet(t *testing.T) {
 func BenchmarkOrderedHashSet1M(b *testing.B) {
 	n := 1024 * 1024
 	rows := makeBytesMatrix(n, 32)
-	f, err := ioutil.TempFile("", "test_hash_index")
+	f, err := testutils.TempFile("", "test_hash_index")
 	require.NoError(b, err)
 	defer os.Remove(f.Name())
 	w := NewOrderedHashSetWriter(f, rows)

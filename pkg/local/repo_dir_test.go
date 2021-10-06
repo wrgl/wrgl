@@ -4,7 +4,6 @@
 package local
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,10 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestRepoDirInit(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_repo_dir")
+	dir, err := testutils.TempDir("", "test_repo_dir")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	wrglDir := filepath.Join(dir, ".wrgl")
@@ -43,7 +43,7 @@ func TestRepoDirInit(t *testing.T) {
 }
 
 func TestFindWrglDir(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_find_wrgl_dir")
+	dir, err := testutils.TempDir("", "test_find_wrgl_dir")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	dir, err = filepath.EvalSymlinks(dir)
@@ -92,7 +92,7 @@ func TestFindWrglDir(t *testing.T) {
 }
 
 func TestRepoDirWatcher(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_repo_dir")
+	dir, err := testutils.TempDir("", "test_repo_dir")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	rd := NewRepoDir(dir, "")

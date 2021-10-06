@@ -16,7 +16,7 @@ import (
 
 func execPrintDebug(t *testing.T, cmd *cobra.Command, ctx context.Context, args []string) {
 	t.Helper()
-	f, err := ioutil.TempFile("", "")
+	f, err := testutils.TempFile("", "")
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 	defer os.Remove(f.Name())

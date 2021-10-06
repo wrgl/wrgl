@@ -5,7 +5,6 @@ package merge
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/mmcloughlin/meow"
@@ -14,6 +13,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 type RowCollector struct {
@@ -148,7 +148,7 @@ func (c *RowCollector) Close() error {
 }
 
 func CreateRowCollector(db objects.Store, baseT *objects.Table) (collector *RowCollector, cleanup func(), err error) {
-	hashSetFile, err := ioutil.TempFile("", "hashset_")
+	hashSetFile, err := testutils.TempFile("", "hashset_")
 	if err != nil {
 		return
 	}

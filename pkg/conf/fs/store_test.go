@@ -4,7 +4,6 @@
 package conffs
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -58,7 +57,7 @@ func TestOpenGlobalConfig(t *testing.T) {
 }
 
 func TestOpenLocalConfig(t *testing.T) {
-	rd, err := ioutil.TempDir("", "test_wrgl_config")
+	rd, err := testutils.TempDir("", "test_wrgl_config")
 	require.NoError(t, err)
 	defer os.RemoveAll(rd)
 
@@ -77,7 +76,7 @@ func TestOpenLocalConfig(t *testing.T) {
 }
 
 func TestOpenFileConfig(t *testing.T) {
-	f, err := ioutil.TempFile("", "test_wrgl_config*.yaml")
+	f, err := testutils.TempFile("", "test_wrgl_config*.yaml")
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 	defer os.Remove(f.Name())
@@ -96,7 +95,7 @@ func TestAggregateConfig(t *testing.T) {
 	defer cleanup()
 	cleanup = confhelpers.MockGlobalConf(t, true)
 	defer cleanup()
-	rd, err := ioutil.TempDir("", "test_wrgl_config")
+	rd, err := testutils.TempDir("", "test_wrgl_config")
 	require.NoError(t, err)
 	defer os.RemoveAll(rd)
 

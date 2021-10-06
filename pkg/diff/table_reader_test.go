@@ -6,7 +6,6 @@ package diff
 import (
 	"encoding/csv"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,7 +19,7 @@ import (
 
 func ingestRows(t *testing.T, db objects.Store, rows [][]string) *objects.Table {
 	t.Helper()
-	f, err := ioutil.TempFile("", "*.csv")
+	f, err := testutils.TempFile("", "*.csv")
 	require.NoError(t, err)
 	w := csv.NewWriter(f)
 	require.NoError(t, w.WriteAll(rows))

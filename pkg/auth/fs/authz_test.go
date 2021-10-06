@@ -5,7 +5,6 @@ package authfs
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,10 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/auth"
 	"github.com/wrgl/wrgl/pkg/local"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestAuthzStore(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_flatdb")
+	dir, err := testutils.TempDir("", "test_flatdb")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	rd := local.NewRepoDir(dir, "")
@@ -76,7 +76,7 @@ func TestAuthzStore(t *testing.T) {
 }
 
 func TestAuthzStoreWatchFile(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test_flatdb")
+	dir, err := testutils.TempDir("", "test_flatdb")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	rd := local.NewRepoDir(dir, "")

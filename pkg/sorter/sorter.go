@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"encoding/csv"
 	"io"
-	"io/ioutil"
 	"os"
 	"sort"
 
 	"github.com/wrgl/wrgl/pkg/mem"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 type ProgressBar interface {
@@ -35,7 +35,7 @@ func getRunSize() (uint64, error) {
 }
 
 func writeChunk(rows [][]string) (*os.File, error) {
-	f, err := ioutil.TempFile("", "sorted_chunk_*")
+	f, err := testutils.TempFile("", "sorted_chunk_*")
 	if err != nil {
 		return nil, err
 	}

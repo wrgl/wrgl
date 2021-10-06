@@ -2,7 +2,6 @@ package reffs
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"sort"
 	"testing"
@@ -15,7 +14,7 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	dir, err := ioutil.TempDir("", "refstore")
+	dir, err := testutils.TempDir("", "refstore")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	s := NewStore(dir)

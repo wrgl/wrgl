@@ -4,19 +4,19 @@
 package wrgl
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestConfigSetCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	defer confhelpers.MockSystemConf(t)()
-	wrglDir, err := ioutil.TempDir("", ".wrgl*")
+	wrglDir, err := testutils.TempDir("", ".wrgl*")
 	require.NoError(t, err)
 	defer os.RemoveAll(wrglDir)
 	viper.Set("wrgl_dir", wrglDir)
@@ -53,7 +53,7 @@ func TestConfigSetCmd(t *testing.T) {
 func TestConfigSetCmdBool(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	defer confhelpers.MockSystemConf(t)()
-	wrglDir, err := ioutil.TempDir("", ".wrgl*")
+	wrglDir, err := testutils.TempDir("", ".wrgl*")
 	require.NoError(t, err)
 	defer os.RemoveAll(wrglDir)
 	viper.Set("wrgl_dir", wrglDir)

@@ -3,7 +3,6 @@ package ingest
 import (
 	"encoding/csv"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -17,7 +16,7 @@ import (
 
 func writeCSV(t testing.TB, rows [][]string) *os.File {
 	t.Helper()
-	f, err := ioutil.TempFile("", "*.csv")
+	f, err := testutils.TempFile("", "*.csv")
 	require.NoError(t, err)
 	w := csv.NewWriter(f)
 	require.NoError(t, w.WriteAll(rows))

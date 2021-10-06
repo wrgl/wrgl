@@ -5,17 +5,17 @@ package wrgl
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestInitCmd(t *testing.T) {
-	rootDir, err := ioutil.TempDir("", "test_wrgl*")
+	rootDir, err := testutils.TempDir("", "test_wrgl*")
 	require.NoError(t, err)
 	defer os.RemoveAll(rootDir)
 	_, err = os.Stat(rootDir)
