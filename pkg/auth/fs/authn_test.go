@@ -65,7 +65,7 @@ func TestAuthnStore(t *testing.T) {
 	require.NoError(t, err)
 	for email, sl := range peoples {
 		name := sl[0]
-		assert.True(t, s.Exist(email))
+		require.True(t, s.Exist(email), "email not found: %s", email)
 		r, err := http.NewRequest(http.MethodGet, "/", nil)
 		require.NoError(t, err)
 		req, c, err := s.CheckToken(r, tokens[email])
