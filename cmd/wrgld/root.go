@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/local"
@@ -17,8 +18,22 @@ import (
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wrgld [WRGL_DIR]",
-		Short: "Starts an HTTP server providing access to the repository at <current_dir>/.wrgl or WRGL_DIR folder if it is given.",
-		Args:  cobra.MaximumNArgs(1),
+		Short: "Starts an HTTP server providing access to the repository at <working_dir>/.wrgl or WRGL_DIR folder if it is given.",
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "starts HTTP API over <working_dir>/.wrgl at port 80",
+				Line:    "wrgld",
+			},
+			{
+				Comment: "starts HTTP API over directory my-repo and port 4000",
+				Line:    "wrgld ./my-repo -p 4000",
+			},
+			{
+				Comment: "increase read and write timeout",
+				Line:    "wrgld --read-timeout 60s --write-timeout 60s",
+			},
+		}),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var dir string
 			if len(args) > 0 {
