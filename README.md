@@ -13,8 +13,8 @@ sudo bash -c 'curl -L https://github.com/wrgl/wrgl/releases/latest/download/inst
 Install with Go:
 
 ```bash
-go install github.com/wrgl/wrgl/wrgl
-go install github.com/wrgl/wrgl/wrgld
+go install github.com/wrgl/wrgl/wrgl@latest
+go install github.com/wrgl/wrgl/wrgld@latest
 ```
 
 ## Usage
