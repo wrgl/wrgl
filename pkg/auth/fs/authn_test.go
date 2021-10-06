@@ -38,6 +38,7 @@ func TestAuthnStore(t *testing.T) {
 		require.NoError(t, s.SetName(email, name))
 		assert.True(t, s.Exist(email))
 	}
+	t.Logf("peoples: %v", peoples)
 
 	tokens := map[string]string{}
 	for email, sl := range peoples {
