@@ -8,24 +8,27 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestTracker(t *testing.T) {
 	tr := NewSingleTracker(10*time.Millisecond, 10)
 	c := tr.Start()
 	tr.SetCurrent(1)
-	time.Sleep(10 * time.Millisecond)
-	assert.Equal(t, Event{
-		Progress: 1,
-		Total:    10,
-	}, <-c)
+	testutils.Retry(t, 10*time.Millisecond, 10, func() bool {
+		return assert.ObjectsAreEqual(Event{
+			Progress: 1,
+			Total:    10,
+		}, <-c)
+	}, "")
 
 	tr.Add(2)
-	time.Sleep(10 * time.Millisecond)
-	assert.Equal(t, Event{
-		Progress: 3,
-		Total:    10,
-	}, <-c)
+	testutils.Retry(t, 10*time.Millisecond, 10, func() bool {
+		return assert.ObjectsAreEqual(Event{
+			Progress: 3,
+			Total:    10,
+		}, <-c)
+	}, "")
 
 	tr.Stop()
 	ok := true

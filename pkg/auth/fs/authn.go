@@ -164,6 +164,9 @@ func (s *AuthnStore) Flush() error {
 		return err
 	}
 	w.Flush()
+	if err := w.Error(); err != nil {
+		return err
+	}
 	return f.Close()
 }
 

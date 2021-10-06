@@ -110,10 +110,11 @@ func TestAuthnStoreWatchFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 
-	time.Sleep(time.Millisecond * 100)
-	sl, err := s.ListUsers()
-	require.NoError(t, err)
-	assert.Equal(t, [][]string{
-		{"john.doe@domain.com", "John Doe"},
-	}, sl)
+	testutils.Retry(t, 100*time.Millisecond, 10, func() bool {
+		sl, err := s.ListUsers()
+		require.NoError(t, err)
+		return assert.ObjectsAreEqual([][]string{
+			{"john.doe@domain.com", "John Doe"},
+		}, sl)
+	}, "")
 }
