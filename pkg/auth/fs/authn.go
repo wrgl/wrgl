@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -30,6 +31,7 @@ type AuthnStore struct {
 	secret        []byte
 	tokenDuration time.Duration
 	watcher       *fsnotify.Watcher
+	mutex         sync.Mutex
 }
 
 func NewAuthnStore(rd *local.RepoDir, tokenDuration time.Duration) (s *AuthnStore, err error) {
@@ -56,6 +58,8 @@ func (s *AuthnStore) Filepath() string {
 }
 
 func (s *AuthnStore) read() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	fp := s.Filepath()
 	f, err := os.Open(fp)
 	if err == nil {
@@ -154,6 +158,8 @@ func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *
 }
 
 func (s *AuthnStore) Flush() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	fp := s.Filepath()
 	f, err := os.OpenFile(fp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
