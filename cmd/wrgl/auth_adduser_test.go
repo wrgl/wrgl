@@ -24,6 +24,13 @@ func TestAuthAddUserCmd(t *testing.T) {
 	require.NoError(t, cmd.ExecuteContext(ctx))
 
 	cmd = RootCmd()
+	cmd.SetArgs([]string{"auth", "list-user"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		fmt.Sprintf("%s <%s>", name1, email1),
+		"",
+	}, "\n"))
+
+	cmd = RootCmd()
 	email2 := "b" + testutils.RandomEmail()
 	name2 := testutils.BrokenRandomLowerAlphaString(10)
 	password2 := testutils.BrokenRandomAlphaNumericString(10)
