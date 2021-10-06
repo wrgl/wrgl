@@ -62,7 +62,7 @@ func adduserCmd() *cobra.Command {
 				if err != nil {
 					fmt.Fprintf(dw, "error opening authn.csv: %v\n", err)
 				}
-				fmt.Fprintf(dw, "content from authn.csv:\n%s\n", string(b))
+				fmt.Fprintf(dw, "content from %s:\n%s\n", authnS.Filepath(), string(b))
 			}
 			return nil
 		},

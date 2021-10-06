@@ -160,8 +160,11 @@ func (s *AuthnStore) Flush() error {
 	}
 	defer f.Close()
 	w := csv.NewWriter(f)
-	defer w.Flush()
-	return w.WriteAll(s.sl)
+	if err := w.WriteAll(s.sl); err != nil {
+		return err
+	}
+	w.Flush()
+	return f.Close()
 }
 
 func (s *AuthnStore) search(email string) int {
