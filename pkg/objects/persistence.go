@@ -5,6 +5,7 @@ package objects
 
 import (
 	"bytes"
+	"compress/gzip"
 	"sort"
 
 	"github.com/mmcloughlin/meow"
@@ -44,13 +45,25 @@ func saveObj(s Store, k, v []byte) (err error) {
 	return s.Set(k, b)
 }
 
-func SaveBlock(s Store, content []byte) (sum []byte, err error) {
-	arr := meow.Checksum(0, content)
-	err = saveObj(s, blockKey(arr[:]), content)
+func SaveBlock(s Store, buf *bytes.Buffer, gzw *gzip.Writer, content []byte) (sum []byte, err error) {
+	buf.Reset()
+	gzw.Reset(buf)
+	_, err = gzw.Write(content)
 	if err != nil {
 		return
 	}
-	return arr[:], nil
+	if err = gzw.Close(); err != nil {
+		return
+	}
+	return SaveCompressedBlock(s, content, buf.Bytes())
+}
+
+func SaveCompressedBlock(s Store, content, compressed []byte) (sum []byte, err error) {
+	sumArr := meow.Checksum(0, content)
+	if err = saveObj(s, blockKey(sumArr[:]), compressed); err != nil {
+		return
+	}
+	return sumArr[:], nil
 }
 
 func SaveBlockIndex(s Store, content []byte) (sum []byte, err error) {
@@ -88,12 +101,23 @@ func GetBlockBytes(s Store, sum []byte) ([]byte, error) {
 	return s.Get(blockKey(sum))
 }
 
-func GetBlock(s Store, sum []byte) ([][]string, error) {
+func GetBlock(s Store, buf *bytes.Buffer, gzr *gzip.Reader, sum []byte) ([][]string, error) {
 	b, err := GetBlockBytes(s, sum)
 	if err != nil {
 		return nil, err
 	}
-	_, blk, err := ReadBlockFrom(bytes.NewReader(b))
+	if err := gzr.Reset(bytes.NewReader(b)); err != nil {
+		return nil, err
+	}
+	buf.Reset()
+	_, err = buf.ReadFrom(gzr)
+	if err != nil {
+		return nil, err
+	}
+	if err = gzr.Close(); err != nil {
+		return nil, err
+	}
+	_, blk, err := ReadBlockFrom(bytes.NewReader(buf.Bytes()))
 	return blk, err
 }
 

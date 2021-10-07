@@ -2,6 +2,7 @@ package diff
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/hex"
 	"testing"
 
@@ -20,7 +21,9 @@ func saveBlock(t *testing.T, db objects.Store, blk [][]string, pk []uint32) (sum
 	enc := objects.NewStrListEncoder(true)
 	_, err := objects.WriteBlockTo(enc, buf, blk)
 	require.NoError(t, err)
-	sum, err = objects.SaveBlock(db, buf.Bytes())
+	rawBuf := bytes.NewBuffer(nil)
+	gzw := gzip.NewWriter(rawBuf)
+	sum, err = objects.SaveBlock(db, rawBuf, gzw, buf.Bytes())
 	require.NoError(t, err)
 	hash := meow.New(0)
 	idx, err = objects.IndexBlock(enc, hash, blk, pk)

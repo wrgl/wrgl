@@ -5,6 +5,7 @@ package objects_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"sort"
 	"testing"
 
@@ -25,15 +26,18 @@ func TestSaveBlock(t *testing.T) {
 	enc := objects.NewStrListEncoder(true)
 	_, err := objects.WriteBlockTo(enc, buf, blk)
 	require.NoError(t, err)
-	sum, err := objects.SaveBlock(s, buf.Bytes())
+	rawBuf := bytes.NewBuffer(nil)
+	gzw := gzip.NewWriter(rawBuf)
+	gzr := new(gzip.Reader)
+	sum, err := objects.SaveBlock(s, rawBuf, gzw, buf.Bytes())
 	require.NoError(t, err)
 	assert.True(t, objects.BlockExist(s, sum))
-	obj, err := objects.GetBlock(s, sum)
+	obj, err := objects.GetBlock(s, rawBuf, gzr, sum)
 	require.NoError(t, err)
 	assert.Equal(t, blk, obj)
 	require.NoError(t, objects.DeleteBlock(s, sum))
 	assert.False(t, objects.BlockExist(s, sum))
-	_, err = objects.GetBlock(s, sum)
+	_, err = objects.GetBlock(s, rawBuf, gzr, sum)
 	assert.Equal(t, objects.ErrKeyNotFound, err)
 }
 
@@ -55,7 +59,8 @@ func TestSaveBlockIndex(t *testing.T) {
 	assert.Equal(t, idx, obj)
 	require.NoError(t, objects.DeleteBlockIndex(s, sum))
 	assert.False(t, objects.BlockIndexExist(s, sum))
-	_, err = objects.GetBlock(s, sum)
+	gzr := new(gzip.Reader)
+	_, err = objects.GetBlock(s, buf, gzr, sum)
 	assert.Equal(t, objects.ErrKeyNotFound, err)
 }
 
@@ -88,7 +93,8 @@ func TestSaveTable(t *testing.T) {
 	assert.Equal(t, tbl, obj)
 	require.NoError(t, objects.DeleteTable(s, sum))
 	assert.False(t, objects.TableExist(s, sum))
-	_, err = objects.GetBlock(s, sum)
+	gzr := new(gzip.Reader)
+	_, err = objects.GetBlock(s, buf, gzr, sum)
 	assert.Equal(t, objects.ErrKeyNotFound, err)
 }
 
@@ -108,7 +114,8 @@ func TestSaveTableIndex(t *testing.T) {
 	assert.Equal(t, idx, obj)
 	require.NoError(t, objects.DeleteTableIndex(s, sum))
 	assert.False(t, objects.TableIndexExist(s, sum))
-	_, err = objects.GetBlock(s, sum)
+	gzr := new(gzip.Reader)
+	_, err = objects.GetBlock(s, buf, gzr, sum)
 	assert.Equal(t, objects.ErrKeyNotFound, err)
 }
 
@@ -141,7 +148,8 @@ func TestSaveCommit(t *testing.T) {
 	assert.Equal(t, orig, sl)
 
 	require.NoError(t, objects.DeleteCommit(s, sum1))
-	_, err = objects.GetBlock(s, sum1)
+	gzr := new(gzip.Reader)
+	_, err = objects.GetBlock(s, buf, gzr, sum1)
 	assert.Equal(t, objects.ErrKeyNotFound, err)
 
 	assert.True(t, objects.CommitExist(s, sum2))

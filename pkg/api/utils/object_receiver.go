@@ -5,6 +5,7 @@ package apiutils
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 
@@ -19,13 +20,18 @@ type ObjectReceiver struct {
 	expectedCommits map[string]struct{}
 	ReceivedCommits [][]byte
 	debugOut        io.Writer
+	buf             *bytes.Buffer
+	gzr             *gzip.Reader
 }
 
 func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, debugOut io.Writer) *ObjectReceiver {
+	buf := bytes.NewBuffer(nil)
 	r := &ObjectReceiver{
 		db:              db,
 		expectedCommits: map[string]struct{}{},
 		debugOut:        debugOut,
+		buf:             buf,
+		gzr:             new(gzip.Reader),
 	}
 	for _, com := range expectedCommits {
 		r.expectedCommits[string(com)] = struct{}{}
@@ -34,11 +40,21 @@ func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, debugOut io.W
 }
 
 func (r *ObjectReceiver) saveBlock(b []byte) (err error) {
-	err = objects.ValidateBlockBytes(b)
+	if err = r.gzr.Reset(bytes.NewReader(b)); err != nil {
+		return
+	}
+	r.buf.Reset()
+	_, err = r.buf.ReadFrom(r.gzr)
 	if err != nil {
 		return
 	}
-	_, err = objects.SaveBlock(r.db, b)
+	if err = r.gzr.Close(); err != nil {
+		return
+	}
+	if err = objects.ValidateBlockBytes(r.buf.Bytes()); err != nil {
+		return
+	}
+	_, err = objects.SaveCompressedBlock(r.db, r.buf.Bytes(), b)
 	return err
 }
 
@@ -48,8 +64,7 @@ func (r *ObjectReceiver) saveTable(b []byte) (err error) {
 		return
 	}
 	sum := meow.Checksum(0, b)
-	err = ingest.IndexTable(r.db, sum[:], tbl, r.debugOut)
-	if err != nil {
+	if err = ingest.IndexTable(r.db, sum[:], tbl, r.debugOut); err != nil {
 		return
 	}
 	_, err = objects.SaveTable(r.db, b)

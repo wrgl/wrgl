@@ -5,6 +5,7 @@ package api_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	"github.com/wrgl/wrgl/pkg/encoding"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
@@ -33,8 +35,10 @@ func assertBlocksCSV(t *testing.T, db objects.Store, blocks [][]byte, columns []
 		require.NoError(t, err)
 		assert.Equal(t, columns, row)
 	}
+	buf := bytes.NewBuffer(nil)
+	gzr := new(gzip.Reader)
 	for i, sum := range blocks {
-		blk, err := objects.GetBlock(db, sum)
+		blk, err := objects.GetBlock(db, buf, gzr, sum)
 		require.NoError(t, err)
 		for j, row := range blk {
 			sl, err := r.Read()
@@ -49,17 +53,29 @@ func assertBlocksCSV(t *testing.T, db objects.Store, blocks [][]byte, columns []
 func assertBlocksBinary(t *testing.T, db objects.Store, blocks [][]byte, resp *http.Response) {
 	t.Helper()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Equal(t, api.CTBlocksBinary, resp.Header.Get("Content-Type"))
+	require.Equal(t, api.CTPackfile, resp.Header.Get("Content-Type"))
 	defer resp.Body.Close()
+	buf := bytes.NewBuffer(nil)
+	gzr := new(gzip.Reader)
+	pr, err := encoding.NewPackfileReader(resp.Body)
+	require.NoError(t, err)
 	for i, sum := range blocks {
-		blk1, err := objects.GetBlock(db, sum)
+		blk1, err := objects.GetBlock(db, buf, gzr, sum)
 		require.NoError(t, err)
-		_, blk2, err := objects.ReadBlockFrom(resp.Body)
+		ot, b, err := pr.ReadObject()
+		require.NoError(t, err)
+		assert.Equal(t, encoding.ObjectBlock, ot)
+		require.NoError(t, gzr.Reset(bytes.NewReader(b)))
+		buf.Reset()
+		_, err = buf.ReadFrom(gzr)
+		require.NoError(t, err)
+		_, blk2, err := objects.ReadBlockFrom(bytes.NewReader(buf.Bytes()))
 		require.NoError(t, err)
 		require.Equal(t, blk1, blk2, "block %d", i)
 	}
-	_, _, err := objects.ReadBlockFrom(resp.Body)
+	_, _, err = pr.ReadObject()
 	assert.Equal(t, io.EOF, err)
+	require.NoError(t, pr.Close())
 }
 
 func (s *testSuite) TestGetBlocksHandler(t *testing.T) {

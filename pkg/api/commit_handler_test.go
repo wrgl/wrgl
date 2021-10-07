@@ -86,7 +86,9 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	assert.Equal(t, []string{"a", "b", "c"}, tbl.Columns)
 	assert.Equal(t, uint32(3), tbl.RowsCount)
 	assert.Len(t, tbl.Blocks, 1)
-	blk, err := objects.GetBlock(db, tbl.Blocks[0])
+	gzr := new(gzip.Reader)
+	buf2 := bytes.NewBuffer(nil)
+	blk, err := objects.GetBlock(db, buf2, gzr, tbl.Blocks[0])
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{
 		{"1", "q", "w"},

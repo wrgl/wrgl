@@ -1,6 +1,8 @@
 package ingest
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/csv"
 	"io"
 	"os"
@@ -47,8 +49,10 @@ func TestIngestTable(t *testing.T) {
 	assert.Len(t, tblIdx, 3)
 
 	sorter.SortRows(rows[1:], []uint32{0})
+	buf := bytes.NewBuffer(nil)
+	gzr := new(gzip.Reader)
 	for i, sum := range tbl.Blocks {
-		blk, err := objects.GetBlock(db, sum)
+		blk, err := objects.GetBlock(db, buf, gzr, sum)
 		require.NoError(t, err)
 		for j, row := range blk {
 			if j == 0 {

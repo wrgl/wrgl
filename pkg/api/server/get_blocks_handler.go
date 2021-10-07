@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/csv"
 	"encoding/hex"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/encoding"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
@@ -67,16 +69,17 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 	s.cacheControlImmutable(rw)
 	switch format {
 	case payload.BlockFormatBinary:
-		rw.Header().Set("Content-Encoding", "gzip")
-		gzw := gzip.NewWriter(rw)
-		defer gzw.Close()
-		rw.Header().Set("Content-Type", api.CTBlocksBinary)
+		rw.Header().Set("Content-Type", api.CTPackfile)
+		pw, err := encoding.NewPackfileWriter(rw)
+		if err != nil {
+			return
+		}
 		for i := start; i < end; i++ {
 			b, err := objects.GetBlockBytes(db, tbl.Blocks[i])
 			if err != nil {
 				panic(err)
 			}
-			_, err = gzw.Write(b)
+			_, err = pw.WriteObject(encoding.ObjectBlock, b)
 			if err != nil {
 				panic(err)
 			}
@@ -93,8 +96,10 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 				panic(err)
 			}
 		}
+		buf := bytes.NewBuffer(nil)
+		gzr := new(gzip.Reader)
 		for i := start; i < end; i++ {
-			blk, err := objects.GetBlock(db, tbl.Blocks[i])
+			blk, err := objects.GetBlock(db, buf, gzr, tbl.Blocks[i])
 			if err != nil {
 				panic(err)
 			}

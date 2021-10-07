@@ -4,6 +4,8 @@
 package wrgl
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
@@ -42,7 +44,9 @@ func newCatFileCmd() *cobra.Command {
 			if err == nil {
 				return catTable(cmd, tbl)
 			}
-			blk, err := objects.GetBlock(db, hash)
+			buf := bytes.NewBuffer(nil)
+			gzr := new(gzip.Reader)
+			blk, err := objects.GetBlock(db, buf, gzr, hash)
 			if err == nil {
 				return catBlock(cmd, blk)
 			}

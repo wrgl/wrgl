@@ -82,19 +82,22 @@ func PushObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Clie
 func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byte) {
 	t.Helper()
 	enc := objects.NewStrListEncoder(true)
+	buf := bytes.NewBuffer(nil)
+	buf2 := bytes.NewBuffer(nil)
+	gzr := new(gzip.Reader)
+	gzw := gzip.NewWriter(buf2)
 	for _, sum := range commits {
 		c, err := objects.GetCommit(src, sum)
 		require.NoError(t, err)
 		tbl, err := objects.GetTable(src, c.Table)
 		require.NoError(t, err)
-		buf := bytes.NewBuffer(nil)
 		for _, sum := range tbl.Blocks {
-			blk, err := objects.GetBlock(src, sum)
+			blk, err := objects.GetBlock(src, buf2, gzr, sum)
 			require.NoError(t, err)
 			buf.Reset()
 			_, err = objects.WriteBlockTo(enc, buf, blk)
 			require.NoError(t, err)
-			_, err = objects.SaveBlock(dst, buf.Bytes())
+			_, err = objects.SaveBlock(dst, buf2, gzw, buf.Bytes())
 			require.NoError(t, err)
 		}
 		buf.Reset()

@@ -40,8 +40,8 @@ func assertHTTPError(t *testing.T, err error, code int, message string) {
 
 func assertCSVError(t *testing.T, err error, message string, csvLoc *payload.CSVLocation) {
 	t.Helper()
-	v, ok := err.(*apiclient.HTTPError)
-	require.True(t, ok)
+	require.IsType(t, &apiclient.HTTPError{}, err, err.Error())
+	v := err.(*apiclient.HTTPError)
 	assert.Equal(t, http.StatusBadRequest, v.Code)
 	assert.Equal(t, message, v.Body.Message)
 	assert.Equal(t, csvLoc, v.Body.CSV)

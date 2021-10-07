@@ -4,6 +4,8 @@
 package diff
 
 import (
+	"bytes"
+	"compress/gzip"
 	"container/list"
 
 	"github.com/wrgl/wrgl/pkg/mem"
@@ -37,6 +39,8 @@ type BlockBuffer struct {
 	db            []objects.Store
 	tbl           []*objects.Table
 	buf           *list.List
+	blkBuf        *bytes.Buffer
+	gzr           *gzip.Reader
 	maxSize, size uint64
 }
 
@@ -49,6 +53,8 @@ func NewBlockBuffer(db []objects.Store, tbl []*objects.Table) (*BlockBuffer, err
 		db:      db,
 		tbl:     tbl,
 		buf:     list.New(),
+		gzr:     new(gzip.Reader),
+		blkBuf:  bytes.NewBuffer(nil),
 		maxSize: maxSize,
 	}, nil
 }
@@ -65,7 +71,7 @@ func (buf *BlockBuffer) addBlock(table byte, offset uint32) ([][]string, error) 
 	if buf.size >= buf.maxSize {
 		buf.size -= buf.buf.Remove(buf.buf.Back()).(*blockEl).Size
 	}
-	blk, err := objects.GetBlock(buf.db[table], buf.tbl[table].Blocks[offset])
+	blk, err := objects.GetBlock(buf.db[table], buf.blkBuf, buf.gzr, buf.tbl[table].Blocks[offset])
 	if err != nil {
 		return nil, err
 	}

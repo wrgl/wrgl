@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -66,13 +67,14 @@ func WithDebugOutput(w io.Writer) InserterOption {
 
 func (i *Inserter) insertBlock() {
 	buf := bytes.NewBuffer(nil)
+	gzw := gzip.NewWriter(buf)
 	defer i.wg.Done()
 	dec := objects.NewStrListDecoder(true)
 	hash := meow.New(0)
 	e := objects.NewStrListEditor(i.tbl.PK)
 	for blk := range i.blocks {
 		// write block and add block to table
-		sum, err := objects.SaveBlock(i.db, blk.Block)
+		sum, err := objects.SaveBlock(i.db, buf, gzw, blk.Block)
 		if err != nil {
 			i.errChan <- err
 			return
