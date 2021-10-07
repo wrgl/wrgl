@@ -326,6 +326,7 @@ func BenchmarkDiffRows(b *testing.B) {
 	for d := range diffChan {
 		assert.NotNil(b, d)
 	}
+	close(errChan)
 	_, ok := <-errChan
 	assert.False(b, ok)
 }
