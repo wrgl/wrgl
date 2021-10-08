@@ -2,7 +2,6 @@ package ingest
 
 import (
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io"
 
@@ -12,16 +11,20 @@ import (
 )
 
 func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io.Writer) error {
-	tblIdx := make([][]string, len(tbl.Blocks))
-	buf := bytes.NewBuffer(nil)
-	gzr := new(gzip.Reader)
-	enc := objects.NewStrListEncoder(true)
-	hash := meow.New(0)
+	var (
+		tblIdx = make([][]string, len(tbl.Blocks))
+		buf    = bytes.NewBuffer(nil)
+		enc    = objects.NewStrListEncoder(true)
+		hash   = meow.New(0)
+		blk    [][]string
+		err    error
+		bb     []byte
+	)
 	if debugOut != nil {
 		fmt.Fprintf(debugOut, "Indexing table %x\n", tblSum)
 	}
 	for i, sum := range tbl.Blocks {
-		blk, err := objects.GetBlock(db, buf, gzr, sum)
+		blk, bb, err = objects.GetBlock(db, bb, sum)
 		if err != nil {
 			return fmt.Errorf("GetBlock: %v", err)
 		}
@@ -50,7 +53,7 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 		}
 	}
 	buf.Reset()
-	_, err := objects.WriteBlockTo(enc, buf, tblIdx)
+	_, err = objects.WriteBlockTo(enc, buf, tblIdx)
 	if err != nil {
 		return fmt.Errorf("objects.WriteBlockTo: %v", err)
 	}

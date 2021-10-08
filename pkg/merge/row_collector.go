@@ -4,8 +4,6 @@
 package merge
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
 	"os"
 
@@ -95,11 +93,11 @@ func (c *RowCollector) collectRowsThatStayedTheSame() error {
 	}
 	enc := objects.NewStrListEncoder(true)
 	hash := meow.New(0)
-	buf := bytes.NewBuffer(nil)
-	gzr := new(gzip.Reader)
+	var buf []byte
+	var blk [][]string
 	pk := make([]byte, 16)
 	for _, sum := range c.baseT.Blocks {
-		blk, err := objects.GetBlock(c.db, buf, gzr, sum)
+		blk, buf, err = objects.GetBlock(c.db, buf, sum)
 		if err != nil {
 			return err
 		}

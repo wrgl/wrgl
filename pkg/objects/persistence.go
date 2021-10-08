@@ -5,9 +5,9 @@ package objects
 
 import (
 	"bytes"
-	"compress/gzip"
 	"sort"
 
+	"github.com/klauspost/compress/s2"
 	"github.com/mmcloughlin/meow"
 )
 
@@ -45,17 +45,10 @@ func saveObj(s Store, k, v []byte) (err error) {
 	return s.Set(k, b)
 }
 
-func SaveBlock(s Store, buf *bytes.Buffer, gzw *gzip.Writer, content []byte) (sum []byte, err error) {
-	buf.Reset()
-	gzw.Reset(buf)
-	_, err = gzw.Write(content)
-	if err != nil {
-		return
-	}
-	if err = gzw.Close(); err != nil {
-		return
-	}
-	return SaveCompressedBlock(s, content, buf.Bytes())
+func SaveBlock(s Store, buf, content []byte) (sum, dst []byte, err error) {
+	dst = s2.Encode(buf, content)
+	sum, err = SaveCompressedBlock(s, content, dst)
+	return
 }
 
 func SaveCompressedBlock(s Store, content, compressed []byte) (sum []byte, err error) {
@@ -101,24 +94,17 @@ func GetBlockBytes(s Store, sum []byte) ([]byte, error) {
 	return s.Get(blockKey(sum))
 }
 
-func GetBlock(s Store, buf *bytes.Buffer, gzr *gzip.Reader, sum []byte) ([][]string, error) {
+func GetBlock(s Store, buf, sum []byte) (blk [][]string, dst []byte, err error) {
 	b, err := GetBlockBytes(s, sum)
 	if err != nil {
-		return nil, err
+		return
 	}
-	if err := gzr.Reset(bytes.NewReader(b)); err != nil {
-		return nil, err
-	}
-	buf.Reset()
-	_, err = buf.ReadFrom(gzr)
+	dst, err = s2.Decode(buf, b)
 	if err != nil {
-		return nil, err
+		return
 	}
-	if err = gzr.Close(); err != nil {
-		return nil, err
-	}
-	_, blk, err := ReadBlockFrom(bytes.NewReader(buf.Bytes()))
-	return blk, err
+	_, blk, err = ReadBlockFrom(bytes.NewReader(dst))
+	return
 }
 
 func GetBlockIndex(s Store, sum []byte) (*BlockIndex, error) {

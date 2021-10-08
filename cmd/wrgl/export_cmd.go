@@ -4,8 +4,6 @@
 package wrgl
 
 import (
-	"bytes"
-	"compress/gzip"
 	"encoding/csv"
 	"strings"
 
@@ -59,10 +57,10 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	if err != nil {
 		return err
 	}
-	buf := bytes.NewBuffer(nil)
-	gzr := new(gzip.Reader)
+	var buf []byte
+	var blk [][]string
 	for _, sum := range tbl.Blocks {
-		blk, err := objects.GetBlock(db, buf, gzr, sum)
+		blk, buf, err = objects.GetBlock(db, buf, sum)
 		if err != nil {
 			return err
 		}

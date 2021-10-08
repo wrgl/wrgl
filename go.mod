@@ -13,7 +13,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.0.0
 	github.com/imdario/mergo v0.3.12
-	github.com/klauspost/compress v1.12.3
+	github.com/klauspost/compress v1.13.6
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-runewidth v0.0.10
 	github.com/mmcloughlin/meow v0.0.0-20200201185800-3501c7c05d21
@@ -56,6 +56,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	go.opencensus.io v0.22.5 // indirect
+	golang.org/x/perf v0.0.0-20210220033136-40a54f11e909 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect

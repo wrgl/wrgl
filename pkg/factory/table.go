@@ -5,7 +5,6 @@ package factory
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -59,11 +58,11 @@ func SdumpTable(t *testing.T, db objects.Store, sum []byte, indent int) string {
 		fmt.Sprintf("table %x", sum),
 		fmt.Sprintf("    %s", strings.Join(tbl.Columns, ", ")),
 	}
-	buf := bytes.NewBuffer(nil)
-	gzr := new(gzip.Reader)
+	var bb []byte
+	var blk [][]string
 	for _, sum := range tbl.Blocks {
 		lines = append(lines, fmt.Sprintf("  block %x", sum))
-		blk, err := objects.GetBlock(db, buf, gzr, sum)
+		blk, bb, err = objects.GetBlock(db, bb, sum)
 		require.NoError(t, err)
 		for _, row := range blk {
 			lines = append(lines, fmt.Sprintf("    %s", strings.Join(row, ", ")))

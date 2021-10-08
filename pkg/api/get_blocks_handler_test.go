@@ -5,7 +5,6 @@ package api_test
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/klauspost/compress/s2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/api"
@@ -35,10 +35,11 @@ func assertBlocksCSV(t *testing.T, db objects.Store, blocks [][]byte, columns []
 		require.NoError(t, err)
 		assert.Equal(t, columns, row)
 	}
-	buf := bytes.NewBuffer(nil)
-	gzr := new(gzip.Reader)
+	var bb []byte
+	var blk [][]string
+	var err error
 	for i, sum := range blocks {
-		blk, err := objects.GetBlock(db, buf, gzr, sum)
+		blk, bb, err = objects.GetBlock(db, bb, sum)
 		require.NoError(t, err)
 		for j, row := range blk {
 			sl, err := r.Read()
@@ -46,7 +47,7 @@ func assertBlocksCSV(t *testing.T, db objects.Store, blocks [][]byte, columns []
 			require.Equal(t, row, sl, "row (%d, %d)", i, j)
 		}
 	}
-	_, err := r.Read()
+	_, err = r.Read()
 	assert.Equal(t, io.EOF, err)
 }
 
@@ -55,21 +56,19 @@ func assertBlocksBinary(t *testing.T, db objects.Store, blocks [][]byte, resp *h
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, api.CTPackfile, resp.Header.Get("Content-Type"))
 	defer resp.Body.Close()
-	buf := bytes.NewBuffer(nil)
-	gzr := new(gzip.Reader)
+	var bb []byte
+	var blk1 [][]string
 	pr, err := encoding.NewPackfileReader(resp.Body)
 	require.NoError(t, err)
 	for i, sum := range blocks {
-		blk1, err := objects.GetBlock(db, buf, gzr, sum)
+		blk1, bb, err = objects.GetBlock(db, bb, sum)
 		require.NoError(t, err)
 		ot, b, err := pr.ReadObject()
 		require.NoError(t, err)
 		assert.Equal(t, encoding.ObjectBlock, ot)
-		require.NoError(t, gzr.Reset(bytes.NewReader(b)))
-		buf.Reset()
-		_, err = buf.ReadFrom(gzr)
+		bb, err = s2.Decode(bb, b)
 		require.NoError(t, err)
-		_, blk2, err := objects.ReadBlockFrom(bytes.NewReader(buf.Bytes()))
+		_, blk2, err := objects.ReadBlockFrom(bytes.NewReader(bb))
 		require.NoError(t, err)
 		require.Equal(t, blk1, blk2, "block %d", i)
 	}

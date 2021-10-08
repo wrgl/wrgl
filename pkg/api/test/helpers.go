@@ -83,21 +83,20 @@ func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byt
 	t.Helper()
 	enc := objects.NewStrListEncoder(true)
 	buf := bytes.NewBuffer(nil)
-	buf2 := bytes.NewBuffer(nil)
-	gzr := new(gzip.Reader)
-	gzw := gzip.NewWriter(buf2)
+	var bb []byte
+	var blk [][]string
 	for _, sum := range commits {
 		c, err := objects.GetCommit(src, sum)
 		require.NoError(t, err)
 		tbl, err := objects.GetTable(src, c.Table)
 		require.NoError(t, err)
 		for _, sum := range tbl.Blocks {
-			blk, err := objects.GetBlock(src, buf2, gzr, sum)
+			blk, bb, err = objects.GetBlock(src, bb, sum)
 			require.NoError(t, err)
 			buf.Reset()
 			_, err = objects.WriteBlockTo(enc, buf, blk)
 			require.NoError(t, err)
-			_, err = objects.SaveBlock(dst, buf2, gzw, buf.Bytes())
+			_, bb, err = objects.SaveBlock(dst, bb, buf.Bytes())
 			require.NoError(t, err)
 		}
 		buf.Reset()

@@ -5,10 +5,10 @@ package apiutils
 
 import (
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io"
 
+	"github.com/klauspost/compress/s2"
 	"github.com/mmcloughlin/meow"
 	"github.com/wrgl/wrgl/pkg/encoding"
 	"github.com/wrgl/wrgl/pkg/ingest"
@@ -20,18 +20,14 @@ type ObjectReceiver struct {
 	expectedCommits map[string]struct{}
 	ReceivedCommits [][]byte
 	debugOut        io.Writer
-	buf             *bytes.Buffer
-	gzr             *gzip.Reader
+	buf             []byte
 }
 
 func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, debugOut io.Writer) *ObjectReceiver {
-	buf := bytes.NewBuffer(nil)
 	r := &ObjectReceiver{
 		db:              db,
 		expectedCommits: map[string]struct{}{},
 		debugOut:        debugOut,
-		buf:             buf,
-		gzr:             new(gzip.Reader),
 	}
 	for _, com := range expectedCommits {
 		r.expectedCommits[string(com)] = struct{}{}
@@ -40,21 +36,14 @@ func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, debugOut io.W
 }
 
 func (r *ObjectReceiver) saveBlock(b []byte) (err error) {
-	if err = r.gzr.Reset(bytes.NewReader(b)); err != nil {
-		return
-	}
-	r.buf.Reset()
-	_, err = r.buf.ReadFrom(r.gzr)
+	r.buf, err = s2.Decode(r.buf, b)
 	if err != nil {
 		return
 	}
-	if err = r.gzr.Close(); err != nil {
+	if err = objects.ValidateBlockBytes(r.buf); err != nil {
 		return
 	}
-	if err = objects.ValidateBlockBytes(r.buf.Bytes()); err != nil {
-		return
-	}
-	_, err = objects.SaveCompressedBlock(r.db, r.buf.Bytes(), b)
+	_, err = objects.SaveCompressedBlock(r.db, r.buf, b)
 	return err
 }
 

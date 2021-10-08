@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"bytes"
 	"compress/gzip"
 	"encoding/csv"
 	"encoding/hex"
@@ -96,10 +95,10 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 				panic(err)
 			}
 		}
-		buf := bytes.NewBuffer(nil)
-		gzr := new(gzip.Reader)
+		var buf []byte
+		var blk [][]string
 		for i := start; i < end; i++ {
-			blk, err := objects.GetBlock(db, buf, gzr, tbl.Blocks[i])
+			blk, buf, err = objects.GetBlock(db, buf, tbl.Blocks[i])
 			if err != nil {
 				panic(err)
 			}
