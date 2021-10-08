@@ -46,7 +46,7 @@ func saveObj(s Store, k, v []byte) (err error) {
 }
 
 func SaveBlock(s Store, buf, content []byte) (sum, dst []byte, err error) {
-	dst = s2.Encode(buf, content)
+	dst = s2.EncodeBetter(buf, content)
 	sum, err = SaveCompressedBlock(s, content, dst)
 	return
 }
