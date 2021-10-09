@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"sync"
 
-	"github.com/mmcloughlin/meow"
+	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/sorter"
 )
@@ -74,6 +74,7 @@ func (i *Inserter) insertBlock() {
 		dec       = objects.NewStrListDecoder(true)
 		hash      = meow.New(0)
 		e         = objects.NewStrListEditor(i.tbl.PK)
+		idxSum    = make([]byte, meow.Size)
 	)
 	defer i.wg.Done()
 	for blk := range i.blocks {
@@ -96,7 +97,7 @@ func (i *Inserter) insertBlock() {
 		if i.debugOut != nil {
 			hash.Reset()
 			hash.Write(buf.Bytes())
-			idxSum := hash.Sum(nil)
+			hash.SumTo(idxSum)
 			fmt.Fprintf(i.debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
 		}
 		blkIdxSum, bb, err = objects.SaveBlockIndex(i.db, bb, buf.Bytes())

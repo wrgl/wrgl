@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"github.com/klauspost/compress/s2"
-	"github.com/mmcloughlin/meow"
+	"github.com/pckhoi/meow"
 )
 
 var (

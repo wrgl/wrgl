@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/mmcloughlin/meow"
+	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/slice"
 )
@@ -24,6 +24,7 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 	if debugOut != nil {
 		fmt.Fprintf(debugOut, "Indexing table %x\n", tblSum)
 	}
+	var idxSum = make([]byte, meow.Size)
 	for i, sum := range tbl.Blocks {
 		blk, bb, err = objects.GetBlock(db, bb, sum)
 		if err != nil {
@@ -42,7 +43,7 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 		if debugOut != nil {
 			hash.Reset()
 			hash.Write(buf.Bytes())
-			idxSum := hash.Sum(nil)
+			hash.SumTo(idxSum)
 			fmt.Fprintf(debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
 		}
 		tblIdxSum, bb, err = objects.SaveBlockIndex(db, bb, buf.Bytes())

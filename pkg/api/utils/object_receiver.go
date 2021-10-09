@@ -9,7 +9,7 @@ import (
 	"io"
 
 	"github.com/klauspost/compress/s2"
-	"github.com/mmcloughlin/meow"
+	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/encoding"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"

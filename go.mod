@@ -16,7 +16,7 @@ require (
 	github.com/klauspost/compress v1.13.6
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-runewidth v0.0.10
-	github.com/mmcloughlin/meow v0.0.0-20200201185800-3501c7c05d21
+	github.com/pckhoi/meow v0.0.0-20211009023351-e1fff1d3c870
 	github.com/rivo/tview v0.0.0-20210312174852-ae9464cc3598
 	github.com/rivo/uniseg v0.2.0
 	github.com/schollz/progressbar/v3 v3.7.6
@@ -56,7 +56,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	go.opencensus.io v0.22.5 // indirect
-	golang.org/x/perf v0.0.0-20210220033136-40a54f11e909 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect

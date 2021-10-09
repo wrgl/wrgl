@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mmcloughlin/meow"
+	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/diff"
 	"github.com/wrgl/wrgl/pkg/index"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -107,7 +107,7 @@ func (c *RowCollector) collectRowsThatStayedTheSame() error {
 			if err != nil {
 				return err
 			}
-			copy(pk, hash.Sum(nil))
+			hash.SumTo(pk)
 			ok, err := c.discardedRows.Has(pk)
 			if err != nil {
 				return err

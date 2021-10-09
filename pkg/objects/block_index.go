@@ -10,6 +10,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/slice"
 )
 
@@ -47,7 +48,7 @@ func IndexBlock(enc *StrListEncoder, hash hash.Hash, blk [][]string, pk []uint32
 	return idx, nil
 }
 
-func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, e *StrListEditor, blk []byte, pk []uint32) (*BlockIndex, error) {
+func IndexBlockFromBytes(dec *StrListDecoder, hash *meow.Digest, e *StrListEditor, blk []byte, pk []uint32) (*BlockIndex, error) {
 	n := int(binary.BigEndian.Uint32(blk))
 	idx := &BlockIndex{
 		sortedOff: make([]uint8, n),
@@ -55,6 +56,8 @@ func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, e *StrListEditor, 
 	}
 	r := bytes.NewReader(blk[4:])
 	var pkb []byte
+	var sum = make([]byte, meow.Size)
+	var pkSum = make([]byte, meow.Size)
 	for i := 0; i < n; i++ {
 		_, b, err := dec.ReadBytes(r)
 		if err != nil {
@@ -68,7 +71,7 @@ func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, e *StrListEditor, 
 		if err != nil {
 			return nil, err
 		}
-		sum := hash.Sum(nil)
+		hash.SumTo(sum)
 		if len(pk) > 0 {
 			pkb = e.PickFrom(pkb, b)
 			hash.Reset()
@@ -76,7 +79,8 @@ func IndexBlockFromBytes(dec *StrListDecoder, hash hash.Hash, e *StrListEditor, 
 			if err != nil {
 				return nil, err
 			}
-			idx.Rows[i] = append(hash.Sum(nil), sum...)
+			hash.SumTo(pkSum)
+			idx.Rows[i] = append(pkSum, sum...)
 		} else {
 			idx.Rows[i] = append(sum, sum...)
 		}
