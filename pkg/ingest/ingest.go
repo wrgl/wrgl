@@ -66,13 +66,14 @@ func WithDebugOutput(w io.Writer) InserterOption {
 
 func (i *Inserter) insertBlock() {
 	var (
-		sum  []byte
-		err  error
-		buf  = bytes.NewBuffer(nil)
-		bb   []byte
-		dec  = objects.NewStrListDecoder(true)
-		hash = meow.New(0)
-		e    = objects.NewStrListEditor(i.tbl.PK)
+		sum       []byte
+		blkIdxSum []byte
+		err       error
+		buf       = bytes.NewBuffer(nil)
+		bb        []byte
+		dec       = objects.NewStrListDecoder(true)
+		hash      = meow.New(0)
+		e         = objects.NewStrListEditor(i.tbl.PK)
 	)
 	defer i.wg.Done()
 	for blk := range i.blocks {
@@ -98,7 +99,7 @@ func (i *Inserter) insertBlock() {
 			idxSum := hash.Sum(nil)
 			fmt.Fprintf(i.debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
 		}
-		blkIdxSum, err := objects.SaveBlockIndex(i.db, buf.Bytes())
+		blkIdxSum, bb, err = objects.SaveBlockIndex(i.db, bb, buf.Bytes())
 		if err != nil {
 			i.errChan <- err
 			return

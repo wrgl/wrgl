@@ -60,9 +60,9 @@ findStart:
 	return
 }
 
-func getBlockIndices(db objects.Store, tbl *objects.Table, start, end int, prevSl []*objects.BlockIndex, prevStart, prevEnd int) ([]*objects.BlockIndex, error) {
+func getBlockIndices(db objects.Store, tbl *objects.Table, bb []byte, start, end int, prevSl []*objects.BlockIndex, prevStart, prevEnd int) ([]*objects.BlockIndex, []byte, error) {
 	if start >= len(tbl.Blocks) || start == end {
-		return nil, nil
+		return nil, bb, nil
 	}
 	sl := make([]*objects.BlockIndex, end-start)
 	slStart := start
@@ -72,28 +72,31 @@ func getBlockIndices(db objects.Store, tbl *objects.Table, start, end int, prevS
 	}
 	var err error
 	for j := start; j < end; j++ {
-		sl[j-slStart], err = objects.GetBlockIndex(db, tbl.BlockIndices[j])
+		sl[j-slStart], bb, err = objects.GetBlockIndex(db, bb, tbl.BlockIndices[j])
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return sl, nil
+	return sl, bb, nil
 }
 
 // iterateAndMatch iterates through a single table while trying to match its rows with another table
 func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, debugOut io.Writer, cb func(pk, row1, row2 []byte, off1, off2 uint32)) error {
 	var prevStart, prevEnd int
 	var indices2 []*objects.BlockIndex
+	var bb []byte
+	var idx1 *objects.BlockIndex
+	var err error
 	for i, sum := range tbl1.Blocks {
 		if debugOut != nil {
 			fmt.Fprintf(debugOut, "iterating block %x\n", sum)
 		}
-		idx1, err := objects.GetBlockIndex(db1, tbl1.BlockIndices[i])
+		idx1, bb, err = objects.GetBlockIndex(db1, bb, tbl1.BlockIndices[i])
 		if err != nil {
 			return err
 		}
 		start, end := findOverlappingBlocks(tblIdx1, tblIdx2, i, prevEnd)
-		indices2, err = getBlockIndices(db2, tbl2, start, end, indices2, prevStart, prevEnd)
+		indices2, bb, err = getBlockIndices(db2, tbl2, bb, start, end, indices2, prevStart, prevEnd)
 		if err != nil {
 			return err
 		}

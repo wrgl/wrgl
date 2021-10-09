@@ -49,6 +49,7 @@ func TestIngestTable(t *testing.T) {
 	sorter.SortRows(rows[1:], []uint32{0})
 	var bb []byte
 	var blk [][]string
+	var blkIdx *objects.BlockIndex
 	for i, sum := range tbl.Blocks {
 		blk, bb, err = objects.GetBlock(db, bb, sum)
 		require.NoError(t, err)
@@ -59,7 +60,7 @@ func TestIngestTable(t *testing.T) {
 			assert.Equal(t, rows[i*255+j+1], row)
 		}
 
-		blkIdx, err := objects.GetBlockIndex(db, tbl.BlockIndices[i])
+		blkIdx, bb, err = objects.GetBlockIndex(db, bb, tbl.BlockIndices[i])
 		require.NoError(t, err)
 		assert.Len(t, blkIdx.Rows, len(blk))
 	}

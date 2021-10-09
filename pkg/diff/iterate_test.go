@@ -20,7 +20,8 @@ func saveBlock(t *testing.T, db objects.Store, blk [][]string, pk []uint32) (sum
 	enc := objects.NewStrListEncoder(true)
 	_, err := objects.WriteBlockTo(enc, buf, blk)
 	require.NoError(t, err)
-	sum, _, err = objects.SaveBlock(db, nil, buf.Bytes())
+	var bb []byte
+	sum, bb, err = objects.SaveBlock(db, bb, buf.Bytes())
 	require.NoError(t, err)
 	hash := meow.New(0)
 	idx, err = objects.IndexBlock(enc, hash, blk, pk)
@@ -28,7 +29,7 @@ func saveBlock(t *testing.T, db objects.Store, blk [][]string, pk []uint32) (sum
 	buf.Reset()
 	_, err = idx.WriteTo(buf)
 	require.NoError(t, err)
-	idxSum, err = objects.SaveBlockIndex(db, buf.Bytes())
+	idxSum, _, err = objects.SaveBlockIndex(db, bb, buf.Bytes())
 	require.NoError(t, err)
 	return sum, idxSum, idx
 }
@@ -128,6 +129,9 @@ func TestGetBlockIndices(t *testing.T) {
 		indices = append(indices, idx)
 	}
 
+	var bb []byte
+	var sl []*objects.BlockIndex
+	var err error
 	for i, c := range []struct {
 		prevStart, prevEnd int
 		prevSl             []*objects.BlockIndex
@@ -159,7 +163,7 @@ func TestGetBlockIndices(t *testing.T) {
 			3, 5, indices[3:5],
 		},
 	} {
-		sl, err := getBlockIndices(db, tbl, c.start, c.end, c.prevSl, c.prevStart, c.prevEnd)
+		sl, bb, err = getBlockIndices(db, tbl, bb, c.start, c.end, c.prevSl, c.prevStart, c.prevEnd)
 		require.NoError(t, err)
 		assert.Equal(t, c.sl, sl, "case %d", i)
 	}

@@ -12,13 +12,14 @@ import (
 
 func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io.Writer) error {
 	var (
-		tblIdx = make([][]string, len(tbl.Blocks))
-		buf    = bytes.NewBuffer(nil)
-		enc    = objects.NewStrListEncoder(true)
-		hash   = meow.New(0)
-		blk    [][]string
-		err    error
-		bb     []byte
+		tblIdx    = make([][]string, len(tbl.Blocks))
+		buf       = bytes.NewBuffer(nil)
+		enc       = objects.NewStrListEncoder(true)
+		hash      = meow.New(0)
+		blk       [][]string
+		err       error
+		bb        []byte
+		tblIdxSum []byte
 	)
 	if debugOut != nil {
 		fmt.Fprintf(debugOut, "Indexing table %x\n", tblSum)
@@ -44,7 +45,7 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 			idxSum := hash.Sum(nil)
 			fmt.Fprintf(debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
 		}
-		tblIdxSum, err := objects.SaveBlockIndex(db, buf.Bytes())
+		tblIdxSum, bb, err = objects.SaveBlockIndex(db, bb, buf.Bytes())
 		if err != nil {
 			return fmt.Errorf("objects.SaveBlockIndex: %v", err)
 		}

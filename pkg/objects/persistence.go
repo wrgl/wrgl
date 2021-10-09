@@ -59,13 +59,14 @@ func SaveCompressedBlock(s Store, content, compressed []byte) (sum []byte, err e
 	return sumArr[:], nil
 }
 
-func SaveBlockIndex(s Store, content []byte) (sum []byte, err error) {
+func SaveBlockIndex(s Store, buf, content []byte) (sum, dst []byte, err error) {
 	arr := meow.Checksum(0, content)
-	err = saveObj(s, blockIndexKey(arr[:]), content)
+	dst = s2.EncodeBetter(buf, content)
+	err = saveObj(s, blockIndexKey(arr[:]), dst)
 	if err != nil {
 		return
 	}
-	return arr[:], nil
+	return arr[:], dst, nil
 }
 
 func SaveTable(s Store, content []byte) (sum []byte, err error) {
@@ -107,13 +108,17 @@ func GetBlock(s Store, buf, sum []byte) (blk [][]string, dst []byte, err error) 
 	return
 }
 
-func GetBlockIndex(s Store, sum []byte) (*BlockIndex, error) {
+func GetBlockIndex(s Store, buf, sum []byte) (idx *BlockIndex, dst []byte, err error) {
 	b, err := s.Get(blockIndexKey(sum))
 	if err != nil {
-		return nil, err
+		return
 	}
-	_, idx, err := ReadBlockIndex(bytes.NewReader(b))
-	return idx, err
+	dst, err = s2.Decode(buf, b)
+	if err != nil {
+		return
+	}
+	_, idx, err = ReadBlockIndex(bytes.NewReader(dst))
+	return idx, dst, err
 }
 
 func GetTable(s Store, sum []byte) (*Table, error) {
