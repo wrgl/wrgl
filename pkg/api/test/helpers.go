@@ -21,6 +21,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/sorter"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
@@ -145,7 +146,9 @@ func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, pa
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
 	require.NoError(t, w.WriteAll(rows))
-	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1])
+	s, err := sorter.NewSorter(0, nil)
+	require.NoError(t, err)
+	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1])
 	require.NoError(t, err)
 	com := &objects.Commit{
 		Table:       sum,

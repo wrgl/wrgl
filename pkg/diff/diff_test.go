@@ -15,6 +15,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/sorter"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
@@ -309,7 +310,9 @@ func ingestRawCSV(b *testing.B, db objects.Store, rows [][]string) (*objects.Tab
 	b.Helper()
 	buf := bytes.NewBuffer(nil)
 	require.NoError(b, csv.NewWriter(buf).WriteAll(rows))
-	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), nil)
+	s, err := sorter.NewSorter(0, nil)
+	require.NoError(b, err)
+	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), nil)
 	require.NoError(b, err)
 	return getTable(b, db, sum)
 }

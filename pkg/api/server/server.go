@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/wrgl/wrgl/pkg/auth"
@@ -16,6 +17,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/router"
+	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
 var (
@@ -76,6 +78,7 @@ type Server struct {
 	router       *router.Router
 	maxAge       time.Duration
 	debugOut     io.Writer
+	sPool        *sync.Pool
 }
 
 func NewServer(
@@ -91,6 +94,15 @@ func NewServer(
 		getUpSession: getUpSession,
 		getRPSession: getRPSession,
 		maxAge:       90 * 24 * time.Hour,
+		sPool: &sync.Pool{
+			New: func() interface{} {
+				s, err := sorter.NewSorter(8*1024*1024, nil)
+				if err != nil {
+					panic(err)
+				}
+				return s
+			},
+		},
 	}
 	s.router = router.NewRouter(rootPath, &router.Routes{
 		Subs: []*router.Routes{

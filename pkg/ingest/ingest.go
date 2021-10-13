@@ -19,17 +19,16 @@ type ProgressBar interface {
 }
 
 type Inserter struct {
-	db          objects.Store
-	pt          ProgressBar
-	sortPT      ProgressBar
-	tbl         *objects.Table
-	tblIdx      [][]string
-	wg          sync.WaitGroup
-	errChan     chan error
-	blocks      <-chan *sorter.Block
-	numWorkers  int
-	sortRunSize uint64
-	debugOut    io.Writer
+	db         objects.Store
+	pt         ProgressBar
+	tbl        *objects.Table
+	tblIdx     [][]string
+	wg         sync.WaitGroup
+	errChan    chan error
+	blocks     <-chan *sorter.Block
+	numWorkers int
+	sorter     *sorter.Sorter
+	debugOut   io.Writer
 }
 
 type InserterOption func(*Inserter)
@@ -40,21 +39,9 @@ func WithProgressBar(pt ProgressBar) InserterOption {
 	}
 }
 
-func WithSortProgressBar(pt ProgressBar) InserterOption {
-	return func(i *Inserter) {
-		i.sortPT = pt
-	}
-}
-
 func WithNumWorkers(n int) InserterOption {
 	return func(i *Inserter) {
 		i.numWorkers = n
-	}
-}
-
-func WithSortRunSize(u uint64) InserterOption {
-	return func(i *Inserter) {
-		i.sortRunSize = u
 	}
 }
 
@@ -62,6 +49,18 @@ func WithDebugOutput(w io.Writer) InserterOption {
 	return func(i *Inserter) {
 		i.debugOut = w
 	}
+}
+
+func NewInserter(db objects.Store, sorter *sorter.Sorter, opts ...InserterOption) *Inserter {
+	i := &Inserter{
+		db:         db,
+		sorter:     sorter,
+		numWorkers: 1,
+	}
+	for _, opt := range opts {
+		opt(i)
+	}
+	return i
 }
 
 func (i *Inserter) insertBlock() {
@@ -113,15 +112,9 @@ func (i *Inserter) insertBlock() {
 	}
 }
 
-func IngestTableFromBlocks(db objects.Store, columns []string, pk []uint32, rowsCount uint32, blocks <-chan *sorter.Block, opts ...InserterOption) ([]byte, error) {
-	i := &Inserter{
-		db:         db,
-		blocks:     blocks,
-		numWorkers: 1,
-	}
-	for _, opt := range opts {
-		opt(i)
-	}
+func IngestTableFromBlocks(db objects.Store, sorter *sorter.Sorter, columns []string, pk []uint32, rowsCount uint32, blocks <-chan *sorter.Block, opts ...InserterOption) ([]byte, error) {
+	i := NewInserter(db, sorter, opts...)
+	i.blocks = blocks
 	return i.ingestTableFromBlocks(columns, pk, rowsCount)
 }
 
@@ -174,28 +167,18 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCoun
 	return sum, nil
 }
 
-func IngestTable(db objects.Store, f io.ReadCloser, pk []string, opts ...InserterOption) ([]byte, error) {
-	i := &Inserter{
-		db:         db,
-		numWorkers: 1,
-	}
-	for _, opt := range opts {
-		opt(i)
-	}
+func IngestTable(db objects.Store, sorter *sorter.Sorter, f io.ReadCloser, pk []string, opts ...InserterOption) ([]byte, error) {
+	i := NewInserter(db, sorter, opts...)
 	return i.ingestTable(f, pk)
 }
 
 func (i *Inserter) ingestTable(f io.ReadCloser, pk []string) ([]byte, error) {
-	s, err := sorter.NewSorter(i.sortRunSize, i.sortPT)
-	if err != nil {
-		return nil, err
-	}
-	defer s.Close()
+	defer i.sorter.Close()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
 		<-c
-		if err := s.Close(); err != nil {
+		if err := i.sorter.Close(); err != nil {
 			fmt.Fprint(os.Stderr, err.Error())
 			os.Exit(1)
 		}
@@ -205,13 +188,12 @@ func (i *Inserter) ingestTable(f io.ReadCloser, pk []string) ([]byte, error) {
 	if i.numWorkers <= 0 {
 		i.numWorkers = 1
 	}
-	err = s.SortFile(f, pk)
-	if err != nil {
+	if err := i.sorter.SortFile(f, pk); err != nil {
 		return nil, err
 	}
 	errChan := make(chan error, i.numWorkers)
-	i.blocks = s.SortedBlocks(nil, errChan)
-	sum, err := i.ingestTableFromBlocks(s.Columns, s.PK, s.RowsCount)
+	i.blocks = i.sorter.SortedBlocks(nil, errChan)
+	sum, err := i.ingestTableFromBlocks(i.sorter.Columns, i.sorter.PK, i.sorter.RowsCount)
 	if err != nil {
 		return nil, err
 	}

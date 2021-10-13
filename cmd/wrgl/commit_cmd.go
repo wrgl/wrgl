@@ -20,6 +20,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
 func newCommitCmd() *cobra.Command {
@@ -121,10 +122,12 @@ func commit(cmd *cobra.Command, csvFilePath, message, branchName string, primary
 	}
 
 	sortPT, blkPT := displayCommitProgress(cmd)
-	sum, err := ingest.IngestTable(db, f, primaryKey,
-		ingest.WithSortRunSize(memLimit),
+	s, err := sorter.NewSorter(memLimit, sortPT)
+	if err != nil {
+		return err
+	}
+	sum, err := ingest.IngestTable(db, s, f, primaryKey,
 		ingest.WithNumWorkers(numWorkers),
-		ingest.WithSortProgressBar(sortPT),
 		ingest.WithProgressBar(blkPT),
 		ingest.WithDebugOutput(debugFile),
 	)

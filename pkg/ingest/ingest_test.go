@@ -31,8 +31,10 @@ func TestIngestTable(t *testing.T) {
 	f := writeCSV(t, rows)
 	defer os.Remove(f.Name())
 	db := objmock.NewStore()
+	s, err := sorter.NewSorter(0, nil)
+	require.NoError(t, err)
 
-	sum, err := IngestTable(db, f, rows[0][:1])
+	sum, err := IngestTable(db, s, f, rows[0][:1])
 	require.NoError(t, err)
 
 	tbl, err := objects.GetTable(db, sum)
@@ -71,7 +73,9 @@ func BenchmarkIngestTable(b *testing.B) {
 	f := writeCSV(b, rows)
 	defer os.Remove(f.Name())
 	db := objmock.NewStore()
+	s, err := sorter.NewSorter(0, nil)
+	require.NoError(b, err)
 	b.ResetTimer()
-	_, err := IngestTable(db, f, rows[0][:1])
+	_, err = IngestTable(db, s, f, rows[0][:1])
 	require.NoError(b, err)
 }

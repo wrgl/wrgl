@@ -16,6 +16,7 @@ import (
 type ProgressBar interface {
 	Add(int) error
 	Finish() error
+	Reset()
 }
 
 func getRunSize() (uint64, error) {
@@ -87,6 +88,26 @@ func NewSorter(runSize uint64, pt ProgressBar) (s *Sorter, err error) {
 	return
 }
 
+func (s *Sorter) Reset() {
+	if s.current != nil {
+		s.current = s.current[:0]
+	}
+	if s.Columns != nil {
+		s.Columns = s.Columns[:0]
+	}
+	s.size = 0
+	if s.pt != nil {
+		s.pt.Reset()
+	}
+	if s.chunks != nil {
+		s.chunks = s.chunks[:0]
+	}
+	if s.cleanups != nil {
+		s.cleanups = s.cleanups[:0]
+	}
+	s.RowsCount = 0
+}
+
 func (s *Sorter) AddRow(row []string) error {
 	s.size += 4
 	for _, str := range row {
@@ -133,8 +154,7 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 	if err != nil {
 		return
 	}
-	s.Columns = make([]string, len(row))
-	copy(s.Columns, row)
+	s.Columns = append(s.Columns, row...)
 	s.PK, err = slice.KeyIndices(s.Columns, pk)
 	if err != nil {
 		return

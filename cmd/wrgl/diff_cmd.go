@@ -25,6 +25,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/progress"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/sorter"
 	"github.com/wrgl/wrgl/pkg/widgets"
 )
 
@@ -165,8 +166,11 @@ func getSecondCommit(
 
 func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File) (hash string, commit *objects.Commit, err error) {
 	sortPT, blkPT := displayCommitProgress(cmd)
-	sum, err := ingest.IngestTable(db, file, pk,
-		ingest.WithSortProgressBar(sortPT),
+	s, err := sorter.NewSorter(0, sortPT)
+	if err != nil {
+		return
+	}
+	sum, err := ingest.IngestTable(db, s, file, pk,
 		ingest.WithProgressBar(blkPT),
 	)
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
@@ -70,7 +71,10 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	if s.debugOut != nil {
 		opts = append(opts, ingest.WithDebugOutput(s.debugOut))
 	}
-	sum, err := ingest.IngestTable(db, f, primaryKey, opts...)
+	sorter := s.sPool.Get().(*sorter.Sorter)
+	sorter.Reset()
+	defer s.sPool.Put(sorter)
+	sum, err := ingest.IngestTable(db, sorter, f, primaryKey, opts...)
 	if err != nil {
 		if v, ok := err.(*csv.ParseError); ok {
 			sendCSVError(rw, v)

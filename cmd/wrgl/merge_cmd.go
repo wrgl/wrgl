@@ -29,6 +29,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/sorter"
 	"github.com/wrgl/wrgl/pkg/widgets"
 )
 
@@ -192,9 +193,12 @@ func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store
 			return err
 		}
 		sortPT, blkPT := displayCommitProgress(cmd)
-		sum, err := ingest.IngestTable(db, file, pk,
+		s, err := sorter.NewSorter(0, sortPT)
+		if err != nil {
+			return err
+		}
+		sum, err := ingest.IngestTable(db, s, file, pk,
 			ingest.WithNumWorkers(numWorkers),
-			ingest.WithSortProgressBar(sortPT),
 			ingest.WithProgressBar(blkPT),
 		)
 		if err != nil {
@@ -459,7 +463,11 @@ func commitMergeResult(
 		return err
 	}
 	blkPT := pbar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
-	sum, err := ingest.IngestTableFromBlocks(db, columns, pk, rowsCount, blocks,
+	s, err := sorter.NewSorter(0, nil)
+	if err != nil {
+		return err
+	}
+	sum, err := ingest.IngestTableFromBlocks(db, s, columns, pk, rowsCount, blocks,
 		ingest.WithNumWorkers(numWorkers),
 		ingest.WithProgressBar(blkPT),
 	)

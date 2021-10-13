@@ -15,6 +15,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/slice"
+	"github.com/wrgl/wrgl/pkg/sorter"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
@@ -45,7 +46,9 @@ func BuildTable(t *testing.T, db objects.Store, rows []string, pk []uint32) []by
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
 	require.NoError(t, w.WriteAll(records))
-	sum, err := ingest.IngestTable(db, io.NopCloser(bytes.NewReader(buf.Bytes())), slice.IndicesToValues(records[0], pk))
+	s, err := sorter.NewSorter(0, nil)
+	require.NoError(t, err)
+	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), slice.IndicesToValues(records[0], pk))
 	require.NoError(t, err)
 	return sum
 }
