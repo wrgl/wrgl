@@ -176,13 +176,22 @@ func (i *Inserter) ingestTable(f io.ReadCloser, pk []string) ([]byte, error) {
 	defer i.sorter.Close()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
+	done := make(chan bool)
 	go func() {
-		<-c
-		if err := i.sorter.Close(); err != nil {
-			fmt.Fprint(os.Stderr, err.Error())
-			os.Exit(1)
+		select {
+		case <-c:
+			if err := i.sorter.Close(); err != nil {
+				fmt.Fprint(os.Stderr, err.Error())
+				os.Exit(1)
+			}
+			os.Exit(0)
+		case <-done:
+			return
 		}
-		os.Exit(0)
+	}()
+	defer func() {
+		done <- true
+		close(done)
 	}()
 	i.numWorkers -= 2
 	if i.numWorkers <= 0 {
