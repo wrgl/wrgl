@@ -4,13 +4,13 @@
 package apiserver
 
 import (
-	"compress/gzip"
 	"encoding/csv"
 	"encoding/hex"
 	"net/http"
 	"regexp"
 	"strconv"
 
+	"github.com/klauspost/compress/gzip"
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/encoding"
@@ -85,7 +85,10 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 		}
 	case payload.BlockFormatCSV:
 		rw.Header().Set("Content-Encoding", "gzip")
-		gzw := gzip.NewWriter(rw)
+		gzw, err := gzip.NewWriterLevel(rw, 4)
+		if err != nil {
+			panic(err)
+		}
 		defer gzw.Close()
 		rw.Header().Set("Content-Type", api.CTCSV)
 		w := csv.NewWriter(gzw)

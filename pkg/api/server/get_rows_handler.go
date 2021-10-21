@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"compress/gzip"
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/klauspost/compress/gzip"
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/diff"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -69,7 +69,10 @@ func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 	}
 	s.cacheControlImmutable(rw)
 	rw.Header().Set("Content-Encoding", "gzip")
-	gzw := gzip.NewWriter(rw)
+	gzw, err := gzip.NewWriterLevel(rw, 4)
+	if err != nil {
+		panic(err)
+	}
 	defer gzw.Close()
 	rw.Header().Set("Content-Type", api.CTCSV)
 	w := csv.NewWriter(gzw)
