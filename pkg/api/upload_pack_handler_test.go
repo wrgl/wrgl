@@ -82,7 +82,7 @@ func (s *testSuite) TestUploadPackCustomHeader(t *testing.T) {
 	rsc := refmock.NewStore()
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "asd")
-		commits := apitest.FetchObjects(t, dbc, rsc, cli, [][]byte{sum1}, 0, apiclient.WithHeader(header))
+		commits := apitest.FetchObjects(t, dbc, rsc, cli, [][]byte{sum1}, 0, apiclient.WithRequestHeader(header))
 		assert.Equal(t, [][]byte{sum1}, commits)
 		apitest.AssertCommitsPersisted(t, db, commits)
 	})

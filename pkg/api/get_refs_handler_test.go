@@ -50,7 +50,7 @@ func (s *testSuite) TestGetRefsHandler(t *testing.T) {
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "sdf")
-		refs, err := cli.GetRefs(apiclient.WithHeader(header))
+		refs, err := cli.GetRefs(apiclient.WithRequestHeader(header))
 		require.NoError(t, err)
 		assert.Greater(t, len(refs), 0)
 	})

@@ -61,14 +61,14 @@ func (s *testSuite) TestGetCommitHandler(t *testing.T) {
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "123")
-		cr, err = cli.GetCommit(sum, apiclient.WithHeader(header))
+		cr, err = cli.GetCommit(sum, apiclient.WithRequestHeader(header))
 		require.NoError(t, err)
 		assert.NotEmpty(t, cr)
 	})
 	assert.Equal(t, "123", req.Header.Get("Custom-Header"))
 	req = m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "456")
-		tr, err = cli.GetTable(com.Table, apiclient.WithHeader(header))
+		tr, err = cli.GetTable(com.Table, apiclient.WithRequestHeader(header))
 		require.NoError(t, err)
 		assert.NotEmpty(t, tr)
 	})

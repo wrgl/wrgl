@@ -73,7 +73,7 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 	// pass custom headers
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Asdf", "1234")
-		dr, err = cli.Diff(sum1, sum2, apiclient.WithHeader(header))
+		dr, err = cli.Diff(sum1, sum2, apiclient.WithRequestHeader(header))
 		require.NoError(t, err)
 		assert.NotEmpty(t, dr)
 	})

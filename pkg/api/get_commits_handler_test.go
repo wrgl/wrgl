@@ -87,7 +87,7 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "123")
-		gcr, err = cli.GetCommits("heads/main", 1, apiclient.WithHeader(header))
+		gcr, err = cli.GetCommits("heads/main", 1, apiclient.WithRequestHeader(header))
 		require.NoError(t, err)
 		assert.NotEmpty(t, gcr)
 	})

@@ -121,7 +121,7 @@ func (s *testSuite) TestGetBlocksHandler(t *testing.T) {
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "4567")
-		resp, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithHeader(header))
+		resp, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithRequestHeader(header))
 		require.NoError(t, err)
 		assertBlocksCSV(t, db, tbl.Blocks, nil, resp)
 	})
@@ -141,7 +141,7 @@ func (s *testSuite) TestCookieAuthentication(t *testing.T) {
 	assertHTTPError(t, err, http.StatusUnauthorized, "unauthorized")
 
 	// authenticate via cookie
-	opt := apiclient.WithCookies([]*http.Cookie{
+	opt := apiclient.WithRequestCookies([]*http.Cookie{
 		{
 			Name:  "Authorization",
 			Value: fmt.Sprintf("Bearer %s", tok),
@@ -151,14 +151,14 @@ func (s *testSuite) TestCookieAuthentication(t *testing.T) {
 	require.NoError(t, err)
 
 	// authenticate with url-encoded token
-	_, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithCookies([]*http.Cookie{
+	_, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithRequestCookies([]*http.Cookie{
 		{
 			Name:  "Authorization",
 			Value: url.PathEscape(fmt.Sprintf("Bearer %s", tok)),
 		},
 	}))
 	require.NoError(t, err)
-	_, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithCookies([]*http.Cookie{
+	_, err = cli.GetBlocks(com.Table, 0, 0, "", false, apiclient.WithRequestCookies([]*http.Cookie{
 		{
 			Name:  "Authorization",
 			Value: url.QueryEscape(fmt.Sprintf("Bearer %s", tok)),

@@ -220,10 +220,10 @@ func (s *Server) GetToken(t *testing.T, repo string) string {
 func (s *Server) NewClient(t *testing.T, authenticate bool, pathPrefix string, pathPrefixPat *regexp.Regexp) (string, *apiclient.Client, *RequestCaptureMiddleware, func()) {
 	t.Helper()
 	repo, url, m, cleanup := s.NewRemote(t, authenticate, pathPrefix, pathPrefixPat)
-	var opts []apiclient.RequestOption
+	var opts []apiclient.ClientOption
 	if authenticate {
 		tok := s.GetToken(t, repo)
-		opts = []apiclient.RequestOption{apiclient.WithAuthorization(tok)}
+		opts = []apiclient.ClientOption{apiclient.WithAuthorization(tok)}
 	}
 	cli, err := apiclient.NewClient(url, opts...)
 	require.NoError(t, err)

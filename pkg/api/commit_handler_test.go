@@ -115,7 +115,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 		header.Set("Abcd", "qwer")
 		cr, err = cli.Commit(
 			"alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"},
-			apiclient.WithHeader(header),
+			apiclient.WithRequestHeader(header),
 		)
 		require.NoError(t, err)
 		assert.NotEmpty(t, cr.Sum)

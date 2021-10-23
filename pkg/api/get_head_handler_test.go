@@ -47,7 +47,7 @@ func (s *testSuite) TestGetHead(t *testing.T) {
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "123")
-		cr, err = cli.GetHead("main", apiclient.WithHeader(header))
+		cr, err = cli.GetHead("main", apiclient.WithRequestHeader(header))
 		require.NoError(t, err)
 		assert.NotEmpty(t, cr)
 	})

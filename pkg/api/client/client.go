@@ -28,9 +28,35 @@ const (
 	CTPackfile = "application/x-wrgl-packfile"
 )
 
+type ClientOption func(c *Client)
+
+func WithHeader(header http.Header) ClientOption {
+	return func(c *Client) {
+		c.requestOptions = append(c.requestOptions, WithRequestHeader(header))
+	}
+}
+
+func WithCookies(cookies []*http.Cookie) ClientOption {
+	return func(c *Client) {
+		c.requestOptions = append(c.requestOptions, WithRequestCookies(cookies))
+	}
+}
+
+func WithAuthorization(token string) ClientOption {
+	return func(c *Client) {
+		c.requestOptions = append(c.requestOptions, WithRequestAuthorization(token))
+	}
+}
+
+func WithTransport(transport http.RoundTripper) ClientOption {
+	return func(c *Client) {
+		c.client.Transport = transport
+	}
+}
+
 type RequestOption func(r *http.Request)
 
-func WithHeader(header http.Header) RequestOption {
+func WithRequestHeader(header http.Header) RequestOption {
 	return func(r *http.Request) {
 		for k, sl := range header {
 			for _, v := range sl {
@@ -40,7 +66,7 @@ func WithHeader(header http.Header) RequestOption {
 	}
 }
 
-func WithCookies(cookies []*http.Cookie) RequestOption {
+func WithRequestCookies(cookies []*http.Cookie) RequestOption {
 	return func(r *http.Request) {
 		for _, c := range cookies {
 			r.AddCookie(c)
@@ -48,7 +74,7 @@ func WithCookies(cookies []*http.Cookie) RequestOption {
 	}
 }
 
-func WithAuthorization(token string) RequestOption {
+func WithRequestAuthorization(token string) RequestOption {
 	return func(r *http.Request) {
 		r.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -61,18 +87,21 @@ type Client struct {
 	requestOptions []RequestOption
 }
 
-func NewClient(origin string, opts ...RequestOption) (*Client, error) {
+func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, err
 	}
-	return &Client{
+	c := &Client{
 		client: &http.Client{
 			Jar: jar,
 		},
-		origin:         origin,
-		requestOptions: opts,
-	}, nil
+		origin: origin,
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
 }
 
 func (c *Client) Request(method, path string, body io.Reader, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {

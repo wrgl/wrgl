@@ -187,7 +187,7 @@ func (s *testSuite) TestReceivePackHandlerCustomHeader(t *testing.T) {
 	}
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "qwe")
-		updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 1024, apiclient.WithHeader(header))
+		updates = apitest.PushObjects(t, dbc, rsc, cli, updates, remoteRefs, 1024, apiclient.WithRequestHeader(header))
 		assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
 		apitest.AssertCommitsPersisted(t, db, [][]byte{sum1})
 		assertRefEqual(t, rs, "heads/alpha", sum1)
