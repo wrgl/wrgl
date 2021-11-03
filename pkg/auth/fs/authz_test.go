@@ -84,6 +84,7 @@ func TestAuthzStoreWatchFile(t *testing.T) {
 
 	s, err := NewAuthzStore(rd)
 	require.NoError(t, err)
+	defer s.Close()
 
 	f, err := os.Create(filepath.Join(dir, "authz.csv"))
 	require.NoError(t, err)

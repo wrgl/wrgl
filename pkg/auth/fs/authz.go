@@ -25,11 +25,15 @@ type AuthzStore struct {
 	rootDir string
 	watcher *fsnotify.Watcher
 	mutex   sync.Mutex
+	ErrChan chan error
+	done    chan struct{}
 }
 
 func NewAuthzStore(rd *local.RepoDir) (s *AuthzStore, err error) {
 	s = &AuthzStore{
 		rootDir: rd.FullPath,
+		ErrChan: make(chan error, 1),
+		done:    make(chan struct{}, 1),
 	}
 	if err := s.read(); err != nil {
 		return nil, err
@@ -85,7 +89,7 @@ func (s *AuthzStore) watch() {
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 				if event.Name == s.filepath() {
 					if err := s.reload(); err != nil {
-						panic(err)
+						s.ErrChan <- err
 					}
 				}
 			}
@@ -93,7 +97,9 @@ func (s *AuthzStore) watch() {
 			if !ok {
 				return
 			}
-			panic(err)
+			s.ErrChan <- err
+		case <-s.done:
+			return
 		}
 	}
 }
@@ -125,4 +131,9 @@ func (s *AuthzStore) ListPolicies(email string) (scopes []string, err error) {
 		scopes[i] = sl[2]
 	}
 	return scopes, nil
+}
+
+func (s *AuthzStore) Close() {
+	close(s.done)
+	close(s.ErrChan)
 }

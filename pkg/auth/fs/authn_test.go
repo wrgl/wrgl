@@ -103,6 +103,7 @@ func TestAuthnStoreWatchFile(t *testing.T) {
 
 	s, err := NewAuthnStore(rd, 0)
 	require.NoError(t, err)
+	defer s.Close()
 
 	f, err := os.Create(filepath.Join(dir, "authn.csv"))
 	require.NoError(t, err)

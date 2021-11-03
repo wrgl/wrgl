@@ -80,10 +80,26 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return
 			}
+			defer authnS.Close()
 			authzS, err := authfs.NewAuthzStore(rd)
 			if err != nil {
 				return
 			}
+			defer authzS.Close()
+			go func() {
+				select {
+				case err, ok := <-authnS.ErrChan:
+					if !ok {
+						return
+					}
+					log.Printf("authn store error: %v", err)
+				case err, ok := <-authzS.ErrChan:
+					if !ok {
+						return
+					}
+					log.Printf("authz store error: %v", err)
+				}
+			}()
 			server := NewServer(authnS, authzS, objstore, refstore, cs, readTimeout, writeTimeout)
 			defer server.Close()
 			return server.Start(fmt.Sprintf(":%d", port))

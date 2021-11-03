@@ -32,6 +32,8 @@ type AuthnStore struct {
 	tokenDuration time.Duration
 	watcher       *fsnotify.Watcher
 	mutex         sync.Mutex
+	ErrChan       chan error
+	done          chan struct{}
 }
 
 func NewAuthnStore(rd *local.RepoDir, tokenDuration time.Duration) (s *AuthnStore, err error) {
@@ -41,6 +43,8 @@ func NewAuthnStore(rd *local.RepoDir, tokenDuration time.Duration) (s *AuthnStor
 	s = &AuthnStore{
 		rootDir:       rd.FullPath,
 		tokenDuration: tokenDuration,
+		ErrChan:       make(chan error, 1),
+		done:          make(chan struct{}, 1),
 	}
 	if err = s.read(); err != nil {
 		return nil, err
@@ -83,7 +87,7 @@ func (s *AuthnStore) watch() {
 			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 				if event.Name == s.Filepath() {
 					if err := s.read(); err != nil {
-						panic(err)
+						s.ErrChan <- err
 					}
 				}
 			}
@@ -91,7 +95,9 @@ func (s *AuthnStore) watch() {
 			if !ok {
 				return
 			}
-			panic(err)
+			s.ErrChan <- err
+		case <-s.done:
+			return
 		}
 	}
 }
@@ -259,4 +265,9 @@ func (s *AuthnStore) InternalState() string {
 	w.WriteAll(s.sl)
 	w.Flush()
 	return buf.String()
+}
+
+func (s *AuthnStore) Close() {
+	close(s.done)
+	close(s.ErrChan)
 }
