@@ -125,6 +125,8 @@ func (s *Sorter) AddRow(row []string) error {
 	}
 	if s.current[l] == nil {
 		s.current[l] = make([]string, len(row))
+	} else {
+		s.current[l] = s.current[l][:len(row)]
 	}
 	copy(s.current[l], row)
 	if s.size >= s.runSize {

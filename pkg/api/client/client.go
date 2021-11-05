@@ -215,7 +215,7 @@ func (c *Client) GetConfig(opts ...RequestOption) (cfg *conf.Config, err error) 
 		return
 	}
 	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	b, err := ioutil.ReadAll(resp.Body)
@@ -246,7 +246,7 @@ func (c *Client) GetHead(branch string, opts ...RequestOption) (com *payload.Com
 		return
 	}
 	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	b, err := ioutil.ReadAll(resp.Body)
@@ -270,7 +270,7 @@ func (c *Client) GetCommits(head string, maxDepth int, opts ...RequestOption) (g
 		return
 	}
 	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	b, err := ioutil.ReadAll(resp.Body)
@@ -291,7 +291,7 @@ func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error)
 		return
 	}
 	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	b, err := ioutil.ReadAll(resp.Body)
@@ -328,7 +328,7 @@ func (c *Client) Commit(branch, message, fileName string, file io.Reader, primar
 	if err != nil {
 		return nil, err
 	}
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	cr = &payload.CommitResponse{}
@@ -345,7 +345,7 @@ func (c *Client) Diff(sum1, sum2 []byte, opts ...RequestOption) (dr *payload.Dif
 		return
 	}
 	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	dr = &payload.DiffResponse{}
@@ -402,7 +402,7 @@ func (c *Client) GetCommit(sum []byte, opts ...RequestOption) (cr *payload.Commi
 	if err != nil {
 		return
 	}
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	cr = &payload.Commit{}
@@ -422,7 +422,7 @@ func (c *Client) GetTable(sum []byte, opts ...RequestOption) (tr *payload.GetTab
 	if err != nil {
 		return
 	}
-	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	tr = &payload.GetTableResponse{}
