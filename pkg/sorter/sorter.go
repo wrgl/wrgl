@@ -123,7 +123,7 @@ func (s *Sorter) AddRow(row []string) error {
 	} else {
 		s.current = s.current[:l+1]
 	}
-	if s.current[l] == nil {
+	if s.current[l] == nil || cap(s.current[l]) < len(row) {
 		s.current[l] = make([]string, len(row))
 	} else {
 		s.current[l] = s.current[l][:len(row)]

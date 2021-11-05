@@ -133,10 +133,12 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 		*com = *commit
 		copy(comSum, sum)
 		zeRef = branch
+		t.Logf("postCommit %x", sum)
 	}
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)
 	parent, parentCom := factory.CommitRandom(t, db, nil)
+	t.Logf("parentSum %x", parent)
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
 
 	buf := bytes.NewBuffer(nil)
@@ -150,6 +152,7 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 	w.Flush()
 	cr, err := cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
 	require.NoError(t, err)
+	t.Logf("cr.Sum %x", *cr.Sum)
 	assert.Equal(t, (*cr.Table)[:], com.Table)
 	assert.Equal(t, apitest.Name, com.AuthorName)
 	assert.Equal(t, apitest.Email, com.AuthorEmail)
