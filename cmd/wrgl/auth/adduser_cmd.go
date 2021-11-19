@@ -37,16 +37,28 @@ func adduserCmd() *cobra.Command {
 			if cleanup != nil {
 				defer cleanup()
 			}
-			name, err := utils.Prompt(cmd, "Name")
+			name, err := cmd.Flags().GetString("name")
 			if err != nil {
 				return err
+			}
+			if name == "" {
+				name, err = utils.Prompt(cmd, "Name")
+				if err != nil {
+					return err
+				}
 			}
 			if err := authnS.SetName(email, name); err != nil {
 				return err
 			}
-			password, err := utils.PromptForPassword(cmd)
+			password, err := cmd.Flags().GetString("password")
 			if err != nil {
 				return err
+			}
+			if password == "" {
+				password, err = utils.PromptForPassword(cmd)
+				if err != nil {
+					return err
+				}
 			}
 			if err := authnS.SetPassword(email, password); err != nil {
 				return err
@@ -67,5 +79,7 @@ func adduserCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().String("name", "", "set user's name")
+	cmd.Flags().String("password", "", "set user's password")
 	return cmd
 }

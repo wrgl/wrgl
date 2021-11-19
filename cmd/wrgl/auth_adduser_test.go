@@ -36,8 +36,6 @@ func TestAuthAddUserCmd(t *testing.T) {
 	name1 := testutils.BrokenRandomLowerAlphaString(10)
 	password1 := testutils.BrokenRandomAlphaNumericString(10)
 	ctx := utils.SetPromptValues(context.Background(), []string{name1, password1})
-	// cmd.SetArgs([]string{"auth", "add-user", email1})
-	// require.NoError(t, cmd.ExecuteContext(ctx))
 	execPrintDebug(t, cmd, ctx, []string{"auth", "add-user", email1})
 
 	logAuthnContent(t, rd)
@@ -53,9 +51,7 @@ func TestAuthAddUserCmd(t *testing.T) {
 	name2 := testutils.BrokenRandomLowerAlphaString(10)
 	password2 := testutils.BrokenRandomAlphaNumericString(10)
 	ctx = utils.SetPromptValues(context.Background(), []string{name2, password2})
-	// cmd.SetArgs([]string{"auth", "add-user", email2})
-	// require.NoError(t, cmd.ExecuteContext(ctx))
-	execPrintDebug(t, cmd, ctx, []string{"auth", "add-user", email2})
+	execPrintDebug(t, cmd, ctx, []string{"auth", "add-user", email2, "--name", name2, "--password", password2})
 
 	logAuthnContent(t, rd)
 	cmd = RootCmd()
