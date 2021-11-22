@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/dotno"
 )
 
 func renameSectionCmd() *cobra.Command {
@@ -30,15 +31,15 @@ func renameSectionCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			oldField, err := getFieldValue(c, args[0], false)
+			oldField, err := dotno.GetFieldValue(c, args[0], false)
 			if err != nil {
 				return err
 			}
-			newField, err := getFieldValue(c, args[1], true)
+			newField, err := dotno.GetFieldValue(c, args[1], true)
 			if err != nil {
 				return err
 			}
-			newParent, newName, err := getParentField(c, args[1])
+			newParent, newName, err := dotno.GetParentField(c, args[1])
 			if err != nil {
 				return err
 			}
@@ -50,7 +51,7 @@ func renameSectionCmd() *cobra.Command {
 			} else {
 				newField.Set(oldField)
 			}
-			err = unsetField(c, args[0], true)
+			err = dotno.UnsetField(c, args[0], true)
 			if err != nil {
 				return err
 			}

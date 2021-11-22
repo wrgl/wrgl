@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package config
+package dotno
 
 import (
 	"testing"
@@ -229,7 +229,7 @@ func TestUnsetField(t *testing.T) {
 			},
 		},
 	} {
-		err := unsetField(c.obj, c.key, c.all)
+		err := UnsetField(c.obj, c.key, c.all)
 		if c.errMsg != "" {
 			assert.Equal(t, c.errMsg, err.Error(), c.name)
 		} else {

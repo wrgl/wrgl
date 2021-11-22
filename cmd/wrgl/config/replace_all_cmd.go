@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/dotno"
 )
 
 func replaceAllCmd() *cobra.Command {
@@ -33,16 +34,16 @@ func replaceAllCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			v, err := getFieldValue(c, args[0], true)
+			v, err := dotno.GetFieldValue(c, args[0], true)
 			if err != nil {
 				return err
 			}
 			if len(args) > 2 {
-				idxMap, _, err := filterWithValuePattern(cmd, v, args[2])
+				idxMap, _, err := dotno.FilterWithValuePattern(cmd, v, args[2])
 				if err != nil {
 					return err
 				}
-				if sl, ok := ToTextSlice(v.Interface()); ok {
+				if sl, ok := dotno.ToTextSlice(v.Interface()); ok {
 					result := []string{}
 					n := sl.Len()
 					for i := 0; i < n; i++ {
@@ -55,7 +56,7 @@ func replaceAllCmd() *cobra.Command {
 						}
 					}
 					result = append(result, args[1])
-					sl, err = TextSliceFromStrSlice(v.Type(), result)
+					sl, err = dotno.TextSliceFromStrSlice(v.Type(), result)
 					if err != nil {
 						return err
 					}
@@ -64,7 +65,7 @@ func replaceAllCmd() *cobra.Command {
 					panic(fmt.Sprintf("type %v does not implement encoding.TextUnmarshaler", v.Type().Elem()))
 				}
 			} else {
-				err = setValue(v, args[1], true)
+				err = dotno.SetValue(v, args[1], true)
 				if err != nil {
 					return err
 				}

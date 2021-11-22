@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/dotno"
 )
 
 func getAllCmd() *cobra.Command {
@@ -30,18 +31,18 @@ func getAllCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			v, err := getFieldValue(c, args[0], false)
+			v, err := dotno.GetFieldValue(c, args[0], false)
 			if err != nil {
 				return fmt.Errorf("key %q is not set", args[0])
 			}
 			if len(args) == 2 {
-				_, vals, err := filterWithValuePattern(cmd, v, args[1])
+				_, vals, err := dotno.FilterWithValuePattern(cmd, v, args[1])
 				if err != nil {
 					return err
 				}
-				return outputValues(cmd, vals, false)
+				return dotno.OutputValues(cmd, vals, false)
 			}
-			return outputValues(cmd, v.Interface(), false)
+			return dotno.OutputValues(cmd, v.Interface(), false)
 		},
 	}
 	return cmd

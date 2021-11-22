@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/dotno"
 )
 
 func addCmd() *cobra.Command {
@@ -26,7 +27,7 @@ func addCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			v, err := getFieldValue(c, args[0], true)
+			v, err := dotno.GetFieldValue(c, args[0], true)
 			if err != nil {
 				return err
 			}
@@ -44,7 +45,7 @@ func addValue(v reflect.Value, val string) error {
 	if v.Kind() != reflect.Slice {
 		return fmt.Errorf("command only support multiple values field. Use \"config set\" command instead")
 	}
-	if sl, ok := ToTextSlice(v.Interface()); ok {
+	if sl, ok := dotno.ToTextSlice(v.Interface()); ok {
 		err := sl.Append(val)
 		if err != nil {
 			return err

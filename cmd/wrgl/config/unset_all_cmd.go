@@ -6,6 +6,7 @@ package config
 import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/dotno"
 )
 
 func unsetAllCmd() *cobra.Command {
@@ -32,17 +33,17 @@ func unsetAllCmd() *cobra.Command {
 				return err
 			}
 			if len(args) > 1 {
-				v, err := getFieldValue(c, args[0], false)
+				v, err := dotno.GetFieldValue(c, args[0], false)
 				if err != nil {
 					return err
 				}
-				idxMap, _, err := filterWithValuePattern(cmd, v, args[1])
+				idxMap, _, err := dotno.FilterWithValuePattern(cmd, v, args[1])
 				if err != nil {
 					return err
 				}
-				sl := MustBeTextSlice(v.Interface())
+				sl := dotno.MustBeTextSlice(v.Interface())
 				if len(idxMap) == sl.Len() {
-					err = unsetField(c, args[0], true)
+					err = dotno.UnsetField(c, args[0], true)
 					if err != nil {
 						return err
 					}
@@ -58,14 +59,14 @@ func unsetAllCmd() *cobra.Command {
 							result = append(result, s)
 						}
 					}
-					sl, err := TextSliceFromStrSlice(v.Type(), result)
+					sl, err := dotno.TextSliceFromStrSlice(v.Type(), result)
 					if err != nil {
 						return err
 					}
 					v.Set(sl.Value)
 				}
 			} else {
-				err := unsetField(c, args[0], true)
+				err := dotno.UnsetField(c, args[0], true)
 				if err != nil {
 					return err
 				}

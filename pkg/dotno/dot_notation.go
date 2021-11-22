@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package config
+package dotno
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func getFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value, error) {
+func GetFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value, error) {
 	props := strings.Split(prop, ".")
 	v := reflect.ValueOf(s)
 	t := reflect.TypeOf(s)
@@ -76,17 +76,17 @@ func getFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value
 	return v, nil
 }
 
-func getParentField(s interface{}, prop string) (parent reflect.Value, name string, err error) {
+func GetParentField(s interface{}, prop string) (parent reflect.Value, name string, err error) {
 	props := strings.Split(prop, ".")
 	n := len(props) - 1
 	name = props[n]
 	props = props[:n]
-	parent, err = getFieldValue(s, strings.Join(props, "."), false)
+	parent, err = GetFieldValue(s, strings.Join(props, "."), false)
 	return
 }
 
-func unsetField(s interface{}, prop string, all bool) (err error) {
-	parent, name, err := getParentField(s, prop)
+func UnsetField(s interface{}, prop string, all bool) (err error) {
+	parent, name, err := GetParentField(s, prop)
 	if err != nil {
 		return
 	}
@@ -118,7 +118,7 @@ func unsetField(s interface{}, prop string, all bool) (err error) {
 }
 
 func GetWithDotNotation(s interface{}, prop string) (interface{}, error) {
-	fv, err := getFieldValue(s, prop, false)
+	fv, err := GetFieldValue(s, prop, false)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func GetWithDotNotation(s interface{}, prop string) (interface{}, error) {
 }
 
 func SetWithDotNotation(s interface{}, prop string, val interface{}) error {
-	fv, err := getFieldValue(s, prop, true)
+	fv, err := GetFieldValue(s, prop, true)
 	if err != nil {
 		return err
 	}
