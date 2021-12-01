@@ -90,8 +90,8 @@ func ensureUserSet(cmd *cobra.Command, c *conf.Config) {
 	if c.User == nil || c.User.Email == "" {
 		fmt.Fprintln(out, "User config not set. Set your user config with like this:")
 		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, `  wrgl config --global user.email "john-doe@domain.com"`)
-		fmt.Fprintln(out, `  wrgl config --global user.name "John Doe"`)
+		fmt.Fprintln(out, `  wrgl config set --global user.email "john-doe@domain.com"`)
+		fmt.Fprintln(out, `  wrgl config set --global user.name "John Doe"`)
 		os.Exit(1)
 	}
 }

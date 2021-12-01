@@ -360,7 +360,29 @@ func (c *Client) Diff(sum1, sum2 []byte, opts ...RequestOption) (dr *payload.Dif
 	return dr, nil
 }
 
-func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockFormat, columns bool, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) GetBlocks(head string, start, end int, format payload.BlockFormat, columns bool, opts ...RequestOption) (resp *http.Response, err error) {
+	v := url.Values{}
+	v.Set("head", head)
+	if start > 0 {
+		v.Set("start", strconv.Itoa(start))
+	}
+	if end > 0 {
+		v.Set("end", strconv.Itoa(end))
+	}
+	if format != "" {
+		v.Set("format", string(format))
+	}
+	if columns {
+		v.Set("columns", "true")
+	}
+	var qs string
+	if len(v) > 0 {
+		qs = fmt.Sprintf("?%s", v.Encode())
+	}
+	return c.Request(http.MethodGet, fmt.Sprintf("/blocks/%s", qs), nil, nil, opts...)
+}
+
+func (c *Client) GetTableBlocks(sum []byte, start, end int, format payload.BlockFormat, columns bool, opts ...RequestOption) (resp *http.Response, err error) {
 	v := url.Values{}
 	if start > 0 {
 		v.Set("start", strconv.Itoa(start))
@@ -381,7 +403,24 @@ func (c *Client) GetBlocks(sum []byte, start, end int, format payload.BlockForma
 	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/blocks/%s", sum, qs), nil, nil, opts...)
 }
 
-func (c *Client) GetRows(sum []byte, offsets []int, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) GetRows(head string, offsets []int, opts ...RequestOption) (resp *http.Response, err error) {
+	v := url.Values{}
+	v.Set("head", head)
+	if len(offsets) > 0 {
+		sl := make([]string, len(offsets))
+		for i := range sl {
+			sl[i] = strconv.Itoa(offsets[i])
+		}
+		v.Set("offsets", strings.Join(sl, ","))
+	}
+	var qs string
+	if len(v) > 0 {
+		qs = fmt.Sprintf("?%s", v.Encode())
+	}
+	return c.Request(http.MethodGet, fmt.Sprintf("/rows/%s", qs), nil, nil, opts...)
+}
+
+func (c *Client) GetTableRows(sum []byte, offsets []int, opts ...RequestOption) (resp *http.Response, err error) {
 	v := url.Values{}
 	if len(offsets) > 0 {
 		sl := make([]string, len(offsets))

@@ -21,17 +21,7 @@ import (
 
 var rowsURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/rows/`)
 
-func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
-	m := rowsURIPat.FindStringSubmatch(r.URL.Path)
-	if m == nil {
-		sendHTTPError(rw, http.StatusNotFound)
-		return
-	}
-	sum, err := hex.DecodeString(m[1])
-	if err != nil {
-		panic(err)
-	}
-	db := s.getDB(r)
+func (s *Server) transferRows(rw http.ResponseWriter, r *http.Request, db objects.Store, sum []byte) {
 	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
 		sendHTTPError(rw, http.StatusNotFound)
@@ -88,4 +78,33 @@ func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	}
+}
+
+func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
+	values := r.URL.Query()
+	sum := s.getHeadSum(rw, r, values)
+	if sum == nil {
+		return
+	}
+	db := s.getDB(r)
+	com, err := objects.GetCommit(db, sum)
+	if err != nil {
+		sendHTTPError(rw, http.StatusNotFound)
+		return
+	}
+	s.transferRows(rw, r, db, com.Table)
+}
+
+func (s *Server) handleGetTableRows(rw http.ResponseWriter, r *http.Request) {
+	m := rowsURIPat.FindStringSubmatch(r.URL.Path)
+	if m == nil {
+		sendHTTPError(rw, http.StatusNotFound)
+		return
+	}
+	sum, err := hex.DecodeString(m[1])
+	if err != nil {
+		panic(err)
+	}
+	db := s.getDB(r)
+	s.transferRows(rw, r, db, sum)
 }

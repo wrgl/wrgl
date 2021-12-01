@@ -20,26 +20,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
-var (
-	patAuthenticate *regexp.Regexp
-	patConfig       *regexp.Regexp
-	patRefs         *regexp.Regexp
-	patHead         *regexp.Regexp
-	patRefsHead     *regexp.Regexp
-	patUploadPack   *regexp.Regexp
-	patReceivePack  *regexp.Regexp
-	patCommits      *regexp.Regexp
-	patCommit       *regexp.Regexp
-	patSum          *regexp.Regexp
-	patTables       *regexp.Regexp
-	patTable        *regexp.Regexp
-	patBlocks       *regexp.Regexp
-	patTableBlocks  *regexp.Regexp
-	patRows         *regexp.Regexp
-	patTableRows    *regexp.Regexp
-	patDiff         *regexp.Regexp
-)
-
 type claimsKey struct{}
 
 func SetClaims(r *http.Request, claims *auth.Claims) *http.Request {
@@ -149,6 +129,16 @@ func NewServer(
 				HandlerFunc: s.handleReceivePack,
 			},
 			{
+				Method:      http.MethodGet,
+				Pat:         patRootedBlocks,
+				HandlerFunc: s.handleGetBlocks,
+			},
+			{
+				Method:      http.MethodGet,
+				Pat:         patRootedRows,
+				HandlerFunc: s.handleGetRows,
+			},
+			{
 				Pat: patCommits,
 				Subs: []*router.Routes{
 					{
@@ -176,12 +166,12 @@ func NewServer(
 							{
 								Method:      http.MethodGet,
 								Pat:         patBlocks,
-								HandlerFunc: s.handleGetBlocks,
+								HandlerFunc: s.handleGetTableBlocks,
 							},
 							{
 								Method:      http.MethodGet,
 								Pat:         patRows,
-								HandlerFunc: s.handleGetRows,
+								HandlerFunc: s.handleGetTableRows,
 							},
 						}},
 				}},

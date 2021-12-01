@@ -3,6 +3,7 @@ package api_test
 import (
 	"bytes"
 	"encoding/csv"
+	"encoding/hex"
 	"net/http"
 	"regexp"
 	"testing"
@@ -57,13 +58,21 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	assert.Error(t, err)
 	_, err = cli.GetTable(com.Table, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
-	_, err = cli.GetBlocks(com.Table, 0, 0, payload.BlockFormatCSV, false)
+	_, err = cli.GetBlocks(hex.EncodeToString(sum2), 0, 0, payload.BlockFormatCSV, false)
 	assert.Error(t, err)
-	_, err = cli.GetBlocks(com.Table, 0, 0, payload.BlockFormatCSV, false, apiclient.WithRequestAuthorization(tok))
+	_, err = cli.GetBlocks(hex.EncodeToString(sum2), 0, 0, payload.BlockFormatCSV, false, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
-	_, err = cli.GetRows(com.Table, []int{0})
+	_, err = cli.GetTableBlocks(com.Table, 0, 0, payload.BlockFormatCSV, false)
 	assert.Error(t, err)
-	_, err = cli.GetRows(com.Table, []int{0}, apiclient.WithRequestAuthorization(tok))
+	_, err = cli.GetTableBlocks(com.Table, 0, 0, payload.BlockFormatCSV, false, apiclient.WithRequestAuthorization(tok))
+	assert.Error(t, err)
+	_, err = cli.GetTableRows(com.Table, []int{0})
+	assert.Error(t, err)
+	_, err = cli.GetTableRows(com.Table, []int{0}, apiclient.WithRequestAuthorization(tok))
+	assert.Error(t, err)
+	_, err = cli.GetRows(hex.EncodeToString(sum2), []int{0})
+	assert.Error(t, err)
+	_, err = cli.GetRows(hex.EncodeToString(sum2), []int{0}, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
 	_, err = cli.Diff(sum1, sum2)
 	assert.Error(t, err)
@@ -92,10 +101,16 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	tr, err := cli.GetTable(com.Table, apiclient.WithRequestAuthorization(tok))
 	require.NoError(t, err)
 	assert.NotEmpty(t, tr.Columns)
-	resp, err := cli.GetBlocks(com.Table, 0, 0, payload.BlockFormatCSV, false, apiclient.WithRequestAuthorization(tok))
+	resp, err := cli.GetBlocks(hex.EncodeToString(sum2), 0, 0, payload.BlockFormatCSV, false, apiclient.WithRequestAuthorization(tok))
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	resp, err = cli.GetRows(com.Table, []int{0}, apiclient.WithRequestAuthorization(tok))
+	resp, err = cli.GetTableBlocks(com.Table, 0, 0, payload.BlockFormatCSV, false, apiclient.WithRequestAuthorization(tok))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	resp, err = cli.GetRows(hex.EncodeToString(sum2), []int{0}, apiclient.WithRequestAuthorization(tok))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	resp, err = cli.GetTableRows(com.Table, []int{0}, apiclient.WithRequestAuthorization(tok))
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	dr, err := cli.Diff(sum1, sum2, apiclient.WithRequestAuthorization(tok))

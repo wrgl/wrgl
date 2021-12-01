@@ -5,6 +5,7 @@ package api_test
 
 import (
 	"encoding/csv"
+	"encoding/hex"
 	"net/http"
 	"testing"
 
@@ -20,7 +21,7 @@ func (s *testSuite) TestGetRowsHandler(t *testing.T) {
 	defer cleanup()
 	db := s.s.GetDB(repo)
 
-	_, com := factory.Commit(t, db, []string{
+	sum, com := factory.Commit(t, db, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -29,20 +30,20 @@ func (s *testSuite) TestGetRowsHandler(t *testing.T) {
 	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 
-	_, err = cli.GetRows(testutils.SecureRandomBytes(16), nil)
+	_, err = cli.GetTableRows(testutils.SecureRandomBytes(16), nil)
 	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
 
-	resp, err := cli.GetRows(com.Table, nil)
+	resp, err := cli.GetTableRows(com.Table, nil)
 	require.NoError(t, err)
 	assertBlocksCSV(t, db, tbl.Blocks, nil, resp)
 
-	_, err = cli.GetRows(com.Table, []int{-1})
+	_, err = cli.GetTableRows(com.Table, []int{-1})
 	assertHTTPError(t, err, http.StatusBadRequest, "offset out of range \"-1\"")
 
-	_, err = cli.GetRows(com.Table, []int{10})
+	_, err = cli.GetTableRows(com.Table, []int{10})
 	assertHTTPError(t, err, http.StatusBadRequest, "offset out of range \"10\"")
 
-	resp, err = cli.GetRows(com.Table, []int{0, 1})
+	resp, err = cli.GetTableRows(com.Table, []int{0, 1})
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	r := csv.NewReader(resp.Body)
@@ -53,7 +54,7 @@ func (s *testSuite) TestGetRowsHandler(t *testing.T) {
 		{"2", "a", "s"},
 	}, rows)
 
-	resp, err = cli.GetRows(com.Table, []int{2, 1})
+	resp, err = cli.GetTableRows(com.Table, []int{2, 1})
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	r = csv.NewReader(resp.Body)
@@ -63,4 +64,11 @@ func (s *testSuite) TestGetRowsHandler(t *testing.T) {
 		{"3", "z", "x"},
 		{"2", "a", "s"},
 	}, rows)
+
+	_, err = cli.GetRows(hex.EncodeToString(testutils.SecureRandomBytes(16)), nil)
+	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
+
+	resp, err = cli.GetRows(hex.EncodeToString(sum), nil)
+	require.NoError(t, err)
+	assertBlocksCSV(t, db, tbl.Blocks, nil, resp)
 }

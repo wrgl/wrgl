@@ -19,18 +19,8 @@ import (
 
 var blocksURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/blocks/`)
 
-func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
-	m := blocksURIPat.FindStringSubmatch(r.URL.Path)
-	if m == nil {
-		sendHTTPError(rw, http.StatusNotFound)
-		return
-	}
-	sum, err := hex.DecodeString(m[1])
-	if err != nil {
-		panic(err)
-	}
-	db := s.getDB(r)
-	tbl, err := objects.GetTable(db, sum)
+func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db objects.Store, tblSum []byte) {
+	tbl, err := objects.GetTable(db, tblSum)
 	if err != nil {
 		sendHTTPError(rw, http.StatusNotFound)
 		return
@@ -114,4 +104,33 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 		sendError(rw, http.StatusBadRequest, "invalid format")
 		return
 	}
+}
+
+func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
+	values := r.URL.Query()
+	sum := s.getHeadSum(rw, r, values)
+	if sum == nil {
+		return
+	}
+	db := s.getDB(r)
+	com, err := objects.GetCommit(db, sum)
+	if err != nil {
+		sendHTTPError(rw, http.StatusNotFound)
+		return
+	}
+	s.transferBlocks(rw, r, db, com.Table)
+}
+
+func (s *Server) handleGetTableBlocks(rw http.ResponseWriter, r *http.Request) {
+	m := blocksURIPat.FindStringSubmatch(r.URL.Path)
+	if m == nil {
+		sendHTTPError(rw, http.StatusNotFound)
+		return
+	}
+	sum, err := hex.DecodeString(m[1])
+	if err != nil {
+		panic(err)
+	}
+	db := s.getDB(r)
+	s.transferBlocks(rw, r, db, sum)
 }

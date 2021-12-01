@@ -18,6 +18,28 @@ type routeScope struct {
 
 var routeScopes []routeScope
 
+var (
+	patAuthenticate *regexp.Regexp
+	patConfig       *regexp.Regexp
+	patRefs         *regexp.Regexp
+	patHead         *regexp.Regexp
+	patRefsHead     *regexp.Regexp
+	patUploadPack   *regexp.Regexp
+	patReceivePack  *regexp.Regexp
+	patCommits      *regexp.Regexp
+	patCommit       *regexp.Regexp
+	patSum          *regexp.Regexp
+	patTables       *regexp.Regexp
+	patTable        *regexp.Regexp
+	patBlocks       *regexp.Regexp
+	patTableBlocks  *regexp.Regexp
+	patRows         *regexp.Regexp
+	patTableRows    *regexp.Regexp
+	patDiff         *regexp.Regexp
+	patRootedBlocks *regexp.Regexp
+	patRootedRows   *regexp.Regexp
+)
+
 func init() {
 	patAuthenticate = regexp.MustCompile(`^/authenticate/`)
 	patConfig = regexp.MustCompile(`^/config/`)
@@ -27,6 +49,8 @@ func init() {
 	patUploadPack = regexp.MustCompile(`^/upload-pack/`)
 	patReceivePack = regexp.MustCompile(`^/receive-pack/`)
 	patCommits = regexp.MustCompile(`^/commits/`)
+	patRootedBlocks = regexp.MustCompile(`^/blocks/`)
+	patRootedRows = regexp.MustCompile(`^/rows/`)
 	patSum = regexp.MustCompile(`^[0-9a-f]{32}/`)
 	patCommit = regexp.MustCompile(`^/commits/[0-9a-f]{32}/`)
 	patTables = regexp.MustCompile(`^/tables/`)
@@ -70,6 +94,16 @@ func init() {
 			Pat:    patReceivePack,
 			Method: http.MethodPost,
 			Scope:  auth.ScopeRepoWrite,
+		},
+		{
+			Pat:    patRootedBlocks,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRepoRead,
+		},
+		{
+			Pat:    patRootedRows,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRepoRead,
 		},
 		{
 			Pat:    patCommit,
