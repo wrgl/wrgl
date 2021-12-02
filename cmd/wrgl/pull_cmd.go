@@ -2,6 +2,7 @@ package wrgl
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"runtime"
 	"strings"
@@ -73,9 +74,18 @@ func pullCmd() *cobra.Command {
 				return err
 			}
 
+			newBranch := false
 			name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
 			if err != nil {
-				return err
+				if strings.HasPrefix(err.Error(), "can't find branch ") {
+					newBranch = true
+					name = args[0]
+					if !strings.Contains(name, "/") {
+						name = "heads/" + name
+					}
+				} else {
+					return err
+				}
 			}
 			if !strings.HasPrefix(name, "heads/") {
 				return fmt.Errorf("%q is not a branch name", args[0])
@@ -105,12 +115,25 @@ func pullCmd() *cobra.Command {
 				}
 			}
 
-			mergeHeads, err := extractMergeHeads(db, rs, c, name, args, specs)
+			mergeHeads, err := extractMergeHeads(db, rs, c, name, args, specs, newBranch)
 			if err != nil {
 				return err
 			}
 			if len(mergeHeads) == 0 {
 				cmd.Println("Already up to date.")
+				return nil
+			} else if newBranch {
+				if len(mergeHeads) > 1 {
+					return fmt.Errorf("can't merge more than one reference into a non-existant branch")
+				}
+				_, sum, com, err := ref.InterpretCommitName(db, rs, mergeHeads[0], true)
+				if err != nil {
+					return fmt.Errorf("can't get merge head ref: %v", err)
+				}
+				if err = ref.SaveRef(rs, name, sum, c.User.Name, c.User.Email, "merge", "created from "+mergeHeads[0]); err != nil {
+					return err
+				}
+				cmd.Printf("[%s %s] %s\n", strings.TrimPrefix(name, "heads/"), hex.EncodeToString(sum)[:7], com.Message)
 				return nil
 			}
 			return runMerge(cmd, c, db, rs, append(args[:1], mergeHeads...), noCommit, noGUI, "", numWorkers, message, nil)
@@ -125,12 +148,14 @@ func pullCmd() *cobra.Command {
 	return cmd
 }
 
-func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name string, args []string, specs []*conf.Refspec) ([]string, error) {
-	oldSum, err := ref.GetRef(rs, name)
-	if err != nil {
-		return nil, err
+func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name string, args []string, specs []*conf.Refspec, newBranch bool) (mergeHeads []string, err error) {
+	var oldSum []byte
+	if !newBranch {
+		oldSum, err = ref.GetRef(rs, name)
+		if err != nil {
+			return nil, err
+		}
 	}
-	mergeHeads := []string{}
 	if len(args) > 2 {
 		// refspecs are specified in arguments
 		for _, s := range specs {

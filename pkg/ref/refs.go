@@ -61,12 +61,12 @@ func CommitHead(s Store, name string, sum []byte, commit *objects.Commit) error 
 	return SaveRef(s, headRef(name), sum, commit.AuthorName, commit.AuthorEmail, "commit", message)
 }
 
-func CommitMerge(s Store, name string, sum []byte, commit *objects.Commit) error {
+func CommitMerge(s Store, branch string, sum []byte, commit *objects.Commit) error {
 	parents := []string{}
 	for _, parent := range commit.Parents {
 		parents = append(parents, hex.EncodeToString(parent)[:7])
 	}
-	return SaveRef(s, headRef(name), sum, commit.AuthorName, commit.AuthorEmail, "merge", fmt.Sprintf(
+	return SaveRef(s, headRef(branch), sum, commit.AuthorName, commit.AuthorEmail, "merge", fmt.Sprintf(
 		"merge %s", strings.Join(parents, ", "),
 	))
 }

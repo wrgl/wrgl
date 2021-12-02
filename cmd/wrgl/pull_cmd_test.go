@@ -19,7 +19,7 @@ func TestPullCmd(t *testing.T) {
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
-	sum1, c1 := factory.CommitRandom(t, dbs, nil)
+	sum1, _ := factory.CommitRandom(t, dbs, nil)
 	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
 	sum4, c4 := factory.CommitRandom(t, dbs, nil)
@@ -32,7 +32,6 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
 	apitest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum4})
-	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
 	require.NoError(t, ref.CommitHead(rs, "beta", sum4, c4))
 	require.NoError(t, db.Close())
 
@@ -43,9 +42,9 @@ func TestPullCmd(t *testing.T) {
 	cmd = RootCmd()
 	cmd.SetArgs([]string{"pull", "main", "my-repo", "refs/heads/main:refs/remotes/my-repo/main", "--set-upstream"})
 	assertCmdUnauthorized(t, cmd, url)
-	authenticate(t, url)
 
 	// pull set upstream
+	authenticate(t, url)
 	cmd = RootCmd()
 	cmd.SetArgs([]string{"pull", "main", "my-repo", "refs/heads/main:refs/remotes/my-repo/main", "--set-upstream"})
 	cmd.SetOut(io.Discard)
