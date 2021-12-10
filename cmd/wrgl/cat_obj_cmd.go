@@ -8,11 +8,10 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/rivo/tview"
+	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/objects"
-	"github.com/wrgl/wrgl/pkg/widgets"
 )
 
 func newCatFileCmd() *cobra.Command {
@@ -53,38 +52,34 @@ func newCatFileCmd() *cobra.Command {
 }
 
 func catCommit(cmd *cobra.Command, commit *objects.Commit) error {
-	app := tview.NewApplication()
-	textView := tview.NewTextView().
-		SetDynamicColors(true)
-	fmt.Fprintf(textView, "[yellow]table[white]  %s\n", hex.EncodeToString(commit.Table))
-	fmt.Fprintf(textView, "[yellow]author[white] %s <%s>\n", commit.AuthorName, commit.AuthorEmail)
-	fmt.Fprintf(textView, "[yellow]time[white]   %d %s\n\n", commit.Time.Unix(), commit.Time.Format("-0700"))
-	fmt.Fprintln(textView, commit.Message)
-	return app.SetRoot(textView, true).SetFocus(textView).Run()
+	out := cmd.OutOrStdout()
+	colorstring.Fprintf(out, "[yellow]table[white]  %s\n", hex.EncodeToString(commit.Table))
+	colorstring.Fprintf(out, "[yellow]author[white] %s <%s>\n", commit.AuthorName, commit.AuthorEmail)
+	colorstring.Fprintf(out, "[yellow]time[white]   %d %s\n\n", commit.Time.Unix(), commit.Time.Format("-0700"))
+	colorstring.Fprintln(out, commit.Message)
+	return nil
 }
 
 func catTable(cmd *cobra.Command, tbl *objects.Table) error {
+	out := cmd.OutOrStdout()
 	cols := tbl.Columns
 	pk := tbl.PrimaryKey()
-	app := tview.NewApplication()
-	textView := widgets.NewPaginatedTextView().
-		SetDynamicColors(true)
-	fmt.Fprintf(textView, "[yellow]columns[white] ([cyan]%d[white])\n\n", len(cols))
+	colorstring.Fprintf(out, "[yellow]columns[white] ([cyan]%d[white])\n\n", len(cols))
 	for _, col := range cols {
-		fmt.Fprintf(textView, "  %s\n", col)
+		colorstring.Fprintf(out, "  %s\n", col)
 	}
 	if len(pk) > 0 {
-		fmt.Fprintf(textView, "\n[yellow]primary key[white] ([cyan]%d[white])\n\n", len(pk))
+		colorstring.Fprintf(out, "\n[yellow]primary key[white] ([cyan]%d[white])\n\n", len(pk))
 		for _, col := range pk {
-			fmt.Fprintf(textView, "  %s\n", col)
+			colorstring.Fprintf(out, "  %s\n", col)
 		}
 	}
-	fmt.Fprintf(textView, "\n[yellow]rows[white]: [cyan]%d[white]\n\n", tbl.RowsCount)
-	fmt.Fprintf(textView, "[yellow]blocks[white] ([cyan]%d[white])\n\n", len(tbl.Blocks))
+	colorstring.Fprintf(out, "\n[yellow]rows[white]: [cyan]%d[white]\n\n", tbl.RowsCount)
+	colorstring.Fprintf(out, "[yellow]blocks[white] ([cyan]%d[white])\n\n", len(tbl.Blocks))
 	for _, blk := range tbl.Blocks {
-		fmt.Fprintf(textView, "  [aquaMarine]%x[white]\n", blk)
+		colorstring.Fprintf(out, "  [white]%x\n", blk)
 	}
-	return app.SetRoot(textView, true).SetFocus(textView).Run()
+	return nil
 }
 
 func catBlock(cmd *cobra.Command, block [][]string) error {
