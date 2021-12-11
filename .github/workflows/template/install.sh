@@ -48,19 +48,21 @@ fail() {
 assert_linux_or_macos() {
   OS=`uname`
   ARCH=`uname -m`
-  if [ "$OS" != Linux -a "$OS" != Darwin ]; then
-    fail "E_UNSUPPORTED_OS" "wrgl install.sh only supports macOS and Linux."
-  fi
-  if [ "$ARCH" != x86_64 ]; then
-    fail "E_UNSUPPOSED_ARCH" "wrgl install.sh only supports installing wrgl on x86_64."
-  fi
-
   if [ "$OS" == Linux ]; then
     PLATFORM_TUPLE=linux
-  else
+  elif [ "$OS" == Darwin ]; then
     PLATFORM_TUPLE=darwin
+  else
+    fail "E_UNSUPPORTED_OS" "wrgl install.sh only supports macOS and Linux."
   fi
-  PLATFORM_TUPLE=$PLATFORM_TUPLE-amd64
+
+  if [ "$ARCH" == x86_64 ]; then
+    PLATFORM_TUPLE=$PLATFORM_TUPLE-amd64
+  elif [ "$ARCH" != arm64 ]; then
+    PLATFORM_TUPLE=$PLATFORM_TUPLE-arm64
+  else
+    fail "E_UNSUPPOSED_ARCH" "wrgl install.sh only supports installing wrgl on x86_64 or arm64."
+  fi
 }
 
 assert_dependencies() {

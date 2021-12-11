@@ -18,3 +18,10 @@ CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go build -a -o build/wrgl-darwin-amd64/bi
 cp LICENSE build/wrgl-darwin-amd64/LICENSE
 cd $DIR/build
 tar -czvf wrgl-darwin-amd64.tar.gz wrgl-darwin-amd64
+
+cd $DIR
+CGO_ENABLED=0 GOARCH=arm64 GOOS=darwin go build -a -o build/wrgl-darwin-arm64/bin/wrgl github.com/wrgl/wrgl/wrgl
+CGO_ENABLED=0 GOARCH=arm64 GOOS=darwin go build -a -o build/wrgl-darwin-arm64/bin/wrgld github.com/wrgl/wrgl/wrgld
+cp LICENSE build/wrgl-darwin-arm64/LICENSE
+cd $DIR/build
+tar -czvf wrgl-darwin-arm64.tar.gz wrgl-darwin-arm64
