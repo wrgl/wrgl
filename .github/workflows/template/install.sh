@@ -58,7 +58,7 @@ assert_linux_or_macos() {
 
   if [ "$ARCH" == x86_64 ]; then
     PLATFORM_TUPLE=$PLATFORM_TUPLE-amd64
-  elif [ "$ARCH" != arm64 ]; then
+  elif [ "$ARCH" == arm64 ]; then
     PLATFORM_TUPLE=$PLATFORM_TUPLE-arm64
   else
     fail "E_UNSUPPOSED_ARCH" "wrgl install.sh only supports installing wrgl on x86_64 or arm64."
