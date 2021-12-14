@@ -4,6 +4,8 @@
 package wrgl
 
 import (
+	"encoding/csv"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -87,4 +89,72 @@ func TestCommitFromStdin(t *testing.T) {
 	b, err := ioutil.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
+}
+
+func TestCommitSetFile(t *testing.T) {
+	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+
+	fp := createCSVFile(t, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
+	defer os.Remove(fp)
+	cmd := RootCmd()
+	cmd.SetArgs([]string{"commit", "my-branch", "second commit", "-n", "1"})
+	assertCmdFailed(t, cmd, "", fmt.Errorf("no configuration found for branch \"my-branch\". You need to specify CSV_FILE_PATH"))
+
+	cmd = RootCmd()
+	cmd.SetArgs([]string{"commit", "my-branch", fp, "initial commit", "-n", "1", "-p", "a", "--set-file", "--set-primary-key"})
+	cmd.SetOut(ioutil.Discard)
+	require.NoError(t, cmd.Execute())
+
+	// append a single line to fp
+	f, err := os.OpenFile(fp, os.O_APPEND|os.O_WRONLY, 0600)
+	require.NoError(t, err)
+	w := csv.NewWriter(f)
+	require.NoError(t, w.Write([]string{"4", "r", "t"}))
+	w.Flush()
+	require.NoError(t, f.Close())
+
+	// commit reading file and pk from config
+	cmd = RootCmd()
+	cmd.SetArgs([]string{"commit", "my-branch", "second commit", "-n", "1"})
+	cmd.SetOut(ioutil.Discard)
+	require.NoError(t, cmd.Execute())
+
+	// check that second commit is correct
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	rs := rd.OpenRefStore()
+	sum, err := ref.GetHead(rs, "my-branch")
+	require.NoError(t, err)
+	com, err := objects.GetCommit(db, sum)
+	require.NoError(t, err)
+	tbl, err := objects.GetTable(db, com.Table)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a"}, tbl.PrimaryKey())
+	assert.Equal(t, uint32(4), tbl.RowsCount)
+	require.NoError(t, db.Close())
+
+	// commit overriding pk
+	cmd = RootCmd()
+	cmd.SetArgs([]string{"commit", "my-branch", "second commit", "-n", "1", "-p", "b"})
+	cmd.SetOut(ioutil.Discard)
+	require.NoError(t, cmd.Execute())
+
+	// check that pk is different
+	db, err = rd.OpenObjectsStore()
+	require.NoError(t, err)
+	defer db.Close()
+	rs = rd.OpenRefStore()
+	sum, err = ref.GetHead(rs, "my-branch")
+	require.NoError(t, err)
+	com, err = objects.GetCommit(db, sum)
+	require.NoError(t, err)
+	tbl, err = objects.GetTable(db, com.Table)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"b"}, tbl.PrimaryKey())
 }

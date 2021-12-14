@@ -32,6 +32,13 @@ type Branch struct {
 	// Merge is the upstream destination of this branch. When both this setting and Remote is
 	// set, user can run `wrgl pull <branch>` without specifying remote and refspec.
 	Merge string `yaml:"merge,omitempty" json:"merge,omitempty"`
+
+	// File is the path of a file to diff against, or commit to this branch if no file is specified.
+	File string `yaml:"file,omitempty" json:"file,omitempty"`
+
+	// PrimaryKey is the primary key used in addition to branch.file during diff or commit if
+	// no file is specified.
+	PrimaryKey []string `yaml:"primaryKey,omitempty" json:"primaryKey,omitempty"`
 }
 
 type Auth struct {
