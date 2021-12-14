@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TempDir is a light wrapper of ioutil.Tempdir which place the dir under
@@ -25,4 +28,18 @@ func TempFile(dir, pattern string) (*os.File, error) {
 		dir = filepath.Join(v, dir)
 	}
 	return ioutil.TempFile(dir, pattern)
+}
+
+// ChTempDir creates a temporary directory and cd into it during test
+func ChTempDir(t *testing.T) (name string, cleanup func()) {
+	t.Helper()
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	d, err := TempDir("", "")
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(d))
+	return d, func() {
+		require.NoError(t, os.Chdir(wd))
+		require.NoError(t, os.RemoveAll(d))
+	}
 }

@@ -10,25 +10,33 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
 func TestInitCmd(t *testing.T) {
-	rootDir, err := testutils.TempDir("", "test_wrgl*")
-	require.NoError(t, err)
-	defer os.RemoveAll(rootDir)
-	_, err = os.Stat(rootDir)
-	require.NoError(t, err)
-	wrglDir := filepath.Join(rootDir, ".wrgl")
-	viper.Set("wrgl_dir", wrglDir)
+	dir, cleanup := testutils.ChTempDir(t)
+	defer cleanup()
+	wrglDir := filepath.Join(dir, ".wrgl")
+	viper.Set("wrgl_dir", "")
 	cmd := RootCmd()
 	cmd.SetArgs([]string{"init"})
 	cmd.SetOut(io.Discard)
-	err = cmd.Execute()
+	require.NoError(t, cmd.Execute())
+	assert.DirExists(t, filepath.Join(wrglDir, "files"))
+	assert.DirExists(t, filepath.Join(wrglDir, "kv"))
+}
+
+func TestInitCmdDirExists(t *testing.T) {
+	dir, err := testutils.TempDir("", "")
 	require.NoError(t, err)
-	_, err = os.Stat(filepath.Join(wrglDir, "files"))
-	require.NoError(t, err)
-	_, err = os.Stat(filepath.Join(wrglDir, "kv"))
-	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+	viper.Set("wrgl_dir", "")
+	cmd := RootCmd()
+	cmd.SetArgs([]string{"init", "--wrgl-dir", dir})
+	cmd.SetOut(io.Discard)
+	require.NoError(t, cmd.Execute())
+	assert.DirExists(t, filepath.Join(dir, "files"))
+	assert.DirExists(t, filepath.Join(dir, "kv"))
 }

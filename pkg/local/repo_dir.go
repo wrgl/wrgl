@@ -87,12 +87,12 @@ func (d *RepoDir) OpenRefStore() ref.Store {
 }
 
 func (d *RepoDir) Init() error {
-	err := os.Mkdir(d.FullPath, 0755)
-	if err != nil {
-		return err
+	if _, err := os.Stat(d.FullPath); os.IsNotExist(err) {
+		if err := os.Mkdir(d.FullPath, 0755); err != nil {
+			return err
+		}
 	}
-	err = os.Mkdir(d.FilesPath(), 0755)
-	if err != nil {
+	if err := os.Mkdir(d.FilesPath(), 0755); err != nil {
 		return err
 	}
 	return os.Mkdir(d.KVPath(), 0755)

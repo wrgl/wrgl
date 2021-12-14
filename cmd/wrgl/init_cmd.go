@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/local"
 )
@@ -33,16 +32,12 @@ func newInitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			dir := viper.GetString("wrgl_dir")
-			create := false
+			dir, err := cmd.Flags().GetString("wrgl-dir")
+			if err != nil {
+				return err
+			}
 			if dir == "" {
 				dir = filepath.Join(wd, ".wrgl")
-				create = true
-			}
-			_, err = os.Stat(dir)
-			if err == nil {
-				cmd.Printf("Repository already initialized at %s\n", dir)
-				return nil
 			}
 			badgerLog, err := cmd.Flags().GetString("badger-log")
 			if err != nil {
@@ -54,9 +49,7 @@ func newInitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if create {
-				cmd.Println("Repository initialized at .wrgl")
-			}
+			cmd.Printf("Repository initialized at %s\n", dir)
 			return nil
 		},
 	}
