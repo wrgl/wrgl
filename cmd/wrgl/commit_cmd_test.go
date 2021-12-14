@@ -4,10 +4,12 @@
 package wrgl
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -138,6 +140,14 @@ func TestCommitSetFile(t *testing.T) {
 	assert.Equal(t, []string{"a"}, tbl.PrimaryKey())
 	assert.Equal(t, uint32(4), tbl.RowsCount)
 	require.NoError(t, db.Close())
+
+	// refuse to commit again because file hasn't changed
+	cmd = RootCmd()
+	cmd.SetArgs([]string{"commit", "my-branch", "third commit", "-n", "1"})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	assert.True(t, strings.HasSuffix(buf.String(), fmt.Sprintf("file %s hasn't changed since the last commit. Aborting.\n", fp)))
 
 	// commit overriding pk
 	cmd = RootCmd()

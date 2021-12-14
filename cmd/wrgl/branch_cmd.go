@@ -51,7 +51,9 @@ func newBranchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			quitIfRepoDirNotExist(cmd, rd)
+			if err := quitIfRepoDirNotExist(cmd, rd); err != nil {
+				return err
+			}
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

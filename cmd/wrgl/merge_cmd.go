@@ -81,7 +81,9 @@ func mergeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ensureUserSet(cmd, c)
+			if err := ensureUserSet(cmd, c); err != nil {
+				return err
+			}
 			cleanup, err := setupDebugLog(cmd)
 			if err != nil {
 				return err
