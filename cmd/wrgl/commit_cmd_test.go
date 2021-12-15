@@ -5,6 +5,7 @@ package wrgl
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -159,8 +160,7 @@ func TestCommitSetFile(t *testing.T) {
 
 	// commit overriding pk
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"commit", "my-branch", "second commit", "-n", "1", "-p", "b"})
-	cmd.SetOut(ioutil.Discard)
+	cmd.SetArgs([]string{"commit", "my-branch", "third commit", "-n", "1", "-p", "b"})
 	require.NoError(t, cmd.Execute())
 
 	// check that pk is different
@@ -175,4 +175,70 @@ func TestCommitSetFile(t *testing.T) {
 	tbl, err = objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"b"}, tbl.PrimaryKey())
+}
+
+func TestCommitCmdAll(t *testing.T) {
+	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+	rs := rd.OpenRefStore()
+
+	fp1 := createCSVFile(t, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
+	defer os.Remove(fp1)
+	commitFile(t, "branch-1", fp1, "a", "--set-file", "--set-primary-key")
+	sum1, err := ref.GetHead(rs, "branch-1")
+	require.NoError(t, err)
+
+	fp2 := createCSVFile(t, []string{
+		"a,d,e",
+		"1,e,r",
+		"2,d,f",
+		"3,c,v",
+	})
+	defer os.Remove(fp2)
+	commitFile(t, "branch-2", fp2, "a", "--set-file", "--set-primary-key")
+	sum2, err := ref.GetHead(rs, "branch-2")
+	require.NoError(t, err)
+
+	fp3 := createCSVFile(t, []string{
+		"a,f,g",
+		"1,t,y",
+		"2,g,h",
+		"3,b,n",
+	})
+	defer os.Remove(fp3)
+	commitFile(t, "branch-3", fp3, "a")
+	sum3, err := ref.GetHead(rs, "branch-3")
+	require.NoError(t, err)
+
+	appendToFile(t, fp1, "\n4,t,y")
+
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"commit", "--all", "mass commit"})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, buf.String(), "branch \"branch-2\" is up-to-date.\n")
+
+	sum, err := ref.GetHead(rs, "branch-2")
+	require.NoError(t, err)
+	assert.Equal(t, sum2, sum)
+	sum, err = ref.GetHead(rs, "branch-3")
+	require.NoError(t, err)
+	assert.Equal(t, sum3, sum)
+	sum, err = ref.GetHead(rs, "branch-1")
+	require.NoError(t, err)
+	assert.NotEqual(t, sum1, sum)
+	assert.Contains(t, buf.String(), fmt.Sprintf("[branch-1 %s] mass commit\n", hex.EncodeToString(sum)[:7]))
+
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	defer db.Close()
+	com, err := objects.GetCommit(db, sum)
+	require.NoError(t, err)
+	assert.Equal(t, "mass commit", com.Message)
 }

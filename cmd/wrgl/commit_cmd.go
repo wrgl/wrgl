@@ -27,7 +27,7 @@ import (
 
 func newCommitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "commit BRANCH [CSV_FILE_PATH] COMMIT_MESSAGE [-p PRIMARY_KEY]",
+		Use:   "commit {BRANCH | --all} [CSV_FILE_PATH] COMMIT_MESSAGE [-p PRIMARY_KEY]",
 		Short: "Commit a CSV file under a branch",
 		Example: utils.CombineExamples([]utils.Example{
 			{
@@ -50,18 +50,18 @@ func newCommitCmd() *cobra.Command {
 				Comment: "commit without having to specify CSV_FILE_PATH and PRIMARY_KEY (read from branch.file and branch.primaryKey)",
 				Line:    "wrgl commit main \"easy commit\"",
 			},
+			{
+				Comment: "commit all branches that have branch.file configured",
+				Line:    "wrgl commit --all \"mass commit\"",
+			},
 		}),
-		Args: cobra.RangeArgs(2, 3),
+		Args: cobra.MaximumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			debugFile, cleanup, err := utils.SetupDebug(cmd)
 			if err != nil {
 				return err
 			}
 			defer cleanup()
-			primaryKey, err := cmd.Flags().GetStringSlice("primary-key")
-			if err != nil {
-				return err
-			}
 			numWorkers, err := cmd.Flags().GetInt("num-workers")
 			if err != nil {
 				return err
@@ -78,6 +78,10 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			all, err := cmd.Flags().GetBool("all")
+			if err != nil {
+				return err
+			}
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
 			if err := quitIfRepoDirNotExist(cmd, rd); err != nil {
@@ -91,33 +95,9 @@ func newCommitCmd() *cobra.Command {
 			if err := ensureUserSet(cmd, c); err != nil {
 				return err
 			}
-			var branchName, csvFilePath, message string
-			commitFromBranchFile := false
-			if len(args) == 2 {
-				branchName = args[0]
-				message = args[1]
-				errFileNotSet := fmt.Errorf("branch.file is not set for branch %q. You need to specify CSV_FILE_PATH", branchName)
-				if c.Branch == nil {
-					return errFileNotSet
-				}
-				if branch, ok := c.Branch[branchName]; !ok {
-					return errFileNotSet
-				} else if branch.File == "" {
-					return errFileNotSet
-				} else {
-					csvFilePath = branch.File
-					if len(primaryKey) == 0 && branch.PrimaryKey != nil {
-						primaryKey = branch.PrimaryKey
-					}
-					commitFromBranchFile = true
-				}
-			} else {
-				branchName = args[0]
-				csvFilePath = args[1]
-				message = args[2]
-				if setFile && csvFilePath == "-" {
-					return fmt.Errorf("can't set branch.file while commiting from stdin")
-				}
+			branchName, csvFilePath, message, primaryKey, commitFromBranchFile, err := parseCommitArgs(cmd, c, setFile, all, args)
+			if err != nil {
+				return err
 			}
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
@@ -125,6 +105,11 @@ func newCommitCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
+
+			if all {
+				return commitAllBranches(cmd, db, rs, c, message, numWorkers, memLimit)
+			}
+
 			var sum []byte
 			if commitFromBranchFile {
 				sum, err = commitIfBranchFileHasChanged(cmd, db, rs, c, branchName, csvFilePath, primaryKey, message, numWorkers, memLimit)
@@ -142,27 +127,8 @@ func newCommitCmd() *cobra.Command {
 				}
 			}
 			cmd.Printf("[%s %s] %s\n", branchName, hex.EncodeToString(sum)[:7], message)
-			if setFile || setPK {
-				s := conffs.NewStore(rd.FullPath, conffs.LocalSource, "")
-				c, err := s.Open()
-				if err != nil {
-					return err
-				}
-				if c.Branch == nil {
-					c.Branch = map[string]*conf.Branch{}
-				}
-				if _, ok := c.Branch[branchName]; !ok {
-					c.Branch[branchName] = &conf.Branch{}
-				}
-				if setFile {
-					c.Branch[branchName].File = csvFilePath
-				}
-				if setPK {
-					c.Branch[branchName].PrimaryKey = primaryKey
-				}
-				return s.Save(c)
-			}
-			return nil
+
+			return setBranchFile(rd, setFile, setPK, branchName, csvFilePath, primaryKey)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
@@ -170,6 +136,7 @@ func newCommitCmd() *cobra.Command {
 	cmd.Flags().Uint64("mem-limit", 0, "limit memory consumption (in bytes). If not set then memory limit is automatically calculated.")
 	cmd.Flags().Bool("set-file", false, "set branch.file to CSV_FILE_PATH. If branch.file is set then you don't need to specify CSV_FILE_PATH in subsequent commits to BRANCH.")
 	cmd.Flags().Bool("set-primary-key", false, "set branch.primaryKey to PRIMARY_KEY. If branch.primaryKey is set then you don't need to specify PRIMARY_KEY in subsequent commits to BRANCH.")
+	cmd.Flags().Bool("all", false, "commit all branches that have branch.file configured.")
 	return cmd
 }
 
@@ -277,7 +244,7 @@ func ensureTempCommit(cmd *cobra.Command, db objects.Store, rs ref.Store, c *con
 	if err != nil {
 		return nil, err
 	}
-	if com.Message != fd.Name() || com.Time.Before(fd.ModTime()) {
+	if com.Message != fd.Name() || com.Time.Before(fd.ModTime()) || !c.IsBranchPrimaryKeyEqual(branch, primaryKey) {
 		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit)
 		if err != nil {
 			return nil, err
@@ -335,4 +302,92 @@ func commitIfBranchFileHasChanged(cmd *cobra.Command, db objects.Store, rs ref.S
 		}
 	}
 	return commitWithTable(cmd, c, db, rs, branch, tmpCom.Table, message)
+}
+
+func commitAllBranches(cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, message string, numWorkers int, memLimit uint64) error {
+	for name, branch := range c.Branch {
+		if branch.File == "" {
+			continue
+		}
+		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit)
+		if err != nil {
+			return err
+		}
+		if sum == nil {
+			cmd.Printf("branch %q is up-to-date.\n", name)
+		} else {
+			cmd.Printf("[%s %s] %s\n", name, hex.EncodeToString(sum)[:7], message)
+		}
+	}
+	return nil
+}
+
+func setBranchFile(rd *local.RepoDir, setFile, setPK bool, branchName, csvFilePath string, primaryKey []string) error {
+	if setFile || setPK {
+		s := conffs.NewStore(rd.FullPath, conffs.LocalSource, "")
+		c, err := s.Open()
+		if err != nil {
+			return err
+		}
+		if c.Branch == nil {
+			c.Branch = map[string]*conf.Branch{}
+		}
+		if _, ok := c.Branch[branchName]; !ok {
+			c.Branch[branchName] = &conf.Branch{}
+		}
+		if setFile {
+			c.Branch[branchName].File = csvFilePath
+		}
+		if setPK {
+			c.Branch[branchName].PrimaryKey = primaryKey
+		}
+		return s.Save(c)
+	}
+	return nil
+}
+
+func parseCommitArgs(cmd *cobra.Command, c *conf.Config, setFile, all bool, args []string) (
+	branchName, csvFilePath, message string, primaryKey []string, commitFromBranchFile bool, err error,
+) {
+	primaryKey, err = cmd.Flags().GetStringSlice("primary-key")
+	if err != nil {
+		return
+	}
+	if len(args) == 2 {
+		branchName = args[0]
+		message = args[1]
+		errFileNotSet := fmt.Errorf("branch.file is not set for branch %q. You need to specify CSV_FILE_PATH", branchName)
+		if c.Branch == nil {
+			err = errFileNotSet
+			return
+		}
+		if branch, ok := c.Branch[branchName]; !ok {
+			err = errFileNotSet
+			return
+		} else if branch.File == "" {
+			err = errFileNotSet
+			return
+		} else {
+			csvFilePath = branch.File
+			if len(primaryKey) == 0 && branch.PrimaryKey != nil {
+				primaryKey = branch.PrimaryKey
+			}
+			commitFromBranchFile = true
+		}
+	} else if len(args) == 3 {
+		branchName = args[0]
+		csvFilePath = args[1]
+		message = args[2]
+		if setFile && csvFilePath == "-" {
+			err = fmt.Errorf("can't set branch.file while commiting from stdin")
+			return
+		}
+	} else if all && len(args) == 1 {
+		message = args[0]
+	} else {
+		cmd.Usage()
+		err = fmt.Errorf("invalid number of arguments")
+		return
+	}
+	return
 }

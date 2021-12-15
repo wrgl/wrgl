@@ -3,7 +3,11 @@
 
 package conf
 
-import "time"
+import (
+	"time"
+
+	"github.com/wrgl/wrgl/pkg/slice"
+)
 
 type User struct {
 	// Email is the current user's email. Just like
@@ -75,4 +79,13 @@ func (c *Config) MaxPackFileSize() uint64 {
 		return c.Pack.MaxFileSize
 	}
 	return 0
+}
+
+func (c *Config) IsBranchPrimaryKeyEqual(branchName string, primaryKey []string) bool {
+	if c.Branch != nil {
+		if branch, ok := c.Branch[branchName]; ok {
+			return slice.StringSliceEqual(branch.PrimaryKey, primaryKey)
+		}
+	}
+	return len(primaryKey) == 0
 }
