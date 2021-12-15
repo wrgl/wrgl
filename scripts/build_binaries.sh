@@ -5,6 +5,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd )"
 
 cd $DIR
 rm -rf build
+cp VERSION cmd/wrgl
+cp VERSION cmd/wrgld
 
 CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -o build/wrgl-linux-amd64/bin/wrgl github.com/wrgl/wrgl/wrgl
 CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -a -o build/wrgl-linux-amd64/bin/wrgld github.com/wrgl/wrgl/wrgld
