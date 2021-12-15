@@ -23,13 +23,13 @@ func TestConfigUnsetCmd(t *testing.T) {
 	viper.Set("wrgl_dir", wrglDir)
 
 	// test unset string
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"config", "set", "user.name", "john"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "unset", "user.name"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "user.name", "--local"})
 	assertCmdFailed(t, cmd, "", fmt.Errorf(`key "user.name" is not set`))
 
@@ -37,22 +37,22 @@ func TestConfigUnsetCmd(t *testing.T) {
 		"refs/heads/alpha",
 		"refs/heads/beta",
 	} {
-		cmd := RootCmd()
+		cmd := rootCmd()
 		cmd.SetArgs([]string{"config", "add", "remote.origin.push", s})
 		require.NoError(t, cmd.Execute())
 	}
 
 	// test unset with value pattern
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "unset", "remote.origin.push", "refs/tags"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "unset", "remote.origin.push", "^refs/.+"})
 	assertCmdFailed(t, cmd, "", fmt.Errorf("key contains multiple values"))
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "unset", "remote.origin.push", "refs/heads/alpha", "--fixed-value"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "--local"})
 	assertCmdOutput(t, cmd, "refs/heads/beta\n")
 }

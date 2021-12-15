@@ -30,15 +30,15 @@ func TestConfigReplaceAllCmd(t *testing.T) {
 		"refs/tags/feb",
 		"refs/tags/mar",
 	} {
-		cmd := RootCmd()
+		cmd := rootCmd()
 		cmd.SetArgs([]string{"config", "add", "remote.origin.push", s})
 		require.NoError(t, cmd.Execute())
 	}
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"config", "replace-all", "remote.origin.push", "refs/heads/theta", "^refs/heads/"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"refs/tags/jan",
@@ -48,10 +48,10 @@ func TestConfigReplaceAllCmd(t *testing.T) {
 		"",
 	}, "\n"))
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "replace-all", "remote.origin.push", "refs/tags/apr", "refs/tags/jan", "--fixed-value"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"refs/tags/feb",
@@ -61,10 +61,10 @@ func TestConfigReplaceAllCmd(t *testing.T) {
 		"",
 	}, "\n"))
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "replace-all", "remote.origin.push", "refs/tags/may"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"refs/tags/may",

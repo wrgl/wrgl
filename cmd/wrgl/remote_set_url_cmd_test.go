@@ -15,20 +15,20 @@ func TestRemoteSetURLCmd(t *testing.T) {
 	defer cleanUp()
 
 	// add remote
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", "https://my-repo.com"})
 	require.NoError(t, cmd.Execute())
 
 	// set url with bad url
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "set-url", "origin", "https//other-repo.com"})
 	assert.Error(t, cmd.Execute())
 
 	// set url
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "set-url", "origin", "https://other-repo.com"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "get-url", "origin"})
 	assertCmdOutput(t, cmd, "https://other-repo.com\n")
 }

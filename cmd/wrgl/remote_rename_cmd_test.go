@@ -20,7 +20,7 @@ func TestRemoteRenameCmd(t *testing.T) {
 	rs := rd.OpenRefStore()
 
 	// add remote
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", "https://my-repo.com"})
 	require.NoError(t, cmd.Execute())
 

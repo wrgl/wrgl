@@ -4,7 +4,6 @@
 package wrgl
 
 import (
-	"io"
 	"sort"
 	"testing"
 
@@ -58,8 +57,7 @@ func TestFindAllCommitsToRemove(t *testing.T) {
 	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
 	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum2, "test", "test@domain.com", "test", "test pruning"))
 
-	cmd := RootCmd()
-	cmd.SetOut(io.Discard)
+	cmd := rootCmd()
 	commitsToRemove, survivingCommits, err := findCommitsToRemove(cmd, db, rs)
 	require.NoError(t, err)
 	assertSetEqual(t, [][]byte{sum1, sum2}, survivingCommits)
@@ -109,8 +107,7 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning"))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
-	cmd.SetOut(io.Discard)
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"prune"})
 	require.NoError(t, cmd.Execute())
 

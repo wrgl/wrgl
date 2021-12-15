@@ -52,12 +52,11 @@ func TestMergeCmdCommitCSV(t *testing.T) {
 		"3,z,x",
 	})
 	defer os.Remove(fp)
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--commit-csv", fp})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"export", "branch-1"})
 	b, err := ioutil.ReadFile(fp)
 	require.NoError(t, err)
@@ -118,12 +117,11 @@ func TestMergeCmdCommitCSVCustomMessage(t *testing.T) {
 		"3,z,x",
 	})
 	defer os.Remove(fp)
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--commit-csv", fp, "-m", "my merge message", "-p", "b"})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"export", "branch-1"})
 	assertCmdOutput(t, cmd, "a,b,c\n2,a,d\n1,q,e\n3,z,x\n")
 
@@ -175,7 +173,7 @@ func TestMergeCmdNoGUI(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--no-gui"})
 	name := fmt.Sprintf("CONFLICTS_%s_%s.csv", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7])
 	assertCmdOutput(t, cmd, fmt.Sprintf("saved conflicts to file %s\n", name))
@@ -250,9 +248,8 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--no-commit"})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	name := fmt.Sprintf("MERGE_%s_%s.csv", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum2)[:7])
@@ -265,12 +262,11 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 		{"3", "z", "x"},
 	}, rows)
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2"})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"export", "branch-1"})
 	assertCmdOutput(t, cmd, string(b))
 
@@ -309,7 +305,7 @@ func TestMergeCmdFastForward(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "branch-2", sum1, com1))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2"})
 	assertCmdOutput(t, cmd, fmt.Sprintf("Fast forward to %s\n", hex.EncodeToString(sum1)[:7]))
 
@@ -329,7 +325,7 @@ func TestMergeCmdFastForward(t *testing.T) {
 	})
 	require.NoError(t, db.Close())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2"})
 	assertCmdOutput(t, cmd, "All commits are identical, nothing to merge\n")
 }

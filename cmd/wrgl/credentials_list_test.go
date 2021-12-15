@@ -26,11 +26,11 @@ func TestCredentialsListCmd(t *testing.T) {
 	cs.Set(parseURL(t, "http://repo2.com"), "def")
 	require.NoError(t, cs.Flush())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"credentials", "list"})
 	assertCmdOutput(t, cmd, "http://repo2.com\nhttp://repo1.com\n")
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"credentials", "remove", "http://repo1.com", "http://repo2.com"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"Removed credentials for http://repo1.com",
@@ -39,7 +39,7 @@ func TestCredentialsListCmd(t *testing.T) {
 		"",
 	}, "\n"))
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"credentials", "list"})
 	assertCmdOutput(t, cmd, "")
 }

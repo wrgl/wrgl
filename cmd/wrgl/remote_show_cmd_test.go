@@ -26,11 +26,11 @@ func TestRemoteShowCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	// add remote
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", remote, "https://my-repo.com", "-t", "my-branch"})
 	require.NoError(t, cmd.Execute())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "show", remote})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"* origin",

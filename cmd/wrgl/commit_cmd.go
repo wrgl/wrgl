@@ -96,10 +96,14 @@ func newCommitCmd() *cobra.Command {
 			if len(args) == 2 {
 				branchName = args[0]
 				message = args[1]
+				errFileNotSet := fmt.Errorf("branch.file is not set for branch %q. You need to specify CSV_FILE_PATH", branchName)
+				if c.Branch == nil {
+					return errFileNotSet
+				}
 				if branch, ok := c.Branch[branchName]; !ok {
-					return fmt.Errorf("no configuration found for branch %q. You need to specify CSV_FILE_PATH", branchName)
+					return errFileNotSet
 				} else if branch.File == "" {
-					return fmt.Errorf("branch.file is not set for branch %q. You need to specify CSV_FILE_PATH", branchName)
+					return errFileNotSet
 				} else {
 					csvFilePath = branch.File
 					if len(primaryKey) == 0 && branch.PrimaryKey != nil {

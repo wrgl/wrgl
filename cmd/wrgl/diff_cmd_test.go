@@ -10,14 +10,23 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
+
+func rootCmd() *cobra.Command {
+	cmd := RootCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	return cmd
+}
 
 func createCSVFile(t *testing.T, content []string) (filePath string) {
 	t.Helper()
@@ -31,12 +40,35 @@ func createCSVFile(t *testing.T, content []string) (filePath string) {
 	return file.Name()
 }
 
-func commitFile(t *testing.T, branchName, filePath, primaryKey string, args ...string) {
+func commitFile(t *testing.T, branchName, filePath, primaryKey string, extraArgs ...string) {
 	t.Helper()
-	cmd := RootCmd()
-	cmd.SetOut(io.Discard)
-	cmd.SetArgs(append([]string{"commit", branchName, filePath, "commit message", "--primary-key", primaryKey, "-n", "1"}, args...))
+	cmd := rootCmd()
+	args := []string{"commit", branchName}
+	if filePath != "" {
+		args = append(args, filePath)
+	}
+	args = append(args, "commit message")
+	if primaryKey != "" {
+		args = append(args, "--primary-key", primaryKey)
+	}
+	args = append(args, "-n", "1")
+	cmd.SetArgs(append(args, extraArgs...))
 	require.NoError(t, cmd.Execute())
+}
+
+func assertDiffCSVEqual(t *testing.T, args []string, cb func(sum1, sum2 string) string) {
+	t.Helper()
+	cmd := rootCmd()
+	cmd.SetArgs(append(append([]string{"diff"}, args...), "--no-gui"))
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	pat := regexp.MustCompile(`DIFF_(.+)_(.+)\.csv`)
+	submatch := pat.FindStringSubmatch(buf.String())
+	defer os.Remove(submatch[0])
+	b, err := ioutil.ReadFile(submatch[0])
+	require.NoError(t, err)
+	assert.Equal(t, cb(submatch[1], submatch[2]), string(b))
 }
 
 func TestDiffCmd(t *testing.T) {
@@ -61,48 +93,33 @@ func TestDiffCmd(t *testing.T) {
 	defer os.Remove(fp2)
 	commitFile(t, "my-branch", fp2, "a")
 
-	cmd := RootCmd()
-	cmd.SetArgs([]string{"diff", "my-branch", "my-branch^", "--no-gui"})
-	buf := bytes.NewBuffer(nil)
-	cmd.SetOut(buf)
-	require.NoError(t, cmd.Execute())
-	pat := regexp.MustCompile(`DIFF_(.+)_(.+)\.csv`)
-	submatch := pat.FindStringSubmatch(buf.String())
-	defer os.Remove(submatch[0])
-	b, err := ioutil.ReadFile(submatch[0])
-	require.NoError(t, err)
-	assert.Equal(t, strings.Join([]string{
-		fmt.Sprintf("COLUMNS IN my-branch^ (%s),a,b,c", submatch[2]),
-		fmt.Sprintf("COLUMNS IN my-branch (%s),a,b,c", submatch[1]),
-		fmt.Sprintf("PRIMARY KEY IN my-branch^ (%s),true,,", submatch[2]),
-		fmt.Sprintf("PRIMARY KEY IN my-branch (%s),true,,", submatch[1]),
-		fmt.Sprintf("BASE ROW FROM my-branch^ (%s),1,q,w", submatch[2]),
-		fmt.Sprintf("MODIFIED IN my-branch (%s),1,q,e", submatch[1]),
-		fmt.Sprintf("ADDED IN my-branch (%s),4,s,d", submatch[1]),
-		fmt.Sprintf("REMOVED IN my-branch (%s),3,z,x", submatch[1]),
-		"",
-	}, "\n"), string(b))
+	assertDiffCSVEqual(t, []string{"my-branch", "my-branch^"}, func(sum1, sum2 string) string {
+		return strings.Join([]string{
+			fmt.Sprintf("COLUMNS IN my-branch^ (%s),a,b,c", sum2),
+			fmt.Sprintf("COLUMNS IN my-branch (%s),a,b,c", sum1),
+			fmt.Sprintf("PRIMARY KEY IN my-branch^ (%s),true,,", sum2),
+			fmt.Sprintf("PRIMARY KEY IN my-branch (%s),true,,", sum1),
+			fmt.Sprintf("BASE ROW FROM my-branch^ (%s),1,q,w", sum2),
+			fmt.Sprintf("MODIFIED IN my-branch (%s),1,q,e", sum1),
+			fmt.Sprintf("ADDED IN my-branch (%s),4,s,d", sum1),
+			fmt.Sprintf("REMOVED IN my-branch (%s),3,z,x", sum1),
+			"",
+		}, "\n")
+	})
 
-	cmd = RootCmd()
-	cmd.SetArgs([]string{"diff", "my-branch", "--no-gui"})
-	buf.Reset()
-	cmd.SetOut(buf)
-	require.NoError(t, cmd.Execute())
-	submatch = pat.FindStringSubmatch(buf.String())
-	defer os.Remove(submatch[0])
-	b, err = ioutil.ReadFile(submatch[0])
-	require.NoError(t, err)
-	assert.Equal(t, strings.Join([]string{
-		fmt.Sprintf("COLUMNS IN (%s),a,b,c", submatch[2]),
-		fmt.Sprintf("COLUMNS IN my-branch (%s),a,b,c", submatch[1]),
-		fmt.Sprintf("PRIMARY KEY IN (%s),true,,", submatch[2]),
-		fmt.Sprintf("PRIMARY KEY IN my-branch (%s),true,,", submatch[1]),
-		fmt.Sprintf("BASE ROW FROM (%s),1,q,w", submatch[2]),
-		fmt.Sprintf("MODIFIED IN my-branch (%s),1,q,e", submatch[1]),
-		fmt.Sprintf("ADDED IN my-branch (%s),4,s,d", submatch[1]),
-		fmt.Sprintf("REMOVED IN my-branch (%s),3,z,x", submatch[1]),
-		"",
-	}, "\n"), string(b))
+	assertDiffCSVEqual(t, []string{"my-branch"}, func(sum1, sum2 string) string {
+		return strings.Join([]string{
+			fmt.Sprintf("COLUMNS IN (%s),a,b,c", sum2),
+			fmt.Sprintf("COLUMNS IN my-branch (%s),a,b,c", sum1),
+			fmt.Sprintf("PRIMARY KEY IN (%s),true,,", sum2),
+			fmt.Sprintf("PRIMARY KEY IN my-branch (%s),true,,", sum1),
+			fmt.Sprintf("BASE ROW FROM (%s),1,q,w", sum2),
+			fmt.Sprintf("MODIFIED IN my-branch (%s),1,q,e", sum1),
+			fmt.Sprintf("ADDED IN my-branch (%s),4,s,d", sum1),
+			fmt.Sprintf("REMOVED IN my-branch (%s),3,z,x", sum1),
+			"",
+		}, "\n")
+	})
 }
 
 func TestDiffCmdNoRepoDir(t *testing.T) {
@@ -122,29 +139,50 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 	})
 	defer os.Remove(fp2)
 
-	cmd := RootCmd()
-	cmd.SetArgs([]string{"diff", fp2, fp1, "--no-gui", "--primary-key", "a"})
-	buf := bytes.NewBuffer(nil)
-	cmd.SetOut(buf)
-	require.NoError(t, cmd.Execute())
-	pat := regexp.MustCompile(`DIFF_(.+)_(.+)\.csv`)
-	submatch := pat.FindStringSubmatch(buf.String())
-	defer os.Remove(submatch[0])
-	b, err := ioutil.ReadFile(submatch[0])
-	require.NoError(t, err)
-	com1 := fmt.Sprintf("%s (%s)", path.Base(fp2), submatch[1])
-	com2 := fmt.Sprintf("%s (%s)", path.Base(fp1), submatch[2])
-	assert.Equal(t, strings.Join([]string{
-		fmt.Sprintf("COLUMNS IN %s,a,b,c", com2),
-		fmt.Sprintf("COLUMNS IN %s,a,c,b", com1),
-		fmt.Sprintf("PRIMARY KEY IN %s,true,,", com2),
-		fmt.Sprintf("PRIMARY KEY IN %s,true,,", com1),
-		fmt.Sprintf("BASE ROW FROM %s,1,w,q", com2),
-		fmt.Sprintf("MODIFIED IN %s,1,e,q", com1),
-		fmt.Sprintf("BASE ROW FROM %s,2,s,a", com2),
-		fmt.Sprintf("MODIFIED IN %s,2,s,a", com1),
-		fmt.Sprintf("ADDED IN %s,4,d,s", com1),
-		fmt.Sprintf("REMOVED IN %s,3,x,z", com1),
-		"",
-	}, "\n"), string(b))
+	assertDiffCSVEqual(t, []string{fp2, fp1, "--primary-key", "a"}, func(sum1, sum2 string) string {
+		com1 := fmt.Sprintf("%s (%s)", path.Base(fp2), sum1)
+		com2 := fmt.Sprintf("%s (%s)", path.Base(fp1), sum2)
+		return strings.Join([]string{
+			fmt.Sprintf("COLUMNS IN %s,a,b,c", com2),
+			fmt.Sprintf("COLUMNS IN %s,a,c,b", com1),
+			fmt.Sprintf("PRIMARY KEY IN %s,true,,", com2),
+			fmt.Sprintf("PRIMARY KEY IN %s,true,,", com1),
+			fmt.Sprintf("BASE ROW FROM %s,1,w,q", com2),
+			fmt.Sprintf("MODIFIED IN %s,1,e,q", com1),
+			fmt.Sprintf("BASE ROW FROM %s,2,s,a", com2),
+			fmt.Sprintf("MODIFIED IN %s,2,s,a", com1),
+			fmt.Sprintf("ADDED IN %s,4,d,s", com1),
+			fmt.Sprintf("REMOVED IN %s,3,x,z", com1),
+			"",
+		}, "\n")
+	})
+}
+
+func TestDiffCmdBrancFile(t *testing.T) {
+	_, cleanup := createRepoDir(t)
+	defer cleanup()
+
+	fp1 := createCSVFile(t, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
+	defer os.Remove(fp1)
+	commitFile(t, "my-branch", fp1, "a", "--set-file", "--set-primary-key")
+
+	appendToFile(t, fp1, "\n4,r,t")
+
+	assertDiffCSVEqual(t, []string{"my-branch", "--branch-file"}, func(sum1, sum2 string) string {
+		name := filepath.Base(fp1)
+		return strings.Join([]string{
+			fmt.Sprintf("COLUMNS IN my-branch (%s),a,b,c", sum2),
+			fmt.Sprintf("COLUMNS IN %s (%s),a,b,c", name, sum1),
+			fmt.Sprintf("PRIMARY KEY IN my-branch (%s),true,,", sum2),
+			fmt.Sprintf("PRIMARY KEY IN %s (%s),true,,", name, sum1),
+			fmt.Sprintf("ADDED IN %s (%s),4,r,t", name, sum1),
+			"",
+		}, "\n")
+	})
+
 }

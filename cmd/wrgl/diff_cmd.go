@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -18,6 +19,8 @@ import (
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/conf"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/diff"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -52,6 +55,9 @@ func newDiffCmd() *cobra.Command {
 			``,
 			`  # show changes between a file and the head commit from a branch`,
 			`  wrgl diff my-file.csv my-branch`,
+			``,
+			`  # show diff between branch.file config (set with wrgl commit --set-file) and the latest commit of a branch`,
+			`  wrgl diff my-branch --branch-file`,
 		}, "\n"),
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -81,14 +87,23 @@ func newDiffCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			branchFile, err := cmd.Flags().GetBool("branch-file")
+			if err != nil {
+				return err
+			}
 			memStore := objmock.NewStore()
-
-			db1, name1, commitHash1, commit1, err := getCommit(cmd, db, memStore, rs, pk, args[0])
+			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
+			c, err := s.Open()
 			if err != nil {
 				return err
 			}
 
-			db2, name2, commitHash2, commit2, err := getSecondCommit(cmd, db, memStore, rs, pk, args, commit1)
+			db1, name1, commitHash1, commit1, err := getCommit(cmd, c, db, memStore, rs, pk, args[0], branchFile)
+			if err != nil {
+				return err
+			}
+
+			db2, name2, commitHash2, commit2, err := getSecondCommit(cmd, c, db, memStore, rs, pk, args, commit1, branchFile)
 			if err != nil {
 				return err
 			}
@@ -148,17 +163,21 @@ func newDiffCmd() *cobra.Command {
 	}
 	cmd.Flags().Bool("no-gui", false, "don't show the diff table, instead output changes to file DIFF_SUM1_SUM2.csv")
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key (only applicable if diff target is a file)")
+	cmd.Flags().Bool("branch-file", false, "if only one argument is given and it is a branch name, compare against branch.file (if it is set with wrgl commit --set-file)")
 	return cmd
 }
 
 func getSecondCommit(
-	cmd *cobra.Command, db objects.Store, memDB *objmock.Store, rs ref.Store, pk []string, args []string, commit1 *objects.Commit,
+	cmd *cobra.Command, c *conf.Config, db objects.Store, memDB *objmock.Store, rs ref.Store, pk []string, args []string, commit1 *objects.Commit, branchFile bool,
 ) (inUsedDB objects.Store, name, hash string, commit *objects.Commit, err error) {
+	if branchFile {
+		return getCommit(cmd, c, db, memDB, rs, pk, args[0], false)
+	}
 	if len(args) > 1 {
-		return getCommit(cmd, db, memDB, rs, pk, args[1])
+		return getCommit(cmd, c, db, memDB, rs, pk, args[1], false)
 	}
 	if len(commit1.Parents) > 0 {
-		return getCommit(cmd, db, memDB, rs, pk, hex.EncodeToString(commit1.Parents[0]))
+		return getCommit(cmd, c, db, memDB, rs, pk, hex.EncodeToString(commit1.Parents[0]), false)
 	}
 	err = fmt.Errorf("specify the second object to diff against")
 	return
@@ -203,7 +222,7 @@ func displayableCommitName(name string, sum []byte) string {
 }
 
 func getCommit(
-	cmd *cobra.Command, db objects.Store, memStore *objmock.Store, rs ref.Store, pk []string, cStr string,
+	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store, rs ref.Store, pk []string, cStr string, branchFile bool,
 ) (inUsedDB objects.Store, name, hash string, commit *objects.Commit, err error) {
 	inUsedDB = db
 	var file *os.File
@@ -217,12 +236,38 @@ func getCommit(
 			}
 			return
 		}
-	}
-	if memStore != nil && file != nil {
 		inUsedDB = memStore
 		defer file.Close()
 		hash, commit, err = createInMemCommit(cmd, memStore, pk, file)
 		return inUsedDB, path.Base(file.Name()), hash, commit, err
+	}
+	if branchFile && strings.HasPrefix(name, "heads/") {
+		branchName := strings.TrimPrefix(name, "heads/")
+		errFileNotSet := fmt.Errorf("illegal flag --branch-file: branch.file is not set for branch %q.", branchName)
+		if c.Branch == nil {
+			err = errFileNotSet
+			return
+		}
+		if branch, ok := c.Branch[branchName]; !ok {
+			err = errFileNotSet
+			return
+		} else if branch.File == "" {
+			err = errFileNotSet
+			return
+		} else {
+			var tmpSum []byte
+			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, 1, 0)
+			if err != nil {
+				return
+			}
+			commit, err = objects.GetCommit(db, tmpSum)
+			if err != nil {
+				return
+			}
+			name = filepath.Base(branch.File)
+			hash = hex.EncodeToString(tmpSum)
+			return
+		}
 	}
 	name = displayableCommitName(cStr, hashb)
 	hash = hex.EncodeToString(hashb)

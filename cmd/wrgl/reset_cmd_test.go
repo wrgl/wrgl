@@ -5,7 +5,6 @@ package wrgl
 
 import (
 	"encoding/hex"
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +17,7 @@ import (
 func TestResetCmd(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	cmd := RootCmd()
+	cmd := rootCmd()
 
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
@@ -28,7 +27,6 @@ func TestResetCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd.SetArgs([]string{"reset", "alpha", hex.EncodeToString(sum)})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	db, err = rd.OpenObjectsStore()

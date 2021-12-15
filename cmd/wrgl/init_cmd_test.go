@@ -4,7 +4,6 @@
 package wrgl
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,9 +19,8 @@ func TestInitCmd(t *testing.T) {
 	defer cleanup()
 	wrglDir := filepath.Join(dir, ".wrgl")
 	viper.Set("wrgl_dir", "")
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"init"})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 	assert.DirExists(t, filepath.Join(wrglDir, "files"))
 	assert.DirExists(t, filepath.Join(wrglDir, "kv"))
@@ -33,9 +31,8 @@ func TestInitCmdDirExists(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	viper.Set("wrgl_dir", "")
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"init", "--wrgl-dir", dir})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 	assert.DirExists(t, filepath.Join(dir, "files"))
 	assert.DirExists(t, filepath.Join(dir, "kv"))

@@ -22,43 +22,43 @@ func TestConfigAddCmd(t *testing.T) {
 	defer os.RemoveAll(wrglDir)
 	viper.Set("wrgl_dir", wrglDir)
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"config", "add", "user.name", "john"})
 	assertCmdFailed(t, cmd, "", fmt.Errorf("command only support multiple values field. Use \"config set\" command instead"))
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "add", "remote.origin.push", "refs/heads/main"})
 	require.NoError(t, cmd.Execute())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push"})
 	assertCmdOutput(t, cmd, "refs/heads/main\n")
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "add", "remote.origin.push", "refs/tags/december"})
 	require.NoError(t, cmd.Execute())
 
 	// vanilla get & get-all
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push"})
 	assertCmdOutput(t, cmd, "refs/tags/december\n")
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push"})
 	assertCmdOutput(t, cmd, "refs/heads/main\nrefs/tags/december\n")
 
 	// get with value pattern
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "^refs/heads/.+", "--null"})
 	assertCmdOutput(t, cmd, "refs/heads/main\x00")
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "^refs/tags/.+", "--null"})
 	assertCmdOutput(t, cmd, "refs/tags/december\x00")
 
 	// get with fixed value
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "refs/heads/main", "--fixed-value", "--null"})
 	assertCmdOutput(t, cmd, "refs/heads/main\x00")
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "refs/tags/december", "--fixed-value", "--null"})
 	assertCmdOutput(t, cmd, "refs/tags/december\x00")
 }

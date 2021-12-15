@@ -6,7 +6,6 @@ package wrgl
 import (
 	"encoding/hex"
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 	"testing"
@@ -72,17 +71,17 @@ func TestFetchCmd(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "tickets", sum3, c3))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	require.NoError(t, cmd.Execute())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch"})
 	assertCmdUnauthorized(t, cmd, url)
 
 	authenticate(t, url)
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
@@ -120,14 +119,13 @@ func TestFetchCmd(t *testing.T) {
 	})
 	require.NoError(t, db.Close())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch"})
 	assertCmdOutput(t, cmd, "")
 }
 
 func assertCommandNoErr(t *testing.T, cmd *cobra.Command) {
 	t.Helper()
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 }
 
@@ -159,13 +157,13 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	rs := rd.OpenRefStore()
 	defer cleanUp()
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url1})
 	assertCommandNoErr(t, cmd)
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "acme", url2})
 	assertCommandNoErr(t, cmd)
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "home", url3})
 	assertCommandNoErr(t, cmd)
 
@@ -173,7 +171,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	authenticate(t, url2)
 	authenticate(t, url3)
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "acme"})
 	assertCommandNoErr(t, cmd)
 	db, err := rd.OpenObjectsStore()
@@ -188,7 +186,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	apitest.AssertCommitsPersisted(t, db, [][]byte{sum2})
 	require.NoError(t, db.Close())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "--all"})
 	assertCommandNoErr(t, cmd)
 	db, err = rd.OpenObjectsStore()
@@ -217,12 +215,12 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	rs := rd.OpenRefStore()
 	defer cleanUp()
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	assertCommandNoErr(t, cmd)
 	authenticate(t, url)
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/custom/abc:refs/custom/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
@@ -268,13 +266,13 @@ func TestFetchCmdTag(t *testing.T) {
 	require.NoError(t, ref.SaveTag(rs, "2021-dec", sum4))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	assertCommandNoErr(t, cmd)
 
 	authenticate(t, url)
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/202*:refs/tags/202*"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
 		"From " + url,
@@ -283,7 +281,7 @@ func TestFetchCmdTag(t *testing.T) {
 		"",
 	}, "\n"), fmt.Errorf("failed to fetch some refs from "+url))
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "+refs/tags/2020*:refs/tags/2020*"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
@@ -306,7 +304,7 @@ func TestFetchCmdTag(t *testing.T) {
 	})
 	require.NoError(t, db.Close())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/2021*:refs/tags/2021*", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
@@ -349,13 +347,13 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "abc", sum2, c2))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	require.NoError(t, cmd.Execute())
 
 	authenticate(t, url)
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/heads/abc:refs/heads/abc"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
 		"From " + url,
@@ -363,7 +361,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 		"",
 	}, "\n"), fmt.Errorf("failed to fetch some refs from "+url))
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "+refs/heads/abc:refs/heads/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,

@@ -5,8 +5,8 @@ package wrgl
 
 import (
 	"bytes"
-	"encoding/csv"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -31,7 +31,7 @@ func TestCommitCmd(t *testing.T) {
 	})
 	defer os.Remove(fp)
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", fp, "initial commit", "-n", "1"})
 	cmd.SetOut(ioutil.Discard)
 	require.NoError(t, cmd.Execute())
@@ -80,7 +80,7 @@ func TestCommitFromStdin(t *testing.T) {
 
 	f, err := os.Open(fp)
 	require.NoError(t, err)
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", "-", "initial commit", "-n", "1"})
 	cmd.SetIn(f)
 	cmd.SetOut(ioutil.Discard)
@@ -91,6 +91,19 @@ func TestCommitFromStdin(t *testing.T) {
 	b, err := ioutil.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
+}
+
+func appendToFile(t *testing.T, fp string, content string) {
+	t.Helper()
+	fi, err := os.Stat(fp)
+	require.NoError(t, err)
+	f, err := os.OpenFile(fp, os.O_RDWR, fi.Mode())
+	require.NoError(t, err)
+	_, err = f.Seek(0, io.SeekEnd)
+	require.NoError(t, err)
+	_, err = f.Write([]byte(content))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
 }
 
 func TestCommitSetFile(t *testing.T) {
@@ -104,25 +117,20 @@ func TestCommitSetFile(t *testing.T) {
 		"3,z,x",
 	})
 	defer os.Remove(fp)
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", "second commit", "-n", "1"})
-	assertCmdFailed(t, cmd, "", fmt.Errorf("no configuration found for branch \"my-branch\". You need to specify CSV_FILE_PATH"))
+	assertCmdFailed(t, cmd, "", fmt.Errorf("branch.file is not set for branch \"my-branch\". You need to specify CSV_FILE_PATH"))
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", fp, "initial commit", "-n", "1", "-p", "a", "--set-file", "--set-primary-key"})
 	cmd.SetOut(ioutil.Discard)
 	require.NoError(t, cmd.Execute())
 
 	// append a single line to fp
-	f, err := os.OpenFile(fp, os.O_APPEND|os.O_WRONLY, 0600)
-	require.NoError(t, err)
-	w := csv.NewWriter(f)
-	require.NoError(t, w.Write([]string{"4", "r", "t"}))
-	w.Flush()
-	require.NoError(t, f.Close())
+	appendToFile(t, fp, "\n4,r,t")
 
 	// commit reading file and pk from config
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", "second commit", "-n", "1"})
 	cmd.SetOut(ioutil.Discard)
 	require.NoError(t, cmd.Execute())
@@ -142,7 +150,7 @@ func TestCommitSetFile(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	// refuse to commit again because file hasn't changed
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", "third commit", "-n", "1"})
 	buf := bytes.NewBuffer(nil)
 	cmd.SetOut(buf)
@@ -150,7 +158,7 @@ func TestCommitSetFile(t *testing.T) {
 	assert.True(t, strings.HasSuffix(buf.String(), fmt.Sprintf("file %s hasn't changed since the last commit. Aborting.\n", fp)))
 
 	// commit overriding pk
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", "second commit", "-n", "1", "-p", "b"})
 	cmd.SetOut(ioutil.Discard)
 	require.NoError(t, cmd.Execute())

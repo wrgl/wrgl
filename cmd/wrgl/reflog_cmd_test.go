@@ -25,7 +25,7 @@ func TestReflogCmd(t *testing.T) {
 	sum2, c2 := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"reflog", "alpha", "--no-pager"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("%s alpha@{0}: commit: %s", hex.EncodeToString(sum2)[:7], c2.Message),
@@ -34,10 +34,10 @@ func TestReflogCmd(t *testing.T) {
 	}, "\n"))
 
 	// test reflog exist
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"reflog", "exist", "alpha"})
 	assertCmdOutput(t, cmd, "reflog for \"alpha\" does exist\n")
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"reflog", "exist", "beta"})
 	assert.Equal(t, fmt.Errorf("no such ref: \"beta\""), cmd.Execute())
 }

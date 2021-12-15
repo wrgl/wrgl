@@ -19,31 +19,31 @@ func TestRemoteAddCmd(t *testing.T) {
 	defer cleanUp()
 
 	// add remote
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", "https://my-repo.com/"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "acme", "https://acme.com", "--tags"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "beta", "https://beta.com", "-t", "main", "-t", "tickets"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "gamma", "https://gamma.com", "--mirror=fetch"})
 	require.NoError(t, cmd.Execute())
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "theta", "https://theta.com", "--mirror=push"})
 	require.NoError(t, cmd.Execute())
 
 	// list remote non-verbose
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"acme", "beta", "gamma", "origin", "theta", "",
 	}, "\n"))
 
 	// list remote verbose
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "--verbose"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"acme https://acme.com",
@@ -96,7 +96,7 @@ func TestRemoteAddCmd(t *testing.T) {
 	}, c.Remote)
 
 	// test get-url
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "get-url", "origin"})
 	assertCmdOutput(t, cmd, "https://my-repo.com\n")
 }

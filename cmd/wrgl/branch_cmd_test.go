@@ -31,7 +31,7 @@ func createRepoDir(t *testing.T) (rd *local.RepoDir, cleanup func()) {
 	err = rd.Init()
 	require.NoError(t, err)
 	viper.Set("wrgl_dir", wrglDir)
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"config", "set", "user.email", "john@domain.com"})
 	require.NoError(t, cmd.Execute())
 	cmd.SetArgs([]string{"config", "set", "user.name", "John Doe"})
@@ -59,7 +59,7 @@ func assertCmdFailed(t *testing.T, cmd *cobra.Command, output string, err error)
 func TestBranchCmdList(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	cmd := RootCmd()
+	cmd := rootCmd()
 
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestBranchCmdList(t *testing.T) {
 func TestBranchCmdCopy(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	cmd := RootCmd()
+	cmd := rootCmd()
 
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestBranchCmdCopy(t *testing.T) {
 func TestBranchCmdMove(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	cmd := RootCmd()
+	cmd := rootCmd()
 
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestBranchCmdMove(t *testing.T) {
 func TestBranchCmdDelete(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	cmd := RootCmd()
+	cmd := rootCmd()
 
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestBranchCmdDelete(t *testing.T) {
 func TestBranchCmdCreate(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
-	cmd := RootCmd()
+	cmd := rootCmd()
 
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)

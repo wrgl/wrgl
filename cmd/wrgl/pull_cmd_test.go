@@ -1,7 +1,6 @@
 package wrgl
 
 import (
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,19 +34,18 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "beta", sum4, c4))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url, "-t", "beta", "-t", "main"})
 	require.NoError(t, cmd.Execute())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "main", "my-repo", "refs/heads/main:refs/remotes/my-repo/main", "--set-upstream"})
 	assertCmdUnauthorized(t, cmd, url)
 
 	// pull set upstream
 	authenticate(t, url)
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "main", "my-repo", "refs/heads/main:refs/remotes/my-repo/main", "--set-upstream"})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	db, err = rd.OpenObjectsStore()
@@ -61,9 +59,8 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rss, "main", sum3, c3))
 
 	// pull with upstream already set
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "main"})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	db, err = rd.OpenObjectsStore()
@@ -74,9 +71,8 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	// pull merge first fetch refspec
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "beta", "my-repo"})
-	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	db, err = rd.OpenObjectsStore()
@@ -86,7 +82,7 @@ func TestPullCmd(t *testing.T) {
 	assert.Equal(t, sum5, sum)
 	require.NoError(t, db.Close())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "main"})
 	assertCmdOutput(t, cmd, "Already up to date.\n")
 }

@@ -18,12 +18,12 @@ func TestRemoteSetBranches(t *testing.T) {
 	defer cleanUp()
 
 	// add remote
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", "https://my-repo.com"})
 	require.NoError(t, cmd.Execute())
 
 	// set branches
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "set-branches", "origin", "main"})
 	require.NoError(t, cmd.Execute())
 	cs := conffs.NewStore(viper.GetString("wrgl_dir"), conffs.LocalSource, "")
@@ -34,7 +34,7 @@ func TestRemoteSetBranches(t *testing.T) {
 	}, c.Remote["origin"].Fetch)
 
 	// set branches --add
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"remote", "set-branches", "origin", "data", "--add"})
 	require.NoError(t, cmd.Execute())
 	c, err = cs.Open()

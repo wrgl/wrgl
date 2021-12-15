@@ -67,12 +67,12 @@ func TestPushCmd(t *testing.T) {
 	sum14, _ := factory.CommitTag(t, db, rs, "epsilon", nil, nil, nil)
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
 	authenticate(t, url)
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{
 		"push", "my-repo",
 		"refs/heads/delta:",
@@ -145,7 +145,7 @@ func TestPushCmdForce(t *testing.T) {
 	sum4, _ := factory.CommitTag(t, db, rs, "2017", nil, nil, nil)
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	require.NoError(t, cmd.Execute())
 	for _, ref := range []string{
@@ -153,13 +153,13 @@ func TestPushCmdForce(t *testing.T) {
 		":refs/heads/beta",
 		"refs/tags/2017:refs/tags/2017",
 	} {
-		cmd = RootCmd()
+		cmd = rootCmd()
 		cmd.SetArgs([]string{"config", "add", "remote.origin.push", ref})
 		require.NoError(t, cmd.Execute())
 	}
 
 	authenticate(t, url)
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("To %s", url),
@@ -196,12 +196,12 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	factory.CommitHead(t, db, rs, "beta", nil, nil)
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
 	authenticate(t, url)
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{
 		"push", "my-repo", "--set-upstream",
 		"refs/heads/alpha:",
@@ -249,16 +249,16 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "alpha", sum2, c2))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:"})
 	assertCmdUnauthorized(t, cmd, url)
 	authenticate(t, url)
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("To %s", url),
@@ -294,12 +294,12 @@ func TestPushMirror(t *testing.T) {
 	require.NoError(t, ref.SaveRemoteRef(rs, "origin", "main", sum5, c5.AuthorName, c5.AuthorEmail, "fetch", "update head"))
 	require.NoError(t, db.Close())
 
-	cmd := RootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 	authenticate(t, url)
 
-	cmd = RootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "my-repo", "--mirror"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("To %s", url),
