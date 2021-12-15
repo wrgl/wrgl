@@ -6,6 +6,7 @@ package remote
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -88,6 +89,7 @@ func addCmd() *cobra.Command {
 					remote.Fetch = append(remote.Fetch, conf.MustParseRefspec("tag *"))
 				}
 			}
+			sort.Sort(remote.Fetch)
 			if mirror == "push" {
 				remote.Mirror = true
 			}

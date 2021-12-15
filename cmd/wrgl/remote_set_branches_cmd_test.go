@@ -29,7 +29,7 @@ func TestRemoteSetBranches(t *testing.T) {
 	cs := conffs.NewStore(viper.GetString("wrgl_dir"), conffs.LocalSource, "")
 	c, err := cs.Open()
 	require.NoError(t, err)
-	assert.Equal(t, []*conf.Refspec{
+	assert.Equal(t, conf.RefspecSlice{
 		conf.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
 	}, c.Remote["origin"].Fetch)
 
@@ -39,8 +39,8 @@ func TestRemoteSetBranches(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	c, err = cs.Open()
 	require.NoError(t, err)
-	assert.Equal(t, []*conf.Refspec{
-		conf.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
+	assert.Equal(t, conf.RefspecSlice{
 		conf.MustParseRefspec("+refs/heads/data:refs/remotes/origin/data"),
+		conf.MustParseRefspec("+refs/heads/main:refs/remotes/origin/main"),
 	}, c.Remote["origin"].Fetch)
 }

@@ -5,6 +5,7 @@ package conf
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -16,6 +17,44 @@ type Refspec struct {
 	dst        string
 	dstStarInd int
 	tag        string
+}
+
+func (a *Refspec) Equal(b *Refspec) bool {
+	if a.Force != b.Force {
+		return false
+	}
+	if a.Negate != b.Negate {
+		return false
+	}
+	if a.src != b.src {
+		return false
+	}
+	if a.dst != b.dst {
+		return false
+	}
+	if a.tag != b.tag {
+		return false
+	}
+	return true
+}
+
+func (a *Refspec) Less(b *Refspec) bool {
+	if a.Force != b.Force {
+		return b.Force
+	}
+	if a.Negate != b.Negate {
+		return b.Negate
+	}
+	if a.tag != b.tag {
+		return b.tag > a.tag
+	}
+	if a.src != b.src {
+		return b.src > a.src
+	}
+	if a.dst != b.dst {
+		return b.dst > a.dst
+	}
+	return false
 }
 
 func NewRefspec(src, dst string, negate, force bool) (rs *Refspec, err error) {
@@ -194,4 +233,20 @@ func MustParseRefspec(s string) *Refspec {
 		panic(err.Error())
 	}
 	return rs
+}
+
+type RefspecSlice []*Refspec
+
+func (a RefspecSlice) Len() int           { return len(a) }
+func (a RefspecSlice) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a RefspecSlice) Less(i, j int) bool { return a[i].Less(a[j]) }
+
+func (a RefspecSlice) IndexOf(rs *Refspec) int {
+	i := sort.Search(a.Len(), func(i int) bool {
+		return !a[i].Less(rs)
+	})
+	if i < a.Len() && a[i].Equal(rs) {
+		return i
+	}
+	return -1
 }

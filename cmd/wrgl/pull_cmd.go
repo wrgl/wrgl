@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"runtime"
+	"sort"
 	"strings"
 
+	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
@@ -18,7 +20,7 @@ import (
 
 func pullCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "pull BRANCH [REPOSITORY [REFSPEC...]]",
+		Use:   "pull { BRANCH [REPOSITORY [REFSPEC...]] | --all }",
 		Short: "Fetch from and integrate with another repository.",
 		Long:  "Fetch from and integrate with another repository. This is shorthand for `wrgl fetch [REPOSITORY [REFSPEC...]]` followed by `wrgl merge BRANCH FETCHED_COMMIT...`",
 		Example: utils.CombineExamples([]utils.Example{
@@ -27,11 +29,15 @@ func pullCmd() *cobra.Command {
 				Line:    "wrgl pull main origin refs/heads/main:refs/remotes/origin/main --set-upstream",
 			},
 			{
-				Comment: "pull a branch from remote with upstream already set",
+				Comment: "pull a branch from remote with upstream configured",
 				Line:    "wrgl pull main",
 			},
+			{
+				Comment: "pull all branches that have upstream configured",
+				Line:    "wrgl pull --all",
+			},
 		}),
-		Args: cobra.MinimumNArgs(1),
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
 			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
@@ -75,70 +81,34 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			newBranch := false
-			name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
+			all, err := cmd.Flags().GetBool("all")
 			if err != nil {
-				if strings.HasPrefix(err.Error(), "can't find branch ") {
-					newBranch = true
-					name = args[0]
-					if !strings.Contains(name, "/") {
-						name = "heads/" + name
+				return err
+			}
+			ff, err := getFastForward(cmd, c)
+			if err != nil {
+				return err
+			}
+
+			if all {
+				names := []string{}
+				for name, branch := range c.Branch {
+					if branch.Remote == "" {
+						continue
 					}
-				} else {
-					return err
+					names = append(names, name)
 				}
-			}
-			if !strings.HasPrefix(name, "heads/") {
-				return fmt.Errorf("%q is not a branch name", args[0])
-			}
-			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, name[6:], args[1:])
-			if err != nil {
-				return err
-			}
-			cs, err := credentials.NewStore()
-			if err != nil {
-				return err
-			}
-			uri, tok, err := getCredentials(cmd, cs, rem.URL)
-			if err != nil {
-				return err
-			}
-			err = fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force)
-			if err != nil {
-				return handleHTTPError(cmd, cs, *uri, err)
-			}
-			if setUpstream && len(args) > 2 {
-				err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{
-					{Src: name, Dst: strings.TrimPrefix(specs[0].Src(), "refs/")},
-				})
-				if err != nil {
-					return err
+				sort.Strings(names)
+				for _, name := range names {
+					colorstring.Fprintf(cmd.OutOrStdout(), "pulling [bold]%s[reset]...\n", name)
+					if err := pullSingleRepo(cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI, wrglDir, ff, numWorkers, message); err != nil {
+						return err
+					}
 				}
+				return nil
 			}
 
-			mergeHeads, err := extractMergeHeads(db, rs, c, name, args, specs, newBranch)
-			if err != nil {
-				return err
-			}
-			if len(mergeHeads) == 0 {
-				cmd.Println("Already up to date.")
-				return nil
-			} else if newBranch {
-				if len(mergeHeads) > 1 {
-					return fmt.Errorf("can't merge more than one reference into a non-existant branch")
-				}
-				_, sum, com, err := ref.InterpretCommitName(db, rs, mergeHeads[0], true)
-				if err != nil {
-					return fmt.Errorf("can't get merge head ref: %v", err)
-				}
-				if err = ref.SaveRef(rs, name, sum, c.User.Name, c.User.Email, "merge", "created from "+mergeHeads[0]); err != nil {
-					return err
-				}
-				cmd.Printf("[%s %s] %s\n", strings.TrimPrefix(name, "heads/"), hex.EncodeToString(sum)[:7], com.Message)
-				return nil
-			}
-			return runMerge(cmd, c, db, rs, append(args[:1], mergeHeads...), noCommit, noGUI, "", numWorkers, message, nil)
+			return pullSingleRepo(cmd, c, db, rs, args, force, setUpstream, noCommit, noGUI, wrglDir, ff, numWorkers, message)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update local branch in certain conditions.")
@@ -147,6 +117,10 @@ func pullCmd() *cobra.Command {
 	cmd.Flags().StringP("message", "m", "", "merge commit message")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
 	cmd.Flags().BoolP("set-upstream", "u", false, "if the remote is fetched successfully, add upstream (tracking) reference, used by argument-less `wrgl pull`.")
+	cmd.Flags().Bool("all", false, "pull all branches that have upstream configured")
+	cmd.Flags().Bool("ff", false, "when merging a descendant commit into a branch, don't create a merge commit but simply fast-forward branch to the descendant commit. Create an extra merge commit otherwise. This is the default behavior unless merge.fastForward is configured.")
+	cmd.Flags().Bool("no-ff", false, "always create a merge commit, even when a simple fast-forward is possible. This is the default when merge.fastFoward is set to \"never\".")
+	cmd.Flags().Bool("ff-only", false, "only allow fast-forward merges. This is the default when merge.fastForward is set to \"only\".")
 	return cmd
 }
 
@@ -186,4 +160,73 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 		}
 	}
 	return mergeHeads, nil
+}
+
+func pullSingleRepo(
+	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, force bool,
+	setUpstream, noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string,
+) error {
+	newBranch := false
+	name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "can't find branch ") {
+			newBranch = true
+			name = args[0]
+			if !strings.Contains(name, "/") {
+				name = "heads/" + name
+			}
+		} else {
+			return err
+		}
+	}
+	if !strings.HasPrefix(name, "heads/") {
+		return fmt.Errorf("%q is not a branch name", args[0])
+	}
+	remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, name[6:], args[1:])
+	if err != nil {
+		return err
+	}
+	cs, err := credentials.NewStore()
+	if err != nil {
+		return err
+	}
+	uri, tok, err := getCredentials(cmd, cs, rem.URL)
+	if err != nil {
+		return err
+	}
+	err = fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force)
+	if err != nil {
+		return handleHTTPError(cmd, cs, *uri, err)
+	}
+	if setUpstream && len(args) > 2 {
+		err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{
+			{Src: name, Dst: strings.TrimPrefix(specs[0].Src(), "refs/")},
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	mergeHeads, err := extractMergeHeads(db, rs, c, name, args, specs, newBranch)
+	if err != nil {
+		return err
+	}
+	if len(mergeHeads) == 0 {
+		cmd.Println("Already up to date.")
+		return nil
+	} else if newBranch {
+		if len(mergeHeads) > 1 {
+			return fmt.Errorf("can't merge more than one reference into a non-existant branch")
+		}
+		_, sum, com, err := ref.InterpretCommitName(db, rs, mergeHeads[0], true)
+		if err != nil {
+			return fmt.Errorf("can't get merge head ref: %v", err)
+		}
+		if err = ref.SaveRef(rs, name, sum, c.User.Name, c.User.Email, "merge", "created from "+mergeHeads[0]); err != nil {
+			return err
+		}
+		cmd.Printf("[%s %s] %s\n", strings.TrimPrefix(name, "heads/"), hex.EncodeToString(sum)[:7], com.Message)
+		return nil
+	}
+	return runMerge(cmd, c, db, rs, append(args[:1], mergeHeads...), noCommit, noGUI, ff, "", numWorkers, message, nil)
 }

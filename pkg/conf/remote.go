@@ -9,11 +9,11 @@ type Remote struct {
 
 	// Fetch is the list of refspecs to fetch from this remote when
 	// user run `wrgl fetch <remote>` without specifying refspecs.
-	Fetch []*Refspec `yaml:"fetch,omitempty" json:"fetch,omitempty"`
+	Fetch RefspecSlice `yaml:"fetch,omitempty" json:"fetch,omitempty"`
 
 	// Push is the list of refspecs to push to this remote when user
 	// run `wrgl push <remote>` without specifying refspecs.
-	Push []*Refspec `yaml:"push,omitempty" json:"push,omitempty"`
+	Push RefspecSlice `yaml:"push,omitempty" json:"push,omitempty"`
 
 	// Mirror, when set to `true`, `wrgl push <remote>` behaves as if
 	// flag `--mirror` is set. This remote will then act as a mirror

@@ -1,6 +1,9 @@
 package wrgl
 
 import (
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,6 +27,8 @@ func TestPullCmd(t *testing.T) {
 	sum4, c4 := factory.CommitRandom(t, dbs, nil)
 	sum5, c5 := factory.CommitRandom(t, dbs, [][]byte{sum4})
 	require.NoError(t, ref.CommitHead(rss, "beta", sum5, c5))
+	sum6, c6 := factory.CommitRandom(t, dbs, nil)
+	require.NoError(t, ref.CommitHead(rss, "gamma", sum6, c6))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -85,4 +90,31 @@ func TestPullCmd(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "main"})
 	assertCmdOutput(t, cmd, "Already up to date.\n")
+
+	// configure gamma upstream
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "set", "branch.gamma.remote", "my-repo"})
+	require.NoError(t, cmd.Execute())
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "set", "branch.gamma.merge", "refs/heads/gamma"})
+	require.NoError(t, cmd.Execute())
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "add", "remote.my-repo.fetch", "+refs/heads/gamma:refs/remotes/my-repo/gamma"})
+	require.NoError(t, cmd.Execute())
+
+	// pull all branches with upstream configured
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"pull", "--all"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"pulling \x1b[1mgamma\x1b[0m...",
+		fmt.Sprintf("\x1b[0mFrom %s", url),
+		" * [new branch]      gamma       -> my-repo/gamma",
+		fmt.Sprintf("[gamma %s] %s", hex.EncodeToString(sum6)[:7], c6.Message),
+		"pulling \x1b[1mmain\x1b[0m...",
+		"\x1b[0mAlready up to date.",
+		"",
+	}, "\n"))
+	sum, err = ref.GetHead(rs, "gamma")
+	require.NoError(t, err)
+	assert.Equal(t, sum6, sum)
 }

@@ -249,6 +249,10 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
+	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--ff-only"})
+	assert.Equal(t, fmt.Errorf("merge rejected (non-fast-forward)"), cmd.Execute())
+
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--no-commit"})
 	require.NoError(t, cmd.Execute())
 
@@ -328,4 +332,43 @@ func TestMergeCmdFastForward(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"merge", "branch-1", "branch-2"})
 	assertCmdOutput(t, cmd, "All commits are identical, nothing to merge\n")
+}
+
+func TestMergeCmdNoFF(t *testing.T) {
+	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	defer db.Close()
+	rs := rd.OpenRefStore()
+	base, baseCom := factory.CommitRandom(t, db, nil)
+	sum1, com1 := factory.CommitRandom(t, db, [][]byte{base})
+	require.NoError(t, ref.CommitHead(rs, "branch-1", base, baseCom))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum1, com1))
+	require.NoError(t, db.Close())
+
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--no-ff"})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+
+	db, err = rd.OpenObjectsStore()
+	require.NoError(t, err)
+	defer db.Close()
+	sum, err := ref.GetHead(rs, "branch-1")
+	require.NoError(t, err)
+	assert.Equal(t, fmt.Sprintf("[branch-1 %s] Merge \"branch-2\" into \"branch-1\"\n", hex.EncodeToString(sum)[:7]), buf.String())
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/branch-1", &ref.Reflog{
+		OldOID:      base,
+		NewOID:      sum,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@domain.com",
+		Action:      "merge",
+		Message:     fmt.Sprintf("merge %s, %s", hex.EncodeToString(base)[:7], hex.EncodeToString(sum1)[:7]),
+	})
+	com, err := objects.GetCommit(db, sum)
+	require.NoError(t, err)
+	assert.Equal(t, [][]byte{base, sum1}, com.Parents)
+	assert.Equal(t, "Merge \"branch-2\" into \"branch-1\"", com.Message)
 }

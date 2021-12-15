@@ -34,7 +34,7 @@ func TestConfigRenameSectionCmd(t *testing.T) {
 
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"config", "rename-section", "remote.origin.push", "receive"})
-	assertCmdFailed(t, cmd, "", fmt.Errorf(`types are different: []*conf.Refspec != *conf.Receive`))
+	assertCmdFailed(t, cmd, "", fmt.Errorf(`types are different: conf.RefspecSlice != *conf.Receive`))
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "rename-section", "remote.origin.push", "remote.acme.fetch"})

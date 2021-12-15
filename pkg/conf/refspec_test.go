@@ -4,6 +4,7 @@
 package conf
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -128,4 +129,27 @@ func TestNewRefspec(t *testing.T) {
 		require.NoError(t, err, "case %d", i)
 		assert.Equal(t, c.Result, rs.String(), "case %d", i)
 	}
+}
+
+func TestRefspecSlice(t *testing.T) {
+	sl := RefspecSlice{
+		MustParseRefspec("refs/heads/b:refs/remotes/origin/b"),
+		MustParseRefspec("refs/heads/a:refs/remotes/origin/a"),
+		MustParseRefspec("+refs/heads/c:refs/remotes/origin/c"),
+		MustParseRefspec("!refs/heads/d:refs/remotes/origin/d"),
+		MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
+		MustParseRefspec("tag abc"),
+	}
+	sort.Sort(sl)
+	assert.Equal(t, RefspecSlice{
+		MustParseRefspec("!refs/heads/d:refs/remotes/origin/d"),
+		MustParseRefspec("refs/heads/a:refs/remotes/origin/a"),
+		MustParseRefspec("refs/heads/b:refs/remotes/origin/b"),
+		MustParseRefspec("tag abc"),
+		MustParseRefspec("+refs/heads/*:refs/remotes/origin/*"),
+		MustParseRefspec("+refs/heads/c:refs/remotes/origin/c"),
+	}, sl)
+	assert.Equal(t, 3, sl.IndexOf(MustParseRefspec("tag abc")))
+	assert.Equal(t, -1, sl.IndexOf(MustParseRefspec("tag def")))
+	assert.Equal(t, -1, sl.IndexOf(MustParseRefspec("+refs/heads/e:refs/remotes/origin/e")))
 }

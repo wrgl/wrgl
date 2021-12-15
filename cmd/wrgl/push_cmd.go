@@ -191,9 +191,21 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) 
 	}
 	for _, ref := range refs {
 		if strings.HasPrefix(ref.Src, "heads/") && strings.HasPrefix(ref.Dst, "heads/") {
-			c.Branch[ref.Src[6:]] = &conf.Branch{
+			branch := strings.TrimPrefix(ref.Src, "heads/")
+			merge := "refs/" + ref.Dst
+			c.Branch[branch] = &conf.Branch{
 				Remote: remote,
-				Merge:  "refs/" + ref.Dst,
+				Merge:  merge,
+			}
+			// ensure that wrgl fetch pull merge
+			rem := c.Remote[remote]
+			sort.Sort(rem.Fetch)
+			globRS := conf.MustParseRefspec(fmt.Sprintf("+refs/heads/*:refs/remotes/%s/*", remote))
+			branchRS := conf.MustParseRefspec(
+				fmt.Sprintf("+%s:refs/remotes/%s/%s", merge, remote, strings.TrimPrefix(ref.Dst, "heads/")),
+			)
+			if rem.Fetch.IndexOf(globRS) == -1 && rem.Fetch.IndexOf(branchRS) == -1 {
+				rem.Fetch = append(rem.Fetch, branchRS)
 			}
 			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src[6:], ref.Dst[6:], remote)
 		}

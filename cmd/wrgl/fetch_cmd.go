@@ -148,7 +148,7 @@ func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri url.URL) 
 func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, args []string) (string, *conf.Remote, []*conf.Refspec, error) {
 	var remote = "origin"
 	b, ok := c.Branch[branch]
-	if ok {
+	if ok && b.Remote != "" {
 		remote = b.Remote
 	} else if len(args) > 0 {
 		remote = args[0]

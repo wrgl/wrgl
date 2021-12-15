@@ -197,7 +197,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
-	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url, "-t", "delta"})
 	require.NoError(t, cmd.Execute())
 
 	authenticate(t, url)

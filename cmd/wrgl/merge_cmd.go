@@ -119,7 +119,11 @@ func mergeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runMerge(cmd, c, db, rs, args, noCommit, noGUI, commitCSV, numWorkers, message, pk)
+			ff, err := getFastForward(cmd, c)
+			if err != nil {
+				return err
+			}
+			return runMerge(cmd, c, db, rs, args, noCommit, noGUI, ff, commitCSV, numWorkers, message, pk)
 		},
 	}
 	cmd.Flags().Bool("no-commit", false, "perform the merge but don't create a merge commit, instead output merge result to file MERGE_SUM1_SUM2_..._SUMn.csv")
@@ -128,10 +132,40 @@ func mergeCmd() *cobra.Command {
 	cmd.Flags().StringP("message", "m", "", "merge commit message")
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "merge commit primary key. This is only used when --commit-csv is in use. If this isn't specified then primary key is the same as BRANCH HEAD's")
 	cmd.Flags().IntP("num-workers", "n", runtime.GOMAXPROCS(0), "number of CPU threads to utilize (default to GOMAXPROCS)")
+	cmd.Flags().Bool("ff", false, "when merging a descendant commit into a branch, don't create a merge commit but simply fast-forward branch to the descendant commit. Create an extra merge commit otherwise. This is the default behavior unless merge.fastForward is configured.")
+	cmd.Flags().Bool("no-ff", false, "always create a merge commit, even when a simple fast-forward is possible. This is the default when merge.fastFoward is set to \"never\".")
+	cmd.Flags().Bool("ff-only", false, "only allow fast-forward merges. This is the default when merge.fastForward is set to \"only\".")
 	return cmd
 }
 
-func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, noCommit, noGUI bool, commitCSV string, numWorkers int, message string, pk []string) error {
+func getFastForward(cmd *cobra.Command, c *conf.Config) (conf.FastForward, error) {
+	defFF, err := cmd.Flags().GetBool("ff")
+	if err != nil {
+		return "", err
+	}
+	noFF, err := cmd.Flags().GetBool("no-ff")
+	if err != nil {
+		return "", err
+	}
+	ffOnly, err := cmd.Flags().GetBool("ff-only")
+	if err != nil {
+		return "", err
+	}
+	ff := c.MergeFastForward()
+	if defFF {
+		ff = conf.FF_Default
+	} else if noFF {
+		ff = conf.FF_Never
+	} else if ffOnly {
+		ff = conf.FF_Only
+	}
+	return ff, nil
+}
+
+func runMerge(
+	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, noCommit, noGUI bool,
+	ff conf.FastForward, commitCSV string, numWorkers int, message string, pk []string,
+) error {
 	name, sum, _, err := ref.InterpretCommitName(db, rs, args[0], true)
 	if err != nil {
 		return err
@@ -159,18 +193,27 @@ func runMerge(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store
 			nonAncestralCommits = append(nonAncestralCommits, sum)
 		}
 	}
-	commits = nonAncestralCommits
-	if len(commits) == 0 {
+	if len(nonAncestralCommits) == 0 {
 		cmd.Println("All commits are identical, nothing to merge")
 		return nil
-	} else if len(commits) == 1 {
-		err = ref.SaveRef(rs, name, commits[0], c.User.Name, c.User.Email, "merge", "fast-forward")
+	} else if len(nonAncestralCommits) == 1 {
+		if ff == conf.FF_Never {
+			com, err := objects.GetCommit(db, nonAncestralCommits[0])
+			if err != nil {
+				return err
+			}
+			return createMergeCommit(cmd, db, rs, commitNames, com.Table, commits, message, c)
+		}
+		err = ref.SaveRef(rs, name, nonAncestralCommits[0], c.User.Name, c.User.Email, "merge", "fast-forward")
 		if err != nil {
 			return err
 		}
-		cmd.Printf("Fast forward to %s\n", hex.EncodeToString(commits[0])[:7])
+		cmd.Printf("Fast forward to %s\n", hex.EncodeToString(nonAncestralCommits[0])[:7])
 		return nil
+	} else if ff == conf.FF_Only {
+		return fmt.Errorf("merge rejected (non-fast-forward)")
 	}
+	commits = nonAncestralCommits
 
 	baseSum, baseT, err := getTable(db, baseCommit)
 	if err != nil {

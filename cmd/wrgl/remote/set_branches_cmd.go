@@ -5,6 +5,7 @@ package remote
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -47,6 +48,7 @@ func setBranchesCmd() *cobra.Command {
 			)
 			if add {
 				rem.Fetch = append(rem.Fetch, refspec)
+				sort.Sort(rem.Fetch)
 			} else {
 				rem.Fetch = []*conf.Refspec{refspec}
 			}

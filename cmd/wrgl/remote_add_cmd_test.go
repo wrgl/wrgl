@@ -63,8 +63,8 @@ func TestRemoteAddCmd(t *testing.T) {
 		"acme": {
 			URL: "https://acme.com",
 			Fetch: []*conf.Refspec{
-				conf.MustParseRefspec("+refs/heads/*:refs/remotes/acme/*"),
 				conf.MustParseRefspec("tag *"),
+				conf.MustParseRefspec("+refs/heads/*:refs/remotes/acme/*"),
 			},
 		},
 		"beta": {

@@ -58,6 +58,23 @@ type Pack struct {
 	MaxFileSize uint64 `yaml:"maxFileSize,omitempty" json:"maxFileSize,omitempty"`
 }
 
+type FastForward string
+
+const (
+	FF_Default FastForward = ""
+	FF_Only    FastForward = "only"
+	FF_Never   FastForward = "never"
+)
+
+type Merge struct {
+	// FastForward controls how merge operations create new commit. By default, Wrgl will not
+	// create an extra merge commit when merging a commit that is a descendant of the latest commit.
+	// Instead, the tip of the branch is fast-forwarded. When set to FF_Never, this tells Wrgl
+	// to always create an extra merge commit in such a case. When set to FF_Only, this tells
+	// Wrgl to allow only fast-forward merges.
+	FastForward FastForward `yaml:"fastForward,omitempty" json:"fastForward,omitempty"`
+}
+
 type Config struct {
 	User    *User              `yaml:"user,omitempty" json:"user,omitempty"`
 	Remote  map[string]*Remote `yaml:"remote,omitempty" json:"remote,omitempty"`
@@ -65,6 +82,7 @@ type Config struct {
 	Branch  map[string]*Branch `yaml:"branch,omitempty" json:"branch,omitempty"`
 	Auth    *Auth              `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Pack    *Pack              `yaml:"pack,omitempty" json:"pack,omitempty"`
+	Merge   *Merge             `yaml:"merge,omitempty" json:"merge,omitempty"`
 }
 
 func (c *Config) TokenDuration() time.Duration {
@@ -88,4 +106,11 @@ func (c *Config) IsBranchPrimaryKeyEqual(branchName string, primaryKey []string)
 		}
 	}
 	return len(primaryKey) == 0
+}
+
+func (c *Config) MergeFastForward() FastForward {
+	if c.Merge != nil && c.Merge.FastForward != "" {
+		return c.Merge.FastForward
+	}
+	return FF_Default
 }
