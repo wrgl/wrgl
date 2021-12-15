@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
@@ -22,7 +23,7 @@ import (
 
 func newPushCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "push [REPOSITORY [REFSPEC...]]",
+		Use:   "push { REPOSITORY [REFSPEC...] | --all }",
 		Short: "Updates remote refs using local refs, sending objects necessary to complete the given refs.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
@@ -86,82 +87,34 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			all, err := cmd.Flags().GetBool("all")
+			if err != nil {
+				return err
+			}
 
-			remote, cr, args, err := getRepoToPush(c, args)
-			if err != nil {
-				return err
-			}
-			if cr.Mirror {
-				mirror = true
-			}
-			if mirror {
-				force = true
-			}
-			cs, err := credentials.NewStore()
-			if err != nil {
-				return err
-			}
-			uri, tok, err := getCredentials(cmd, cs, cr.URL)
-			if err != nil {
-				return err
-			}
-			client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(tok))
-			if err != nil {
-				return err
-			}
-			remoteRefs, err := client.GetRefs()
-			if err != nil {
-				return handleHTTPError(cmd, cs, *uri, err)
-			}
-			cmd.Printf("To %s\n", cr.URL)
-			refspecs, err := getRefspecsToPush(cmd, rs, cr, args, remoteRefs, mirror)
-			if err != nil {
-				return err
-			}
-			upToDateRefspecs, updates, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
-			if err != nil {
-				return err
-			}
-			um := map[string]*payload.Update{}
-			for _, u := range updates {
-				um[u.Dst] = &payload.Update{
-					Sum:    payload.BytesToHex(u.Sum),
-					OldSum: payload.BytesToHex(u.OldSum),
+			if all {
+				names := []string{}
+				for name, branch := range c.Branch {
+					if branch.Remote == "" {
+						continue
+					}
+					names = append(names, name)
 				}
-			}
-			ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, 0)
-			if err != nil {
-				return handleHTTPError(cmd, cs, *uri, err)
-			}
-			um, err = ses.Start()
-			if err != nil {
-				return err
-			}
-			for _, u := range updates {
-				if v, ok := um[u.Dst]; ok {
-					u.ErrMsg = v.ErrMsg
-				} else {
-					u.ErrMsg = "remote failed to report status"
+				sort.Strings(names)
+				for _, name := range names {
+					branch := c.Branch[name]
+					colorstring.Fprintf(cmd.OutOrStdout(), "pushing [bold]%s[reset]...\n", name)
+					if err := pushSingleRepo(
+						cmd, c, db, rs, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
+						mirror, force, false, wrglDir,
+					); err != nil {
+						return err
+					}
 				}
+				return nil
 			}
-			reportUpdateStatus(cmd, updates)
-			if setUpstream {
-				refs := []*Ref{}
-				for _, rs := range upToDateRefspecs {
-					refs = append(refs, &Ref{
-						Src: strings.TrimPrefix(rs.Src(), "refs/"),
-						Dst: strings.TrimPrefix(rs.Dst(), "refs/"),
-					})
-				}
-				for _, u := range updates {
-					refs = append(refs, &Ref{
-						Src: strings.TrimPrefix(u.Src, "refs/"),
-						Dst: strings.TrimPrefix(u.Dst, "refs/"),
-					})
-				}
-				return setBranchUpstream(cmd, wrglDir, remote, refs)
-			}
-			return nil
+
+			return pushSingleRepo(cmd, c, db, rs, args, mirror, force, setUpstream, wrglDir)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update remote branch in certain conditions.")
@@ -177,6 +130,7 @@ func newPushCmd() *cobra.Command {
 		"removed from the remote end. This is the default if the configuration option",
 		"remote.<remote>.mirror is set.",
 	}, " "))
+	cmd.Flags().Bool("all", false, "push all branches that have upstream configured.")
 	return cmd
 }
 
@@ -417,4 +371,82 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*receivePackUpdate) {
 			displayRefUpdate(cmd, '!', "[remote rejected]", u.ErrMsg, u.Src, u.Dst)
 		}
 	}
+}
+
+func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, mirror, force, setUpstream bool, wrglDir string) error {
+	remote, cr, args, err := getRepoToPush(c, args)
+	if err != nil {
+		return err
+	}
+	if cr.Mirror {
+		mirror = true
+	}
+	if mirror {
+		force = true
+	}
+	cs, err := credentials.NewStore()
+	if err != nil {
+		return err
+	}
+	uri, tok, err := getCredentials(cmd, cs, cr.URL)
+	if err != nil {
+		return err
+	}
+	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(tok))
+	if err != nil {
+		return err
+	}
+	remoteRefs, err := client.GetRefs()
+	if err != nil {
+		return handleHTTPError(cmd, cs, *uri, err)
+	}
+	cmd.Printf("To %s\n", cr.URL)
+	refspecs, err := getRefspecsToPush(cmd, rs, cr, args, remoteRefs, mirror)
+	if err != nil {
+		return err
+	}
+	upToDateRefspecs, updates, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
+	if err != nil {
+		return err
+	}
+	um := map[string]*payload.Update{}
+	for _, u := range updates {
+		um[u.Dst] = &payload.Update{
+			Sum:    payload.BytesToHex(u.Sum),
+			OldSum: payload.BytesToHex(u.OldSum),
+		}
+	}
+	ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, 0)
+	if err != nil {
+		return handleHTTPError(cmd, cs, *uri, err)
+	}
+	um, err = ses.Start()
+	if err != nil {
+		return err
+	}
+	for _, u := range updates {
+		if v, ok := um[u.Dst]; ok {
+			u.ErrMsg = v.ErrMsg
+		} else {
+			u.ErrMsg = "remote failed to report status"
+		}
+	}
+	reportUpdateStatus(cmd, updates)
+	if setUpstream {
+		refs := []*Ref{}
+		for _, rs := range upToDateRefspecs {
+			refs = append(refs, &Ref{
+				Src: strings.TrimPrefix(rs.Src(), "refs/"),
+				Dst: strings.TrimPrefix(rs.Dst(), "refs/"),
+			})
+		}
+		for _, u := range updates {
+			refs = append(refs, &Ref{
+				Src: strings.TrimPrefix(u.Src, "refs/"),
+				Dst: strings.TrimPrefix(u.Dst, "refs/"),
+			})
+		}
+		return setBranchUpstream(cmd, wrglDir, remote, refs)
+	}
+	return nil
 }
