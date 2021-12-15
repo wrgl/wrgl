@@ -54,7 +54,7 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 	if t.statusExist {
 		t.DataTable.SetColumnStatuses(colStatuses)
 	}
-	t.DataTable.SetShape(t.reader.NumRows(), t.reader.ColDiff.Len()).
+	t.DataTable.SetShape(t.reader.Len(), t.reader.ColDiff.Len()).
 		SetPrimaryKeyIndices(t.reader.ColDiff.PKIndices())
 
 	t.headerRow = headerRow
@@ -62,7 +62,7 @@ func NewDiffTable(reader *diff.RowChangeReader) *DiffTable {
 }
 
 func (t *DiffTable) UpdateRowCount() {
-	t.DataTable.SetShape(t.reader.NumRows(), t.reader.ColDiff.Len())
+	t.DataTable.SetShape(t.reader.Len(), t.reader.ColDiff.Len())
 }
 
 func (t *DiffTable) rowToCells(row [][]string) [][]*TableCell {

@@ -5,6 +5,7 @@ package wrgl
 
 import (
 	"bytes"
+	"encoding/csv"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -92,6 +93,27 @@ func TestCommitFromStdin(t *testing.T) {
 	b, err := ioutil.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
+}
+
+func overrideFile(t *testing.T, fp string, cb func(*os.File)) {
+	t.Helper()
+	f, err := os.Create(fp)
+	require.NoError(t, err)
+	cb(f)
+	require.NoError(t, f.Close())
+}
+
+func overrideCSVFile(t *testing.T, fp string, rows []string) {
+	t.Helper()
+	overrideFile(t, fp, func(f *os.File) {
+		w := csv.NewWriter(f)
+		defer w.Flush()
+		rowStrs := make([][]string, 0, len(rows))
+		for _, row := range rows {
+			rowStrs = append(rowStrs, strings.Split(row, ","))
+		}
+		require.NoError(t, w.WriteAll(rowStrs))
+	})
 }
 
 func appendToFile(t *testing.T, fp string, content string) {

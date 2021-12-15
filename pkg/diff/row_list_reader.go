@@ -31,6 +31,9 @@ func (r *RowListReader) Add(row uint32) {
 }
 
 func (r *RowListReader) Len() int {
+	if r == nil {
+		return 0
+	}
 	return len(r.rows)
 }
 

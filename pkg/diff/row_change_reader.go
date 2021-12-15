@@ -41,7 +41,10 @@ func (r *RowChangeReader) Read() ([][]string, error) {
 	return mergedRow, nil
 }
 
-func (r *RowChangeReader) NumRows() int {
+func (r *RowChangeReader) Len() int {
+	if r == nil {
+		return 0
+	}
 	return len(r.rowDiffs)
 }
 

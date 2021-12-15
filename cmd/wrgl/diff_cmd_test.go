@@ -158,7 +158,7 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 	})
 }
 
-func TestDiffCmdBrancFile(t *testing.T) {
+func TestDiffCmdBranchFile(t *testing.T) {
 	_, cleanup := createRepoDir(t)
 	defer cleanup()
 
@@ -184,5 +184,53 @@ func TestDiffCmdBrancFile(t *testing.T) {
 			"",
 		}, "\n")
 	})
+}
 
+func TestDiffCmdAll(t *testing.T) {
+	_, cleanup := createRepoDir(t)
+	defer cleanup()
+
+	fp1 := createCSVFile(t, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
+	defer os.Remove(fp1)
+	commitFile(t, "branch-1", fp1, "a", "--set-file", "--set-primary-key")
+	overrideCSVFile(t, fp1, []string{
+		"a,b,f",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
+
+	fp2 := createCSVFile(t, []string{
+		"a,d,e",
+		"1,e,r",
+		"2,d,f",
+		"3,c,v",
+	})
+	defer os.Remove(fp2)
+	commitFile(t, "branch-2", fp2, "a", "--set-file", "--set-primary-key")
+
+	fp3 := createCSVFile(t, []string{
+		"a,f,g",
+		"1,t,y",
+		"2,g,h",
+		"3,b,n",
+	})
+	defer os.Remove(fp3)
+	commitFile(t, "branch-3", fp3, "a")
+
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"diff", "--all"})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, buf.String(), "\x1b[1mbranch-1\x1b[0m changes:\n")
+	assert.Contains(t, buf.String(), "row changes:\n  \x1b[33m3 modified rows\n")
+	assert.Contains(t, buf.String(), "\x1b[1mbranch-2\x1b[0m changes:\n")
+	assert.Contains(t, buf.String(), "there are no changes\n")
+	assert.NotContains(t, buf.String(), "\x1b[1mbranch-3\x1b[0m changes:\n")
 }

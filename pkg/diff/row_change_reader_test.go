@@ -49,7 +49,7 @@ func TestRowChangeReader(t *testing.T) {
 	)
 	require.NoError(t, err)
 	reader.AddRowDiff(diffs[0])
-	assert.Equal(t, 1, reader.NumRows())
+	assert.Equal(t, 1, reader.Len())
 	mr, err := reader.Read()
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{
@@ -59,7 +59,7 @@ func TestRowChangeReader(t *testing.T) {
 	// test seek
 	reader.AddRowDiff(diffs[1])
 	reader.AddRowDiff(diffs[2])
-	assert.Equal(t, 3, reader.NumRows())
+	assert.Equal(t, 3, reader.Len())
 	reader.Seek(1, io.SeekCurrent)
 	mr, err = reader.Read()
 	require.NoError(t, err)
