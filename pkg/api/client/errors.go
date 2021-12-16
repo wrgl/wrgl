@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/wrgl/wrgl/pkg/api/payload"
 )
@@ -45,5 +46,5 @@ func (obj *HTTPError) Error() string {
 			panic(err)
 		}
 	}
-	return fmt.Sprintf("status %d: %s", obj.Code, string(b))
+	return fmt.Sprintf("status %d: %s", obj.Code, strings.TrimSpace(string(b)))
 }

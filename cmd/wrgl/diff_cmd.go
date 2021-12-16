@@ -712,6 +712,12 @@ func diffAllBranches(
 			continue
 		}
 		colorstring.Fprintf(cmd.OutOrStdout(), "[bold]%s[reset] changes:\n", name)
+		if _, err := ref.GetHead(rs, name); err == ref.ErrKeyNotFound {
+			cmd.Println("Branch not found, skipping.")
+			continue
+		} else if err != nil {
+			return err
+		}
 		if err := runDiff(cmd, c, db, nil, rs, branch.PrimaryKey, []string{"heads/" + name}, true, debugFile, false, true); err != nil {
 			return err
 		}

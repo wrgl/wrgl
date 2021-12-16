@@ -102,7 +102,11 @@ func pullCmd() *cobra.Command {
 				for _, name := range names {
 					colorstring.Fprintf(cmd.OutOrStdout(), "pulling [bold]%s[reset]...\n", name)
 					if err := pullSingleRepo(cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI, wrglDir, ff, numWorkers, message); err != nil {
-						return err
+						if err.Error() == `status 404: {"message":"Not Found"}` {
+							cmd.Println("Repository not found, skipping.")
+						} else {
+							return err
+						}
 					}
 				}
 				return nil
@@ -144,18 +148,17 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 		b, ok := c.Branch[args[0]]
 		if ok && b.Merge != "" {
 			for _, s := range specs {
-				if s.Src() == b.Merge {
-					sum, _ := ref.GetRef(rs, strings.TrimPrefix(s.Dst(), "refs/"))
+				if s.SrcMatchRef(b.Merge) {
+					dst := s.Dst()
+					if s.IsGlob() {
+						dst = s.DstForRef(b.Merge)
+					}
+					sum, _ := ref.GetRef(rs, strings.TrimPrefix(dst, "refs/"))
 					if sum != nil && !bytes.Equal(sum, oldSum) {
-						mergeHeads = append(mergeHeads, s.Dst())
+						mergeHeads = append(mergeHeads, dst)
 						break
 					}
 				}
-			}
-		} else if len(specs) > 0 && !specs[0].IsGlob() {
-			sum, _ := ref.GetRef(rs, strings.TrimPrefix(specs[0].Dst(), "refs/"))
-			if sum != nil && !bytes.Equal(sum, oldSum) {
-				mergeHeads = append(mergeHeads, specs[0].Dst())
 			}
 		}
 	}
@@ -180,7 +183,8 @@ func pullSingleRepo(
 		}
 	}
 	if !strings.HasPrefix(name, "heads/") {
-		return fmt.Errorf("%q is not a branch name", args[0])
+		name = "heads/" + args[0]
+		newBranch = true
 	}
 	remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, name[6:], args[1:])
 	if err != nil {
@@ -211,21 +215,23 @@ func pullSingleRepo(
 	if err != nil {
 		return err
 	}
-	if len(mergeHeads) == 0 {
-		cmd.Println("Already up to date.")
-		return nil
-	} else if newBranch {
+	if newBranch {
 		if len(mergeHeads) > 1 {
 			return fmt.Errorf("can't merge more than one reference into a non-existant branch")
+		} else if len(mergeHeads) == 0 {
+			return fmt.Errorf("nothing to create this branch from")
 		}
 		_, sum, com, err := ref.InterpretCommitName(db, rs, mergeHeads[0], true)
 		if err != nil {
 			return fmt.Errorf("can't get merge head ref: %v", err)
 		}
-		if err = ref.SaveRef(rs, name, sum, c.User.Name, c.User.Email, "merge", "created from "+mergeHeads[0]); err != nil {
+		if err = ref.SaveRef(rs, name, sum, c.User.Name, c.User.Email, "pull", "created from "+mergeHeads[0]); err != nil {
 			return err
 		}
 		cmd.Printf("[%s %s] %s\n", strings.TrimPrefix(name, "heads/"), hex.EncodeToString(sum)[:7], com.Message)
+		return nil
+	} else if len(mergeHeads) == 0 {
+		cmd.Println("Already up to date.")
 		return nil
 	}
 	return runMerge(cmd, c, db, rs, append(args[:1], mergeHeads...), noCommit, noGUI, ff, "", numWorkers, message, nil)

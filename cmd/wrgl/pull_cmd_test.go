@@ -40,7 +40,7 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
-	cmd.SetArgs([]string{"remote", "add", "my-repo", url, "-t", "beta", "-t", "main"})
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
 	cmd = rootCmd()
@@ -78,13 +78,13 @@ func TestPullCmd(t *testing.T) {
 	// pull merge first fetch refspec
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "beta", "my-repo"})
-	require.NoError(t, cmd.Execute())
+	assertCmdOutput(t, cmd, "Already up to date.\n")
 
 	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	sum, err = ref.GetHead(rs, "beta")
 	require.NoError(t, err)
-	assert.Equal(t, sum5, sum)
+	assert.Equal(t, sum4, sum)
 	require.NoError(t, db.Close())
 
 	cmd = rootCmd()
@@ -98,18 +98,13 @@ func TestPullCmd(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "set", "branch.gamma.merge", "refs/heads/gamma"})
 	require.NoError(t, cmd.Execute())
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "add", "remote.my-repo.fetch", "+refs/heads/gamma:refs/remotes/my-repo/gamma"})
-	require.NoError(t, cmd.Execute())
 
 	// pull all branches with upstream configured
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "--all"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"pulling \x1b[1mgamma\x1b[0m...",
-		fmt.Sprintf("\x1b[0mFrom %s", url),
-		" * [new branch]      gamma       -> my-repo/gamma",
-		fmt.Sprintf("[gamma %s] %s", hex.EncodeToString(sum6)[:7], c6.Message),
+		fmt.Sprintf("\x1b[0m[gamma %s] %s", hex.EncodeToString(sum6)[:7], c6.Message),
 		"pulling \x1b[1mmain\x1b[0m...",
 		"\x1b[0mAlready up to date.",
 		"",

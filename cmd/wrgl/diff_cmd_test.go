@@ -224,10 +224,16 @@ func TestDiffCmdAll(t *testing.T) {
 	commitFile(t, "branch-3", fp3, "a")
 
 	cmd := rootCmd()
+	cmd.SetArgs([]string{"config", "set", "branch.branch-0.file", fp3})
+	require.NoError(t, cmd.Execute())
+
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"diff", "--all"})
 	buf := bytes.NewBuffer(nil)
 	cmd.SetOut(buf)
 	require.NoError(t, cmd.Execute())
+	assert.Contains(t, buf.String(), "\x1b[1mbranch-0\x1b[0m changes:\n")
+	assert.Contains(t, buf.String(), "Branch not found, skipping.\n")
 	assert.Contains(t, buf.String(), "\x1b[1mbranch-1\x1b[0m changes:\n")
 	assert.Contains(t, buf.String(), "row changes:\n  \x1b[33m3 modified rows\n")
 	assert.Contains(t, buf.String(), "\x1b[1mbranch-2\x1b[0m changes:\n")
