@@ -88,10 +88,9 @@ func (s *Store) Save(c *conf.Config) error {
 		return err
 	}
 	defer f.Close()
-	b, err := yaml.Marshal(c)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(b)
-	return err
+
+	enc := yaml.NewEncoder(f)
+	defer enc.Close()
+	enc.SetIndent(2)
+	return enc.Encode(c)
 }

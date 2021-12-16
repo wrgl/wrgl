@@ -48,6 +48,14 @@ func TestConfigSetCmd(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "user.name"})
 	assertCmdOutput(t, cmd, "John Doe\n")
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "set", "merge.fastForward", "only"})
+	require.NoError(t, cmd.Execute())
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "get", "merge.fastForward"})
+	assertCmdOutput(t, cmd, "only\n")
 }
 
 func TestConfigSetCmdBool(t *testing.T) {

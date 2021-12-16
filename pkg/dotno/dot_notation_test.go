@@ -4,14 +4,18 @@
 package dotno
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+type CustomString string
+
 type myType struct {
-	Alpha string
+	Alpha CustomString
 	Beta  struct {
 		Gamma int
 	}
@@ -39,14 +43,14 @@ func TestSetWithDotNotation(t *testing.T) {
 	}
 	v, err := GetWithDotNotation(o, "alpha")
 	require.NoError(t, err)
-	assert.Equal(t, "abc", v.(string))
+	assert.Equal(t, CustomString("abc"), v.(CustomString))
 	v, err = GetWithDotNotation(o, "beta.gamma")
 	require.NoError(t, err)
 	assert.Equal(t, 30, v.(int))
 
 	err = SetWithDotNotation(o, "alpha", "def")
 	require.NoError(t, err)
-	assert.Equal(t, "def", o.Alpha)
+	assert.Equal(t, CustomString("def"), o.Alpha)
 	err = SetWithDotNotation(o, "beta.gamma", 10)
 	require.NoError(t, err)
 	assert.Equal(t, 10, o.Beta.Gamma)
@@ -237,4 +241,56 @@ func TestUnsetField(t *testing.T) {
 			assert.Equal(t, c.result, c.obj, c.name)
 		}
 	}
+}
+
+func TestSetValue(t *testing.T) {
+	v := ""
+	val := reflect.ValueOf(&v).Elem()
+	require.NoError(t, SetValue(val, "abc", false))
+	assert.Equal(t, "abc", val.Interface())
+
+	v2 := CustomString("")
+	val = reflect.ValueOf(&v2).Elem()
+	require.NoError(t, SetValue(val, "def", false))
+	assert.Equal(t, CustomString("def"), val.Interface())
+
+	b := false
+	bPtr := &b
+	val = reflect.ValueOf(&bPtr).Elem()
+	require.NoError(t, SetValue(val, "true", false))
+	assert.True(t, *(val.Interface().(*bool)))
+	require.NoError(t, SetValue(val, "false", false))
+	assert.False(t, *(val.Interface().(*bool)))
+	assert.Equal(t,
+		fmt.Errorf("bad value: %q, only accept %q or %q", "abc", "true", "false"),
+		SetValue(val, "abc", false),
+	)
+
+	var c int
+	cPtr := &c
+	val = reflect.ValueOf(&cPtr).Elem()
+	assert.Equal(t,
+		fmt.Errorf("setValue: unhandled pointer of type %v", val.Type().Elem()),
+		SetValue(val, "123", false),
+	)
+
+	sl := []*myText{}
+	val = reflect.ValueOf(&sl).Elem()
+	assert.Equal(t, fmt.Errorf("more than one value for this key"), SetValue(val, "abc", false))
+	require.NoError(t, SetValue(val, "abc", true))
+	assert.Equal(t, []*myText{{"abc"}}, sl)
+
+	sl2 := []int{}
+	val = reflect.ValueOf(&sl2).Elem()
+	assert.Equal(t,
+		fmt.Errorf("setValue: unhandled slice of type %v", val.Type().Elem()),
+		SetValue(val, "123", true),
+	)
+
+	obj := map[string]int{}
+	val = reflect.ValueOf(&obj).Elem()
+	assert.Equal(t,
+		fmt.Errorf("setValue: unhandled type %v", val.Type()),
+		SetValue(val, "123", true),
+	)
 }

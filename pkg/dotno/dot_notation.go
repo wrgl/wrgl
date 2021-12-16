@@ -130,6 +130,44 @@ func SetWithDotNotation(s interface{}, prop string, val interface{}) error {
 	if err != nil {
 		return err
 	}
-	fv.Set(reflect.ValueOf(val))
+	fv.Set(reflect.ValueOf(val).Convert(fv.Type()))
+	return nil
+}
+
+func SetValue(v reflect.Value, val string, setMultiple bool) error {
+	switch v.Kind() {
+	case reflect.String:
+		v.Set(reflect.ValueOf(val).Convert(v.Type()))
+	case reflect.Ptr:
+		if v.Type().Elem().Kind() == reflect.Bool {
+			yes := true
+			no := false
+			if strings.ToLower(val) == "true" {
+				v.Set(reflect.ValueOf(&yes))
+			} else if strings.ToLower(val) == "false" {
+				v.Set(reflect.ValueOf(&no))
+			} else {
+				return fmt.Errorf("bad value: %q, only accept %q or %q", val, "true", "false")
+			}
+		} else {
+			return fmt.Errorf("setValue: unhandled pointer of type %v", v.Type().Elem())
+		}
+	case reflect.Slice:
+		if _, ok := ToTextSlice(v.Interface()); ok {
+			if setMultiple {
+				sl, err := TextSliceFromStrSlice(v.Type(), []string{val})
+				if err != nil {
+					return err
+				}
+				v.Set(sl.Value)
+			} else {
+				return fmt.Errorf("more than one value for this key")
+			}
+		} else {
+			return fmt.Errorf("setValue: unhandled slice of type %v", v.Type().Elem())
+		}
+	default:
+		return fmt.Errorf("setValue: unhandled type %v", v.Type())
+	}
 	return nil
 }
