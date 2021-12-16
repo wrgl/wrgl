@@ -108,7 +108,11 @@ func newPushCmd() *cobra.Command {
 						cmd, c, db, rs, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
 						mirror, force, false, wrglDir,
 					); err != nil {
-						return err
+						if err.Error() == `status 404: {"message":"Not Found"}` {
+							cmd.Println("Repository not found, skipping.")
+						} else {
+							return err
+						}
 					}
 				}
 				return nil
