@@ -14,6 +14,7 @@ import (
 func TestSortValueCounts(t *testing.T) {
 	sl := ValueCounts{
 		{"england", 10},
+		{"us", 12},
 		{"france", 12},
 		{"sydney", 30},
 		{"china", 2},
@@ -22,6 +23,7 @@ func TestSortValueCounts(t *testing.T) {
 	assert.Equal(t, ValueCounts{
 		{"sydney", 30},
 		{"france", 12},
+		{"us", 12},
 		{"england", 10},
 		{"china", 2},
 	}, sl)

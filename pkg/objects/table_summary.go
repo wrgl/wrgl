@@ -12,13 +12,15 @@ import (
 )
 
 type ColumnSummary struct {
-	Name      string      `json:"name"`
-	NullCount uint32      `json:"nullCount"`
-	IsNumber  bool        `json:"isNumber,omitempty"`
-	Min       *float64    `json:"min,omitempty"`
-	Max       *float64    `json:"max,omitempty"`
-	AvgStrLen uint16      `json:"avgStrLen"`
-	TopValues ValueCounts `json:"topValues,omitempty"`
+	Name        string      `json:"name"`
+	NullCount   uint32      `json:"nullCount"`
+	IsNumber    bool        `json:"isNumber,omitempty"`
+	Min         *float64    `json:"min,omitempty"`
+	Max         *float64    `json:"max,omitempty"`
+	Mean        *float64    `json:"mean,omitempty"`
+	AvgStrLen   uint16      `json:"avgStrLen"`
+	TopValues   ValueCounts `json:"topValues,omitempty"`
+	Percentiles []float64   `json:"percentiles,omitempty"`
 }
 
 type summaryField struct {
@@ -35,86 +37,40 @@ var (
 
 func init() {
 	summaryFields = []*summaryField{
-		{
-			Name: "name",
-			Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
-				return objline.WriteString(w, buf, col.Name)
-			},
-			IsEmpty: func(col *ColumnSummary) bool {
-				return col.Name == ""
-			},
-			Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
-				return objline.ReadString(p, &col.Name)
-			},
-		},
-		{
-			Name: "nullCount",
-			Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
-				return objline.WriteUint32(w, buf, col.NullCount)
-			},
-			IsEmpty: func(col *ColumnSummary) bool {
-				return col.NullCount == 0
-			},
-			Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
-				return objline.ReadUint32(p, &col.NullCount)
-			},
-		},
-		{
-			Name: "isNumber",
-			Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
-				return objline.WriteBool(w, buf, col.IsNumber)
-			},
-			IsEmpty: func(col *ColumnSummary) bool {
-				return !col.IsNumber
-			},
-			Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
-				return objline.ReadBool(p, &col.IsNumber)
-			},
-		},
-		{
-			Name: "min",
-			Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
-				return objline.WriteFloat64(w, buf, *col.Min)
-			},
-			IsEmpty: func(col *ColumnSummary) bool {
-				return col.Min == nil
-			},
-			Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+		summaryStringField("name", func(col *ColumnSummary) *string { return &col.Name }),
+		summaryUint32Field("nullCount", func(col *ColumnSummary) *uint32 { return &col.NullCount }),
+		summaryBoolField("isNumer", func(col *ColumnSummary) *bool { return &col.IsNumber }),
+		summaryFloat64Field("min",
+			func(col *ColumnSummary) *float64 { return col.Min },
+			func(col *ColumnSummary) *float64 {
 				if col.Min == nil {
 					var f float64
 					col.Min = &f
 				}
-				return objline.ReadFloat64(p, col.Min)
+				return col.Min
 			},
-		},
-		{
-			Name: "max",
-			Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
-				return objline.WriteFloat64(w, buf, *col.Max)
-			},
-			IsEmpty: func(col *ColumnSummary) bool {
-				return col.Max == nil
-			},
-			Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+		),
+		summaryFloat64Field("max",
+			func(col *ColumnSummary) *float64 { return col.Max },
+			func(col *ColumnSummary) *float64 {
 				if col.Max == nil {
 					var f float64
 					col.Max = &f
 				}
-				return objline.ReadFloat64(p, col.Max)
+				return col.Max
 			},
-		},
-		{
-			Name: "avgStrLen",
-			Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
-				return objline.WriteUint16(w, buf, col.AvgStrLen)
+		),
+		summaryFloat64Field("mean",
+			func(col *ColumnSummary) *float64 { return col.Mean },
+			func(col *ColumnSummary) *float64 {
+				if col.Mean == nil {
+					var f float64
+					col.Mean = &f
+				}
+				return col.Mean
 			},
-			IsEmpty: func(col *ColumnSummary) bool {
-				return col.AvgStrLen == 0
-			},
-			Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
-				return objline.ReadUint16(p, &col.AvgStrLen)
-			},
-		},
+		),
+		summaryUint16Field("avgStrLen", func(col *ColumnSummary) *uint16 { return &col.AvgStrLen }),
 		{
 			Name: "topValues",
 			Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
@@ -131,6 +87,82 @@ func init() {
 	summaryFieldMap = map[string]*summaryField{}
 	for _, f := range summaryFields {
 		summaryFieldMap[f.Name] = f
+	}
+}
+
+func summaryStringField(name string, getField func(col *ColumnSummary) *string) *summaryField {
+	return &summaryField{
+		Name: name,
+		Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
+			return objline.WriteString(w, buf, *getField(col))
+		},
+		IsEmpty: func(col *ColumnSummary) bool {
+			return *getField(col) == ""
+		},
+		Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+			return objline.ReadString(p, getField(col))
+		},
+	}
+}
+
+func summaryUint32Field(name string, getField func(col *ColumnSummary) *uint32) *summaryField {
+	return &summaryField{
+		Name: name,
+		Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
+			return objline.WriteUint32(w, buf, *getField(col))
+		},
+		IsEmpty: func(col *ColumnSummary) bool {
+			return *getField(col) == 0
+		},
+		Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+			return objline.ReadUint32(p, getField(col))
+		},
+	}
+}
+
+func summaryUint16Field(name string, getField func(col *ColumnSummary) *uint16) *summaryField {
+	return &summaryField{
+		Name: name,
+		Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
+			return objline.WriteUint16(w, buf, *getField(col))
+		},
+		IsEmpty: func(col *ColumnSummary) bool {
+			return *getField(col) == 0
+		},
+		Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+			return objline.ReadUint16(p, getField(col))
+		},
+	}
+}
+
+func summaryFloat64Field(name string, getField func(col *ColumnSummary) *float64, initField func(col *ColumnSummary) *float64) *summaryField {
+	return &summaryField{
+		Name: name,
+		Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
+			return objline.WriteFloat64(w, buf, *getField(col))
+		},
+		IsEmpty: func(col *ColumnSummary) bool {
+			return getField(col) == nil
+		},
+		Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+			f := initField(col)
+			return objline.ReadFloat64(p, f)
+		},
+	}
+}
+
+func summaryBoolField(name string, getField func(col *ColumnSummary) *bool) *summaryField {
+	return &summaryField{
+		Name: name,
+		Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
+			return objline.WriteBool(w, buf, *getField(col))
+		},
+		IsEmpty: func(col *ColumnSummary) bool {
+			return !*getField(col)
+		},
+		Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+			return objline.ReadBool(p, getField(col))
+		},
 	}
 }
 

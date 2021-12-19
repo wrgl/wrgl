@@ -17,9 +17,14 @@ type ValueCount struct {
 
 type ValueCounts []ValueCount
 
-func (a ValueCounts) Len() int           { return len(a) }
-func (a ValueCounts) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ValueCounts) Less(i, j int) bool { return a[i].Count > a[j].Count }
+func (a ValueCounts) Len() int      { return len(a) }
+func (a ValueCounts) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ValueCounts) Less(i, j int) bool {
+	if a[i].Count == a[j].Count {
+		return a[i].Value < a[j].Value
+	}
+	return a[i].Count > a[j].Count
+}
 
 func (a ValueCounts) IsEmpty() bool {
 	return a == nil
