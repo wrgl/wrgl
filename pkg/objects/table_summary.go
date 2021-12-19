@@ -80,6 +80,10 @@ func init() {
 				return col.Min == nil
 			},
 			Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+				if col.Min == nil {
+					var f float64
+					col.Min = &f
+				}
 				return objline.ReadFloat64(p, col.Min)
 			},
 		},
@@ -92,6 +96,10 @@ func init() {
 				return col.Max == nil
 			},
 			Read: func(p *encoding.Parser, col *ColumnSummary) (int64, error) {
+				if col.Max == nil {
+					var f float64
+					col.Max = &f
+				}
 				return objline.ReadFloat64(p, col.Max)
 			},
 		},
@@ -217,11 +225,12 @@ func (t *TableSummary) ReadFrom(r io.Reader) (total int64, err error) {
 					if j == 0 {
 						break
 					}
-					if j >= nFields {
+					if j > nFields {
 						return 0, p.ParseError("invalid field index %d >= %d", j, nFields)
 					}
-					if sf, ok := summaryFieldMap[fields[j]]; !ok {
-						return 0, p.ParseError("summary field %q not found", fields[j])
+					field := fields[j-1]
+					if sf, ok := summaryFieldMap[field]; !ok {
+						return 0, p.ParseError("summary field %q not found", field)
 					} else {
 						l, err = sf.Read(p, t.Columns[i])
 						if err != nil {
