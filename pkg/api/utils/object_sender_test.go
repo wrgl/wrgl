@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	apitest "github.com/wrgl/wrgl/pkg/api/test"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
 )
@@ -37,7 +37,7 @@ func TestObjectSender(t *testing.T) {
 		sendDone, err := s.WriteObjects(buf)
 		require.NoError(t, err)
 
-		pr, err := encoding.NewPackfileReader(io.NopCloser(buf))
+		pr, err := packfile.NewPackfileReader(io.NopCloser(buf))
 		require.NoError(t, err)
 		done, err = r.Receive(pr)
 		require.NoError(t, err)

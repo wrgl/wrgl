@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package encoding
+package packfile
 
 import (
 	"encoding/binary"
@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 
+	"github.com/wrgl/wrgl/pkg/encoding"
 	"github.com/wrgl/wrgl/pkg/misc"
 )
 
@@ -18,7 +19,7 @@ const (
 	ObjectBlock
 )
 
-func encodeObjTypeAndLen(buf Bufferer, objType int, u uint64) []byte {
+func encodeObjTypeAndLen(buf encoding.Bufferer, objType int, u uint64) []byte {
 	bits := int(math.Ceil(math.Log2(float64(u))))
 	numBytes := (bits-4)/7 + 1
 	if (bits-4)%7 > 0 {
@@ -66,7 +67,7 @@ func decodeObjTypeAndLen(r io.Reader) (objType int, u uint64, err error) {
 
 type PackfileWriter struct {
 	w   io.Writer
-	buf Bufferer
+	buf encoding.Bufferer
 }
 
 func NewPackfileWriter(w io.Writer) (*PackfileWriter, error) {
@@ -105,7 +106,7 @@ func (w *PackfileWriter) WriteObject(objType int, b []byte) (int, error) {
 
 type PackfileReader struct {
 	r       io.ReadCloser
-	buf     Bufferer
+	buf     encoding.Bufferer
 	Version int
 }
 

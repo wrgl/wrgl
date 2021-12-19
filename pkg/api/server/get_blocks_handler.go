@@ -13,7 +13,7 @@ import (
 	"github.com/klauspost/compress/gzip"
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/api/payload"
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
@@ -59,7 +59,7 @@ func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db obje
 	switch format {
 	case payload.BlockFormatBinary:
 		rw.Header().Set("Content-Type", api.CTPackfile)
-		pw, err := encoding.NewPackfileWriter(rw)
+		pw, err := packfile.NewPackfileWriter(rw)
 		if err != nil {
 			return
 		}
@@ -68,7 +68,7 @@ func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db obje
 			if err != nil {
 				panic(err)
 			}
-			_, err = pw.WriteObject(encoding.ObjectBlock, b)
+			_, err = pw.WriteObject(packfile.ObjectBlock, b)
 			if err != nil {
 				panic(err)
 			}

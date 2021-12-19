@@ -8,7 +8,7 @@ import (
 	"container/list"
 	"io"
 
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
@@ -98,7 +98,7 @@ func (s *ObjectSender) enqueueFrontCommit() (err error) {
 		s.commonTables[string(com.Table)] = struct{}{}
 		for _, blk := range tbl.Blocks {
 			if _, ok := s.commonBlocks[string(blk)]; !ok {
-				s.objs.PushBack(object{Type: encoding.ObjectBlock, Sum: blk})
+				s.objs.PushBack(object{Type: packfile.ObjectBlock, Sum: blk})
 				s.commonBlocks[string(blk)] = struct{}{}
 			}
 		}
@@ -108,7 +108,7 @@ func (s *ObjectSender) enqueueFrontCommit() (err error) {
 		}
 		b := make([]byte, buf.Len())
 		copy(b, buf.Bytes())
-		s.objs.PushBack(object{Type: encoding.ObjectTable, Content: b})
+		s.objs.PushBack(object{Type: packfile.ObjectTable, Content: b})
 		buf.Reset()
 	}
 
@@ -116,12 +116,12 @@ func (s *ObjectSender) enqueueFrontCommit() (err error) {
 	if err != nil {
 		return
 	}
-	s.objs.PushBack(object{Type: encoding.ObjectCommit, Content: buf.Bytes()})
+	s.objs.PushBack(object{Type: packfile.ObjectCommit, Content: buf.Bytes()})
 	return nil
 }
 
 func (s *ObjectSender) WriteObjects(w io.Writer) (done bool, err error) {
-	pw, err := encoding.NewPackfileWriter(w)
+	pw, err := packfile.NewPackfileWriter(w)
 	if err != nil {
 		return
 	}

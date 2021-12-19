@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package encoding
+package pktline
 
 import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
+
+	"github.com/wrgl/wrgl/pkg/encoding"
 )
 
-func WritePktLine(w io.Writer, buf Bufferer, s string) error {
+func WritePktLine(w io.Writer, buf encoding.Bufferer, s string) error {
 	n := len(s)
 	if n == 0 {
 		_, err := w.Write([]byte("0000"))
@@ -24,7 +26,7 @@ func WritePktLine(w io.Writer, buf Bufferer, s string) error {
 	return err
 }
 
-func ReadPktLine(p *Parser) (s string, err error) {
+func ReadPktLine(p *encoding.Parser) (s string, err error) {
 	b, err := p.NextBytes(4)
 	if err != nil {
 		return

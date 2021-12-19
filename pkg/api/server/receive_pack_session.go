@@ -18,7 +18,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -160,7 +160,7 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 		}
 		body = io.NopCloser(gr)
 	}
-	pr, err := encoding.NewPackfileReader(body)
+	pr, err := packfile.NewPackfileReader(body)
 	if err != nil {
 		panic(err)
 	}

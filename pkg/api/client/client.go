@@ -19,7 +19,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/conf"
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -511,13 +511,13 @@ func parseUploadPackResult(r io.ReadCloser) (acks [][]byte, err error) {
 	return
 }
 
-func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, opts ...RequestOption) (acks [][]byte, pr *encoding.PackfileReader, err error) {
+func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, opts ...RequestOption) (acks [][]byte, pr *packfile.PackfileReader, err error) {
 	resp, err := c.sendUploadPackRequest(wants, haves, done, opts...)
 	if err != nil {
 		return
 	}
 	if resp.Header.Get("Content-Type") == CTPackfile {
-		pr, err = encoding.NewPackfileReader(resp.Body)
+		pr, err = packfile.NewPackfileReader(resp.Body)
 	} else if resp.Header.Get("Content-Type") == CTJSON {
 		acks, err = parseUploadPackResult(resp.Body)
 	}

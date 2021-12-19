@@ -10,7 +10,7 @@ import (
 
 	"github.com/klauspost/compress/s2"
 	"github.com/pckhoi/meow"
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
@@ -82,24 +82,24 @@ func (r *ObjectReceiver) saveCommit(b []byte) (err error) {
 	return nil
 }
 
-func (r *ObjectReceiver) Receive(pr *encoding.PackfileReader) (done bool, err error) {
+func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader) (done bool, err error) {
 	for {
 		ot, b, err := pr.ReadObject()
 		if err != nil && err != io.EOF {
 			return false, err
 		}
 		switch ot {
-		case encoding.ObjectBlock:
+		case packfile.ObjectBlock:
 			err := r.saveBlock(b)
 			if err != nil {
 				return false, err
 			}
-		case encoding.ObjectTable:
+		case packfile.ObjectTable:
 			err := r.saveTable(b)
 			if err != nil {
 				return false, err
 			}
-		case encoding.ObjectCommit:
+		case packfile.ObjectCommit:
 			err := r.saveCommit(b)
 			if err != nil {
 				return false, err

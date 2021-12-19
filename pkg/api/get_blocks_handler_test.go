@@ -20,7 +20,7 @@ import (
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apitest "github.com/wrgl/wrgl/pkg/api/test"
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
@@ -59,14 +59,14 @@ func assertBlocksBinary(t *testing.T, db objects.Store, blocks [][]byte, resp *h
 	defer resp.Body.Close()
 	var bb []byte
 	var blk1 [][]string
-	pr, err := encoding.NewPackfileReader(resp.Body)
+	pr, err := packfile.NewPackfileReader(resp.Body)
 	require.NoError(t, err)
 	for i, sum := range blocks {
 		blk1, bb, err = objects.GetBlock(db, bb, sum)
 		require.NoError(t, err)
 		ot, b, err := pr.ReadObject()
 		require.NoError(t, err)
-		assert.Equal(t, encoding.ObjectBlock, ot)
+		assert.Equal(t, packfile.ObjectBlock, ot)
 		bb, err = s2.Decode(bb, b)
 		require.NoError(t, err)
 		_, blk2, err := objects.ReadBlockFrom(bytes.NewReader(bb))
