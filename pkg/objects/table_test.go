@@ -54,5 +54,5 @@ func TestTableReaderParseError(t *testing.T) {
 	buf.Write(NewStrListEncoder(true).Encode([]string{"a", "b", "c"}))
 	buf.Write([]byte("\nbad input"))
 	_, _, err := ReadTableFrom(bytes.NewReader(buf.Bytes()))
-	assert.Equal(t, `parse error at pos=21: expected string "\npk ", received "\nbad"`, err.Error())
+	assert.Equal(t, `error reading label "pk": parse error at pos=25: expected string "pk ", received "bad"`, err.Error())
 }

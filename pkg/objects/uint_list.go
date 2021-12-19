@@ -38,7 +38,7 @@ func (e *UintListEncoder) Encode(sl []uint32) []byte {
 type UintListDecoder struct {
 	sl  []uint32
 	buf []byte
-	pos int
+	pos int64
 }
 
 func NewUintListDecoder(reuseRecords bool) *UintListDecoder {
@@ -76,11 +76,11 @@ func (d *UintListDecoder) readUint32(r io.Reader) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	d.pos += n
+	d.pos += int64(n)
 	return binary.BigEndian.Uint32(d.buf), nil
 }
 
-func (d *UintListDecoder) Read(r io.Reader) (int, []uint32, error) {
+func (d *UintListDecoder) Read(r io.Reader) (int64, []uint32, error) {
 	d.pos = 0
 	n, err := d.readUint32(r)
 	if err != nil {

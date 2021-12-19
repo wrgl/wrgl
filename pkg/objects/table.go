@@ -4,11 +4,12 @@
 package objects
 
 import (
-	"encoding/binary"
-	"fmt"
 	"io"
 	"math"
 
+	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/objline"
+	"github.com/wrgl/wrgl/pkg/misc"
 	"github.com/wrgl/wrgl/pkg/slice"
 )
 
@@ -39,33 +40,21 @@ func (t *Table) PrimaryKey() []string {
 	return slice.IndicesToValues(t.Columns, t.PK)
 }
 
-func (t *Table) writeLine(w io.Writer, label string, b []byte) (int64, error) {
-	n, err := writeLine(w, label, b)
-	if err != nil {
-		return 0, err
-	}
-	return int64(n), nil
-}
-
 func (t *Table) writeMeta(w io.Writer, columns []string, pk []uint32, rowsCount uint32) (total int64, err error) {
-	n, err := t.writeLine(w, "columns", NewStrListEncoder(true).Encode(columns))
-	if err != nil {
-		return
+	buf := misc.NewBuffer(nil)
+	for _, f := range []fieldEncode{
+		{"columns", objline.WriteBytes(NewStrListEncoder(true).Encode(columns))},
+		{"pk", objline.WriteBytes(NewUintListEncoder().Encode(pk))},
+		{"rows", func(w io.Writer, buf encoding.Bufferer) (n int64, err error) {
+			return objline.WriteUint32(w, buf, rowsCount)
+		}},
+	} {
+		n, err := objline.WriteField(w, buf, f.label, f.f)
+		if err != nil {
+			return 0, err
+		}
+		total += n
 	}
-	total = n
-	n, err = t.writeLine(w, "pk", NewUintListEncoder().Encode(pk))
-	if err != nil {
-		return
-	}
-	total += n
-	// leave blank rows count and blocks count for now
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(rowsCount))
-	n, err = t.writeLine(w, "rows", b)
-	if err != nil {
-		return
-	}
-	total += n
 	return
 }
 
@@ -92,67 +81,33 @@ func (t *Table) WriteTo(w io.Writer) (int64, error) {
 	return total, nil
 }
 
-func parseError(off int, format string, a ...interface{}) error {
-	return fmt.Errorf("parse error at pos=%d: %s", off, fmt.Sprintf(format, a...))
-}
-
-func consumeStrFromReader(r io.Reader, off int, s string) (int, error) {
-	b := make([]byte, len(s))
-	n, err := r.Read(b)
-	if err != nil {
-		return 0, err
+func (t *Table) readMeta(r io.Reader) (total int64, err error) {
+	parser := encoding.NewParser(r)
+	for _, f := range []fieldDecode{
+		{"columns", func(p *encoding.Parser) (n int64, err error) {
+			n, t.Columns, err = NewStrListDecoder(false).Read(p)
+			if err != nil {
+				return 0, err
+			}
+			return n, nil
+		}},
+		{"pk", func(p *encoding.Parser) (n int64, err error) {
+			n, t.PK, err = NewUintListDecoder(false).Read(p)
+			if err != nil {
+				return 0, err
+			}
+			return n, nil
+		}},
+		{"rows", func(p *encoding.Parser) (int64, error) {
+			return objline.ReadUint32(p, &t.RowsCount)
+		}},
+	} {
+		n, err := objline.ReadField(parser, f.label, f.f)
+		if err != nil {
+			return 0, err
+		}
+		total += n
 	}
-	if string(b) != s {
-		return 0, parseError(off, "expected string %q, received %q", s, string(b))
-	}
-	return n, nil
-}
-
-func readUint32(r io.Reader) (int, uint32, error) {
-	b := make([]byte, 4)
-	n, err := r.Read(b)
-	if err != nil {
-		return 0, 0, err
-	}
-	return n, binary.BigEndian.Uint32(b), nil
-}
-
-func (t *Table) readMeta(r io.Reader) (total int, err error) {
-	n, err := consumeStrFromReader(r, 0, "columns ")
-	if err != nil {
-		return
-	}
-	total = n
-	n, t.Columns, err = NewStrListDecoder(false).Read(r)
-	if err != nil {
-		return
-	}
-	total += n
-	n, err = consumeStrFromReader(r, total, "\npk ")
-	if err != nil {
-		return
-	}
-	total += n
-	n, t.PK, err = NewUintListDecoder(false).Read(r)
-	if err != nil {
-		return
-	}
-	total += n
-	n, err = consumeStrFromReader(r, total, "\nrows ")
-	if err != nil {
-		return
-	}
-	total += n
-	n, t.RowsCount, err = readUint32(r)
-	if err != nil {
-		return
-	}
-	total += n
-	n, err = consumeStrFromReader(r, total, "\n")
-	if err != nil {
-		return
-	}
-	total += n
 	return
 }
 

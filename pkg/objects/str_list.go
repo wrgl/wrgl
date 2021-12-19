@@ -140,7 +140,7 @@ func (d *StrListDecoder) readUint32(r io.Reader) (uint32, error) {
 	return binary.BigEndian.Uint32(b), nil
 }
 
-func (d *StrListDecoder) Read(r io.Reader) (int, []string, error) {
+func (d *StrListDecoder) Read(r io.Reader) (int64, []string, error) {
 	d.pos = 0
 	count, err := d.readUint32(r)
 	if err != nil {
@@ -168,7 +168,7 @@ func (d *StrListDecoder) Read(r io.Reader) (int, []string, error) {
 			return 0, nil, err
 		}
 	}
-	return d.pos, sl, nil
+	return int64(d.pos), sl, nil
 }
 
 func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {

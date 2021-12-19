@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/objline"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/testutils"
@@ -71,6 +71,6 @@ func AssertReflogEqual(t *testing.T, a, b *ref.Reflog) {
 	assert.Equal(t, a.Action, b.Action, "Action not equal")
 	assert.Equal(t, a.Message, b.Message, "Message not equal")
 	if !a.Time.IsZero() {
-		assert.Equal(t, encoding.EncodeTime(a.Time), encoding.EncodeTime(b.Time), "Time not equal")
+		assert.Equal(t, objline.EncodeTime(a.Time), objline.EncodeTime(b.Time), "Time not equal")
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/objline"
 )
 
 type Reflog struct {
@@ -46,7 +46,7 @@ func (rec *Reflog) WriteTo(w io.Writer) (total int64, err error) {
 		}
 		total += int64(n)
 	}
-	n, err = w.Write([]byte(fmt.Sprintf("%s %s: %s", encoding.EncodeTime(rec.Time), rec.Action, rec.Message)))
+	n, err = w.Write([]byte(fmt.Sprintf("%s %s: %s", objline.EncodeTime(rec.Time), rec.Action, rec.Message)))
 	if err != nil {
 		return 0, err
 	}
@@ -123,7 +123,7 @@ mainLoop:
 				return 0, fmt.Errorf("invalid reflog record: couldn't parse author email in record %q", line)
 			}
 		case rlStateTime:
-			rec.Time, err = encoding.DecodeTime(line[off:])
+			rec.Time, err = objline.DecodeTime(line[off:])
 			if err != nil {
 				return 0, err
 			}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/wrgl/wrgl/pkg/encoding"
+	"github.com/wrgl/wrgl/pkg/encoding/objline"
 	"github.com/wrgl/wrgl/pkg/misc"
 )
 
@@ -20,49 +21,67 @@ type Commit struct {
 	Parents     [][]byte
 }
 
+type fieldEncode struct {
+	label string
+	f     objline.WriteFunc
+}
+
 func (c *Commit) WriteTo(w io.Writer) (int64, error) {
 	buf := misc.NewBuffer(nil)
-	type line struct {
-		label string
-		f     encoding.EncodeFunc
-	}
-	lines := []line{
-		{"table", encoding.EncodeBytes(c.Table)},
-		{"authorName", encoding.EncodeStr(c.AuthorName)},
-		{"authorEmail", encoding.EncodeStr(c.AuthorEmail)},
-		{"time", encoding.EncodeTimeFunc(c.Time)},
-		{"message", encoding.EncodeStr(c.Message)},
+	fields := []fieldEncode{
+		{"table", objline.WriteBytes(c.Table)},
+		{"authorName", func(w io.Writer, buf encoding.Bufferer) (n int64, err error) {
+			return objline.WriteString(w, buf, c.AuthorName)
+		}},
+		{"authorEmail", func(w io.Writer, buf encoding.Bufferer) (n int64, err error) {
+			return objline.WriteString(w, buf, c.AuthorEmail)
+		}},
+		{"time", func(w io.Writer, buf encoding.Bufferer) (n int64, err error) {
+			return objline.WriteTime(w, buf, c.Time)
+		}},
+		{"message", func(w io.Writer, buf encoding.Bufferer) (n int64, err error) {
+			return objline.WriteString(w, buf, c.Message)
+		}},
 	}
 	for _, parent := range c.Parents {
-		lines = append(lines, line{"parent", encoding.EncodeBytes(parent)})
+		fields = append(fields, fieldEncode{"parent", objline.WriteBytes(parent)})
 	}
 	var total int64
-	for _, l := range lines {
-		n, err := writeLine(w, l.label, l.f(buf))
+	for _, l := range fields {
+		n, err := objline.WriteField(w, buf, l.label, l.f)
 		if err != nil {
 			return 0, err
 		}
-		total += int64(n)
+		total += n
 	}
 	return total, nil
+}
+
+type fieldDecode struct {
+	label string
+	f     objline.ReadFunc
 }
 
 func (c *Commit) ReadFrom(r io.Reader) (int64, error) {
 	parser := encoding.NewParser(r)
 	c.Table = make([]byte, 16)
-	type line struct {
-		label string
-		f     encoding.DecodeFunc
-	}
 	var total int64
-	for _, l := range []line{
-		{"table", encoding.DecodeBytes(c.Table)},
-		{"authorName", encoding.DecodeStr(&c.AuthorName)},
-		{"authorEmail", encoding.DecodeStr(&c.AuthorEmail)},
-		{"time", encoding.DecodeTimeFunc(&c.Time)},
-		{"message", encoding.DecodeStr(&c.Message)},
+	for _, l := range []fieldDecode{
+		{"table", objline.ReadBytes(c.Table)},
+		{"authorName", func(p *encoding.Parser) (int64, error) {
+			return objline.ReadString(p, &c.AuthorName)
+		}},
+		{"authorEmail", func(p *encoding.Parser) (int64, error) {
+			return objline.ReadString(p, &c.AuthorEmail)
+		}},
+		{"time", func(p *encoding.Parser) (int64, error) {
+			return objline.ReadTime(p, &c.Time)
+		}},
+		{"message", func(p *encoding.Parser) (int64, error) {
+			return objline.ReadString(p, &c.Message)
+		}},
 	} {
-		n, err := readLine(parser, l.label, l.f)
+		n, err := objline.ReadField(parser, l.label, l.f)
 		if err != nil {
 			return 0, err
 		}
@@ -70,7 +89,7 @@ func (c *Commit) ReadFrom(r io.Reader) (int64, error) {
 	}
 	for {
 		b := make([]byte, 16)
-		n, err := readLine(parser, "parent", encoding.DecodeBytes(b))
+		n, err := objline.ReadField(parser, "parent", objline.ReadBytes(b))
 		if err == io.EOF {
 			break
 		}

@@ -30,11 +30,11 @@ func (r *Parser) ParseError(format string, a ...interface{}) error {
 
 func (r *Parser) NextBytes(n int) ([]byte, error) {
 	b := r.buf.Buffer(n)
-	_, err := r.ReadBytes(b)
+	_, err := r.Read(b)
 	return b, err
 }
 
-func (r *Parser) ReadBytes(b []byte) (int, error) {
+func (r *Parser) Read(b []byte) (int, error) {
 	n, err := r.r.Read(b)
 	r.pos += n
 	return n, err
