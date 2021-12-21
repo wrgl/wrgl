@@ -19,6 +19,7 @@ type ColumnSummary struct {
 	Max         *float64    `json:"max,omitempty"`
 	Mean        *float64    `json:"mean,omitempty"`
 	Median      *float64    `json:"median,omitempty"`
+	Mode        *float64    `json:"mode,omitempty"`
 	AvgStrLen   uint16      `json:"avgStrLen"`
 	TopValues   ValueCounts `json:"topValues,omitempty"`
 	Percentiles []float64   `json:"percentiles,omitempty"`
@@ -79,6 +80,16 @@ func init() {
 					col.Median = &f
 				}
 				return col.Median
+			},
+		),
+		summaryFloat64Field("mode",
+			func(col *ColumnSummary) *float64 { return col.Mode },
+			func(col *ColumnSummary) *float64 {
+				if col.Mode == nil {
+					var f float64
+					col.Mode = &f
+				}
+				return col.Mode
 			},
 		),
 		{

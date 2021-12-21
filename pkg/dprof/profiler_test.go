@@ -34,6 +34,7 @@ func TestProfiler(t *testing.T) {
 				Max:       floatPtr(30),
 				Mean:      floatPtr(7.2),
 				Median:    floatPtr(4),
+				Mode:      floatPtr(30),
 				IsNumber:  true,
 			},
 			{
@@ -79,6 +80,7 @@ func TestPercentiles(t *testing.T) {
 		Max:      floatPtr(9947),
 		Mean:     floatPtr(4739.99),
 		Median:   floatPtr(4425),
+		Mode:     floatPtr(2888),
 		TopValues: objects.ValueCounts{
 			{Value: "2888", Count: 2},
 			{Value: "1137", Count: 1},
@@ -124,7 +126,8 @@ func TestPercentiles(t *testing.T) {
 		}
 	}
 	sum := p.Summarize()
-	assert.Equal(t, floatPtr(3), sum.Columns[0].Median)
+	assert.Equal(t, float64(3), *sum.Columns[0].Mode)
+	assert.Equal(t, float64(3), *sum.Columns[0].Median)
 	assert.Equal(t, []float64{
 		1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 6, 9,
 	}, sum.Columns[0].Percentiles)
@@ -135,7 +138,8 @@ func TestPercentiles(t *testing.T) {
 		p.Process([]string{fmt.Sprintf("%d", i)})
 	}
 	sum = p.Summarize()
-	assert.Equal(t, floatPtr(34), sum.Columns[0].Median)
+	assert.Equal(t, float64(68), *sum.Columns[0].Mode)
+	assert.Equal(t, float64(34), *sum.Columns[0].Median)
 	assert.Equal(t, []float64{
 		3, 7, 10, 14.69, 17, 21.69, 24, 28.69, 31, 34, 38, 41, 45, 48, 52.69, 55, 59.69, 62, 66.69,
 	}, sum.Columns[0].Percentiles)
