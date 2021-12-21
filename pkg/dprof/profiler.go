@@ -49,10 +49,17 @@ func (m *Profiler) Process(row []string) {
 	m.rowsCount += 1
 	for i, col := range m.columns {
 		v := row[i]
-		m.strLens[i] += len(v)
+		n := len(v)
+		m.strLens[i] += n
+		if uint16(n) > col.MaxStrLen {
+			col.MaxStrLen = uint16(n)
+		}
 		if v == "" {
-			col.NullCount++
+			col.NACount++
 			continue
+		}
+		if col.MinStrLen == 0 || uint16(n) < col.MinStrLen {
+			col.MinStrLen = uint16(n)
 		}
 		if col.IsNumber {
 			n, err := strconv.ParseFloat(v, 64)
@@ -86,24 +93,27 @@ func floatPtr(f float64) *float64 {
 	return &f
 }
 
+func roundTwoDecimalPlaces(f float64) float64 {
+	return math.Round(f*100) / 100
+}
+
 func (m *Profiler) setStandardDeviation(i int, mean float64) {
 	var sum float64
 	for v, c := range m.numbers[i] {
 		sum += (v - mean) * (v - mean) * float64(c)
 	}
-	f := math.Sqrt(sum / float64(m.rowsCount))
+	f := roundTwoDecimalPlaces(math.Sqrt(sum / float64(m.rowsCount)))
 	m.columns[i].StdDeviation = &f
 }
 
 func (m *Profiler) Summarize() *objects.TableSummary {
 	for i, col := range m.columns {
-		col.AvgStrLen = uint16(uint32(m.strLens[i]) / m.rowsCount)
+		col.AvgStrLen = uint16(math.Round(float64(m.strLens[i]) / float64(m.rowsCount)))
 		if col.IsNumber {
-			col.Mean = floatPtr(m.sums[i] / float64(m.rowsCount))
-			var median, mode float64
-			mode, median, col.Percentiles = m.calculatePercentiles(i)
+			col.Mean = floatPtr(roundTwoDecimalPlaces(m.sums[i] / float64(m.rowsCount)))
+			var median float64
+			median, col.Percentiles = m.calculatePercentiles(i)
 			col.Median = &median
-			col.Mode = &mode
 			m.setStandardDeviation(i, *col.Mean)
 		}
 

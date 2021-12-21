@@ -13,14 +13,15 @@ import (
 
 type ColumnSummary struct {
 	Name         string      `json:"name"`
-	NullCount    uint32      `json:"nullCount"`
+	NACount      uint32      `json:"naCount"`
 	IsNumber     bool        `json:"isNumber,omitempty"`
 	Min          *float64    `json:"min,omitempty"`
 	Max          *float64    `json:"max,omitempty"`
 	Mean         *float64    `json:"mean,omitempty"`
 	Median       *float64    `json:"median,omitempty"`
-	Mode         *float64    `json:"mode,omitempty"`
 	StdDeviation *float64    `json:"stdDeviation,omitempty"`
+	MinStrLen    uint16      `json:"minStrLen"`
+	MaxStrLen    uint16      `json:"maxStrLen"`
 	AvgStrLen    uint16      `json:"avgStrLen"`
 	TopValues    ValueCounts `json:"topValues,omitempty"`
 	Percentiles  []float64   `json:"percentiles,omitempty"`
@@ -41,7 +42,7 @@ var (
 func init() {
 	summaryFields = []*summaryField{
 		summaryStringField("name", func(col *ColumnSummary) *string { return &col.Name }),
-		summaryUint32Field("nullCount", func(col *ColumnSummary) *uint32 { return &col.NullCount }),
+		summaryUint32Field("naCount", func(col *ColumnSummary) *uint32 { return &col.NACount }),
 		summaryBoolField("isNumber", func(col *ColumnSummary) *bool { return &col.IsNumber }),
 		summaryFloat64Field("min",
 			func(col *ColumnSummary) *float64 { return col.Min },
@@ -83,16 +84,6 @@ func init() {
 				return col.Median
 			},
 		),
-		summaryFloat64Field("mode",
-			func(col *ColumnSummary) *float64 { return col.Mode },
-			func(col *ColumnSummary) *float64 {
-				if col.Mode == nil {
-					var f float64
-					col.Mode = &f
-				}
-				return col.Mode
-			},
-		),
 		summaryFloat64Field("stdDeviation",
 			func(col *ColumnSummary) *float64 { return col.StdDeviation },
 			func(col *ColumnSummary) *float64 {
@@ -119,6 +110,8 @@ func init() {
 				return
 			},
 		},
+		summaryUint16Field("minStrLen", func(col *ColumnSummary) *uint16 { return &col.MinStrLen }),
+		summaryUint16Field("maxStrLen", func(col *ColumnSummary) *uint16 { return &col.MaxStrLen }),
 		summaryUint16Field("avgStrLen", func(col *ColumnSummary) *uint16 { return &col.AvgStrLen }),
 		{
 			Name: "topValues",

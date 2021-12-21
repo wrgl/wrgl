@@ -36,17 +36,7 @@ func (sl numberCounts) percentile(p int) float64 {
 		return sl[i].number
 	}
 	p1 := sl.percentRank(int(sl[i-1].cumCount - 1))
-	return sl[i].number + float64(n*(p-p1))/100*(sl[i].number-sl[i-1].number)
-}
-
-func (sl numberCounts) mode() float64 {
-	sort.Slice(sl, func(i, j int) bool {
-		if sl[i].count == sl[j].count {
-			return sl[i].number < sl[j].number
-		}
-		return sl[i].count < sl[j].count
-	})
-	return sl[len(sl)-1].number
+	return roundTwoDecimalPlaces(sl[i].number + float64(n*(p-p1))/100*(sl[i].number-sl[i-1].number))
 }
 
 func numberCountsFromMap(m map[float64]uint32) numberCounts {
@@ -65,7 +55,7 @@ func numberCountsFromMap(m map[float64]uint32) numberCounts {
 	return sl
 }
 
-func (m *Profiler) calculatePercentiles(i int) (mode, median float64, percentiles []float64) {
+func (m *Profiler) calculatePercentiles(i int) (median float64, percentiles []float64) {
 	sl := numberCountsFromMap(m.numbers[i])
 	median = sl.percentile(50)
 	// if there are less distinct values than percentile slot then don't calculate percentiles
@@ -75,6 +65,5 @@ func (m *Profiler) calculatePercentiles(i int) (mode, median float64, percentile
 			percentiles = append(percentiles, sl.percentile(k))
 		}
 	}
-	mode = sl.mode()
 	return
 }

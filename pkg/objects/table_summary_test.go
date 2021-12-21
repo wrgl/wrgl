@@ -19,22 +19,24 @@ func TestWriteTableSummary(t *testing.T) {
 		Columns: []*ColumnSummary{
 			{
 				Name:         "a",
-				NullCount:    0,
+				NACount:      0,
 				IsNumber:     true,
 				Min:          floatPtr(0),
 				Max:          floatPtr(200),
 				Mean:         floatPtr(3.123),
 				Median:       floatPtr(5),
-				Mode:         floatPtr(6),
 				StdDeviation: floatPtr(3.4),
 				Percentiles: []float64{
 					3, 7, 10, 14.69, 17, 21.69, 24, 28.69, 31, 34, 38, 41, 45, 48, 52.69, 55, 59.69, 62, 66.69,
 				},
+				MinStrLen: 1,
+				MaxStrLen: 5,
 				AvgStrLen: 2,
 			},
 			{
 				Name:      "bc",
-				NullCount: 10,
+				NACount:   10,
+				MaxStrLen: 10,
 				AvgStrLen: 5,
 				TopValues: ValueCounts{
 					{testutils.BrokenRandomLowerAlphaString(5), 50},
@@ -45,7 +47,9 @@ func TestWriteTableSummary(t *testing.T) {
 			},
 			{
 				Name:      "def",
-				NullCount: 20,
+				NACount:   20,
+				MinStrLen: 10,
+				MaxStrLen: 10,
 				AvgStrLen: 10,
 				TopValues: ValueCounts{
 					{testutils.BrokenRandomLowerAlphaString(10), 50},

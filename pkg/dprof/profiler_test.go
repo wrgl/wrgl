@@ -29,28 +29,34 @@ func TestProfiler(t *testing.T) {
 		Columns: []*objects.ColumnSummary{
 			{
 				Name:         "A",
-				NullCount:    2,
+				NACount:      2,
 				Min:          floatPtr(2),
 				Max:          floatPtr(30),
 				Mean:         floatPtr(7.2),
 				Median:       floatPtr(4),
-				Mode:         floatPtr(30),
-				StdDeviation: floatPtr(10.555756723229273),
+				StdDeviation: floatPtr(10.56),
 				IsNumber:     true,
+				MinStrLen:    1,
+				MaxStrLen:    2,
+				AvgStrLen:    1,
 			},
 			{
 				Name:      "B",
-				NullCount: 1,
+				NACount:   1,
 				AvgStrLen: 2,
 				TopValues: objects.ValueCounts{
 					{Value: "abc", Count: 2},
 					{Value: "def", Count: 1},
 					{Value: "qwe", Count: 1},
 				},
+				MinStrLen: 3,
+				MaxStrLen: 3,
 			},
 			{
 				Name:      "C",
 				AvgStrLen: 2,
+				MinStrLen: 1,
+				MaxStrLen: 3,
 			},
 		},
 	}, p.Summarize())
@@ -81,8 +87,7 @@ func TestPercentiles(t *testing.T) {
 		Max:          floatPtr(9947),
 		Mean:         floatPtr(4739.99),
 		Median:       floatPtr(4425),
-		Mode:         floatPtr(2888),
-		StdDeviation: floatPtr(2967.179820957941),
+		StdDeviation: floatPtr(2967.18),
 		TopValues: objects.ValueCounts{
 			{Value: "2888", Count: 2},
 			{Value: "1137", Count: 1},
@@ -105,7 +110,9 @@ func TestPercentiles(t *testing.T) {
 			{Value: "2205", Count: 1},
 			{Value: "2433", Count: 1},
 		},
-		AvgStrLen: 3,
+		AvgStrLen: 4,
+		MinStrLen: 2,
+		MaxStrLen: 4,
 		Percentiles: []float64{
 			552, 1137, 1485, 1737, 2199, 2546, 3000, 3237, 4059, 4425, 5089, 5447, 6159, 6831, 7887, 8162, 8623, 9106, 9703,
 		},
@@ -128,7 +135,6 @@ func TestPercentiles(t *testing.T) {
 		}
 	}
 	sum := p.Summarize()
-	assert.Equal(t, float64(3), *sum.Columns[0].Mode)
 	assert.Equal(t, float64(3), *sum.Columns[0].Median)
 	assert.Equal(t, []float64{
 		1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 6, 9,
@@ -140,7 +146,6 @@ func TestPercentiles(t *testing.T) {
 		p.Process([]string{fmt.Sprintf("%d", i)})
 	}
 	sum = p.Summarize()
-	assert.Equal(t, float64(68), *sum.Columns[0].Mode)
 	assert.Equal(t, float64(34), *sum.Columns[0].Median)
 	assert.Equal(t, []float64{
 		3, 7, 10, 14.69, 17, 21.69, 24, 28.69, 31, 34, 38, 41, 45, 48, 52.69, 55, 59.69, 62, 66.69,
