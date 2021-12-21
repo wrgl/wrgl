@@ -111,6 +111,7 @@ func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byt
 		_, err = objects.SaveCommit(dst, buf.Bytes())
 		require.NoError(t, err)
 		require.NoError(t, ingest.IndexTable(dst, c.Table, tbl, nil))
+		require.NoError(t, ingest.ProfileTable(dst, c.Table, tbl))
 	}
 }
 
@@ -124,6 +125,10 @@ func AssertCommitsPersisted(t *testing.T, db objects.Store, commits [][]byte) {
 		for _, blk := range tbl.Blocks {
 			assert.True(t, objects.BlockExist(db, blk), "block %x not found", blk)
 		}
+		_, err = objects.GetTableIndex(db, c.Table)
+		require.NoError(t, err)
+		_, err = objects.GetTableSummary(db, c.Table)
+		require.NoError(t, err)
 	}
 }
 

@@ -56,6 +56,9 @@ func (r *ObjectReceiver) saveTable(b []byte) (err error) {
 	if err = ingest.IndexTable(r.db, sum[:], tbl, r.debugOut); err != nil {
 		return
 	}
+	if err = ingest.ProfileTable(r.db, sum[:], tbl); err != nil {
+		return
+	}
 	_, err = objects.SaveTable(r.db, b)
 	return err
 }
