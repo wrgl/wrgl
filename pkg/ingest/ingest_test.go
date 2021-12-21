@@ -48,6 +48,11 @@ func TestIngestTable(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, tblIdx, 3)
 
+	tblSum, err := objects.GetTableSummary(db, sum)
+	require.NoError(t, err)
+	assert.Equal(t, uint32(700), tblSum.RowsCount)
+	assert.Len(t, tblSum.Columns, 4)
+
 	sorter.SortRows(rows[1:], []uint32{0})
 	var bb []byte
 	var blk [][]string

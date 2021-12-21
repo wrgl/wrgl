@@ -115,6 +115,60 @@ func TestSaveTableIndex(t *testing.T) {
 	assert.Equal(t, objects.ErrKeyNotFound, err)
 }
 
+func floatPtr(f float64) *float64 {
+	return &f
+}
+
+func TestSaveTableSummary(t *testing.T) {
+	s := objmock.NewStore()
+	tbl := &objects.TableSummary{
+		RowsCount: 200,
+		Columns: []*objects.ColumnSummary{
+			{
+				Name:         "a",
+				NACount:      0,
+				IsNumber:     true,
+				Min:          floatPtr(0),
+				Max:          floatPtr(200),
+				Mean:         floatPtr(3.123),
+				Median:       floatPtr(5),
+				StdDeviation: floatPtr(3.4),
+				Percentiles: []float64{
+					3, 7, 10, 14.69, 17, 21.69, 24, 28.69, 31, 34, 38, 41, 45, 48, 52.69, 55, 59.69, 62, 66.69,
+				},
+				MinStrLen: 1,
+				MaxStrLen: 5,
+				AvgStrLen: 2,
+			},
+			{
+				Name:      "def",
+				NACount:   20,
+				MinStrLen: 10,
+				MaxStrLen: 10,
+				AvgStrLen: 10,
+				TopValues: objects.ValueCounts{
+					{testutils.BrokenRandomLowerAlphaString(10), 50},
+					{testutils.BrokenRandomLowerAlphaString(10), 30},
+					{testutils.BrokenRandomLowerAlphaString(10), 20},
+					{testutils.BrokenRandomLowerAlphaString(10), 10},
+				},
+			},
+		},
+	}
+
+	w := bytes.NewBuffer(nil)
+	_, err := tbl.WriteTo(w)
+	require.NoError(t, err)
+	sum := testutils.SecureRandomBytes(16)
+	require.NoError(t, objects.SaveTableSummary(s, sum, w.Bytes()))
+	ts, err := objects.GetTableSummary(s, sum)
+	require.NoError(t, err)
+	assert.Equal(t, tbl, ts)
+	require.NoError(t, objects.DeleteTableSummary(s, sum))
+	_, err = objects.GetTableSummary(s, sum)
+	assert.Equal(t, objects.ErrKeyNotFound, err)
+}
+
 func TestSaveCommit(t *testing.T) {
 	s := objmock.NewStore()
 

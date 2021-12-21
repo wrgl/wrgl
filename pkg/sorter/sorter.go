@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/wrgl/wrgl/pkg/dprof"
 	"github.com/wrgl/wrgl/pkg/mem"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/slice"
@@ -62,6 +63,7 @@ type Sorter struct {
 	size      uint64
 	pt        ProgressBar
 	chunks    []io.Reader
+	profiler  *dprof.Profiler
 	current   [][]string
 	Columns   []string
 	cleanups  []func() error
@@ -146,6 +148,9 @@ func (s *Sorter) AddRow(row []string) error {
 			return os.Remove(chunk.Name())
 		})
 	}
+	if s.profiler != nil {
+		s.profiler.Process(row)
+	}
 	return nil
 }
 
@@ -157,6 +162,7 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 		return
 	}
 	s.Columns = append(s.Columns, row...)
+	s.profiler = dprof.NewProfiler(s.Columns)
 	s.PK, err = slice.KeyIndices(s.Columns, pk)
 	if err != nil {
 		return
@@ -177,6 +183,13 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 		}
 	}
 	return f.Close()
+}
+
+func (s *Sorter) TableSummary() *objects.TableSummary {
+	if s.profiler == nil {
+		return nil
+	}
+	return s.profiler.Summarize()
 }
 
 type Block struct {

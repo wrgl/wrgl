@@ -80,6 +80,7 @@ func TestSorterSortedRows(t *testing.T) {
 			require.Equal(t, rows[i*255+j+1], row, "i:%d j:%d", i, j)
 		}
 	}
+	assert.NotNil(t, s.TableSummary())
 	require.NoError(t, s.Close())
 
 	// sorter run entirely in memory
@@ -128,6 +129,7 @@ func TestSorterSortedBlocks(t *testing.T) {
 			}
 		}
 	}
+	assert.NotNil(t, s.TableSummary())
 	require.NoError(t, s.Close())
 
 	// sorter run entirely in memory

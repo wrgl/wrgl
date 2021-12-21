@@ -164,6 +164,20 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCoun
 		return nil, err
 	}
 
+	// write and save table summary
+	buf.Reset()
+	ts := i.sorter.TableSummary()
+	if ts != nil {
+		_, err = ts.WriteTo(buf)
+		if err != nil {
+			return nil, err
+		}
+		err = objects.SaveTableSummary(i.db, sum, buf.Bytes())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return sum, nil
 }
 

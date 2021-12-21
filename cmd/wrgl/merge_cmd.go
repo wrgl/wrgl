@@ -519,6 +519,13 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
+	tbl, err := objects.GetTable(db, sum)
+	if err != nil {
+		return err
+	}
+	if err = ingest.ProfileTable(db, sum, tbl); err != nil {
+		return err
+	}
 	return createMergeCommit(cmd, db, rs, commitNames, sum, commits, message, c)
 }
 

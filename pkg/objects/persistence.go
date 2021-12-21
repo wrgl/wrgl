@@ -17,6 +17,7 @@ var (
 	blkIdxPrefix = []byte("blkidx/")
 	tblIdxPrefix = []byte("tblidx/")
 	comPrefix    = []byte("com/")
+	tblSumPrefix = []byte("tblsum/")
 )
 
 func blockKey(sum []byte) []byte {
@@ -37,6 +38,10 @@ func tableIndexKey(sum []byte) []byte {
 
 func commitKey(sum []byte) []byte {
 	return append(comPrefix, sum...)
+}
+
+func tableSummaryKey(sum []byte) []byte {
+	return append(tblSumPrefix, sum...)
 }
 
 func saveObj(s Store, k, v []byte) (err error) {
@@ -80,6 +85,10 @@ func SaveTable(s Store, content []byte) (sum []byte, err error) {
 
 func SaveTableIndex(s Store, sum, content []byte) (err error) {
 	return saveObj(s, tableIndexKey(sum), content)
+}
+
+func SaveTableSummary(s Store, sum, content []byte) (err error) {
+	return saveObj(s, tableSummaryKey(sum), content)
 }
 
 func SaveCommit(s Store, content []byte) (sum []byte, err error) {
@@ -139,6 +148,19 @@ func GetTableIndex(s Store, sum []byte) ([][]string, error) {
 	return idx, err
 }
 
+func GetTableSummary(s Store, sum []byte) (*TableSummary, error) {
+	b, err := s.Get(tableSummaryKey(sum))
+	if err != nil {
+		return nil, err
+	}
+	ts := &TableSummary{}
+	_, err = ts.ReadFrom(bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	return ts, nil
+}
+
 func GetCommit(s Store, sum []byte) (*Commit, error) {
 	b, err := s.Get(commitKey(sum))
 	if err != nil {
@@ -162,6 +184,10 @@ func DeleteTable(s Store, sum []byte) error {
 
 func DeleteTableIndex(s Store, sum []byte) error {
 	return s.Delete(tableIndexKey(sum))
+}
+
+func DeleteTableSummary(s Store, sum []byte) error {
+	return s.Delete(tableSummaryKey(sum))
 }
 
 func DeleteCommit(s Store, sum []byte) error {
