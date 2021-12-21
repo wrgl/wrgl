@@ -4,6 +4,7 @@
 package dprof
 
 import (
+	"math"
 	"sort"
 	"strconv"
 
@@ -85,6 +86,15 @@ func floatPtr(f float64) *float64 {
 	return &f
 }
 
+func (m *Profiler) setStandardDeviation(i int, mean float64) {
+	var sum float64
+	for v, c := range m.numbers[i] {
+		sum += (v - mean) * (v - mean) * float64(c)
+	}
+	f := math.Sqrt(sum / float64(m.rowsCount))
+	m.columns[i].StdDeviation = &f
+}
+
 func (m *Profiler) Summarize() *objects.TableSummary {
 	for i, col := range m.columns {
 		col.AvgStrLen = uint16(uint32(m.strLens[i]) / m.rowsCount)
@@ -94,6 +104,7 @@ func (m *Profiler) Summarize() *objects.TableSummary {
 			mode, median, col.Percentiles = m.calculatePercentiles(i)
 			col.Median = &median
 			col.Mode = &mode
+			m.setStandardDeviation(i, *col.Mean)
 		}
 
 		allUnique := true

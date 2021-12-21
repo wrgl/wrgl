@@ -28,14 +28,15 @@ func TestProfiler(t *testing.T) {
 		RowsCount: 5,
 		Columns: []*objects.ColumnSummary{
 			{
-				Name:      "A",
-				NullCount: 2,
-				Min:       floatPtr(2),
-				Max:       floatPtr(30),
-				Mean:      floatPtr(7.2),
-				Median:    floatPtr(4),
-				Mode:      floatPtr(30),
-				IsNumber:  true,
+				Name:         "A",
+				NullCount:    2,
+				Min:          floatPtr(2),
+				Max:          floatPtr(30),
+				Mean:         floatPtr(7.2),
+				Median:       floatPtr(4),
+				Mode:         floatPtr(30),
+				StdDeviation: floatPtr(10.555756723229273),
+				IsNumber:     true,
 			},
 			{
 				Name:      "B",
@@ -74,13 +75,14 @@ func TestPercentiles(t *testing.T) {
 		p.Process(row)
 	}
 	assert.Equal(t, &objects.ColumnSummary{
-		Name:     "A",
-		IsNumber: true,
-		Min:      floatPtr(59),
-		Max:      floatPtr(9947),
-		Mean:     floatPtr(4739.99),
-		Median:   floatPtr(4425),
-		Mode:     floatPtr(2888),
+		Name:         "A",
+		IsNumber:     true,
+		Min:          floatPtr(59),
+		Max:          floatPtr(9947),
+		Mean:         floatPtr(4739.99),
+		Median:       floatPtr(4425),
+		Mode:         floatPtr(2888),
+		StdDeviation: floatPtr(2967.179820957941),
 		TopValues: objects.ValueCounts{
 			{Value: "2888", Count: 2},
 			{Value: "1137", Count: 1},

@@ -18,14 +18,15 @@ func TestWriteTableSummary(t *testing.T) {
 		RowsCount: 200,
 		Columns: []*ColumnSummary{
 			{
-				Name:      "a",
-				NullCount: 0,
-				IsNumber:  true,
-				Min:       floatPtr(0),
-				Max:       floatPtr(200),
-				Mean:      floatPtr(3.123),
-				Median:    floatPtr(5),
-				Mode:      floatPtr(6),
+				Name:         "a",
+				NullCount:    0,
+				IsNumber:     true,
+				Min:          floatPtr(0),
+				Max:          floatPtr(200),
+				Mean:         floatPtr(3.123),
+				Median:       floatPtr(5),
+				Mode:         floatPtr(6),
+				StdDeviation: floatPtr(3.4),
 				Percentiles: []float64{
 					3, 7, 10, 14.69, 17, 21.69, 24, 28.69, 31, 34, 38, 41, 45, 48, 52.69, 55, 59.69, 62, 66.69,
 				},

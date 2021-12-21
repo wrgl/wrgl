@@ -12,17 +12,18 @@ import (
 )
 
 type ColumnSummary struct {
-	Name        string      `json:"name"`
-	NullCount   uint32      `json:"nullCount"`
-	IsNumber    bool        `json:"isNumber,omitempty"`
-	Min         *float64    `json:"min,omitempty"`
-	Max         *float64    `json:"max,omitempty"`
-	Mean        *float64    `json:"mean,omitempty"`
-	Median      *float64    `json:"median,omitempty"`
-	Mode        *float64    `json:"mode,omitempty"`
-	AvgStrLen   uint16      `json:"avgStrLen"`
-	TopValues   ValueCounts `json:"topValues,omitempty"`
-	Percentiles []float64   `json:"percentiles,omitempty"`
+	Name         string      `json:"name"`
+	NullCount    uint32      `json:"nullCount"`
+	IsNumber     bool        `json:"isNumber,omitempty"`
+	Min          *float64    `json:"min,omitempty"`
+	Max          *float64    `json:"max,omitempty"`
+	Mean         *float64    `json:"mean,omitempty"`
+	Median       *float64    `json:"median,omitempty"`
+	Mode         *float64    `json:"mode,omitempty"`
+	StdDeviation *float64    `json:"stdDeviation,omitempty"`
+	AvgStrLen    uint16      `json:"avgStrLen"`
+	TopValues    ValueCounts `json:"topValues,omitempty"`
+	Percentiles  []float64   `json:"percentiles,omitempty"`
 }
 
 type summaryField struct {
@@ -90,6 +91,16 @@ func init() {
 					col.Mode = &f
 				}
 				return col.Mode
+			},
+		),
+		summaryFloat64Field("stdDeviation",
+			func(col *ColumnSummary) *float64 { return col.StdDeviation },
+			func(col *ColumnSummary) *float64 {
+				if col.StdDeviation == nil {
+					var f float64
+					col.StdDeviation = &f
+				}
+				return col.StdDeviation
 			},
 		),
 		{
