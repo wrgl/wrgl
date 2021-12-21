@@ -18,6 +18,7 @@ type ColumnSummary struct {
 	Min         *float64    `json:"min,omitempty"`
 	Max         *float64    `json:"max,omitempty"`
 	Mean        *float64    `json:"mean,omitempty"`
+	Median      *float64    `json:"median,omitempty"`
 	AvgStrLen   uint16      `json:"avgStrLen"`
 	TopValues   ValueCounts `json:"topValues,omitempty"`
 	Percentiles []float64   `json:"percentiles,omitempty"`
@@ -39,7 +40,7 @@ func init() {
 	summaryFields = []*summaryField{
 		summaryStringField("name", func(col *ColumnSummary) *string { return &col.Name }),
 		summaryUint32Field("nullCount", func(col *ColumnSummary) *uint32 { return &col.NullCount }),
-		summaryBoolField("isNumer", func(col *ColumnSummary) *bool { return &col.IsNumber }),
+		summaryBoolField("isNumber", func(col *ColumnSummary) *bool { return &col.IsNumber }),
 		summaryFloat64Field("min",
 			func(col *ColumnSummary) *float64 { return col.Min },
 			func(col *ColumnSummary) *float64 {
@@ -70,6 +71,32 @@ func init() {
 				return col.Mean
 			},
 		),
+		summaryFloat64Field("median",
+			func(col *ColumnSummary) *float64 { return col.Median },
+			func(col *ColumnSummary) *float64 {
+				if col.Median == nil {
+					var f float64
+					col.Median = &f
+				}
+				return col.Median
+			},
+		),
+		{
+			Name: "percentiles",
+			Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnSummary) (int64, error) {
+				return objline.WriteBytes(NewFloatListEncoder().Encode(col.Percentiles))(w, buf)
+			},
+			IsEmpty: func(col *ColumnSummary) bool {
+				return col.Percentiles == nil
+			},
+			Read: func(p *encoding.Parser, col *ColumnSummary) (n int64, err error) {
+				n, col.Percentiles, err = NewFloatListDecoder(false).Read(p)
+				if err != nil {
+					return 0, err
+				}
+				return
+			},
+		},
 		summaryUint16Field("avgStrLen", func(col *ColumnSummary) *uint16 { return &col.AvgStrLen }),
 		{
 			Name: "topValues",

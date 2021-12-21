@@ -4,15 +4,12 @@
 package dprof
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
-
-func floatPtr(f float64) *float64 {
-	return &f
-}
 
 func TestProfiler(t *testing.T) {
 	columns := []string{"A", "B", "C"}
@@ -36,6 +33,7 @@ func TestProfiler(t *testing.T) {
 				Min:       floatPtr(2),
 				Max:       floatPtr(30),
 				Mean:      floatPtr(7.2),
+				Median:    floatPtr(4),
 				IsNumber:  true,
 			},
 			{
@@ -80,6 +78,7 @@ func TestPercentiles(t *testing.T) {
 		Min:      floatPtr(59),
 		Max:      floatPtr(9947),
 		Mean:     floatPtr(4739.99),
+		Median:   floatPtr(4425),
 		TopValues: objects.ValueCounts{
 			{Value: "2888", Count: 2},
 			{Value: "1137", Count: 1},
@@ -104,7 +103,40 @@ func TestPercentiles(t *testing.T) {
 		},
 		AvgStrLen: 3,
 		Percentiles: []float64{
-			552, 1137, 1485, 1737, 2199, 2546, 3000, 3237, 4059, 4425, 5094, 5447, 6159, 6831, 7887, 8162, 8623, 9106, 9703,
+			552, 1137, 1485, 1737, 2199, 2546, 3000, 3237, 4059, 4425, 5089, 5447, 6159, 6831, 7887, 8162, 8623, 9106, 9703,
 		},
 	}, p.Summarize().Columns[0])
+
+	// percentiles should include repeating values
+	p = NewProfiler(columns)
+	for _, obj := range []struct {
+		s string
+		c int
+	}{
+		{"1", 20},
+		{"3", 50},
+		{"5", 20},
+		{"6", 10},
+		{"9", 5},
+	} {
+		for i := 0; i < obj.c; i++ {
+			p.Process([]string{obj.s})
+		}
+	}
+	sum := p.Summarize()
+	assert.Equal(t, floatPtr(3), sum.Columns[0].Median)
+	assert.Equal(t, []float64{
+		1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 6, 9,
+	}, sum.Columns[0].Percentiles)
+
+	// percentiles should interpolate as needed
+	p = NewProfiler(columns)
+	for i := 0; i < 69; i++ {
+		p.Process([]string{fmt.Sprintf("%d", i)})
+	}
+	sum = p.Summarize()
+	assert.Equal(t, floatPtr(34), sum.Columns[0].Median)
+	assert.Equal(t, []float64{
+		3, 7, 10, 14.69, 17, 21.69, 24, 28.69, 31, 34, 38, 41, 45, 48, 52.69, 55, 59.69, 62, 66.69,
+	}, sum.Columns[0].Percentiles)
 }
