@@ -48,7 +48,7 @@ func allScopesString(indent int, withDesc bool) string {
 
 func addscopeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add-scope EMAIL SCOPE...",
+		Use:   "add-scope { EMAIL | anyone } SCOPE...",
 		Short: "Add one or more scopes for a user.",
 		Long:  "Add one or more scopes for a user. Scopes represent what actions are allowed via the Wrgld HTTP API for a users. Valid scopes are:\n" + allScopesString(2, true),
 		Example: utils.CombineExamples([]utils.Example{
@@ -57,8 +57,12 @@ func addscopeCmd() *cobra.Command {
 				Line:    fmt.Sprintf("wrgl auth add-scope user@email.com %s %s", auth.ScopeRepoRead, auth.ScopeRepoWrite),
 			},
 			{
-				Comment: "authorize user to do everything",
+				Comment: "authorize a user to do everything",
 				Line:    "wrgl auth add-scope user@email.com --all",
+			},
+			{
+				Comment: "allow everyone to fetch data (make this repo public)",
+				Line:    fmt.Sprintf("wrgl auth add-scope %s %s", auth.Anyone, auth.ScopeRepoRead),
 			},
 		}),
 		Args: cobra.ArbitraryArgs,
@@ -71,17 +75,21 @@ func addscopeCmd() *cobra.Command {
 			}
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
-			authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
-			if err != nil {
-				return err
-			}
-			if !authnS.Exist(args[0]) {
-				return UserNotFoundErr(args[0])
+			if args[0] != auth.Anyone {
+				authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
+				if err != nil {
+					return err
+				}
+				defer authnS.Close()
+				if !authnS.Exist(args[0]) {
+					return UserNotFoundErr(args[0])
+				}
 			}
 			authzS, err := authfs.NewAuthzStore(rd)
 			if err != nil {
 				return err
 			}
+			defer authzS.Close()
 			all, err := cmd.Flags().GetBool("all")
 			if err != nil {
 				return err

@@ -5,7 +5,9 @@ package wrgl
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/api/payload"
 	apitest "github.com/wrgl/wrgl/pkg/api/test"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 	"github.com/wrgl/wrgl/pkg/credentials"
@@ -36,14 +39,39 @@ func authenticate(t *testing.T, uri string) {
 	require.NoError(t, cs.Flush())
 }
 
+func unauthenticate(t *testing.T, uri string) {
+	t.Helper()
+	cs, err := credentials.NewStore()
+	require.NoError(t, err)
+	u, err := url.Parse(uri)
+	require.NoError(t, err)
+	cs.Delete(*u)
+	require.NoError(t, cs.Flush())
+}
+
+func httpError(t *testing.T, code int, message string) *apiclient.HTTPError {
+	err := &apiclient.HTTPError{
+		Code: code,
+		Body: &payload.Error{
+			Message: message,
+		},
+	}
+	b, merr := json.Marshal(err.Body)
+	require.NoError(t, merr)
+	err.RawBody = b
+	return err
+}
+
 func assertCmdUnauthorized(t *testing.T, cmd *cobra.Command, url string) {
 	t.Helper()
 	assertCmdFailed(t, cmd, strings.Join([]string{
 		fmt.Sprintf("No credential found for %s", url),
+		"Proceed as anonymous user...",
+		"Unauthorized.",
 		"Run this command to authenticate:",
 		fmt.Sprintf("    wrgl credentials authenticate %s", url),
 		"",
-	}, "\n"), fmt.Errorf("unauthorized"))
+	}, "\n"), httpError(t, http.StatusUnauthorized, "unauthorized"))
 }
 
 func TestFetchCmd(t *testing.T) {

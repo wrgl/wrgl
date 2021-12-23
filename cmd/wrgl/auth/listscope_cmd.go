@@ -3,15 +3,26 @@ package auth
 import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/auth"
 	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 )
 
 func listscopeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list-scope EMAIL",
+		Use:   "list-scope { EMAIL | anyone }",
 		Short: "List scopes for a user.",
-		Args:  cobra.ExactArgs(1),
+		Example: utils.CombineExamples([]utils.Example{
+			{
+				Comment: "list scopes for a user",
+				Line:    "wrgl auth list-scope john.doe@domain.com",
+			},
+			{
+				Comment: "list scopes for anonymous users",
+				Line:    "wrgl auth list-scope anyone",
+			},
+		}),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			cs := conffs.NewStore(dir, conffs.AggregateSource, "")
@@ -21,12 +32,15 @@ func listscopeCmd() *cobra.Command {
 			}
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
-			authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
-			if err != nil {
-				return err
-			}
-			if !authnS.Exist(args[0]) {
-				return UserNotFoundErr(args[0])
+			if args[0] != auth.Anyone {
+				authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
+				if err != nil {
+					return err
+				}
+				defer authnS.Close()
+				if !authnS.Exist(args[0]) {
+					return UserNotFoundErr(args[0])
+				}
 			}
 			authzS, err := authfs.NewAuthzStore(rd)
 			if err != nil {

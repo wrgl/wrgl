@@ -46,6 +46,7 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	w := csv.NewWriter(buf)
 	require.NoError(t, w.WriteAll(testutils.BuildRawCSV(4, 4)))
 	w.Flush()
+	// nothing come through because user has no scope
 	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), nil)
 	assert.Error(t, err)
 	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), nil, apiclient.WithRequestAuthorization(tok))
@@ -91,8 +92,8 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	_, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
 
+	// only read actions come through
 	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRepoRead))
-
 	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), nil, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
 	gcr, err := cli.GetCommit(sum2, apiclient.WithRequestAuthorization(tok))
@@ -127,12 +128,49 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	_, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
 
+	// now write actions come through as well
 	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRepoWrite))
-
 	cr, err := cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), nil, apiclient.WithRequestAuthorization(tok))
 	require.NoError(t, err)
 	assert.NotEmpty(t, cr.Sum)
 	resp, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithRequestAuthorization(tok))
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// allow the public to read (but not write to) repo
+	require.NoError(t, authzS.AddPolicy(auth.Anyone, auth.ScopeRepoRead))
+	_, err = cli.Commit("alpha", "second commit", "file.csv", bytes.NewReader(buf.Bytes()), nil)
+	assert.Error(t, err)
+	gcr, err = cli.GetCommit(sum2)
+	require.NoError(t, err)
+	assert.NotEmpty(t, gcr.Table)
+	tr, err = cli.GetTable(com.Table)
+	require.NoError(t, err)
+	assert.NotEmpty(t, tr.Columns)
+	resp, err = cli.GetBlocks(hex.EncodeToString(sum2), 0, 0, payload.BlockFormatCSV, false)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	resp, err = cli.GetTableBlocks(com.Table, 0, 0, payload.BlockFormatCSV, false)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	resp, err = cli.GetRows(hex.EncodeToString(sum2), []int{0})
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	resp, err = cli.GetTableRows(com.Table, []int{0})
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	dr, err = cli.Diff(sum1, sum2)
+	require.NoError(t, err)
+	assert.NotEmpty(t, dr.Columns)
+	assert.NotEmpty(t, dr.OldColumns)
+	assert.NotEmpty(t, dr.PK)
+	assert.NotEmpty(t, dr.OldPK)
+	refs, err = cli.GetRefs(apiclient.WithRequestAuthorization(tok))
+	require.NoError(t, err)
+	assert.Greater(t, len(refs), 0)
+	_, _, err = cli.PostUploadPack([][]byte{sum2}, nil, true)
+	require.NoError(t, err)
+	_, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}})
+	assert.Error(t, err)
+
 }

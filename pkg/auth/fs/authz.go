@@ -14,6 +14,7 @@ import (
 	"github.com/casbin/casbin/v2/model"
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
 	"github.com/fsnotify/fsnotify"
+	"github.com/wrgl/wrgl/pkg/auth"
 	"github.com/wrgl/wrgl/pkg/local"
 )
 
@@ -115,7 +116,14 @@ func (s *AuthzStore) RemovePolicy(email, act string) error {
 }
 
 func (s *AuthzStore) Authorized(r *http.Request, email, scope string) (bool, error) {
-	return s.e.Enforce(email, "-", scope)
+	ok, err := s.e.Enforce(email, "-", scope)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return s.e.Enforce(auth.Anyone, "-", scope)
+	}
+	return ok, nil
 }
 
 func (s *AuthzStore) Flush() error {
