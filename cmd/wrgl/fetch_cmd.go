@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"net/http"
 	"net/url"
 	"sort"
 	"strings"
@@ -88,7 +87,7 @@ func newFetchCmd() *cobra.Command {
 					}
 					err = fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force)
 					if err != nil {
-						return handleHTTPError(cmd, cs, v.URL, uri, err)
+						return utils.HandleHTTPError(cmd, cs, v.URL, uri, err)
 					}
 				}
 				return nil
@@ -102,7 +101,7 @@ func newFetchCmd() *cobra.Command {
 				return err
 			}
 			if err := fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force); err != nil {
-				return handleHTTPError(cmd, cs, rem.URL, uri, err)
+				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
 			return nil
 		},
@@ -110,28 +109,6 @@ func newFetchCmd() *cobra.Command {
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
 	return cmd
-}
-
-func printAuthCmd(cmd *cobra.Command, remoteURL string) {
-	if strings.HasPrefix(remoteURL, "https://hub.wrgl.co/api") {
-		remoteURL = "https://hub.wrgl.co/api"
-	}
-	cmd.Printf("Run this command to authenticate:\n    wrgl credentials authenticate %s\n", remoteURL)
-}
-
-func handleHTTPError(cmd *cobra.Command, cs *credentials.Store, remoteURL string, uri *url.URL, err error) error {
-	if v, ok := err.(*apiclient.HTTPError); ok && v.Code == http.StatusUnauthorized {
-		if uri != nil {
-			cmd.Println("Credentials are invalid")
-			if err := discardCredentials(cmd, cs, uri); err != nil {
-				return err
-			}
-		} else {
-			cmd.Println("Unauthorized.")
-		}
-		printAuthCmd(cmd, remoteURL)
-	}
-	return err
 }
 
 func getCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (uri *url.URL, token string, err error) {
@@ -146,15 +123,6 @@ func getCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (u
 		return
 	}
 	return
-}
-
-func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri *url.URL) error {
-	if uri == nil {
-		return nil
-	}
-	cmd.Printf("Discarding credentials for %s\n", uri.String())
-	cs.Delete(*uri)
-	return cs.Flush()
 }
 
 func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, args []string) (string, *conf.Remote, []*conf.Refspec, error) {

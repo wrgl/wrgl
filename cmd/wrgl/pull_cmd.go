@@ -200,7 +200,7 @@ func pullSingleRepo(
 	}
 	err = fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force)
 	if err != nil {
-		return handleHTTPError(cmd, cs, rem.URL, uri, err)
+		return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 	}
 	if setUpstream && len(args) > 2 {
 		err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{
