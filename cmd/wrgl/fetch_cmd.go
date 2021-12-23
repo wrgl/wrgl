@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strings"
 
@@ -89,7 +88,7 @@ func newFetchCmd() *cobra.Command {
 					}
 					err = fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force)
 					if err != nil {
-						return handleHTTPError(cmd, cs, *uri, err)
+						return handleHTTPError(cmd, cs, v.URL, uri, err)
 					}
 				}
 				return nil
@@ -103,7 +102,7 @@ func newFetchCmd() *cobra.Command {
 				return err
 			}
 			if err := fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force); err != nil {
-				return handleHTTPError(cmd, cs, *uri, err)
+				return handleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
 			return nil
 		},
@@ -113,13 +112,24 @@ func newFetchCmd() *cobra.Command {
 	return cmd
 }
 
-func handleHTTPError(cmd *cobra.Command, cs *credentials.Store, uri url.URL, err error) error {
+func printAuthCmd(cmd *cobra.Command, remoteURL string) {
+	if strings.HasPrefix(remoteURL, "https://hub.wrgl.co/api") {
+		remoteURL = "https://hub.wrgl.co/api"
+	}
+	cmd.Printf("Run this command to authenticate:\n    wrgl credentials authenticate %s\n", remoteURL)
+}
+
+func handleHTTPError(cmd *cobra.Command, cs *credentials.Store, remoteURL string, uri *url.URL, err error) error {
 	if v, ok := err.(*apiclient.HTTPError); ok && v.Code == http.StatusUnauthorized {
-		cmd.PrintErrf("Credentials are invalid: %s\n", v.Error())
-		if err := discardCredentials(cmd, cs, uri); err != nil {
-			return err
+		if uri != nil {
+			cmd.Println("Credentials are invalid")
+			if err := discardCredentials(cmd, cs, uri); err != nil {
+				return err
+			}
+		} else {
+			cmd.Println("Unauthorized.")
 		}
-		os.Exit(1)
+		printAuthCmd(cmd, remoteURL)
 	}
 	return err
 }
@@ -132,16 +142,18 @@ func getCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (u
 	uri, token = cs.GetTokenMatching(*u)
 	if uri == nil {
 		cmd.Printf("No credential found for %s\n", remote)
-		cmd.Printf("Run this command to authenticate:\n    wrgl credentials authenticate %s\n", remote)
-		err = fmt.Errorf("unauthorized")
+		cmd.Println("Proceed as anonymous user...")
 		return
 	}
 	return
 }
 
-func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri url.URL) error {
+func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri *url.URL) error {
+	if uri == nil {
+		return nil
+	}
 	cmd.Printf("Discarding credentials for %s\n", uri.String())
-	cs.Delete(uri)
+	cs.Delete(*uri)
 	return cs.Flush()
 }
 

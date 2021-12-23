@@ -86,4 +86,22 @@ func TestAuthAddScopeCmd(t *testing.T) {
 		auth.ScopeRepoWriteConfig,
 		"",
 	}, "\n"))
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"auth", "add-scope", auth.Anyone, auth.ScopeRepoRead})
+	require.NoError(t, cmd.Execute())
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"auth", "list-scope", auth.Anyone})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		auth.ScopeRepoRead,
+		"",
+	}, "\n"))
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"auth", "remove-scope", auth.Anyone, auth.ScopeRepoRead})
+	require.NoError(t, cmd.Execute())
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"auth", "list-scope", auth.Anyone})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"",
+	}, "\n"))
 }

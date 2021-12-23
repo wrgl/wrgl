@@ -402,7 +402,7 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 	}
 	remoteRefs, err := client.GetRefs()
 	if err != nil {
-		return handleHTTPError(cmd, cs, *uri, err)
+		return handleHTTPError(cmd, cs, cr.URL, uri, err)
 	}
 	cmd.Printf("To %s\n", cr.URL)
 	refspecs, err := getRefspecsToPush(cmd, rs, cr, args, remoteRefs, mirror)
@@ -422,7 +422,7 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 	}
 	ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, 0)
 	if err != nil {
-		return handleHTTPError(cmd, cs, *uri, err)
+		return handleHTTPError(cmd, cs, cr.URL, uri, err)
 	}
 	um, err = ses.Start()
 	if err != nil {

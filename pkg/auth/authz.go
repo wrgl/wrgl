@@ -6,6 +6,7 @@ package auth
 import "net/http"
 
 const (
+	Anyone               = "anyone"
 	ScopeRepoRead        = "repo.read"
 	ScopeRepoWrite       = "repo.write"
 	ScopeRepoReadConfig  = "repo.readConfig"

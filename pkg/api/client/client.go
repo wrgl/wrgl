@@ -76,7 +76,9 @@ func WithRequestCookies(cookies []*http.Cookie) RequestOption {
 
 func WithRequestAuthorization(token string) RequestOption {
 	return func(r *http.Request) {
-		r.Header.Set("Authorization", "Bearer "+token)
+		if token != "" {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
 	}
 }
 
