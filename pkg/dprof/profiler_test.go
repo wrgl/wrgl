@@ -35,7 +35,6 @@ func TestProfiler(t *testing.T) {
 				Mean:         floatPtr(7.2),
 				Median:       floatPtr(4),
 				StdDeviation: floatPtr(10.56),
-				IsNumber:     true,
 				MinStrLen:    1,
 				MaxStrLen:    2,
 				AvgStrLen:    1,
@@ -82,7 +81,6 @@ func TestPercentiles(t *testing.T) {
 	}
 	assert.Equal(t, &objects.ColumnSummary{
 		Name:         "A",
-		IsNumber:     true,
 		Min:          floatPtr(59),
 		Max:          floatPtr(9947),
 		Mean:         floatPtr(4739.99),

@@ -20,6 +20,7 @@ type Profiler struct {
 	columns     []*objects.ColumnSummary
 	rowsCount   uint32
 	strLens     []int
+	isNumber    []bool
 	sums        []float64
 	numbers     []map[float64]uint32
 	valueCounts []map[string]uint32
@@ -31,16 +32,17 @@ func NewProfiler(columnNames []string) *Profiler {
 		columns:     make([]*objects.ColumnSummary, n),
 		strLens:     make([]int, n),
 		valueCounts: make([]map[string]uint32, n),
+		isNumber:    make([]bool, n),
 		numbers:     make([]map[float64]uint32, n),
 		sums:        make([]float64, n),
 	}
 	for i, name := range columnNames {
 		m.columns[i] = &objects.ColumnSummary{
-			Name:     name,
-			IsNumber: true,
+			Name: name,
 		}
 		m.valueCounts[i] = map[string]uint32{}
 		m.numbers[i] = map[float64]uint32{}
+		m.isNumber[i] = true
 	}
 	return m
 }
@@ -61,10 +63,10 @@ func (m *Profiler) Process(row []string) {
 		if col.MinStrLen == 0 || uint16(n) < col.MinStrLen {
 			col.MinStrLen = uint16(n)
 		}
-		if col.IsNumber {
+		if m.isNumber[i] {
 			n, err := strconv.ParseFloat(v, 64)
 			if err != nil {
-				col.IsNumber = false
+				m.isNumber[i] = false
 				col.Min = nil
 				col.Max = nil
 			} else {
@@ -109,7 +111,7 @@ func (m *Profiler) setStandardDeviation(i int, mean float64) {
 func (m *Profiler) Summarize() *objects.TableSummary {
 	for i, col := range m.columns {
 		col.AvgStrLen = uint16(math.Round(float64(m.strLens[i]) / float64(m.rowsCount)))
-		if col.IsNumber {
+		if m.isNumber[i] {
 			col.Mean = floatPtr(roundTwoDecimalPlaces(m.sums[i] / float64(m.rowsCount)))
 			var median float64
 			median, col.Percentiles = m.calculatePercentiles(i)

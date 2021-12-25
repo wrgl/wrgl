@@ -14,7 +14,6 @@ import (
 type ColumnSummary struct {
 	Name         string      `json:"name"`
 	NACount      uint32      `json:"naCount"`
-	IsNumber     bool        `json:"isNumber,omitempty"`
 	Min          *float64    `json:"min,omitempty"`
 	Max          *float64    `json:"max,omitempty"`
 	Mean         *float64    `json:"mean,omitempty"`
@@ -43,7 +42,6 @@ func init() {
 	summaryFields = []*summaryField{
 		summaryStringField("name", func(col *ColumnSummary) *string { return &col.Name }),
 		summaryUint32Field("naCount", func(col *ColumnSummary) *uint32 { return &col.NACount }),
-		summaryBoolField("isNumber", func(col *ColumnSummary) *bool { return &col.IsNumber }),
 		summaryFloat64Field("min",
 			func(col *ColumnSummary) *float64 { return col.Min },
 			func(col *ColumnSummary) *float64 {

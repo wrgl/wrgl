@@ -127,7 +127,6 @@ func TestSaveTableSummary(t *testing.T) {
 			{
 				Name:         "a",
 				NACount:      0,
-				IsNumber:     true,
 				Min:          floatPtr(0),
 				Max:          floatPtr(200),
 				Mean:         floatPtr(3.123),
