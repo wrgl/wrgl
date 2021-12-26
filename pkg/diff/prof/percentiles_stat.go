@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package stats
+package diffprof
 
 import (
 	"encoding/json"
@@ -47,18 +47,18 @@ func (s *PercentilesStat) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func percentilesStatFactory(name, sname string, getField func(col *objects.ColumnSummary) []float64) statDiffFactory {
-	return func(newTblSum, oldTblSum *objects.TableSummary, newColSum, oldColSum *objects.ColumnSummary) json.Marshaler {
+func percentilesStatFactory(name, sname string, getField func(col *objects.ColumnProfile) []float64) statDiffFactory {
+	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) json.Marshaler {
 		sd := &PercentilesStat{
 			Name:      name,
 			ShortName: sname,
 		}
 		var ov, nv []float64
-		if oldColSum != nil {
-			ov = getField(oldColSum)
+		if oldColProf != nil {
+			ov = getField(oldColProf)
 		}
-		if newColSum != nil {
-			nv = getField(newColSum)
+		if newColProf != nil {
+			nv = getField(newColProf)
 		}
 		if nv == nil {
 			if ov == nil {

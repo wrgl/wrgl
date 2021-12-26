@@ -10,7 +10,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/slice"
 )
 
-func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io.Writer) error {
+func IndexTable(db objects.Store, tblProf []byte, tbl *objects.Table, debugOut io.Writer) error {
 	var (
 		tblIdx    = make([][]string, len(tbl.Blocks))
 		buf       = bytes.NewBuffer(nil)
@@ -22,7 +22,7 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 		tblIdxSum []byte
 	)
 	if debugOut != nil {
-		fmt.Fprintf(debugOut, "Indexing table %x\n", tblSum)
+		fmt.Fprintf(debugOut, "Indexing table %x\n", tblProf)
 	}
 	var idxSum = make([]byte, meow.Size)
 	for i, sum := range tbl.Blocks {
@@ -59,5 +59,5 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 	if err != nil {
 		return fmt.Errorf("objects.WriteBlockTo: %v", err)
 	}
-	return objects.SaveTableIndex(db, tblSum, buf.Bytes())
+	return objects.SaveTableIndex(db, tblProf, buf.Bytes())
 }

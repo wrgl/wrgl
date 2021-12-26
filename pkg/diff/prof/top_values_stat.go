@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package stats
+package diffprof
 
 import (
 	"encoding/json"
@@ -67,18 +67,18 @@ func (s *TopValuesStat) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s)
 }
 
-func topValuesStatFactory(name, sname string, getField func(col *objects.ColumnSummary) objects.ValueCounts) statDiffFactory {
-	return func(newTblSum, oldTblSum *objects.TableSummary, newColSum, oldColSum *objects.ColumnSummary) json.Marshaler {
+func topValuesStatFactory(name, sname string, getField func(col *objects.ColumnProfile) objects.ValueCounts) statDiffFactory {
+	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) json.Marshaler {
 		sd := &TopValuesStat{
 			Name:      name,
 			ShortName: sname,
 		}
 		var ov, nv objects.ValueCounts
-		if oldColSum != nil {
-			ov = getField(oldColSum)
+		if oldColProf != nil {
+			ov = getField(oldColProf)
 		}
-		if newColSum != nil {
-			nv = getField(newColSum)
+		if newColProf != nil {
+			nv = getField(newColProf)
 		}
 		if nv.IsEmpty() {
 			if ov.IsEmpty() {
@@ -88,7 +88,7 @@ func topValuesStatFactory(name, sname string, getField func(col *objects.ColumnS
 		} else if ov.IsEmpty() {
 			sd.NewAddition = true
 		}
-		sd.Values = compareValueCounts(newTblSum.RowsCount, oldTblSum.RowsCount, nv, ov)
+		sd.Values = compareValueCounts(newTblProf.RowsCount, oldTblProf.RowsCount, nv, ov)
 		return sd
 	}
 }

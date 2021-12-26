@@ -27,9 +27,9 @@ func ProfileTable(db objects.Store, sum []byte, tbl *objects.Table) error {
 			profiler.Process(row)
 		}
 	}
-	tblSum := profiler.Summarize()
+	tblProf := profiler.Summarize()
 	buf := bytes.NewBuffer(nil)
-	_, err = tblSum.WriteTo(buf)
+	_, err = tblProf.WriteTo(buf)
 	if err != nil {
 		return err
 	}

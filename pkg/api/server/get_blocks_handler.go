@@ -19,8 +19,8 @@ import (
 
 var blocksURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/blocks/`)
 
-func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db objects.Store, tblSum []byte) {
-	tbl, err := objects.GetTable(db, tblSum)
+func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db objects.Store, tblProf []byte) {
+	tbl, err := objects.GetTable(db, tblProf)
 	if err != nil {
 		sendHTTPError(rw, http.StatusNotFound)
 		return

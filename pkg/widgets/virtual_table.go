@@ -50,6 +50,9 @@ type VirtualTable struct {
 	// This function is called to get the underlying table cell at any position
 	getCells func(row, column int) []*TableCell
 
+	// This function is called when visible row and column indices change
+	onVisibleCellsChange func(rows, columns []int)
+
 	// If this is not -1, always try to keep this column in view
 	keptInViewColumn int
 }
@@ -88,6 +91,11 @@ func (t *VirtualTable) SetBorders(show bool) *VirtualTable {
 // SetBordersColor sets the color of the cell borders.
 func (t *VirtualTable) SetBordersColor(color tcell.Color) *VirtualTable {
 	t.bordersColor = color
+	return t
+}
+
+func (t *VirtualTable) SetOnVisibleCellsChangeFunc(handler func(rows, columns []int)) *VirtualTable {
+	t.onVisibleCellsChange = handler
 	return t
 }
 
@@ -556,6 +564,9 @@ func (t *VirtualTable) Draw(screen tcell.Screen) {
 	columnX := t.drawCells(screen, rows, x, y, width, height, totalHeight)
 	t.drawRightBorder(screen, rows, columnX, x, y, width, height)
 	t.colorCellBackgrounds(screen, x, y, width, height, rows)
+	if t.onVisibleCellsChange != nil {
+		t.onVisibleCellsChange(rows, t.visibleColumnIndices)
+	}
 }
 
 // InputHandler returns the handler for this primitive.

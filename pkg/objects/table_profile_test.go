@@ -13,10 +13,10 @@ func floatPtr(f float64) *float64 {
 	return &f
 }
 
-func TestWriteTableSummary(t *testing.T) {
-	tbl := TableSummary{
+func TestWriteTableProfile(t *testing.T) {
+	tbl := TableProfile{
 		RowsCount: 200,
-		Columns: []*ColumnSummary{
+		Columns: []*ColumnProfile{
 			{
 				Name:         "a",
 				NACount:      0,
@@ -64,7 +64,7 @@ func TestWriteTableSummary(t *testing.T) {
 	n, err := tbl.WriteTo(w)
 	require.NoError(t, err)
 
-	tbl2 := &TableSummary{}
+	tbl2 := &TableProfile{}
 	m, err := tbl2.ReadFrom(bytes.NewReader(w.Bytes()))
 	require.NoError(t, err)
 	assert.Equal(t, n, m)

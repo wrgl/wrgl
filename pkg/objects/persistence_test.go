@@ -121,9 +121,9 @@ func floatPtr(f float64) *float64 {
 
 func TestSaveTableSummary(t *testing.T) {
 	s := objmock.NewStore()
-	tbl := &objects.TableSummary{
+	tbl := &objects.TableProfile{
 		RowsCount: 200,
-		Columns: []*objects.ColumnSummary{
+		Columns: []*objects.ColumnProfile{
 			{
 				Name:         "a",
 				NACount:      0,

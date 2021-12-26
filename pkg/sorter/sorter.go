@@ -185,7 +185,7 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 	return f.Close()
 }
 
-func (s *Sorter) TableSummary() *objects.TableSummary {
+func (s *Sorter) TableSummary() *objects.TableProfile {
 	if s.profiler == nil {
 		return nil
 	}

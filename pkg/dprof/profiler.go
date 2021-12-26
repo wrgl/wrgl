@@ -17,7 +17,7 @@ const (
 )
 
 type Profiler struct {
-	columns     []*objects.ColumnSummary
+	columns     []*objects.ColumnProfile
 	rowsCount   uint32
 	strLens     []int
 	isNumber    []bool
@@ -29,7 +29,7 @@ type Profiler struct {
 func NewProfiler(columnNames []string) *Profiler {
 	n := len(columnNames)
 	m := &Profiler{
-		columns:     make([]*objects.ColumnSummary, n),
+		columns:     make([]*objects.ColumnProfile, n),
 		strLens:     make([]int, n),
 		valueCounts: make([]map[string]uint32, n),
 		isNumber:    make([]bool, n),
@@ -37,7 +37,7 @@ func NewProfiler(columnNames []string) *Profiler {
 		sums:        make([]float64, n),
 	}
 	for i, name := range columnNames {
-		m.columns[i] = &objects.ColumnSummary{
+		m.columns[i] = &objects.ColumnProfile{
 			Name: name,
 		}
 		m.valueCounts[i] = map[string]uint32{}
@@ -108,7 +108,7 @@ func (m *Profiler) setStandardDeviation(i int, mean float64) {
 	m.columns[i].StdDeviation = &f
 }
 
-func (m *Profiler) Summarize() *objects.TableSummary {
+func (m *Profiler) Summarize() *objects.TableProfile {
 	for i, col := range m.columns {
 		col.AvgStrLen = uint16(math.Round(float64(m.strLens[i]) / float64(m.rowsCount)))
 		if m.isNumber[i] {
@@ -138,7 +138,7 @@ func (m *Profiler) Summarize() *objects.TableSummary {
 			}
 		}
 	}
-	return &objects.TableSummary{
+	return &objects.TableProfile{
 		RowsCount: m.rowsCount,
 		Columns:   m.columns,
 	}

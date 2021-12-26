@@ -24,9 +24,9 @@ func TestProfiler(t *testing.T) {
 	for _, row := range rows {
 		p.Process(row)
 	}
-	assert.Equal(t, &objects.TableSummary{
+	assert.Equal(t, &objects.TableProfile{
 		RowsCount: 5,
-		Columns: []*objects.ColumnSummary{
+		Columns: []*objects.ColumnProfile{
 			{
 				Name:         "A",
 				NACount:      2,
@@ -79,7 +79,7 @@ func TestPercentiles(t *testing.T) {
 	for _, row := range rows {
 		p.Process(row)
 	}
-	assert.Equal(t, &objects.ColumnSummary{
+	assert.Equal(t, &objects.ColumnProfile{
 		Name:         "A",
 		Min:          floatPtr(59),
 		Max:          floatPtr(9947),

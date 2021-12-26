@@ -60,6 +60,23 @@ func NewTableCell(text string) *TableCell {
 	}
 }
 
+func (c *TableCell) Reset() {
+	c.Text = ""
+	c.Align = tview.AlignLeft
+	c.color = tview.Styles.PrimaryTextColor
+	c.backgroundColor = tview.Styles.PrimitiveBackgroundColor
+	c.Transparent = true
+	c.MaxWidth = 0
+	c.Expansion = 0
+	c.color = tcell.ColorDefault
+	c.backgroundColor = tcell.ColorDefault
+	c.flipped = false
+	c.disableTransparency = false
+	c.Attributes = tcell.AttrNone
+	c.Clicked = nil
+	c.x, c.y, c.width = 0, 0, 0
+}
+
 // SetText sets the cell's text.
 func (c *TableCell) SetText(text string) *TableCell {
 	c.Text = text

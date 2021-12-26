@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package stats
+package diffprof
 
 import (
 	"testing"
@@ -12,16 +12,16 @@ import (
 
 func TestDiffTableSummaries(t *testing.T) {
 	for _, c := range []struct {
-		newSum  *objects.TableSummary
-		oldSum  *objects.TableSummary
-		tblDiff *TableSumDiff
+		newSum  *objects.TableProfile
+		oldSum  *objects.TableProfile
+		tblDiff *TableProfileDiff
 	}{
-		{nil, nil, &TableSumDiff{}},
+		{nil, nil, &TableProfileDiff{}},
 		{
 			nil,
-			&objects.TableSummary{
+			&objects.TableProfile{
 				RowsCount: 200,
-				Columns: []*objects.ColumnSummary{
+				Columns: []*objects.ColumnProfile{
 					{
 						Name:      "A",
 						MinStrLen: 10,
@@ -36,15 +36,15 @@ func TestDiffTableSummaries(t *testing.T) {
 					},
 				},
 			},
-			&TableSumDiff{
-				OldRowsCount:   200,
-				ColumnSumDiffs: []*ColumnSummaryDiff{},
+			&TableProfileDiff{
+				OldRowsCount: 200,
+				ColumnDiffs:  []*ColumnProfileDiff{},
 			},
 		},
 		{
-			&objects.TableSummary{
+			&objects.TableProfile{
 				RowsCount: 200,
-				Columns: []*objects.ColumnSummary{
+				Columns: []*objects.ColumnProfile{
 					{
 						Name:      "A",
 						MinStrLen: 10,
@@ -60,15 +60,15 @@ func TestDiffTableSummaries(t *testing.T) {
 				},
 			},
 			nil,
-			&TableSumDiff{
-				NewRowsCount:   200,
-				ColumnSumDiffs: []*ColumnSummaryDiff{},
+			&TableProfileDiff{
+				NewRowsCount: 200,
+				ColumnDiffs:  []*ColumnProfileDiff{},
 			},
 		},
 		{
-			&objects.TableSummary{
+			&objects.TableProfile{
 				RowsCount: 200,
-				Columns: []*objects.ColumnSummary{
+				Columns: []*objects.ColumnProfile{
 					{
 						Name:      "A",
 						MinStrLen: 10,
@@ -83,9 +83,9 @@ func TestDiffTableSummaries(t *testing.T) {
 					},
 				},
 			},
-			&objects.TableSummary{
+			&objects.TableProfile{
 				RowsCount: 300,
-				Columns: []*objects.ColumnSummary{
+				Columns: []*objects.ColumnProfile{
 					{
 						Name:      "B",
 						MinStrLen: 13,
@@ -100,13 +100,13 @@ func TestDiffTableSummaries(t *testing.T) {
 					},
 				},
 			},
-			&TableSumDiff{
-				NewRowsCount:   200,
-				OldRowsCount:   300,
-				ColumnSumDiffs: []*ColumnSummaryDiff{},
+			&TableProfileDiff{
+				NewRowsCount: 200,
+				OldRowsCount: 300,
+				ColumnDiffs:  []*ColumnProfileDiff{},
 			},
 		},
 	} {
-		assert.Equal(t, c.tblDiff, DiffTableSummaries(c.newSum, c.oldSum))
+		assert.Equal(t, c.tblDiff, DiffTableProfiles(c.newSum, c.oldSum))
 	}
 }

@@ -148,12 +148,12 @@ func GetTableIndex(s Store, sum []byte) ([][]string, error) {
 	return idx, err
 }
 
-func GetTableSummary(s Store, sum []byte) (*TableSummary, error) {
+func GetTableSummary(s Store, sum []byte) (*TableProfile, error) {
 	b, err := s.Get(tableSummaryKey(sum))
 	if err != nil {
 		return nil, err
 	}
-	ts := &TableSummary{}
+	ts := &TableProfile{}
 	_, err = ts.ReadFrom(bytes.NewReader(b))
 	if err != nil {
 		return nil, err
