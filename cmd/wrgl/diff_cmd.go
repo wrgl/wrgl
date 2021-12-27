@@ -667,6 +667,18 @@ func outputDiffSummaryToTerminal(
 	return nil
 }
 
+func diffTableProfiles(db1, db2 objects.Store, commit1, commit2 *objects.Commit) *diffprof.TableProfileDiff {
+	prof1, err := objects.GetTableProfile(db1, commit1.Table)
+	if err != nil {
+		return nil
+	}
+	prof2, err := objects.GetTableProfile(db2, commit2.Table)
+	if err != nil {
+		return nil
+	}
+	return diffprof.DiffTableProfiles(prof1, prof2)
+}
+
 func runDiff(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store, rs ref.Store,
 	pk []string, args []string, branchFile bool, debugFile io.Writer, noGUI, summary bool,
@@ -681,20 +693,12 @@ func runDiff(
 		return err
 	}
 
-	prof1, err := objects.GetTableProfile(db1, commit1.Table)
-	if err != nil {
-		return err
-	}
-	prof2, err := objects.GetTableProfile(db2, commit2.Table)
-	if err != nil {
-		return err
-	}
-	tpd := diffprof.DiffTableProfiles(prof1, prof2)
-
 	tbl1, tbl2, diffChan, pt, cd, errChan, err := getDiffChan(db1, db2, commit1, commit2, debugFile)
 	if err != nil {
 		return err
 	}
+
+	tpd := diffTableProfiles(db1, db2, commit1, commit2)
 
 	if noGUI {
 		err = outputDiffToCSV(
