@@ -85,6 +85,7 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(newPushCmd())
 	rootCmd.AddCommand(mergeCmd())
 	rootCmd.AddCommand(pullCmd())
+	rootCmd.AddCommand(profileCmd())
 	rootCmd.AddCommand(config.RootCmd())
 	rootCmd.AddCommand(remote.RootCmd())
 	rootCmd.AddCommand(reflog.RootCmd())

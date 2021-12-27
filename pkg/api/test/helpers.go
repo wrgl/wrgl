@@ -127,7 +127,7 @@ func AssertCommitsPersisted(t *testing.T, db objects.Store, commits [][]byte) {
 		}
 		_, err = objects.GetTableIndex(db, c.Table)
 		require.NoError(t, err)
-		_, err = objects.GetTableSummary(db, c.Table)
+		_, err = objects.GetTableProfile(db, c.Table)
 		require.NoError(t, err)
 	}
 }

@@ -68,8 +68,6 @@ func (c *TableCell) Reset() {
 	c.Transparent = true
 	c.MaxWidth = 0
 	c.Expansion = 0
-	c.color = tcell.ColorDefault
-	c.backgroundColor = tcell.ColorDefault
 	c.flipped = false
 	c.disableTransparency = false
 	c.Attributes = tcell.AttrNone

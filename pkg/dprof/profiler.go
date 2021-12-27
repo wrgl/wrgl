@@ -14,6 +14,7 @@ import (
 const (
 	MaxTopValues        = 20
 	PercentileIncrement = 5
+	profilerVersion     = 1
 )
 
 type Profiler struct {
@@ -111,12 +112,12 @@ func (m *Profiler) setStandardDeviation(i int, mean float64) {
 func (m *Profiler) Summarize() *objects.TableProfile {
 	for i, col := range m.columns {
 		col.AvgStrLen = uint16(math.Round(float64(m.strLens[i]) / float64(m.rowsCount)))
-		if m.isNumber[i] {
+		if m.isNumber[i] && len(m.numbers[i]) > 0 {
 			col.Mean = floatPtr(roundTwoDecimalPlaces(m.sums[i] / float64(m.rowsCount)))
+			m.setStandardDeviation(i, *col.Mean)
 			var median float64
 			median, col.Percentiles = m.calculatePercentiles(i)
 			col.Median = &median
-			m.setStandardDeviation(i, *col.Mean)
 		}
 
 		allUnique := true
@@ -139,6 +140,7 @@ func (m *Profiler) Summarize() *objects.TableProfile {
 		}
 	}
 	return &objects.TableProfile{
+		Version:   profilerVersion,
 		RowsCount: m.rowsCount,
 		Columns:   m.columns,
 	}

@@ -191,22 +191,8 @@ func profileFloat64Field(name string, getField func(col *ColumnProfile) *float64
 	}
 }
 
-func profileBoolField(name string, getField func(col *ColumnProfile) *bool) *profileField {
-	return &profileField{
-		Name: name,
-		Write: func(w io.Writer, buf encoding.Bufferer, col *ColumnProfile) (int64, error) {
-			return objline.WriteBool(w, buf, *getField(col))
-		},
-		IsEmpty: func(col *ColumnProfile) bool {
-			return !*getField(col)
-		},
-		Read: func(p *encoding.Parser, col *ColumnProfile) (int64, error) {
-			return objline.ReadBool(p, getField(col))
-		},
-	}
-}
-
 type TableProfile struct {
+	Version   uint32           `json:"-"`
 	RowsCount uint32           `json:"rowsCount"`
 	Columns   []*ColumnProfile `json:"columns"`
 }
@@ -218,6 +204,9 @@ func (t *TableProfile) WriteTo(w io.Writer) (total int64, err error) {
 		names[i] = f.Name
 	}
 	for _, field := range []fieldEncode{
+		{"version", func(w io.Writer, buf encoding.Bufferer) (n int64, err error) {
+			return objline.WriteUint32(w, buf, t.Version)
+		}},
 		{"fields", objline.WriteBytes(NewStrListEncoder(true).Encode(names))},
 		{"rowsCount", func(w io.Writer, buf encoding.Bufferer) (n int64, err error) {
 			return objline.WriteUint32(w, buf, t.RowsCount)
@@ -269,6 +258,9 @@ func (t *TableProfile) ReadFrom(r io.Reader) (total int64, err error) {
 	var fields []string
 	var count uint32
 	for _, f := range []fieldDecode{
+		{"version", func(p *encoding.Parser) (int64, error) {
+			return objline.ReadUint32(p, &t.Version)
+		}},
 		{"fields", func(p *encoding.Parser) (n int64, err error) {
 			n, fields, err = NewStrListDecoder(false).Read(p)
 			if err != nil {

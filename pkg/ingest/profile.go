@@ -33,5 +33,5 @@ func ProfileTable(db objects.Store, sum []byte, tbl *objects.Table) error {
 	if err != nil {
 		return err
 	}
-	return objects.SaveTableSummary(db, sum, buf.Bytes())
+	return objects.SaveTableProfile(db, sum, buf.Bytes())
 }

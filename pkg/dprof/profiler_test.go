@@ -12,19 +12,20 @@ import (
 )
 
 func TestProfiler(t *testing.T) {
-	columns := []string{"A", "B", "C"}
+	columns := []string{"A", "B", "C", "D"}
 	rows := [][]string{
-		{"", "abc", "1"},
-		{"", "def", "2"},
-		{"2", "qwe", "3-A"},
-		{"30", "abc", "5-D"},
-		{"4", "", "4-C"},
+		{"", "abc", "1", ""},
+		{"", "def", "2", ""},
+		{"2", "qwe", "3-A", ""},
+		{"30", "abc", "5-D", ""},
+		{"4", "", "4-C", ""},
 	}
 	p := NewProfiler(columns)
 	for _, row := range rows {
 		p.Process(row)
 	}
 	assert.Equal(t, &objects.TableProfile{
+		Version:   profilerVersion,
 		RowsCount: 5,
 		Columns: []*objects.ColumnProfile{
 			{
@@ -56,6 +57,10 @@ func TestProfiler(t *testing.T) {
 				AvgStrLen: 2,
 				MinStrLen: 1,
 				MaxStrLen: 3,
+			},
+			{
+				Name:    "D",
+				NACount: 5,
 			},
 		},
 	}, p.Summarize())

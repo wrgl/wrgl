@@ -27,12 +27,12 @@ func TestProfileTable(t *testing.T) {
 	require.NoError(t, err)
 	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)
-	tblProf, err := objects.GetTableSummary(db, sum)
+	tblProf, err := objects.GetTableProfile(db, sum)
 	require.NoError(t, err)
-	require.NoError(t, objects.DeleteTableSummary(db, sum))
+	require.NoError(t, objects.DeleteTableProfile(db, sum))
 
 	require.NoError(t, ProfileTable(db, sum, tbl))
-	tblSum2, err := objects.GetTableSummary(db, sum)
+	tblSum2, err := objects.GetTableProfile(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, tblProf, tblSum2)
 }

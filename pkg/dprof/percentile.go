@@ -14,6 +14,9 @@ type numberCount struct {
 type numberCounts []*numberCount
 
 func (sl numberCounts) total() uint32 {
+	if len(sl) == 0 {
+		return 0
+	}
 	return sl[len(sl)-1].cumCount
 }
 

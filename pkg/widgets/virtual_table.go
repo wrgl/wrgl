@@ -198,14 +198,16 @@ func (t *VirtualTable) cellAt(x, y int) (row, column, subColumn int) {
 		}
 	columnsLoop:
 		for index, col := range t.visibleColumns {
-			for i, width := range col.Widths() {
-				columnX += width + 1
-				if x < columnX {
+			offset := columnX
+			for i, width := range col.Widths(row) {
+				offset += width + 1
+				if x < offset {
 					column = t.visibleColumnIndices[index]
 					subColumn = i
 					break columnsLoop
 				}
 			}
+			columnX += col.Width + 1
 		}
 	}
 
@@ -285,9 +287,9 @@ ColumnLoop:
 			expansions = append(expansions[:t.fixedColumns], expansions[t.fixedColumns+1:]...)
 		}
 
-		// What's this column's width (without expansion)?
+		// What is this column's width (without expansion)?
 		column := newTableColumn()
-		for _, rowIndex := range rows {
+		for i, rowIndex := range rows {
 			cells := t.getCells(rowIndex, columnIndex)
 			cellWidths := []int{}
 			cellExpansions := []int{}
@@ -299,8 +301,8 @@ ColumnLoop:
 				cellWidths = append(cellWidths, cellWidth)
 				cellExpansions = append(cellExpansions, cell.Expansion)
 			}
-			column.UpdateWidths(cellWidths)
-			column.UpdateExpansions(cellExpansions)
+			column.UpdateWidths(i, cellWidths)
+			column.UpdateExpansions(i, cellExpansions)
 		}
 		column.DistributeWidth()
 		if column.Width < 0 {
@@ -311,8 +313,8 @@ ColumnLoop:
 		columnIndices = append(columnIndices, columnIndex)
 		columns = append(columns, column)
 		tableWidth += column.Width + 1
-		expansions = append(expansions, column.Expansion)
-		expansionTotal += column.Expansion
+		expansions = append(expansions, 1)
+		expansionTotal += 1
 	}
 	t.columnOffset = skipped
 
@@ -349,7 +351,7 @@ func (t *VirtualTable) drawCells(screen tcell.Screen, rows []int, x, y, width, h
 		for rowY, row := range rows {
 			// Get the cell.
 			cells := t.getCells(row, colIndex)
-			widths := column.CellWidths(len(cells))
+			widths := column.Widths(rowY)
 
 			subColumnX := 0
 			for i, colWidth := range widths {
@@ -506,7 +508,7 @@ func (t *VirtualTable) colorCellBackgrounds(screen tcell.Screen, x, y, width, he
 		for colIndInd, colIndex := range t.visibleColumnIndices {
 			column := t.visibleColumns[colIndInd]
 			cells := t.getCells(row, colIndex)
-			widths := column.CellWidths(len(cells))
+			widths := column.Widths(rowY)
 			subColumnX := 0
 			for i, cell := range cells {
 				bx, by, bw, bh := x+columnX+subColumnX, y+rowY, widths[i]+1, 1

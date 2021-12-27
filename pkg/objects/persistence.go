@@ -40,7 +40,7 @@ func commitKey(sum []byte) []byte {
 	return append(comPrefix, sum...)
 }
 
-func tableSummaryKey(sum []byte) []byte {
+func tableProfileKey(sum []byte) []byte {
 	return append(tblSumPrefix, sum...)
 }
 
@@ -87,8 +87,8 @@ func SaveTableIndex(s Store, sum, content []byte) (err error) {
 	return saveObj(s, tableIndexKey(sum), content)
 }
 
-func SaveTableSummary(s Store, sum, content []byte) (err error) {
-	return saveObj(s, tableSummaryKey(sum), content)
+func SaveTableProfile(s Store, sum, content []byte) (err error) {
+	return saveObj(s, tableProfileKey(sum), content)
 }
 
 func SaveCommit(s Store, content []byte) (sum []byte, err error) {
@@ -148,8 +148,8 @@ func GetTableIndex(s Store, sum []byte) ([][]string, error) {
 	return idx, err
 }
 
-func GetTableSummary(s Store, sum []byte) (*TableProfile, error) {
-	b, err := s.Get(tableSummaryKey(sum))
+func GetTableProfile(s Store, sum []byte) (*TableProfile, error) {
+	b, err := s.Get(tableProfileKey(sum))
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +186,8 @@ func DeleteTableIndex(s Store, sum []byte) error {
 	return s.Delete(tableIndexKey(sum))
 }
 
-func DeleteTableSummary(s Store, sum []byte) error {
-	return s.Delete(tableSummaryKey(sum))
+func DeleteTableProfile(s Store, sum []byte) error {
+	return s.Delete(tableProfileKey(sum))
 }
 
 func DeleteCommit(s Store, sum []byte) error {

@@ -15,6 +15,7 @@ func floatPtr(f float64) *float64 {
 
 func TestWriteTableProfile(t *testing.T) {
 	tbl := TableProfile{
+		Version:   1,
 		RowsCount: 200,
 		Columns: []*ColumnProfile{
 			{

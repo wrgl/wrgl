@@ -159,12 +159,12 @@ func TestSaveTableSummary(t *testing.T) {
 	_, err := tbl.WriteTo(w)
 	require.NoError(t, err)
 	sum := testutils.SecureRandomBytes(16)
-	require.NoError(t, objects.SaveTableSummary(s, sum, w.Bytes()))
-	ts, err := objects.GetTableSummary(s, sum)
+	require.NoError(t, objects.SaveTableProfile(s, sum, w.Bytes()))
+	ts, err := objects.GetTableProfile(s, sum)
 	require.NoError(t, err)
 	assert.Equal(t, tbl, ts)
-	require.NoError(t, objects.DeleteTableSummary(s, sum))
-	_, err = objects.GetTableSummary(s, sum)
+	require.NoError(t, objects.DeleteTableProfile(s, sum))
+	_, err = objects.GetTableProfile(s, sum)
 	assert.Equal(t, objects.ErrKeyNotFound, err)
 }
 

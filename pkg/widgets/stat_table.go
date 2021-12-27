@@ -20,12 +20,10 @@ type StatCells interface {
 }
 
 var (
-	statKeyStyle = tcell.StyleDefault.Foreground(tcell.ColorAquaMarine).Background(tcell.ColorBlack)
-	statCells    = []StatCells{
+	statKeyStyle  = tcell.StyleDefault.Foreground(tcell.ColorAquaMarine).Background(tcell.ColorBlack)
+	statNameStyle = tcell.StyleDefault.Foreground(tcell.ColorHotPink).Background(tcell.ColorBlack).Bold(true)
+	statCells     = []StatCells{
 		newSingleStatCells("NA count", func(colProf *objects.ColumnProfile) string {
-			if colProf.NACount == 0 {
-				return ""
-			}
 			return fmt.Sprintf("%d", colProf.NACount)
 		}),
 		newSingleStatCells("Min", func(colProf *objects.ColumnProfile) string {
@@ -76,8 +74,8 @@ var (
 			}
 			return fmt.Sprintf("%d", colProf.AvgStrLen)
 		}),
-		newPercentilesCells("Percentiles", func(colProf *objects.ColumnProfile) []float64 { return colProf.Percentiles }),
 		newTopValuesCells("Top values", func(colProf *objects.ColumnProfile) objects.ValueCounts { return colProf.TopValues }),
+		newPercentilesCells("Percentiles", func(colProf *objects.ColumnProfile) []float64 { return colProf.Percentiles }),
 	}
 )
 
@@ -137,7 +135,6 @@ func (c *topValuesCells) DecorateCells(row int, tblProf *objects.TableProfile, c
 	values := c.values(colProf)
 	v := values[row]
 	cells[0].SetText(v.Value).
-		SetAlign(tview.AlignRight).
 		SetStyle(statKeyStyle)
 	cells[1].SetText(fmt.Sprintf("%d", v.Count)).
 		SetStyle(cellStyle)
@@ -209,7 +206,7 @@ func NewStatTable(tblProf *objects.TableProfile) *StatTable {
 		Select(1, 1, 0)
 	totalRows := t.calculateRowsCount()
 	t.VirtualTable.SetFixed(1, 1).
-		SetShape(totalRows, len(tblProf.Columns)+1)
+		SetShape(totalRows+1, len(tblProf.Columns)+1)
 	t.pool = NewCellsPool(t.VirtualTable)
 	return t
 }
@@ -239,7 +236,9 @@ func (t *StatTable) getCells(row, column int) []*TableCell {
 		}
 		cells, ok := t.pool.Get(row, column, 1)
 		if !ok {
-			cells[0].SetText(t.tblProf.Columns[column-1].Name).SetStyle(columnStyle)
+			cells[0].SetText(t.tblProf.Columns[column-1].Name).
+				SetStyle(columnStyle).
+				SetAlign(tview.AlignCenter)
 		}
 		return cells
 	}
@@ -247,23 +246,24 @@ func (t *StatTable) getCells(row, column int) []*TableCell {
 	var sc StatCells
 	var statRow int
 	for i, rowsCount := range t.rowsPerStat {
-		sc = t.statCells[i]
-		if sum >= row {
-			statRow = sum - row
+		sum += rowsCount
+		if sum > row-1 {
+			sc = t.statCells[i]
+			statRow = row - 1 - sum + rowsCount
 			break
 		}
-		sum += rowsCount
 	}
 	if column == 0 {
 		cells, ok := t.pool.Get(row, column, 1)
 		if !ok && statRow == 0 {
-			cells[0].SetText(sc.Name()).SetStyle(columnStyle)
+			cells[0].SetText(sc.Name()).SetStyle(statNameStyle)
 		}
 		return cells
 	}
-	cells, ok := t.pool.Get(row, column, sc.NumColumns())
-	if !ok {
-		sc.DecorateCells(statRow, t.tblProf, t.tblProf.Columns[column-1], cells)
+	cells, _ := t.pool.Get(row, column, sc.NumColumns())
+	cp := t.tblProf.Columns[column-1]
+	if statRow < sc.NumRows(cp) {
+		sc.DecorateCells(statRow, t.tblProf, cp, cells)
 	}
 	return cells
 }

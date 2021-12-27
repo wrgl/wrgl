@@ -48,7 +48,7 @@ func TestIngestTable(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, tblIdx, 3)
 
-	tblProf, err := objects.GetTableSummary(db, sum)
+	tblProf, err := objects.GetTableProfile(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(700), tblProf.RowsCount)
 	assert.Len(t, tblProf.Columns, 4)

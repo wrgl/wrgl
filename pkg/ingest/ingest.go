@@ -172,7 +172,7 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCoun
 		if err != nil {
 			return nil, err
 		}
-		err = objects.SaveTableSummary(i.db, sum, buf.Bytes())
+		err = objects.SaveTableProfile(i.db, sum, buf.Bytes())
 		if err != nil {
 			return nil, err
 		}
