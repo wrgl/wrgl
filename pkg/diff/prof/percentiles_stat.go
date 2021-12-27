@@ -4,8 +4,6 @@
 package diffprof
 
 import (
-	"encoding/json"
-
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
@@ -38,17 +36,13 @@ func comparePercentiles(newP, oldP []float64) []*PercentileDiff {
 type PercentilesStat struct {
 	Name        string            `json:"name"`
 	ShortName   string            `json:"shortName"`
-	NewAddition bool              `json:"newAddition"`
-	Removed     bool              `json:"removed"`
+	NewAddition bool              `json:"newAddition,omitempty"`
+	Removed     bool              `json:"removed,omitempty"`
 	Values      []*PercentileDiff `json:"values"`
 }
 
-func (s *PercentilesStat) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s)
-}
-
 func percentilesStatFactory(name, sname string, getField func(col *objects.ColumnProfile) []float64) statDiffFactory {
-	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) json.Marshaler {
+	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) interface{} {
 		sd := &PercentilesStat{
 			Name:      name,
 			ShortName: sname,

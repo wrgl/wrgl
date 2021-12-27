@@ -4,7 +4,6 @@
 package diffprof
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,175 +40,224 @@ func TestDiffTableSummaries(t *testing.T) {
 				OldRowsCount: 200,
 				ColumnDiffs: []*ColumnProfileDiff{
 					{
-						Name:        "A",
-						NewAddition: false,
-						Removed:     true,
-						Stats: []json.Marshaler{
-							&uint32Stat{
-								Name:      "NA count",
-								ShortName: "naCount",
-								Old:       0,
-								New:       0,
-							},
-							&float64Stat{
-								Name:      "Min",
-								ShortName: "min",
-							},
-							&float64Stat{
-								Name:      "Max",
-								ShortName: "max",
-							},
-							&float64Stat{
-								Name:      "Mean",
-								ShortName: "mean",
-							},
-							&float64Stat{
-								Name:      "Median",
-								ShortName: "median",
-							},
-							&float64Stat{
-								Name:      "Standard deviation",
-								ShortName: "stdDeviation",
-							},
-							&uint16Stat{
-								Name:      "Min string length",
+						Name:    "A",
+						Removed: true,
+						Stats: []interface{}{
+							&Uint16Stat{
+								Name:      "Min length",
 								ShortName: "minStrLen",
 								Old:       10,
-								New:       0,
 							},
-							&uint16Stat{
-								Name:      "Max string length",
+							&Uint16Stat{
+								Name:      "Max length",
 								ShortName: "maxStrLen",
 								Old:       20,
-								New:       0,
 							},
-							&uint16Stat{
-								Name:      "Avg string length",
+							&Uint16Stat{
+								Name:      "Avg length",
 								ShortName: "avgStrLen",
 								Old:       15,
-								New:       0,
 							},
 						},
 					},
 					{
-						Name:        "B",
-						NewAddition: false,
-						Removed:     true,
-						Stats: []json.Marshaler{
-							&uint32Stat{
-								Name:      "NA count",
-								ShortName: "naCount",
-								Old:       0,
-								New:       0,
-							},
-							&float64Stat{
-								Name:      "Min",
-								ShortName: "min",
-							},
-							&float64Stat{
-								Name:      "Max",
-								ShortName: "max",
-							},
-							&float64Stat{
-								Name:      "Mean",
-								ShortName: "mean",
-							},
-							&float64Stat{
-								Name:      "Median",
-								ShortName: "median",
-							},
-							&float64Stat{
-								Name:      "Standard deviation",
-								ShortName: "stdDeviation",
-							},
-							&uint16Stat{
-								Name:      "Min string length",
+						Name:    "B",
+						Removed: true,
+						Stats: []interface{}{
+							&Uint16Stat{
+								Name:      "Min length",
 								ShortName: "minStrLen",
 								Old:       1,
-								New:       0,
 							},
-							&uint16Stat{
-								Name:      "Max string length",
+							&Uint16Stat{
+								Name:      "Max length",
 								ShortName: "maxStrLen",
 								Old:       2,
-								New:       0,
 							},
-							&uint16Stat{
-								Name:      "Avg string length",
+							&Uint16Stat{
+								Name:      "Avg length",
 								ShortName: "avgStrLen",
 								Old:       1,
-								New:       0,
 							},
 						},
 					},
 				},
 			},
 		},
-		// {
-		// 	&objects.TableProfile{
-		// 		RowsCount: 200,
-		// 		Columns: []*objects.ColumnProfile{
-		// 			{
-		// 				Name:      "A",
-		// 				MinStrLen: 10,
-		// 				MaxStrLen: 20,
-		// 				AvgStrLen: 15,
-		// 			},
-		// 			{
-		// 				Name:      "B",
-		// 				MinStrLen: 1,
-		// 				MaxStrLen: 2,
-		// 				AvgStrLen: 1,
-		// 			},
-		// 		},
-		// 	},
-		// 	nil,
-		// 	&TableProfileDiff{
-		// 		NewRowsCount: 200,
-		// 		ColumnDiffs:  []*ColumnProfileDiff{},
-		// 	},
-		// },
-		// {
-		// 	&objects.TableProfile{
-		// 		RowsCount: 200,
-		// 		Columns: []*objects.ColumnProfile{
-		// 			{
-		// 				Name:      "A",
-		// 				MinStrLen: 10,
-		// 				MaxStrLen: 20,
-		// 				AvgStrLen: 15,
-		// 			},
-		// 			{
-		// 				Name:      "B",
-		// 				MinStrLen: 1,
-		// 				MaxStrLen: 2,
-		// 				AvgStrLen: 1,
-		// 			},
-		// 		},
-		// 	},
-		// 	&objects.TableProfile{
-		// 		RowsCount: 300,
-		// 		Columns: []*objects.ColumnProfile{
-		// 			{
-		// 				Name:      "B",
-		// 				MinStrLen: 13,
-		// 				MaxStrLen: 2,
-		// 				AvgStrLen: 13,
-		// 			},
-		// 			{
-		// 				Name:      "C",
-		// 				MinStrLen: 12,
-		// 				MaxStrLen: 22,
-		// 				AvgStrLen: 12,
-		// 			},
-		// 		},
-		// 	},
-		// 	&TableProfileDiff{
-		// 		NewRowsCount: 200,
-		// 		OldRowsCount: 300,
-		// 		ColumnDiffs:  []*ColumnProfileDiff{},
-		// 	},
-		// },
+		{
+			&objects.TableProfile{
+				RowsCount: 200,
+				Columns: []*objects.ColumnProfile{
+					{
+						Name:      "A",
+						MinStrLen: 10,
+						MaxStrLen: 20,
+						AvgStrLen: 15,
+					},
+					{
+						Name:      "B",
+						MinStrLen: 1,
+						MaxStrLen: 2,
+						AvgStrLen: 1,
+					},
+				},
+			},
+			nil,
+			&TableProfileDiff{
+				NewRowsCount: 200,
+				ColumnDiffs: []*ColumnProfileDiff{
+					{
+						Name:        "A",
+						NewAddition: true,
+						Stats: []interface{}{
+							&Uint16Stat{
+								Name:      "Min length",
+								ShortName: "minStrLen",
+								New:       10,
+							},
+							&Uint16Stat{
+								Name:      "Max length",
+								ShortName: "maxStrLen",
+								New:       20,
+							},
+							&Uint16Stat{
+								Name:      "Avg length",
+								ShortName: "avgStrLen",
+								New:       15,
+							},
+						},
+					},
+					{
+						Name:        "B",
+						NewAddition: true,
+						Stats: []interface{}{
+							&Uint16Stat{
+								Name:      "Min length",
+								ShortName: "minStrLen",
+								New:       1,
+							},
+							&Uint16Stat{
+								Name:      "Max length",
+								ShortName: "maxStrLen",
+								New:       2,
+							},
+							&Uint16Stat{
+								Name:      "Avg length",
+								ShortName: "avgStrLen",
+								New:       1,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			&objects.TableProfile{
+				RowsCount: 200,
+				Columns: []*objects.ColumnProfile{
+					{
+						Name:      "A",
+						MinStrLen: 10,
+						MaxStrLen: 20,
+						AvgStrLen: 15,
+					},
+					{
+						Name:      "B",
+						MinStrLen: 1,
+						MaxStrLen: 2,
+						AvgStrLen: 1,
+					},
+				},
+			},
+			&objects.TableProfile{
+				RowsCount: 300,
+				Columns: []*objects.ColumnProfile{
+					{
+						Name:      "B",
+						MinStrLen: 13,
+						MaxStrLen: 2,
+						AvgStrLen: 13,
+					},
+					{
+						Name:      "C",
+						MinStrLen: 12,
+						MaxStrLen: 22,
+						AvgStrLen: 12,
+					},
+				},
+			},
+			&TableProfileDiff{
+				NewRowsCount: 200,
+				OldRowsCount: 300,
+				ColumnDiffs: []*ColumnProfileDiff{
+					{
+						Name:        "A",
+						NewAddition: true,
+						Stats: []interface{}{
+							&Uint16Stat{
+								Name:      "Min length",
+								ShortName: "minStrLen",
+								New:       10,
+							},
+							&Uint16Stat{
+								Name:      "Max length",
+								ShortName: "maxStrLen",
+								New:       20,
+							},
+							&Uint16Stat{
+								Name:      "Avg length",
+								ShortName: "avgStrLen",
+								New:       15,
+							},
+						},
+					},
+					{
+						Name: "B",
+						Stats: []interface{}{
+							&Uint16Stat{
+								Name:      "Min length",
+								ShortName: "minStrLen",
+								Old:       13,
+								New:       1,
+							},
+							&Uint16Stat{
+								Name:      "Max length",
+								ShortName: "maxStrLen",
+								Old:       2,
+								New:       2,
+							},
+							&Uint16Stat{
+								Name:      "Avg length",
+								ShortName: "avgStrLen",
+								Old:       13,
+								New:       1,
+							},
+						},
+					},
+					{
+						Name:    "C",
+						Removed: true,
+						Stats: []interface{}{
+							&Uint16Stat{
+								Name:      "Min length",
+								ShortName: "minStrLen",
+								Old:       12,
+							},
+							&Uint16Stat{
+								Name:      "Max length",
+								ShortName: "maxStrLen",
+								Old:       22,
+							},
+							&Uint16Stat{
+								Name:      "Avg length",
+								ShortName: "avgStrLen",
+								Old:       12,
+							},
+						},
+					},
+				},
+			},
+		},
 	} {
 		assert.Equal(t, c.tblDiff, DiffTableProfiles(c.newSum, c.oldSum))
 	}

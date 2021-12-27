@@ -4,16 +4,14 @@
 package diffprof
 
 import (
-	"encoding/json"
-
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
 type ColumnProfileDiff struct {
-	Name        string           `json:"name"`
-	NewAddition bool             `json:"newAddition"`
-	Removed     bool             `json:"removed"`
-	Stats       []json.Marshaler `json:"stats"`
+	Name        string        `json:"name"`
+	NewAddition bool          `json:"newAddition,omitempty"`
+	Removed     bool          `json:"removed,omitempty"`
+	Stats       []interface{} `json:"stats"`
 }
 
 var (
@@ -28,9 +26,9 @@ func init() {
 		float64StatFactory("Mean", "mean", func(col *objects.ColumnProfile) *float64 { return col.Mean }),
 		float64StatFactory("Median", "median", func(col *objects.ColumnProfile) *float64 { return col.Median }),
 		float64StatFactory("Standard deviation", "stdDeviation", func(col *objects.ColumnProfile) *float64 { return col.StdDeviation }),
-		uint16StatFactory("Min string length", "minStrLen", func(col *objects.ColumnProfile) uint16 { return col.MinStrLen }),
-		uint16StatFactory("Max string length", "maxStrLen", func(col *objects.ColumnProfile) uint16 { return col.MaxStrLen }),
-		uint16StatFactory("Avg string length", "avgStrLen", func(col *objects.ColumnProfile) uint16 { return col.AvgStrLen }),
+		uint16StatFactory("Min length", "minStrLen", func(col *objects.ColumnProfile) uint16 { return col.MinStrLen }),
+		uint16StatFactory("Max length", "maxStrLen", func(col *objects.ColumnProfile) uint16 { return col.MaxStrLen }),
+		uint16StatFactory("Avg length", "avgStrLen", func(col *objects.ColumnProfile) uint16 { return col.AvgStrLen }),
 		topValuesStatFactory("Top values", "topValues", func(col *objects.ColumnProfile) objects.ValueCounts { return col.TopValues }),
 		percentilesStatFactory("Percentiles", "percentiles", func(col *objects.ColumnProfile) []float64 { return col.Percentiles }),
 	}

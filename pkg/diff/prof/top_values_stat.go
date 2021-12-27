@@ -4,7 +4,6 @@
 package diffprof
 
 import (
-	"encoding/json"
 	"math"
 
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -35,9 +34,6 @@ func compareValueCounts(newRowsCount, oldRowsCount uint32, newVC, oldVC objects.
 		if c, ok := newM[vc.Value]; ok {
 			vcd.NewCount = c
 			vcd.NewPct = byte(math.Round(float64(c) / float64(newRowsCount) * 100))
-			if vcd.NewCount == vcd.OldCount && vcd.NewPct == vcd.OldPct {
-				continue
-			}
 		}
 		result = append(result, vcd)
 	}
@@ -58,17 +54,13 @@ func compareValueCounts(newRowsCount, oldRowsCount uint32, newVC, oldVC objects.
 type TopValuesStat struct {
 	Name        string           `json:"name"`
 	ShortName   string           `json:"shortName"`
-	NewAddition bool             `json:"newAddition"`
-	Removed     bool             `json:"removed"`
+	NewAddition bool             `json:"newAddition,omitempty"`
+	Removed     bool             `json:"removed,omitempty"`
 	Values      []ValueCountDiff `json:"values"`
 }
 
-func (s *TopValuesStat) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s)
-}
-
 func topValuesStatFactory(name, sname string, getField func(col *objects.ColumnProfile) objects.ValueCounts) statDiffFactory {
-	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) json.Marshaler {
+	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) interface{} {
 		sd := &TopValuesStat{
 			Name:      name,
 			ShortName: sname,

@@ -4,27 +4,21 @@
 package diffprof
 
 import (
-	"encoding/json"
-
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
-type statDiffFactory func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) json.Marshaler
+type statDiffFactory func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) interface{}
 
-type uint16Stat struct {
+type Uint16Stat struct {
 	Name      string `json:"name"`
 	ShortName string `json:"shortName"`
 	Old       uint16 `json:"old"`
 	New       uint16 `json:"new"`
 }
 
-func (s *uint16Stat) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s)
-}
-
 func uint16StatFactory(name, sname string, getField func(col *objects.ColumnProfile) uint16) statDiffFactory {
-	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) json.Marshaler {
-		s := &uint16Stat{
+	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) interface{} {
+		s := &Uint16Stat{
 			Name:      name,
 			ShortName: sname,
 		}
@@ -34,24 +28,23 @@ func uint16StatFactory(name, sname string, getField func(col *objects.ColumnProf
 		if newColProf != nil {
 			s.New = getField(newColProf)
 		}
+		if s.Old == 0 && s.New == 0 {
+			return nil
+		}
 		return s
 	}
 }
 
-type uint32Stat struct {
+type Uint32Stat struct {
 	Name      string `json:"name"`
 	ShortName string `json:"shortName"`
 	Old       uint32 `json:"old"`
 	New       uint32 `json:"new"`
 }
 
-func (s *uint32Stat) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s)
-}
-
 func uint32StatFactory(name, sname string, getField func(col *objects.ColumnProfile) uint32) statDiffFactory {
-	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) json.Marshaler {
-		s := &uint32Stat{
+	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) interface{} {
+		s := &Uint32Stat{
 			Name:      name,
 			ShortName: sname,
 		}
@@ -61,24 +54,23 @@ func uint32StatFactory(name, sname string, getField func(col *objects.ColumnProf
 		if newColProf != nil {
 			s.New = getField(newColProf)
 		}
+		if s.Old == 0 && s.New == 0 {
+			return nil
+		}
 		return s
 	}
 }
 
-type float64Stat struct {
+type Float64Stat struct {
 	Name      string   `json:"name"`
 	ShortName string   `json:"shortName"`
 	Old       *float64 `json:"old"`
 	New       *float64 `json:"new"`
 }
 
-func (s *float64Stat) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s)
-}
-
 func float64StatFactory(name, sname string, getField func(col *objects.ColumnProfile) *float64) statDiffFactory {
-	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) json.Marshaler {
-		s := &float64Stat{
+	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) interface{} {
+		s := &Float64Stat{
 			Name:      name,
 			ShortName: sname,
 		}
@@ -87,6 +79,9 @@ func float64StatFactory(name, sname string, getField func(col *objects.ColumnPro
 		}
 		if newColProf != nil {
 			s.New = getField(newColProf)
+		}
+		if s.Old == nil && s.New == nil {
+			return nil
 		}
 		return s
 	}
