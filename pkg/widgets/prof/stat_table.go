@@ -13,13 +13,13 @@ import (
 )
 
 var (
-	cellStyle     = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
-	columnStyle   = tcell.StyleDefault.Background(tcell.ColorBlack).Bold(true)
-	pctStyle      = tcell.StyleDefault.Foreground(tcell.ColorLightGray).Background(tcell.ColorBlack)
-	statNameStyle = tcell.StyleDefault.Foreground(tcell.ColorAqua).Background(tcell.ColorBlack).Bold(true)
-	addedStyle    = cellStyle.Foreground(tcell.ColorGreen)
-	removedStyle  = cellStyle.Foreground(tcell.ColorRed)
-	movedStyle    = cellStyle.Foreground(tcell.ColorYellow)
+	cellStyle      = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
+	columnStyle    = tcell.StyleDefault.Background(tcell.ColorBlack).Bold(true)
+	pctStyle       = tcell.StyleDefault.Foreground(tcell.ColorLightGray).Background(tcell.ColorBlack)
+	statNameStyle  = tcell.StyleDefault.Foreground(tcell.ColorAqua).Background(tcell.ColorBlack).Bold(true)
+	statValueStyle = tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
+	addedStyle     = cellStyle.Foreground(tcell.ColorGreen)
+	removedStyle   = cellStyle.Foreground(tcell.ColorRed)
 
 	statCells = []StatCells{
 		newSingleStatCells("NA count", func(colProf *objects.ColumnProfile) string {
@@ -96,7 +96,8 @@ func NewStatTable(tblProf *objects.TableProfile) *StatTable {
 		Select(1, 1, 0)
 	totalRows := t.calculateRowsCount()
 	t.VirtualTable.SetFixed(1, 1).
-		SetShape(totalRows+1, len(tblProf.Columns)+1)
+		SetShape(totalRows+1, len(tblProf.Columns)+1).
+		SetSeparator('│')
 	t.pool = widgets.NewCellsPool(t.VirtualTable)
 	return t
 }
@@ -150,10 +151,12 @@ func (t *StatTable) getCells(row, column int) []*widgets.TableCell {
 		}
 		return cells
 	}
-	cells, _ := t.pool.Get(row, column, sc.NumColumns())
-	cp := t.tblProf.Columns[column-1]
-	if statRow < sc.NumRows(cp) {
-		sc.DecorateCells(statRow, t.tblProf, cp, cells)
+	cells, ok := t.pool.Get(row, column, sc.NumColumns())
+	if !ok {
+		cp := t.tblProf.Columns[column-1]
+		if statRow < sc.NumRows(cp) {
+			sc.DecorateCells(statRow, t.tblProf, cp, cells)
+		}
 	}
 	return cells
 }

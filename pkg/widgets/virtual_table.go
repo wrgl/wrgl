@@ -21,7 +21,8 @@ type VirtualTable struct {
 	bordersColor tcell.Color
 
 	// If there are no borders, the column separator.
-	separator rune
+	separator    rune
+	subSeparator rune
 
 	// The number of fixed rows / columns.
 	fixedRows, fixedColumns int
@@ -63,6 +64,7 @@ func NewVirtualTable() *VirtualTable {
 		bordersColor:     tview.Styles.GraphicsColor,
 		keptInViewColumn: -1,
 		separator:        ' ',
+		subSeparator:     ' ',
 	}
 }
 
@@ -113,6 +115,18 @@ func (t *VirtualTable) KeepColumnInView(column int) *VirtualTable {
 // Separators have the same color as borders.
 func (t *VirtualTable) SetSeparator(separator rune) *VirtualTable {
 	t.separator = separator
+	return t
+}
+
+// SetSubSeparator sets the character used to fill the space between two
+// sub cells. This is a space character ' ' per default but you may
+// want to set it to Borders.Vertical (or any other rune) if the column
+// separation should be more visible. If cell borders are activated, this is
+// ignored.
+//
+// Separators have the same color as borders.
+func (t *VirtualTable) SetSubSeparator(separator rune) *VirtualTable {
+	t.subSeparator = separator
 	return t
 }
 
@@ -379,7 +393,11 @@ func (t *VirtualTable) drawCells(screen tcell.Screen, rows []int, x, y, width, h
 					t.drawBorder(screen, x, y, columnX+subColumnX, cellY, tview.Borders.Vertical)
 				} else if colIndInd > 0 {
 					// Draw separator.
-					t.drawBorder(screen, x, y, columnX+subColumnX, rowY, t.separator)
+					if subColumnX > 0 {
+						t.drawBorder(screen, x, y, columnX+subColumnX, rowY, t.subSeparator)
+					} else {
+						t.drawBorder(screen, x, y, columnX+subColumnX, rowY, t.separator)
+					}
 				}
 
 				if colWidth == -1 {

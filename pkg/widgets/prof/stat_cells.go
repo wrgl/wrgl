@@ -75,7 +75,7 @@ func (c *topValuesCells) DecorateCells(row int, tblProf *objects.TableProfile, c
 	values := c.values(colProf)
 	v := values[row]
 	cells[0].SetText(v.Value).
-		SetStyle(statNameStyle)
+		SetStyle(statValueStyle)
 	cells[1].SetText(fmt.Sprintf("%d", v.Count)).
 		SetStyle(cellStyle)
 	pct := byte(math.Round(float64(v.Count) / float64(tblProf.RowsCount) * 100))
@@ -116,7 +116,7 @@ func (c *percentilesCells) DecorateCells(row int, tblProf *objects.TableProfile,
 	v := values[row]
 	cells[0].SetText(fmt.Sprintf("%d", (row+1)*100/(len(values)+1))).
 		SetAlign(tview.AlignRight).
-		SetStyle(statNameStyle)
+		SetStyle(statValueStyle)
 	cells[1].SetText(fmt.Sprintf("%f", v)).
 		SetStyle(cellStyle)
 }

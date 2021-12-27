@@ -34,7 +34,8 @@ func NewStatDiffTable(tpd *diffprof.TableProfileDiff) (*StatDiffTable, error) {
 		return nil, err
 	}
 	t.VirtualTable.SetFixed(1, 1).
-		SetShape(totalRows+1, len(tpd.Columns)+1)
+		SetShape(totalRows+1, len(tpd.Columns)+1).
+		SetSeparator('│')
 	t.pool = widgets.NewCellsPool(t.VirtualTable)
 	return t, nil
 }

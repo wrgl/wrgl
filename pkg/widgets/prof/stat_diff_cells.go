@@ -133,7 +133,7 @@ func (s *topValuesStatDiffCells) NumColumns() int {
 func (s *topValuesStatDiffCells) DecorateCells(row int, cells []*widgets.TableCell) {
 	v := s.Values[row]
 	cells[0].SetText(v.Value).
-		SetStyle(statNameStyle)
+		SetStyle(statValueStyle)
 	if v.NewCount == v.OldCount && v.NewPct == v.OldPct {
 		cells[1].SetText(fmt.Sprintf("%d %3d%%", v.NewCount, v.NewPct)).
 			SetAlign(tview.AlignRight).
@@ -171,7 +171,7 @@ func (s *percentilesStatDiffCells) NumColumns() int {
 func (s *percentilesStatDiffCells) DecorateCells(row int, cells []*widgets.TableCell) {
 	v := s.Values[row]
 	cells[0].SetText(fmt.Sprintf("%d", (row+1)*100/(len(s.Values)+1))).
-		SetStyle(statNameStyle)
+		SetStyle(statValueStyle)
 	if v.New == v.Old {
 		cells[1].SetText(fmt.Sprintf("%f", v.New)).
 			SetAlign(tview.AlignRight).
