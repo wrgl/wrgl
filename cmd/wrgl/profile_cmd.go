@@ -9,6 +9,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/ingest"
@@ -19,7 +20,7 @@ import (
 
 func profileCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "profile COMMIT [--refresh [--ancestors]]",
+		Use:   "profile COMMIT [--refresh [--ancestors] [--silent]]",
 		Short: "Profile data of one or more commits.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
@@ -27,12 +28,16 @@ func profileCmd() *cobra.Command {
 				Line:    "wrgl profile main",
 			},
 			{
-				Comment: "reprofile data before showing it",
+				Comment: "reprofile data before showing up-to-date data profile",
 				Line:    "wrgl profile 092ca64be141ec601fbadc73e4697836 --refresh",
 			},
 			{
 				Comment: "reprofile data for main branch and all ancestor commits",
 				Line:    "wrgl profile main --refresh --ancestors",
+			},
+			{
+				Comment: "reprofile data but don't show data profile afterward",
+				Line:    "wrgl profile main --refresh --silent",
 			},
 		}),
 		Args: cobra.ExactArgs(1),
@@ -42,6 +47,10 @@ func profileCmd() *cobra.Command {
 				return err
 			}
 			ancestors, err := cmd.Flags().GetBool("ancestors")
+			if err != nil {
+				return err
+			}
+			silent, err := cmd.Flags().GetBool("silent")
 			if err != nil {
 				return err
 			}
@@ -67,8 +76,11 @@ func profileCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					bar := pbar(-1, "profiling commits", cmd.OutOrStdout(), cmd.OutOrStderr())
-					defer bar.Finish()
+					var bar *progressbar.ProgressBar
+					if !silent {
+						bar := pbar(-1, "profiling commits", cmd.OutOrStdout(), cmd.OutOrStderr())
+						defer bar.Finish()
+					}
 					for {
 						_, commit, err := cq.PopInsertParents()
 						if err == io.EOF {
@@ -77,7 +89,9 @@ func profileCmd() *cobra.Command {
 						if err = profileTable(db, commit.Table); err != nil {
 							return err
 						}
-						bar.Add(1)
+						if bar != nil {
+							bar.Add(1)
+						}
 					}
 					return nil
 				}
@@ -95,11 +109,15 @@ func profileCmd() *cobra.Command {
 					return err
 				}
 			}
-			return showProfileApp(sum, tblProf)
+			if !silent {
+				return showProfileApp(sum, tblProf)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().Bool("refresh", false, "recalculate data profile")
-	cmd.Flags().Bool("ancestors", false, "when this flag is set together with --refresh, recalculate profile data for all ancestor")
+	cmd.Flags().Bool("ancestors", false, "when this flag is set together with --refresh, reprofile data for all ancestor")
+	cmd.Flags().Bool("silent", false, "when this flag is set together with --refresh, don't show data profile after refreshing")
 	return cmd
 }
 
