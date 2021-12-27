@@ -4,18 +4,21 @@
 package wrgl
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
+	"time"
 
+	"github.com/fatih/color"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/widgets"
+	widgetsprof "github.com/wrgl/wrgl/pkg/widgets/prof"
 )
 
 func profileCmd() *cobra.Command {
@@ -76,21 +79,19 @@ func profileCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					var bar *progressbar.ProgressBar
-					if !silent {
-						bar := pbar(-1, "profiling commits", cmd.OutOrStdout(), cmd.OutOrStderr())
-						defer bar.Finish()
-					}
 					for {
-						_, commit, err := cq.PopInsertParents()
+						sum, commit, err := cq.PopInsertParents()
 						if err == io.EOF {
 							break
 						}
+						start := time.Now()
 						if err = profileTable(db, commit.Table); err != nil {
 							return err
 						}
-						if bar != nil {
-							bar.Add(1)
+						if !silent {
+							cmd.Print("profile ")
+							color.New(color.FgYellow).Fprint(cmd.OutOrStdout(), hex.EncodeToString(sum)[:7])
+							cmd.Printf(" [%s]\n", time.Since(start))
 						}
 					}
 					return nil
@@ -135,7 +136,7 @@ func showProfileApp(comSum []byte, tblProf *objects.TableProfile) error {
 	titleBar := tview.NewTextView().SetDynamicColors(true)
 	fmt.Fprintf(titleBar, "[yellow]%x[white]  ([teal]%d[white] x [teal]%d[white])", comSum, tblProf.RowsCount, len(tblProf.Columns))
 
-	st := widgets.NewStatTable(tblProf)
+	st := widgetsprof.NewStatTable(tblProf)
 
 	usageBar := widgets.DataTableUsage()
 

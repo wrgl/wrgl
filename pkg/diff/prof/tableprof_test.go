@@ -38,7 +38,7 @@ func TestDiffTableSummaries(t *testing.T) {
 			},
 			&TableProfileDiff{
 				OldRowsCount: 200,
-				ColumnDiffs: []*ColumnProfileDiff{
+				Columns: []*ColumnProfileDiff{
 					{
 						Name:    "A",
 						Removed: true,
@@ -105,7 +105,7 @@ func TestDiffTableSummaries(t *testing.T) {
 			nil,
 			&TableProfileDiff{
 				NewRowsCount: 200,
-				ColumnDiffs: []*ColumnProfileDiff{
+				Columns: []*ColumnProfileDiff{
 					{
 						Name:        "A",
 						NewAddition: true,
@@ -189,7 +189,7 @@ func TestDiffTableSummaries(t *testing.T) {
 			&TableProfileDiff{
 				NewRowsCount: 200,
 				OldRowsCount: 300,
-				ColumnDiffs: []*ColumnProfileDiff{
+				Columns: []*ColumnProfileDiff{
 					{
 						Name:        "A",
 						NewAddition: true,

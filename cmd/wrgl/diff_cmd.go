@@ -24,6 +24,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/diff"
+	diffprof "github.com/wrgl/wrgl/pkg/diff/prof"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
@@ -32,6 +33,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/sorter"
 	"github.com/wrgl/wrgl/pkg/widgets"
+	widgetsprof "github.com/wrgl/wrgl/pkg/widgets/prof"
 )
 
 func newDiffCmd() *cobra.Command {
@@ -516,6 +518,7 @@ func outputDiffToTerminal(
 	diffChan <-chan *objects.Diff,
 	pt progress.Tracker,
 	colDiff *diff.ColDiff,
+	tpd *diffprof.TableProfileDiff,
 ) (err error) {
 	app := tview.NewApplication()
 	titleBar := tview.NewTextView().SetDynamicColors(true)
@@ -580,6 +583,13 @@ func outputDiffToTerminal(
 	if rowChangeReader != nil {
 		rowChangeTable := widgets.NewDiffTable(rowChangeReader)
 		tabPages.AddTab(fmt.Sprintf("%d modified", rowChangeReader.Len()), rowChangeTable)
+	}
+	if tpd != nil {
+		profileTable, err := widgetsprof.NewStatDiffTable(tpd)
+		if err != nil {
+			return err
+		}
+		tabPages.AddTab("profile", profileTable)
 	}
 
 	if addedRowReader == nil && removedRowReader == nil && rowChangeReader == nil {
@@ -671,6 +681,16 @@ func runDiff(
 		return err
 	}
 
+	prof1, err := objects.GetTableProfile(db1, commit1.Table)
+	if err != nil {
+		return err
+	}
+	prof2, err := objects.GetTableProfile(db2, commit2.Table)
+	if err != nil {
+		return err
+	}
+	tpd := diffprof.DiffTableProfiles(prof1, prof2)
+
 	tbl1, tbl2, diffChan, pt, cd, errChan, err := getDiffChan(db1, db2, commit1, commit2, debugFile)
 	if err != nil {
 		return err
@@ -689,7 +709,7 @@ func runDiff(
 	} else {
 		err = outputDiffToTerminal(
 			cmd, db1, db2, name1, name2, commitHash1, commitHash2,
-			tbl1, tbl2, diffChan, pt, cd,
+			tbl1, tbl2, diffChan, pt, cd, tpd,
 		)
 	}
 	if err != nil {

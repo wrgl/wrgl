@@ -15,7 +15,7 @@ type ValueDiff struct {
 type TableProfileDiff struct {
 	OldRowsCount uint32               `json:"oldRowsCount"`
 	NewRowsCount uint32               `json:"newRowsCount"`
-	ColumnDiffs  []*ColumnProfileDiff `json:"columnDiffs"`
+	Columns      []*ColumnProfileDiff `json:"columns"`
 }
 
 func columnProfMap(tblProf *objects.TableProfile) map[string]*objects.ColumnProfile {
@@ -44,7 +44,7 @@ func DiffTableProfiles(newProf, oldProf *objects.TableProfile) *TableProfileDiff
 				cd.NewAddition = true
 			}
 			cd.CollectStats(newProf, oldProf, col, oldCol)
-			result.ColumnDiffs = append(result.ColumnDiffs, cd)
+			result.Columns = append(result.Columns, cd)
 		}
 	}
 	if oldProf != nil {
@@ -58,7 +58,7 @@ func DiffTableProfiles(newProf, oldProf *objects.TableProfile) *TableProfileDiff
 				Removed: true,
 			}
 			cd.CollectStats(newProf, oldProf, nil, col)
-			result.ColumnDiffs = append(result.ColumnDiffs, cd)
+			result.Columns = append(result.Columns, cd)
 		}
 	}
 	return result
