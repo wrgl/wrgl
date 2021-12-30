@@ -14,8 +14,6 @@ type CellsPool struct {
 	t     *VirtualTable
 }
 
-// TODO: write tests
-
 func NewCellsPool(t *VirtualTable) *CellsPool {
 	p := &CellsPool{
 		pool: &sync.Pool{

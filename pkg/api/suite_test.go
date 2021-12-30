@@ -33,7 +33,7 @@ func newSuite(t *testing.T) *testSuite {
 func assertHTTPError(t *testing.T, err error, code int, message string) {
 	t.Helper()
 	v, ok := err.(*apiclient.HTTPError)
-	require.True(t, ok)
+	require.True(t, ok, "error was %v", err)
 	assert.Equal(t, code, v.Code)
 	assert.Equal(t, message, v.Body.Message)
 }

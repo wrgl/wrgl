@@ -20,6 +20,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
+	"github.com/wrgl/wrgl/pkg/objects"
 	"golang.org/x/net/publicsuffix"
 )
 
@@ -257,6 +258,48 @@ func (c *Client) GetHead(branch string, opts ...RequestOption) (com *payload.Com
 	}
 	com = &payload.Commit{}
 	err = json.Unmarshal(b, com)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (c *Client) GetCommitProfile(sum []byte, opts ...RequestOption) (tblProf *objects.TableProfile, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/commits/%x/profile/", sum), nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	tblProf = &objects.TableProfile{}
+	err = json.Unmarshal(b, tblProf)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (c *Client) GetTableProfile(sum []byte, opts ...RequestOption) (tblProf *objects.TableProfile, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/profile/", sum), nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	tblProf = &objects.TableProfile{}
+	err = json.Unmarshal(b, tblProf)
 	if err != nil {
 		return nil, err
 	}

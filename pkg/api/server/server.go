@@ -153,6 +153,13 @@ func NewServer(
 						Method:      http.MethodGet,
 						Pat:         patSum,
 						HandlerFunc: s.handleGetCommit,
+						Subs: []*router.Routes{
+							{
+								Method:      http.MethodGet,
+								Pat:         patProfile,
+								HandlerFunc: s.handleGetCommitProfile,
+							},
+						},
 					},
 				}},
 			{
@@ -163,6 +170,11 @@ func NewServer(
 						Pat:         patSum,
 						HandlerFunc: s.handleGetTable,
 						Subs: []*router.Routes{
+							{
+								Method:      http.MethodGet,
+								Pat:         patProfile,
+								HandlerFunc: s.handleGetTableProfile,
+							},
 							{
 								Method:      http.MethodGet,
 								Pat:         patBlocks,

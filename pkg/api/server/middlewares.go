@@ -19,25 +19,28 @@ type routeScope struct {
 var routeScopes []routeScope
 
 var (
-	patAuthenticate *regexp.Regexp
-	patConfig       *regexp.Regexp
-	patRefs         *regexp.Regexp
-	patHead         *regexp.Regexp
-	patRefsHead     *regexp.Regexp
-	patUploadPack   *regexp.Regexp
-	patReceivePack  *regexp.Regexp
-	patCommits      *regexp.Regexp
-	patCommit       *regexp.Regexp
-	patSum          *regexp.Regexp
-	patTables       *regexp.Regexp
-	patTable        *regexp.Regexp
-	patBlocks       *regexp.Regexp
-	patTableBlocks  *regexp.Regexp
-	patRows         *regexp.Regexp
-	patTableRows    *regexp.Regexp
-	patDiff         *regexp.Regexp
-	patRootedBlocks *regexp.Regexp
-	patRootedRows   *regexp.Regexp
+	patAuthenticate  *regexp.Regexp
+	patConfig        *regexp.Regexp
+	patRefs          *regexp.Regexp
+	patHead          *regexp.Regexp
+	patRefsHead      *regexp.Regexp
+	patUploadPack    *regexp.Regexp
+	patReceivePack   *regexp.Regexp
+	patCommits       *regexp.Regexp
+	patCommit        *regexp.Regexp
+	patSum           *regexp.Regexp
+	patProfile       *regexp.Regexp
+	patTables        *regexp.Regexp
+	patTable         *regexp.Regexp
+	patBlocks        *regexp.Regexp
+	patTableBlocks   *regexp.Regexp
+	patRows          *regexp.Regexp
+	patTableRows     *regexp.Regexp
+	patDiff          *regexp.Regexp
+	patRootedBlocks  *regexp.Regexp
+	patRootedRows    *regexp.Regexp
+	patCommitProfile *regexp.Regexp
+	patTableProfile  *regexp.Regexp
 )
 
 func init() {
@@ -55,11 +58,14 @@ func init() {
 	patCommit = regexp.MustCompile(`^/commits/[0-9a-f]{32}/`)
 	patTables = regexp.MustCompile(`^/tables/`)
 	patTable = regexp.MustCompile(`^/tables/[0-9a-f]{32}/`)
+	patProfile = regexp.MustCompile(`^profile/`)
 	patBlocks = regexp.MustCompile(`^blocks/`)
 	patTableBlocks = regexp.MustCompile(`^/tables/[0-9a-f]{32}/blocks/`)
 	patRows = regexp.MustCompile(`^rows/`)
 	patTableRows = regexp.MustCompile(`^/tables/[0-9a-f]{32}/rows/`)
 	patDiff = regexp.MustCompile(`^/diff/[0-9a-f]{32}/[0-9a-f]{32}/`)
+	patCommitProfile = regexp.MustCompile(`^/commits/[0-9a-f]{32}/profile/`)
+	patTableProfile = regexp.MustCompile(`^/tables/[0-9a-f]{32}/profile/`)
 	routeScopes = []routeScope{
 		{
 			Pat:    patAuthenticate,
@@ -111,6 +117,11 @@ func init() {
 			Scope:  auth.ScopeRepoRead,
 		},
 		{
+			Pat:    patCommitProfile,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRepoRead,
+		},
+		{
 			Pat:    patCommits,
 			Method: http.MethodPost,
 			Scope:  auth.ScopeRepoWrite,
@@ -132,6 +143,11 @@ func init() {
 		},
 		{
 			Pat:    patTable,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRepoRead,
+		},
+		{
+			Pat:    patTableProfile,
 			Method: http.MethodGet,
 			Scope:  auth.ScopeRepoRead,
 		},
