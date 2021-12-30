@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -186,6 +187,11 @@ func TestDiffCmdBranchFile(t *testing.T) {
 	})
 }
 
+func removeColor(s string) string {
+	pat := regexp.MustCompile("\x1b\\[\\d+m")
+	return pat.ReplaceAllString(s, "")
+}
+
 func TestDiffCmdAll(t *testing.T) {
 	_, cleanup := createRepoDir(t)
 	defer cleanup()
@@ -202,7 +208,7 @@ func TestDiffCmdAll(t *testing.T) {
 		"a,b,f",
 		"1,q,w",
 		"2,a,s",
-		"3,z,x",
+		"4,y,u",
 	})
 
 	fp2 := createCSVFile(t, []string{
@@ -227,16 +233,34 @@ func TestDiffCmdAll(t *testing.T) {
 	cmd.SetArgs([]string{"config", "set", "branch.branch-0.file", fp3})
 	require.NoError(t, cmd.Execute())
 
+	fp4 := createCSVFile(t, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
+	defer os.Remove(fp4)
+	commitFile(t, "branch-4", fp4, "a", "--set-file", "--set-primary-key")
+	overrideCSVFile(t, fp4, []string{
+		"a,b,f",
+		"1,q,w",
+		"2,a,s",
+		"3,z,x",
+	})
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "add", "branch.branch-4.primaryKey", "b"})
+	require.NoError(t, cmd.Execute())
+
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"diff", "--all"})
 	buf := bytes.NewBuffer(nil)
 	cmd.SetOut(buf)
 	require.NoError(t, cmd.Execute())
-	assert.Contains(t, buf.String(), "\x1b[1mbranch-0\x1b[0m changes:\n")
-	assert.Contains(t, buf.String(), "Branch not found, skipping.\n")
-	assert.Contains(t, buf.String(), "\x1b[1mbranch-1\x1b[0m changes:\n")
-	assert.Contains(t, buf.String(), "row changes:\n  \x1b[33m3 modified rows\n")
-	assert.Contains(t, buf.String(), "\x1b[1mbranch-2\x1b[0m changes:\n")
-	assert.Contains(t, buf.String(), "there are no changes\n")
-	assert.NotContains(t, buf.String(), "\x1b[1mbranch-3\x1b[0m changes:\n")
+	lines := strings.Split(strings.TrimSpace(removeColor(buf.String())), "\n")
+	sort.Strings(lines)
+	assert.Equal(t, []string{
+		"Branch \"branch-0\" not found, skipping.",
+		"branch-1 rows: +1/-1/2 modified",
+		"branch-4 columns: +1/-1; primary key: a->a,b",
+	}, lines)
 }

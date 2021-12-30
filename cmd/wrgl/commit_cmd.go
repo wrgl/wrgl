@@ -107,12 +107,12 @@ func newCommitCmd() *cobra.Command {
 			rs := rd.OpenRefStore()
 
 			if all {
-				return commitAllBranches(cmd, db, rs, c, message, numWorkers, memLimit)
+				return commitAllBranches(cmd, db, rs, c, message, numWorkers, memLimit, false)
 			}
 
 			var sum []byte
 			if commitFromBranchFile {
-				sum, err = commitIfBranchFileHasChanged(cmd, db, rs, c, branchName, csvFilePath, primaryKey, message, numWorkers, memLimit)
+				sum, err = commitIfBranchFileHasChanged(cmd, db, rs, c, branchName, csvFilePath, primaryKey, message, numWorkers, memLimit, false)
 				if err != nil {
 					return err
 				}
@@ -121,7 +121,7 @@ func newCommitCmd() *cobra.Command {
 					return nil
 				}
 			} else {
-				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, c, debugFile)
+				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, c, debugFile, false)
 				if err != nil {
 					return err
 				}
@@ -163,7 +163,10 @@ func ensureUserSet(cmd *cobra.Command, c *conf.Config) error {
 	return nil
 }
 
-func commit(cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, message, branchName string, primaryKey []string, numWorkers int, memLimit uint64, c *conf.Config, debugFile io.Writer) ([]byte, error) {
+func commit(
+	cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, message, branchName string,
+	primaryKey []string, numWorkers int, memLimit uint64, c *conf.Config, debugFile io.Writer, quiet bool,
+) ([]byte, error) {
 	if !ref.HeadPattern.MatchString(branchName) {
 		return nil, fmt.Errorf("invalid branch name, must consist of only alphanumeric letters, hyphen and underscore")
 	}
@@ -181,7 +184,10 @@ func commit(cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, mes
 		f = file
 	}
 
-	sortPT, blkPT := displayCommitProgress(cmd)
+	var sortPT, blkPT sorter.ProgressBar
+	if !quiet {
+		sortPT, blkPT = displayCommitProgress(cmd)
+	}
 	s, err := sorter.NewSorter(memLimit, sortPT)
 	if err != nil {
 		return nil, err
@@ -221,16 +227,22 @@ func commit(cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, mes
 	return commitSum, nil
 }
 
-func commitTempBranch(cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, tmpBranch, csvFilePath string, primaryKey []string, numWorkers int, memLimit uint64) (sum []byte, err error) {
+func commitTempBranch(
+	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, tmpBranch, csvFilePath string,
+	primaryKey []string, numWorkers int, memLimit uint64, quiet bool,
+) (sum []byte, err error) {
 	ref.DeleteHead(rs, tmpBranch)
-	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, numWorkers, memLimit, c, nil)
+	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, numWorkers, memLimit, c, nil, quiet)
 }
 
-func ensureTempCommit(cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string, primaryKey []string, numWorkers int, memLimit uint64) (sum []byte, err error) {
+func ensureTempCommit(
+	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string,
+	primaryKey []string, numWorkers int, memLimit uint64, quiet bool,
+) (sum []byte, err error) {
 	tmpBranch := branch + "-tmp"
 	sum, err = ref.GetHead(rs, tmpBranch)
 	if err == ref.ErrKeyNotFound {
-		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit)
+		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet)
 		if err != nil {
 			return nil, err
 		}
@@ -245,7 +257,7 @@ func ensureTempCommit(cmd *cobra.Command, db objects.Store, rs ref.Store, c *con
 		return nil, err
 	}
 	if com.Message != fd.Name() || com.Time.Before(fd.ModTime()) || !c.IsBranchPrimaryKeyEqual(branch, primaryKey) {
-		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit)
+		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet)
 		if err != nil {
 			return nil, err
 		}
@@ -282,8 +294,11 @@ func commitWithTable(cmd *cobra.Command, c *conf.Config, db objects.Store, rs re
 	return commitSum, nil
 }
 
-func commitIfBranchFileHasChanged(cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string, primaryKey []string, message string, numWorkers int, memLimit uint64) ([]byte, error) {
-	tmpSum, err := ensureTempCommit(cmd, db, rs, c, branch, csvFilePath, primaryKey, numWorkers, memLimit)
+func commitIfBranchFileHasChanged(
+	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string,
+	primaryKey []string, message string, numWorkers int, memLimit uint64, quiet bool,
+) ([]byte, error) {
+	tmpSum, err := ensureTempCommit(cmd, db, rs, c, branch, csvFilePath, primaryKey, numWorkers, memLimit, quiet)
 	if err != nil {
 		return nil, err
 	}
@@ -304,12 +319,14 @@ func commitIfBranchFileHasChanged(cmd *cobra.Command, db objects.Store, rs ref.S
 	return commitWithTable(cmd, c, db, rs, branch, tmpCom.Table, message)
 }
 
-func commitAllBranches(cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, message string, numWorkers int, memLimit uint64) error {
+func commitAllBranches(
+	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, message string, numWorkers int, memLimit uint64, quiet bool,
+) error {
 	for name, branch := range c.Branch {
 		if branch.File == "" {
 			continue
 		}
-		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit)
+		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit, quiet)
 		if err != nil {
 			return err
 		}

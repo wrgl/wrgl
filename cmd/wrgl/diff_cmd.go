@@ -13,12 +13,14 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mitchellh/colorstring"
 	"github.com/rivo/tview"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
@@ -113,7 +115,10 @@ func newDiffCmd() *cobra.Command {
 				return diffAllBranches(cmd, c, db, rs, pk, args, branchFile, debugFile)
 			}
 
-			return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, debugFile, noGUI, false)
+			if noGUI {
+				return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, debugFile, false, outputDiffToCSV)
+			}
+			return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, debugFile, false, outputDiffToTerminal)
 		},
 	}
 	cmd.Flags().Bool("no-gui", false, "don't show the diff table, instead output changes to file DIFF_SUM1_SUM2.csv")
@@ -124,23 +129,27 @@ func newDiffCmd() *cobra.Command {
 }
 
 func getSecondCommit(
-	cmd *cobra.Command, c *conf.Config, db objects.Store, memDB *objmock.Store, rs ref.Store, pk []string, args []string, commit1 *objects.Commit, branchFile bool,
+	cmd *cobra.Command, c *conf.Config, db objects.Store, memDB *objmock.Store, rs ref.Store,
+	pk []string, args []string, commit1 *objects.Commit, branchFile, quiet bool,
 ) (inUsedDB objects.Store, name, hash string, commit *objects.Commit, err error) {
 	if branchFile {
-		return getCommit(cmd, c, db, memDB, rs, pk, args[0], false)
+		return getCommit(cmd, c, db, memDB, rs, pk, args[0], false, quiet)
 	}
 	if len(args) > 1 {
-		return getCommit(cmd, c, db, memDB, rs, pk, args[1], false)
+		return getCommit(cmd, c, db, memDB, rs, pk, args[1], false, quiet)
 	}
 	if len(commit1.Parents) > 0 {
-		return getCommit(cmd, c, db, memDB, rs, pk, hex.EncodeToString(commit1.Parents[0]), false)
+		return getCommit(cmd, c, db, memDB, rs, pk, hex.EncodeToString(commit1.Parents[0]), false, quiet)
 	}
 	err = fmt.Errorf("specify the second object to diff against")
 	return
 }
 
-func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File) (hash string, commit *objects.Commit, err error) {
-	sortPT, blkPT := displayCommitProgress(cmd)
+func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File, quiet bool) (hash string, commit *objects.Commit, err error) {
+	var sortPT, blkPT *progressbar.ProgressBar
+	if !quiet {
+		sortPT, blkPT = displayCommitProgress(cmd)
+	}
 	s, err := sorter.NewSorter(0, sortPT)
 	if err != nil {
 		return
@@ -178,7 +187,8 @@ func displayableCommitName(name string, sum []byte) string {
 }
 
 func getCommit(
-	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store, rs ref.Store, pk []string, cStr string, branchFile bool,
+	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store,
+	rs ref.Store, pk []string, cStr string, branchFile, quiet bool,
 ) (inUsedDB objects.Store, name, hash string, commit *objects.Commit, err error) {
 	inUsedDB = db
 	var file *os.File
@@ -194,7 +204,7 @@ func getCommit(
 		}
 		inUsedDB = memStore
 		defer file.Close()
-		hash, commit, err = createInMemCommit(cmd, memStore, pk, file)
+		hash, commit, err = createInMemCommit(cmd, memStore, pk, file, quiet)
 		return inUsedDB, path.Base(file.Name()), hash, commit, err
 	}
 	if branchFile && strings.HasPrefix(name, "heads/") {
@@ -212,7 +222,7 @@ func getCommit(
 			return
 		} else {
 			var tmpSum []byte
-			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, 1, 0)
+			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, 1, 0, quiet)
 			if err != nil {
 				return
 			}
@@ -249,21 +259,28 @@ func collectDiffObjects(
 	diffChan <-chan *objects.Diff,
 	pt progress.Tracker,
 	colDiff *diff.ColDiff,
+	quiet bool,
 ) (addedRowReader, removedRowReader *diff.RowListReader, rowChangeReader *diff.RowChangeReader, err error) {
 	var progChan <-chan progress.Event
 	if pt != nil {
 		progChan = pt.Start()
 		defer pt.Stop()
 	}
-	bar := pbar(0, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
+	var bar *progressbar.ProgressBar
+	if !quiet {
+		bar = pbar(0, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		defer bar.Finish()
+	}
 mainLoop:
 	for {
 		select {
 		case e := <-progChan:
-			if bar.GetMax() == 0 {
-				bar.ChangeMax64(e.Total)
+			if bar != nil {
+				if bar.GetMax() == 0 {
+					bar.ChangeMax64(e.Total)
+				}
+				bar.Set64(e.Progress)
 			}
-			bar.Set64(e.Progress)
 		case d, ok := <-diffChan:
 			if !ok {
 				break mainLoop
@@ -399,6 +416,7 @@ func outputDiffToCSV(
 	diffChan <-chan *objects.Diff,
 	pt progress.Tracker,
 	colDiff *diff.ColDiff,
+	tpd *diffprof.TableProfileDiff,
 ) (err error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -499,9 +517,8 @@ func getDiffChan(
 		[2][]string{tbl1.Columns, tbl1.PrimaryKey()},
 	)
 	errChan = make(chan error, 10)
-	opts := []diff.DiffOption{
-		diff.WithProgressInterval(65 * time.Millisecond),
-	}
+	opts := []diff.DiffOption{}
+	opts = append(opts, diff.WithProgressInterval(65*time.Millisecond))
 	if debugFile != nil {
 		opts = append(opts, diff.WithDebugOutput(debugFile))
 	}
@@ -559,7 +576,7 @@ func outputDiffToTerminal(
 		return app.Run()
 	}
 
-	addedRowReader, removedRowReader, rowChangeReader, err := collectDiffObjects(cmd, db1, db2, tbl1, tbl2, diffChan, pt, colDiff)
+	addedRowReader, removedRowReader, rowChangeReader, err := collectDiffObjects(cmd, db1, db2, tbl1, tbl2, diffChan, pt, colDiff, false)
 	if err != nil {
 		return
 	}
@@ -617,54 +634,55 @@ func outputDiffSummaryToTerminal(
 	tbl1, tbl2 *objects.Table,
 	diffChan <-chan *objects.Diff,
 	cd *diff.ColDiff,
-) error {
-	colorstring.Fprintf(cmd.OutOrStdout(), "%s vs %s", commitTitle(name1, commitHash1), commitTitle(name2, commitHash2))
+) (string, error) {
+	sb := &strings.Builder{}
 	if !uintSliceEqual(cd.BasePK, cd.OtherPK[0]) {
 		_, addedCols, removedCols := slice.CompareStringSlices(tbl1.Columns, tbl2.Columns)
+		pkEqual := slice.StringSliceEqual(tbl1.PrimaryKey(), tbl2.PrimaryKey())
 		if len(addedCols) > 0 || len(removedCols) > 0 {
-			cmd.Println("column changes:")
-			for _, col := range addedCols {
-				colorstring.Fprintf(cmd.OutOrStdout(), "  [green]+ %s\n", col)
+			sb.WriteString("columns: ")
+			if len(addedCols) > 0 {
+				colorstring.Fprintf(sb, "[green]+%d[reset]", len(addedCols))
+				if len(removedCols) > 0 {
+					sb.WriteString("/")
+				}
 			}
-			for _, col := range removedCols {
-				colorstring.Fprintf(cmd.OutOrStdout(), "  [red]- %s\n", col)
+			if len(removedCols) > 0 {
+				colorstring.Fprintf(sb, "[red]-%d[reset]", len(removedCols))
+			}
+			if !pkEqual {
+				sb.WriteString("; ")
 			}
 		}
-		unchanged, added, removed := slice.CompareStringSlices(tbl1.PrimaryKey(), tbl2.PrimaryKey())
-		if len(added) > 0 || len(removed) > 0 {
-			cmd.Println("primary key changes:")
-			for _, col := range unchanged {
-				cmd.Printf("    %s\n", col)
-			}
-			for _, col := range added {
-				colorstring.Fprintf(cmd.OutOrStdout(), "  [green]+ %s\n", col)
-			}
-			for _, col := range removed {
-				colorstring.Fprintf(cmd.OutOrStdout(), "  [red]- %s\n", col)
-			}
+		if !pkEqual {
+			colorstring.Fprintf(sb,
+				"primary key: [red]%s[reset]->[green]%s",
+				strings.Join(tbl2.PrimaryKey(), ","),
+				strings.Join(tbl1.PrimaryKey(), ","),
+			)
 		}
 	} else {
-		addedRowReader, removedRowReader, rowChangeReader, err := collectDiffObjects(cmd, db1, db2, tbl1, tbl2, diffChan, nil, cd)
+		addedRowReader, removedRowReader, rowChangeReader, err := collectDiffObjects(cmd, db1, db2, tbl1, tbl2, diffChan, nil, cd, true)
 		if err != nil {
-			return err
+			return "", err
 		}
 		nAdd, nRem, nMod := addedRowReader.Len(), removedRowReader.Len(), rowChangeReader.Len()
 		if nAdd > 0 || nRem > 0 || nMod > 0 {
-			cmd.Println("row changes:")
+			sb.WriteString("rows: ")
+			outputs := []string{}
 			if nAdd > 0 {
-				colorstring.Fprintf(cmd.OutOrStdout(), "  [green]+%d rows\n", nAdd)
+				outputs = append(outputs, fmt.Sprintf("[green]+%d[reset]", nAdd))
 			}
 			if nRem > 0 {
-				colorstring.Fprintf(cmd.OutOrStdout(), "  [red]-%d rows\n", nRem)
+				outputs = append(outputs, fmt.Sprintf("[red]-%d[reset]", nRem))
 			}
 			if nMod > 0 {
-				colorstring.Fprintf(cmd.OutOrStdout(), "  [yellow]%d modified rows\n", nMod)
+				outputs = append(outputs, fmt.Sprintf("[yellow]%d modified", nMod))
 			}
-		} else {
-			cmd.Println("there are no changes")
+			colorstring.Fprintf(sb, strings.Join(outputs, "/"))
 		}
 	}
-	return nil
+	return sb.String(), nil
 }
 
 func diffTableProfiles(db1, db2 objects.Store, commit1, commit2 *objects.Commit) *diffprof.TableProfileDiff {
@@ -681,14 +699,25 @@ func diffTableProfiles(db1, db2 objects.Store, commit1, commit2 *objects.Commit)
 
 func runDiff(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store, rs ref.Store,
-	pk []string, args []string, branchFile bool, debugFile io.Writer, noGUI, summary bool,
+	pk []string, args []string, branchFile bool, debugFile io.Writer, quiet bool,
+	outputDiff func(
+		cmd *cobra.Command,
+		db1, db2 objects.Store,
+		name1, name2 string,
+		commitHash1, commitHash2 string,
+		tbl1, tbl2 *objects.Table,
+		diffChan <-chan *objects.Diff,
+		pt progress.Tracker,
+		colDiff *diff.ColDiff,
+		tpd *diffprof.TableProfileDiff,
+	) error,
 ) error {
-	db1, name1, commitHash1, commit1, err := getCommit(cmd, c, db, memStore, rs, pk, args[0], branchFile)
+	db1, name1, commitHash1, commit1, err := getCommit(cmd, c, db, memStore, rs, pk, args[0], branchFile, quiet)
 	if err != nil {
 		return err
 	}
 
-	db2, name2, commitHash2, commit2, err := getSecondCommit(cmd, c, db, memStore, rs, pk, args, commit1, branchFile)
+	db2, name2, commitHash2, commit2, err := getSecondCommit(cmd, c, db, memStore, rs, pk, args, commit1, branchFile, quiet)
 	if err != nil {
 		return err
 	}
@@ -699,26 +728,13 @@ func runDiff(
 	}
 
 	tpd := diffTableProfiles(db1, db2, commit1, commit2)
-
-	if noGUI {
-		err = outputDiffToCSV(
-			cmd, db1, db2, name1, name2, commitHash1, commitHash2,
-			tbl1, tbl2, diffChan, pt, cd,
-		)
-	} else if summary {
-		err = outputDiffSummaryToTerminal(
-			cmd, db1, db2, name1, name2, commitHash1, commitHash2,
-			tbl1, tbl2, diffChan, cd,
-		)
-	} else {
-		err = outputDiffToTerminal(
-			cmd, db1, db2, name1, name2, commitHash1, commitHash2,
-			tbl1, tbl2, diffChan, pt, cd, tpd,
-		)
-	}
-	if err != nil {
+	if err = outputDiff(
+		cmd, db1, db2, name1, name2, commitHash1, commitHash2,
+		tbl1, tbl2, diffChan, pt, cd, tpd,
+	); err != nil {
 		return err
 	}
+
 	close(errChan)
 	err, ok := <-errChan
 	if ok {
@@ -731,19 +747,54 @@ func diffAllBranches(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store,
 	pk []string, args []string, branchFile bool, debugFile io.Writer,
 ) error {
+	var maxLen int
+	type namedBranch struct {
+		name   string
+		branch *conf.Branch
+	}
+	branches := []namedBranch{}
 	for name, branch := range c.Branch {
 		if branch.File == "" {
 			continue
 		}
-		colorstring.Fprintf(cmd.OutOrStdout(), "[bold]%s[reset] changes:\n", name)
 		if _, err := ref.GetHead(rs, name); err == ref.ErrKeyNotFound {
-			cmd.Println("Branch not found, skipping.")
+			cmd.Printf("Branch %q not found, skipping.\n", name)
 			continue
 		} else if err != nil {
 			return err
 		}
-		if err := runDiff(cmd, c, db, nil, rs, branch.PrimaryKey, []string{"heads/" + name}, true, debugFile, false, true); err != nil {
+		if len(name) > maxLen {
+			maxLen = len(name)
+		}
+		branches = append(branches, namedBranch{
+			name:   name,
+			branch: branch,
+		})
+	}
+	sort.Slice(branches, func(i, j int) bool {
+		return branches[i].name < branches[j].name
+	})
+	for _, nb := range branches {
+		var diffSum string
+		if err := runDiff(cmd, c, db, nil, rs, nb.branch.PrimaryKey, []string{"heads/" + nb.name}, true, debugFile, true,
+			func(
+				cmd *cobra.Command, db1, db2 objects.Store, name1, name2, commitHash1, commitHash2 string,
+				tbl1, tbl2 *objects.Table, diffChan <-chan *objects.Diff, pt progress.Tracker,
+				cd *diff.ColDiff, tpd *diffprof.TableProfileDiff,
+			) (err error) {
+				diffSum, err = outputDiffSummaryToTerminal(
+					cmd, db1, db2, name1, name2, commitHash1, commitHash2,
+					tbl1, tbl2, diffChan, cd,
+				)
+				return
+			},
+		); err != nil {
 			return err
+		}
+		if diffSum != "" {
+			n := len(nb.name)
+			padding := strings.Repeat(" ", maxLen-n)
+			colorstring.Fprintf(cmd.OutOrStdout(), "[bold]%s[reset]%s %s\n", nb.name, padding, diffSum)
 		}
 	}
 	return nil
