@@ -60,6 +60,10 @@ type Pack struct {
 
 type FastForward string
 
+func (s FastForward) String() string {
+	return string(s)
+}
+
 const (
 	FF_Default FastForward = ""
 	FF_Only    FastForward = "only"

@@ -4,6 +4,7 @@
 package dotno
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -69,34 +70,33 @@ func OutputValues(cmd *cobra.Command, vals interface{}, lastOneOnly bool) (err e
 			if err != nil {
 				return err
 			}
-			if null {
-				cmd.Printf("%s\x00", s)
-			} else {
-				cmd.Printf("%s\n", s)
-			}
+			cmd.Print(s)
 		} else {
 			strs, err := sl.ToStringSlice()
 			if err != nil {
 				return err
 			}
-			if null {
-				cmd.Print(strings.Join(strs, "\x00"), "\x00")
-			} else {
-				cmd.Println(strings.Join(strs, "\n"))
-			}
+			cmd.Print(strings.Join(strs, "\n"))
 		}
 	} else if v, ok := vals.(*bool); ok {
-		if null {
-			cmd.Printf("%+v\x00", *v)
-		} else {
-			cmd.Printf("%+v\n", *v)
-		}
+		cmd.Printf("%+v", *v)
+	} else if v, ok := vals.(string); ok {
+		cmd.Print(v)
+	} else if v, ok := vals.(*string); ok {
+		cmd.Print(*v)
+	} else if v, ok := vals.(fmt.Stringer); ok {
+		cmd.Print(v.String())
 	} else {
-		if null {
-			cmd.Printf("%+v\x00", vals)
-		} else {
-			cmd.Printf("%+v\n", vals)
+		b, err := json.Marshal(vals)
+		if err != nil {
+			return err
 		}
+		cmd.Printf("%s", string(b))
+	}
+	if null {
+		cmd.Print("\x00")
+	} else {
+		cmd.Print("\n")
 	}
 	return nil
 }
