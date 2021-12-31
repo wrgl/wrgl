@@ -5,12 +5,17 @@ package widgetsprof
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/widgets"
 )
+
+func floatString(f float64) string {
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%f", f), "0"), ".")
+}
 
 var (
 	cellStyle      = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
@@ -29,31 +34,31 @@ var (
 			if colProf.Min == nil {
 				return ""
 			}
-			return fmt.Sprintf("%f", *colProf.Min)
+			return floatString(*colProf.Min)
 		}),
 		newSingleStatCells("Max", func(colProf *objects.ColumnProfile) string {
 			if colProf.Max == nil {
 				return ""
 			}
-			return fmt.Sprintf("%f", *colProf.Max)
+			return floatString(*colProf.Max)
 		}),
 		newSingleStatCells("Mean", func(colProf *objects.ColumnProfile) string {
 			if colProf.Mean == nil {
 				return ""
 			}
-			return fmt.Sprintf("%f", *colProf.Mean)
+			return floatString(*colProf.Mean)
 		}),
 		newSingleStatCells("Median", func(colProf *objects.ColumnProfile) string {
 			if colProf.Median == nil {
 				return ""
 			}
-			return fmt.Sprintf("%f", *colProf.Median)
+			return floatString(*colProf.Median)
 		}),
 		newSingleStatCells("Std. Deviation", func(colProf *objects.ColumnProfile) string {
 			if colProf.StdDeviation == nil {
 				return ""
 			}
-			return fmt.Sprintf("%f", *colProf.StdDeviation)
+			return floatString(*colProf.StdDeviation)
 		}),
 		newSingleStatCells("Min length", func(colProf *objects.ColumnProfile) string {
 			if colProf.MinStrLen == 0 {

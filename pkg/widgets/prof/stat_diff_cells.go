@@ -106,10 +106,10 @@ func (s *float64StatDiffCells) DecorateCells(row int, cells []*widgets.TableCell
 		cells[0].SetText(fmt.Sprintf("%d", s.Old)).SetStyle(cellStyle)
 	} else {
 		if s.New != nil {
-			cells[0].SetText(fmt.Sprintf("%f", *s.New)).SetStyle(addedStyle)
+			cells[0].SetText(floatString(*s.New)).SetStyle(addedStyle)
 		}
 		if s.Old != nil {
-			cells[1].SetText(fmt.Sprintf("%f", *s.Old)).SetStyle(removedStyle)
+			cells[1].SetText(floatString(*s.Old)).SetStyle(removedStyle)
 		}
 	}
 }
@@ -173,17 +173,17 @@ func (s *percentilesStatDiffCells) DecorateCells(row int, cells []*widgets.Table
 	cells[0].SetText(fmt.Sprintf("%d", (row+1)*100/(len(s.Values)+1))).
 		SetStyle(statValueStyle)
 	if v.New == v.Old {
-		cells[1].SetText(fmt.Sprintf("%f", v.New)).
+		cells[1].SetText(floatString(v.New)).
 			SetAlign(tview.AlignRight).
 			SetStyle(cellStyle)
 	} else {
 		if v.New != 0 {
-			cells[1].SetText(fmt.Sprintf("%f", v.New)).
+			cells[1].SetText(floatString(v.New)).
 				SetAlign(tview.AlignRight).
 				SetStyle(addedStyle)
 		}
 		if v.Old != 0 {
-			cells[2].SetText(fmt.Sprintf("%f", v.Old)).
+			cells[2].SetText(floatString(v.Old)).
 				SetAlign(tview.AlignRight).
 				SetStyle(removedStyle)
 		}

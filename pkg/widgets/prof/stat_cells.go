@@ -117,7 +117,7 @@ func (c *percentilesCells) DecorateCells(row int, tblProf *objects.TableProfile,
 	cells[0].SetText(fmt.Sprintf("%d", (row+1)*100/(len(values)+1))).
 		SetAlign(tview.AlignRight).
 		SetStyle(statValueStyle)
-	cells[1].SetText(fmt.Sprintf("%f", v)).
+	cells[1].SetText(floatString(v)).
 		SetStyle(cellStyle)
 }
 
