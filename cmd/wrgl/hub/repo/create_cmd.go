@@ -23,6 +23,10 @@ func createCmd() *cobra.Command {
 				Line:    "wrgl hub repo create my-new-repo",
 			},
 			{
+				Comment: "create a new repository for an organization (that you belong to)",
+				Line:    "wrgl hub repo create my-repo --user ipno",
+			},
+			{
 				Comment: "create a new repo then set it origin remote for a local repository",
 				Line:    "wrgl hub repo create my-repo --set-remote origin",
 			},
@@ -40,25 +44,33 @@ func createCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			user, err := api.GetMe(tok)
+			username, err := cmd.Flags().GetString("user")
 			if err != nil {
-				return utils.HandleHTTPError(cmd, cs, api.APIRoot, uri, err)
+				return err
 			}
-			_, err = api.CreateRepo(tok, user.Username, &api.CreateRepoRequest{
+			if username == "" {
+				user, err := api.GetMe(tok)
+				if err != nil {
+					return utils.HandleHTTPError(cmd, cs, api.APIRoot, uri, err)
+				}
+				username = user.Username
+			}
+			_, err = api.CreateRepo(tok, username, &api.CreateRepoRequest{
 				Name:   args[0],
 				Public: &public,
 			})
 			if err != nil {
 				return err
 			}
-			cmd.Printf("Repository %q created at https://hub.wrgl.co/@%s/r/%s/\n", args[0], user.Username, args[0])
+			cmd.Printf("Repository %q created at https://hub.wrgl.co/@%s/r/%s/\n", args[0], username, args[0])
 			if setRemote != "" {
-				return utils.AddRemote(cmd, setRemote, fmt.Sprintf("https://hub.wrgl.co/api/users/%s/repos/%s", user.Username, args[0]))
+				return utils.AddRemote(cmd, setRemote, fmt.Sprintf("https://hub.wrgl.co/api/users/%s/repos/%s", username, args[0]))
 			}
 			return nil
 		},
 	}
 	cmd.Flags().Bool("public", false, "makes the repository public")
+	cmd.Flags().StringP("user", "u", "", "instead of creating a repo under your username, create a repo for an organization (that you belong to) with this username")
 	cmd.Flags().String("set-remote", "", "set the newly created repository as a remote with the specified name.")
 	cmd.Flags().Bool("tags", false, "wrgl fetch REMOTE imports every tag from the remote repository")
 	cmd.Flags().StringSliceP("track", "t", nil, strings.Join([]string{
