@@ -5,13 +5,6 @@ package diffprof
 
 import "github.com/wrgl/wrgl/pkg/objects"
 
-type ValueDiff struct {
-	Name      string
-	Old       string
-	New       string
-	SubValues []*ValueDiff
-}
-
 type TableProfileDiff struct {
 	OldRowsCount uint32               `json:"oldRowsCount"`
 	NewRowsCount uint32               `json:"newRowsCount"`

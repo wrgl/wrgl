@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -127,19 +128,20 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 	repo, cli, _, cleanup := s.s.NewClient(t, true, "", nil)
 	defer cleanup()
 	var com = &objects.Commit{}
-	var zeRef string
+	head := testutils.BrokenRandomLowerAlphaString(6)
 	var comSum = make([]byte, 16)
 	s.postCommit = func(r *http.Request, commit *objects.Commit, sum []byte, branch string) {
-		*com = *commit
-		copy(comSum, sum)
-		zeRef = branch
-		t.Logf("postCommit %x", sum)
+		if branch == head {
+			*com = *commit
+			copy(comSum, sum)
+			t.Logf("postCommit %x", sum)
+		}
 	}
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	t.Logf("parentSum %x", parent)
-	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
+	require.NoError(t, ref.CommitHead(rs, head, parent, parentCom))
 
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
@@ -150,17 +152,19 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 		{"3", "z", "x"},
 	}))
 	w.Flush()
-	cr, err := cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
+	cr, err := cli.Commit(head, "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
 	require.NoError(t, err)
 	t.Logf("cr.Sum %x", *cr.Sum)
-	assert.Equal(t, (*cr.Table)[:], com.Table)
+	testutils.Retry(t, 100*time.Millisecond, 10,
+		func() bool { return bytes.Equal((*cr.Table)[:], com.Table) },
+		"post commit fail to update, table sum not equal: %x != %x", (*cr.Table)[:], com.Table,
+	)
 	assert.Equal(t, apitest.Name, com.AuthorName)
 	assert.Equal(t, apitest.Email, com.AuthorEmail)
 	assert.False(t, com.Time.IsZero())
 	assert.Equal(t, "initial commit", com.Message)
 	assert.Equal(t, [][]byte{parent}, com.Parents)
 	assert.Equal(t, (*cr.Sum)[:], comSum)
-	assert.Equal(t, "alpha", zeRef)
 }
 
 func (s *testSuite) TestCommitGzip(t *testing.T) {

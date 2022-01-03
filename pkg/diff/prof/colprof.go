@@ -25,10 +25,10 @@ func init() {
 		float64StatFactory("Max", "max", func(col *objects.ColumnProfile) *float64 { return col.Max }),
 		float64StatFactory("Mean", "mean", func(col *objects.ColumnProfile) *float64 { return col.Mean }),
 		float64StatFactory("Median", "median", func(col *objects.ColumnProfile) *float64 { return col.Median }),
-		float64StatFactory("Standard deviation", "stdDeviation", func(col *objects.ColumnProfile) *float64 { return col.StdDeviation }),
+		float64StatFactory("Std. deviation", "stdDeviation", func(col *objects.ColumnProfile) *float64 { return col.StdDeviation }),
 		uint16StatFactory("Min length", "minStrLen", func(col *objects.ColumnProfile) uint16 { return col.MinStrLen }),
 		uint16StatFactory("Max length", "maxStrLen", func(col *objects.ColumnProfile) uint16 { return col.MaxStrLen }),
-		uint16StatFactory("Avg length", "avgStrLen", func(col *objects.ColumnProfile) uint16 { return col.AvgStrLen }),
+		uint16StatFactory("Avg. length", "avgStrLen", func(col *objects.ColumnProfile) uint16 { return col.AvgStrLen }),
 		topValuesStatFactory("Top values", "topValues", func(col *objects.ColumnProfile) objects.ValueCounts { return col.TopValues }),
 		percentilesStatFactory("Percentiles", "percentiles", func(col *objects.ColumnProfile) []float64 { return col.Percentiles }),
 	}

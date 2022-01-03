@@ -54,7 +54,7 @@ func TestDiffTableSummaries(t *testing.T) {
 								Old:       20,
 							},
 							&Uint16Stat{
-								Name:      "Avg length",
+								Name:      "Avg. length",
 								ShortName: "avgStrLen",
 								Old:       15,
 							},
@@ -75,7 +75,7 @@ func TestDiffTableSummaries(t *testing.T) {
 								Old:       2,
 							},
 							&Uint16Stat{
-								Name:      "Avg length",
+								Name:      "Avg. length",
 								ShortName: "avgStrLen",
 								Old:       1,
 							},
@@ -121,7 +121,7 @@ func TestDiffTableSummaries(t *testing.T) {
 								New:       20,
 							},
 							&Uint16Stat{
-								Name:      "Avg length",
+								Name:      "Avg. length",
 								ShortName: "avgStrLen",
 								New:       15,
 							},
@@ -142,7 +142,7 @@ func TestDiffTableSummaries(t *testing.T) {
 								New:       2,
 							},
 							&Uint16Stat{
-								Name:      "Avg length",
+								Name:      "Avg. length",
 								ShortName: "avgStrLen",
 								New:       1,
 							},
@@ -205,7 +205,7 @@ func TestDiffTableSummaries(t *testing.T) {
 								New:       20,
 							},
 							&Uint16Stat{
-								Name:      "Avg length",
+								Name:      "Avg. length",
 								ShortName: "avgStrLen",
 								New:       15,
 							},
@@ -227,7 +227,7 @@ func TestDiffTableSummaries(t *testing.T) {
 								New:       2,
 							},
 							&Uint16Stat{
-								Name:      "Avg length",
+								Name:      "Avg. length",
 								ShortName: "avgStrLen",
 								Old:       13,
 								New:       1,
@@ -249,7 +249,7 @@ func TestDiffTableSummaries(t *testing.T) {
 								Old:       22,
 							},
 							&Uint16Stat{
-								Name:      "Avg length",
+								Name:      "Avg. length",
 								ShortName: "avgStrLen",
 								Old:       12,
 							},

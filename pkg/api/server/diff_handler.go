@@ -10,6 +10,7 @@ import (
 
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/diff"
+	diffprof "github.com/wrgl/wrgl/pkg/diff/prof"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
@@ -33,6 +34,18 @@ func (s *Server) getTable(db objects.Store, x string) ([]byte, *objects.Table, [
 		panic(err)
 	}
 	return com.Table, tbl, idx
+}
+
+func diffDataProfile(db objects.Store, resp *payload.DiffResponse, sum1, sum2 []byte) {
+	newProf, err := objects.GetTableProfile(db, sum1)
+	if err != nil {
+		return
+	}
+	oldProf, err := objects.GetTableProfile(db, sum2)
+	if err != nil {
+		return
+	}
+	resp.DataProfile = diffprof.DiffTableProfiles(newProf, oldProf)
 }
 
 func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
@@ -83,6 +96,7 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	if ok {
 		panic(err)
 	}
+	diffDataProfile(db, resp, sum1, sum2)
 	s.cacheControlImmutable(rw)
 	writeJSON(rw, resp)
 }

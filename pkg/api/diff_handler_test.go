@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/api/payload"
+	diffprof "github.com/wrgl/wrgl/pkg/diff/prof"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
@@ -66,6 +67,141 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 			},
 			{
 				Offset2: uint32Ptr(2),
+			},
+		},
+		DataProfile: &diffprof.TableProfileDiff{
+			NewRowsCount: 3,
+			OldRowsCount: 3,
+			Columns: []*diffprof.ColumnProfileDiff{
+				{
+					Name: "a",
+					Stats: []interface{}{
+						map[string]interface{}{
+							"name":      "Min",
+							"new":       float64(1),
+							"old":       float64(1),
+							"shortName": "min",
+						},
+						map[string]interface{}{
+							"name":      "Max",
+							"new":       float64(4),
+							"old":       float64(5),
+							"shortName": "max",
+						},
+						map[string]interface{}{
+							"name":      "Mean",
+							"new":       float64(2.33),
+							"old":       float64(2.67),
+							"shortName": "mean",
+						},
+						map[string]interface{}{
+							"name":      "Median",
+							"new":       float64(2),
+							"old":       float64(2),
+							"shortName": "median",
+						},
+						map[string]interface{}{
+							"name":      "Std. deviation",
+							"new":       float64(1.25),
+							"old":       float64(1.7),
+							"shortName": "stdDeviation",
+						},
+						map[string]interface{}{
+							"name":      "Min length",
+							"new":       float64(1),
+							"old":       float64(1),
+							"shortName": "minStrLen",
+						},
+						map[string]interface{}{
+							"name":      "Max length",
+							"new":       float64(1),
+							"old":       float64(1),
+							"shortName": "maxStrLen",
+						},
+						map[string]interface{}{
+							"name":      "Avg. length",
+							"new":       float64(1),
+							"old":       float64(1),
+							"shortName": "avgStrLen",
+						},
+					},
+				},
+
+				{
+					Name:        "b",
+					NewAddition: false,
+					Removed:     false,
+					Stats: []interface{}{
+						map[string]interface{}{
+							"name":      "Min length",
+							"new":       float64(1),
+							"old":       float64(1),
+							"shortName": "minStrLen",
+						},
+						map[string]interface{}{
+							"name":      "Max length",
+							"new":       float64(1),
+							"old":       float64(1),
+							"shortName": "maxStrLen",
+						},
+						map[string]interface{}{
+							"name":      "Avg. length",
+							"new":       float64(1),
+							"old":       float64(1),
+							"shortName": "avgStrLen",
+						},
+					},
+				},
+				{
+					Name:        "c",
+					NewAddition: true,
+					Removed:     false,
+					Stats: []interface{}{
+						map[string]interface{}{
+							"name":      "Min length",
+							"new":       float64(1),
+							"old":       float64(0),
+							"shortName": "minStrLen",
+						},
+						map[string]interface{}{
+							"name":      "Max length",
+							"new":       float64(1),
+							"old":       float64(0),
+							"shortName": "maxStrLen",
+						},
+						map[string]interface{}{
+							"name":      "Avg. length",
+							"new":       float64(1),
+							"old":       float64(0),
+							"shortName": "avgStrLen",
+						},
+					},
+				},
+				{
+					Name:        "d",
+					NewAddition: false,
+					Removed:     true,
+					Stats: []interface{}{
+						map[string]interface{}{
+							"name":      "Min length",
+							"new":       float64(0),
+							"old":       float64(1),
+							"shortName": "minStrLen",
+						},
+						map[string]interface{}{
+							"name":      "Max length",
+							"new":       float64(0),
+							"old":       float64(1),
+							"shortName": "maxStrLen",
+						},
+						map[string]interface{}{
+							"name":      "Avg. length",
+							"new":       float64(0),
+							"old":       float64(1),
+							"shortName": "avgStrLen",
+						},
+					},
+				},
 			},
 		},
 	}, dr)
