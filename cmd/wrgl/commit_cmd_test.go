@@ -237,14 +237,19 @@ func TestCommitCmdAll(t *testing.T) {
 	sum3, err := ref.GetHead(rs, "branch-3")
 	require.NoError(t, err)
 
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"config", "set", "branch.branch-4.file", "non-existent.csv"})
+	require.NoError(t, cmd.Execute())
+
 	appendToFile(t, fp1, "\n4,t,y")
 
-	cmd := rootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "--all", "mass commit"})
 	buf := bytes.NewBuffer(nil)
 	cmd.SetOut(buf)
 	require.NoError(t, cmd.Execute())
 	assert.Contains(t, buf.String(), "branch \"branch-2\" is up-to-date.\n")
+	assert.Contains(t, buf.String(), `File "non-existent.csv" does not exist, skipping branch "branch-4".`)
 
 	sum, err := ref.GetHead(rs, "branch-2")
 	require.NoError(t, err)

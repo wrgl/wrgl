@@ -252,6 +252,10 @@ func TestDiffCmdAll(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 
 	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "set", "branch.branch-5.file", "non-existent.csv"})
+	require.NoError(t, cmd.Execute())
+
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"diff", "--all"})
 	buf := bytes.NewBuffer(nil)
 	cmd.SetOut(buf)
@@ -260,6 +264,7 @@ func TestDiffCmdAll(t *testing.T) {
 	sort.Strings(lines)
 	assert.Equal(t, []string{
 		"Branch \"branch-0\" not found, skipping.",
+		"File \"non-existent.csv\" does not exist, skipping branch \"branch-5\".",
 		"branch-1 rows: +1/-1/2 modified",
 		"branch-4 columns: +1/-1; primary key: a->a,b",
 	}, lines)

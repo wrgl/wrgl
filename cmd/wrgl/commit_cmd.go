@@ -326,6 +326,10 @@ func commitAllBranches(
 		if branch.File == "" {
 			continue
 		}
+		if _, err := os.Stat(branch.File); os.IsNotExist(err) {
+			cmd.Printf("File %q does not exist, skipping branch %q.\n", branch.File, name)
+			continue
+		}
 		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit, quiet)
 		if err != nil {
 			return err

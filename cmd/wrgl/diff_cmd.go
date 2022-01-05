@@ -757,6 +757,10 @@ func diffAllBranches(
 		if branch.File == "" {
 			continue
 		}
+		if _, err := os.Stat(branch.File); os.IsNotExist(err) {
+			cmd.Printf("File %q does not exist, skipping branch %q.\n", branch.File, name)
+			continue
+		}
 		if _, err := ref.GetHead(rs, name); err == ref.ErrKeyNotFound {
 			cmd.Printf("Branch %q not found, skipping.\n", name)
 			continue
