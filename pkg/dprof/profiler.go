@@ -111,9 +111,9 @@ func (m *Profiler) setStandardDeviation(i int, mean float64) {
 
 func (m *Profiler) Summarize() *objects.TableProfile {
 	for i, col := range m.columns {
-		col.AvgStrLen = uint16(math.Round(float64(m.strLens[i]) / float64(m.rowsCount)))
+		col.AvgStrLen = uint16(math.Round(float64(m.strLens[i]) / float64(m.rowsCount-col.NACount)))
 		if m.isNumber[i] && len(m.numbers[i]) > 0 {
-			col.Mean = floatPtr(roundTwoDecimalPlaces(m.sums[i] / float64(m.rowsCount)))
+			col.Mean = floatPtr(roundTwoDecimalPlaces(m.sums[i] / float64(m.rowsCount-col.NACount)))
 			m.setStandardDeviation(i, *col.Mean)
 			var median float64
 			median, col.Percentiles = m.calculatePercentiles(i)

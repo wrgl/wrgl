@@ -12,13 +12,13 @@ import (
 )
 
 func TestProfiler(t *testing.T) {
-	columns := []string{"A", "B", "C", "D"}
+	columns := []string{"A", "B", "C", "D", "E"}
 	rows := [][]string{
-		{"", "abc", "1", ""},
-		{"", "def", "2", ""},
-		{"2", "qwe", "3-A", ""},
-		{"30", "abc", "5-D", ""},
-		{"4", "", "4-C", ""},
+		{"", "abc", "1", "", ""},
+		{"", "def", "2", "", ""},
+		{"2", "qwe", "3-A", "", "2000"},
+		{"30", "abc", "5-D", "", "2002"},
+		{"4", "", "4-C", "", "2003"},
 	}
 	p := NewProfiler(columns)
 	for _, row := range rows {
@@ -33,9 +33,9 @@ func TestProfiler(t *testing.T) {
 				NACount:      2,
 				Min:          floatPtr(2),
 				Max:          floatPtr(30),
-				Mean:         floatPtr(7.2),
+				Mean:         floatPtr(12),
 				Median:       floatPtr(4),
-				StdDeviation: floatPtr(10.56),
+				StdDeviation: floatPtr(9.88),
 				MinStrLen:    1,
 				MaxStrLen:    2,
 				AvgStrLen:    1,
@@ -43,7 +43,7 @@ func TestProfiler(t *testing.T) {
 			{
 				Name:      "B",
 				NACount:   1,
-				AvgStrLen: 2,
+				AvgStrLen: 3,
 				TopValues: objects.ValueCounts{
 					{Value: "abc", Count: 2},
 					{Value: "def", Count: 1},
@@ -61,6 +61,18 @@ func TestProfiler(t *testing.T) {
 			{
 				Name:    "D",
 				NACount: 5,
+			},
+			{
+				Name:         "E",
+				NACount:      2,
+				Min:          floatPtr(2000),
+				Max:          floatPtr(2003),
+				Mean:         floatPtr(2001.67),
+				Median:       floatPtr(2002),
+				StdDeviation: floatPtr(0.97),
+				MinStrLen:    4,
+				MaxStrLen:    4,
+				AvgStrLen:    4,
 			},
 		},
 	}, p.Summarize())
