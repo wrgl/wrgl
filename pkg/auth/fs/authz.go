@@ -28,6 +28,7 @@ type AuthzStore struct {
 	mutex   sync.Mutex
 	ErrChan chan error
 	done    chan struct{}
+	wg      sync.WaitGroup
 }
 
 func NewAuthzStore(rd *local.RepoDir) (s *AuthzStore, err error) {
@@ -81,6 +82,8 @@ func (s *AuthzStore) reload() error {
 }
 
 func (s *AuthzStore) watch() {
+	s.wg.Add(1)
+	defer s.wg.Done()
 	for {
 		select {
 		case event, ok := <-s.watcher.Events:
@@ -143,5 +146,6 @@ func (s *AuthzStore) ListPolicies(email string) (scopes []string, err error) {
 
 func (s *AuthzStore) Close() {
 	close(s.done)
+	s.wg.Wait()
 	close(s.ErrChan)
 }

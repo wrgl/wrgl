@@ -34,6 +34,7 @@ type AuthnStore struct {
 	mutex         sync.Mutex
 	ErrChan       chan error
 	done          chan struct{}
+	wg            sync.WaitGroup
 }
 
 func NewAuthnStore(rd *local.RepoDir, tokenDuration time.Duration) (s *AuthnStore, err error) {
@@ -78,6 +79,8 @@ func (s *AuthnStore) read() error {
 }
 
 func (s *AuthnStore) watch() {
+	s.wg.Add(1)
+	defer s.wg.Done()
 	for {
 		select {
 		case event, ok := <-s.watcher.Events:
@@ -269,5 +272,6 @@ func (s *AuthnStore) InternalState() string {
 
 func (s *AuthnStore) Close() {
 	close(s.done)
+	s.wg.Wait()
 	close(s.ErrChan)
 }
