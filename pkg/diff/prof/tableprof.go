@@ -5,10 +5,26 @@ package diffprof
 
 import "github.com/wrgl/wrgl/pkg/objects"
 
+type diffobj interface {
+	Unchanged() bool
+}
+
 type TableProfileDiff struct {
 	OldRowsCount uint32               `json:"oldRowsCount"`
 	NewRowsCount uint32               `json:"newRowsCount"`
 	Columns      []*ColumnProfileDiff `json:"columns"`
+}
+
+func (d *TableProfileDiff) Unchanged() bool {
+	if d.OldRowsCount != d.NewRowsCount {
+		return false
+	}
+	for _, c := range d.Columns {
+		if !c.Unchanged() {
+			return false
+		}
+	}
+	return true
 }
 
 func columnProfMap(tblProf *objects.TableProfile) map[string]*objects.ColumnProfile {
@@ -23,6 +39,9 @@ func columnProfMap(tblProf *objects.TableProfile) map[string]*objects.ColumnProf
 }
 
 func DiffTableProfiles(newProf, oldProf *objects.TableProfile) *TableProfileDiff {
+	if newProf == nil && oldProf == nil {
+		return nil
+	}
 	result := &TableProfileDiff{}
 	oldColsM := columnProfMap(oldProf)
 	newColsM := columnProfMap(newProf)
@@ -53,6 +72,9 @@ func DiffTableProfiles(newProf, oldProf *objects.TableProfile) *TableProfileDiff
 			cd.CollectStats(newProf, oldProf, nil, col)
 			result.Columns = append(result.Columns, cd)
 		}
+	}
+	if result.Unchanged() {
+		return nil
 	}
 	return result
 }

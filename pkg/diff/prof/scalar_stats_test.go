@@ -31,7 +31,7 @@ func TestUint16Stat(t *testing.T) {
 }
 
 func TestUint32Stat(t *testing.T) {
-	f := uint32StatFactory("NA count", "naCount", func(col *objects.ColumnProfile) uint32 { return col.NACount })
+	f := uint32StatFactory("NA count", "naCount", true, func(col *objects.ColumnProfile) uint32 { return col.NACount })
 	s := f(
 		nil, nil, &objects.ColumnProfile{NACount: 10}, &objects.ColumnProfile{NACount: 20},
 	)
@@ -45,7 +45,10 @@ func TestUint32Stat(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "{\"name\":\"NA count\",\"shortName\":\"naCount\",\"old\":20,\"new\":10}", string(b))
 	assert.Nil(t, f(nil, nil, nil, nil))
-	assert.Nil(t, f(nil, nil, &objects.ColumnProfile{}, &objects.ColumnProfile{}))
+	assert.Equal(t, f(nil, nil, &objects.ColumnProfile{}, &objects.ColumnProfile{}), &Uint32Stat{
+		Name:      "NA count",
+		ShortName: "naCount",
+	})
 }
 
 func floatPtr(v float64) *float64 {

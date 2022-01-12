@@ -20,7 +20,7 @@ var (
 
 func init() {
 	statDiffFactories = []statDiffFactory{
-		uint32StatFactory("NA count", "naCount", func(col *objects.ColumnProfile) uint32 { return col.NACount }),
+		uint32StatFactory("NA count", "naCount", true, func(col *objects.ColumnProfile) uint32 { return col.NACount }),
 		float64StatFactory("Min", "min", func(col *objects.ColumnProfile) *float64 { return col.Min }),
 		float64StatFactory("Max", "max", func(col *objects.ColumnProfile) *float64 { return col.Max }),
 		float64StatFactory("Mean", "mean", func(col *objects.ColumnProfile) *float64 { return col.Mean }),
@@ -40,4 +40,16 @@ func (c *ColumnProfileDiff) CollectStats(newTblSum, oldTblSum *objects.TableProf
 			c.Stats = append(c.Stats, stat)
 		}
 	}
+}
+
+func (c *ColumnProfileDiff) Unchanged() bool {
+	if c.NewAddition || c.Removed {
+		return false
+	}
+	for _, v := range c.Stats {
+		if !v.(diffobj).Unchanged() {
+			return false
+		}
+	}
+	return true
 }

@@ -37,6 +37,12 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 		"2,a,d",
 		"5,z,c",
 	}, []uint32{0}, nil)
+	sum3, com3 := factory.Commit(t, db, []string{
+		"a,b,c",
+		"1,q,w",
+		"2,a,s",
+		"4,z,x",
+	}, []uint32{0}, nil)
 
 	_, err := cli.Diff(testutils.SecureRandomBytes(16), sum2)
 	assertHTTPError(t, err, http.StatusNotFound, "Not Found")
@@ -76,6 +82,12 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 				{
 					Name: "a",
 					Stats: []interface{}{
+						map[string]interface{}{
+							"name":      "NA count",
+							"new":       float64(0),
+							"old":       float64(0),
+							"shortName": "naCount",
+						},
 						map[string]interface{}{
 							"name":      "Min",
 							"new":       float64(1),
@@ -133,6 +145,12 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 					Removed:     false,
 					Stats: []interface{}{
 						map[string]interface{}{
+							"name":      "NA count",
+							"new":       float64(0),
+							"old":       float64(0),
+							"shortName": "naCount",
+						},
+						map[string]interface{}{
 							"name":      "Min length",
 							"new":       float64(1),
 							"old":       float64(1),
@@ -157,6 +175,12 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 					NewAddition: true,
 					Removed:     false,
 					Stats: []interface{}{
+						map[string]interface{}{
+							"name":      "NA count",
+							"new":       float64(0),
+							"old":       float64(0),
+							"shortName": "naCount",
+						},
 						map[string]interface{}{
 							"name":      "Min length",
 							"new":       float64(1),
@@ -183,6 +207,12 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 					Removed:     true,
 					Stats: []interface{}{
 						map[string]interface{}{
+							"name":      "NA count",
+							"new":       float64(0),
+							"old":       float64(0),
+							"shortName": "naCount",
+						},
+						map[string]interface{}{
 							"name":      "Min length",
 							"new":       float64(0),
 							"old":       float64(1),
@@ -204,6 +234,17 @@ func (s *testSuite) TestDiffHandler(t *testing.T) {
 				},
 			},
 		},
+	}, dr)
+
+	dr, err = cli.Diff(sum1, sum3)
+	require.NoError(t, err)
+	assert.Equal(t, &payload.DiffResponse{
+		TableSum:    payload.BytesToHex(com1.Table),
+		OldTableSum: payload.BytesToHex(com3.Table),
+		Columns:     []string{"a", "b", "c"},
+		OldColumns:  []string{"a", "b", "c"},
+		PK:          []uint32{0},
+		OldPK:       []uint32{0},
 	}, dr)
 
 	// pass custom headers

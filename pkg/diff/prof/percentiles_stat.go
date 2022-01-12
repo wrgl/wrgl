@@ -33,6 +33,10 @@ func comparePercentiles(newP, oldP []float64) []*PercentileDiff {
 	return result
 }
 
+func (s *PercentileDiff) Unchanged() bool {
+	return s.Old == s.New
+}
+
 type PercentilesStat struct {
 	Name        string            `json:"name"`
 	ShortName   string            `json:"shortName"`
@@ -65,4 +69,16 @@ func percentilesStatFactory(name, sname string, getField func(col *objects.Colum
 		sd.Values = comparePercentiles(nv, ov)
 		return sd
 	}
+}
+
+func (s *PercentilesStat) Unchanged() bool {
+	if s.NewAddition || s.Removed {
+		return false
+	}
+	for _, v := range s.Values {
+		if !v.Unchanged() {
+			return false
+		}
+	}
+	return true
 }

@@ -16,7 +16,44 @@ func TestDiffTableSummaries(t *testing.T) {
 		oldSum  *objects.TableProfile
 		tblDiff *TableProfileDiff
 	}{
-		{nil, nil, &TableProfileDiff{}},
+		{nil, nil, nil},
+		{
+			&objects.TableProfile{
+				RowsCount: 200,
+				Columns: []*objects.ColumnProfile{
+					{
+						Name:      "A",
+						MinStrLen: 10,
+						MaxStrLen: 20,
+						AvgStrLen: 15,
+					},
+					{
+						Name:      "B",
+						MinStrLen: 1,
+						MaxStrLen: 2,
+						AvgStrLen: 1,
+					},
+				},
+			},
+			&objects.TableProfile{
+				RowsCount: 200,
+				Columns: []*objects.ColumnProfile{
+					{
+						Name:      "A",
+						MinStrLen: 10,
+						MaxStrLen: 20,
+						AvgStrLen: 15,
+					},
+					{
+						Name:      "B",
+						MinStrLen: 1,
+						MaxStrLen: 2,
+						AvgStrLen: 1,
+					},
+				},
+			},
+			nil,
+		},
 		{
 			nil,
 			&objects.TableProfile{
@@ -43,6 +80,10 @@ func TestDiffTableSummaries(t *testing.T) {
 						Name:    "A",
 						Removed: true,
 						Stats: []interface{}{
+							&Uint32Stat{
+								Name:      "NA count",
+								ShortName: "naCount",
+							},
 							&Uint16Stat{
 								Name:      "Min length",
 								ShortName: "minStrLen",
@@ -64,6 +105,10 @@ func TestDiffTableSummaries(t *testing.T) {
 						Name:    "B",
 						Removed: true,
 						Stats: []interface{}{
+							&Uint32Stat{
+								Name:      "NA count",
+								ShortName: "naCount",
+							},
 							&Uint16Stat{
 								Name:      "Min length",
 								ShortName: "minStrLen",
@@ -110,6 +155,10 @@ func TestDiffTableSummaries(t *testing.T) {
 						Name:        "A",
 						NewAddition: true,
 						Stats: []interface{}{
+							&Uint32Stat{
+								Name:      "NA count",
+								ShortName: "naCount",
+							},
 							&Uint16Stat{
 								Name:      "Min length",
 								ShortName: "minStrLen",
@@ -131,6 +180,10 @@ func TestDiffTableSummaries(t *testing.T) {
 						Name:        "B",
 						NewAddition: true,
 						Stats: []interface{}{
+							&Uint32Stat{
+								Name:      "NA count",
+								ShortName: "naCount",
+							},
 							&Uint16Stat{
 								Name:      "Min length",
 								ShortName: "minStrLen",
@@ -194,6 +247,10 @@ func TestDiffTableSummaries(t *testing.T) {
 						Name:        "A",
 						NewAddition: true,
 						Stats: []interface{}{
+							&Uint32Stat{
+								Name:      "NA count",
+								ShortName: "naCount",
+							},
 							&Uint16Stat{
 								Name:      "Min length",
 								ShortName: "minStrLen",
@@ -214,6 +271,10 @@ func TestDiffTableSummaries(t *testing.T) {
 					{
 						Name: "B",
 						Stats: []interface{}{
+							&Uint32Stat{
+								Name:      "NA count",
+								ShortName: "naCount",
+							},
 							&Uint16Stat{
 								Name:      "Min length",
 								ShortName: "minStrLen",
@@ -238,6 +299,10 @@ func TestDiffTableSummaries(t *testing.T) {
 						Name:    "C",
 						Removed: true,
 						Stats: []interface{}{
+							&Uint32Stat{
+								Name:      "NA count",
+								ShortName: "naCount",
+							},
 							&Uint16Stat{
 								Name:      "Min length",
 								ShortName: "minStrLen",

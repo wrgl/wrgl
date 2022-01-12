@@ -35,6 +35,10 @@ func uint16StatFactory(name, sname string, getField func(col *objects.ColumnProf
 	}
 }
 
+func (s *Uint16Stat) Unchanged() bool {
+	return s.Old == s.New
+}
+
 type Uint32Stat struct {
 	Name      string `json:"name"`
 	ShortName string `json:"shortName"`
@@ -42,8 +46,11 @@ type Uint32Stat struct {
 	New       uint32 `json:"new"`
 }
 
-func uint32StatFactory(name, sname string, getField func(col *objects.ColumnProfile) uint32) statDiffFactory {
+func uint32StatFactory(name, sname string, keep bool, getField func(col *objects.ColumnProfile) uint32) statDiffFactory {
 	return func(newTblProf, oldTblProf *objects.TableProfile, newColProf, oldColProf *objects.ColumnProfile) interface{} {
+		if oldColProf == nil && newColProf == nil {
+			return nil
+		}
 		s := &Uint32Stat{
 			Name:      name,
 			ShortName: sname,
@@ -54,11 +61,15 @@ func uint32StatFactory(name, sname string, getField func(col *objects.ColumnProf
 		if newColProf != nil {
 			s.New = getField(newColProf)
 		}
-		if s.Old == 0 && s.New == 0 {
+		if s.Old == 0 && s.New == 0 && !keep {
 			return nil
 		}
 		return s
 	}
+}
+
+func (s *Uint32Stat) Unchanged() bool {
+	return s.Old == s.New
 }
 
 type Float64Stat struct {
@@ -85,4 +96,8 @@ func float64StatFactory(name, sname string, getField func(col *objects.ColumnPro
 		}
 		return s
 	}
+}
+
+func (s *Float64Stat) Unchanged() bool {
+	return (s.Old == nil && s.New == nil) || *s.Old == *s.New
 }

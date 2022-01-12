@@ -51,6 +51,10 @@ func compareValueCounts(newRowsCount, oldRowsCount uint32, newVC, oldVC objects.
 	return result
 }
 
+func (s *ValueCountDiff) Unchanged() bool {
+	return s.OldCount == s.NewCount && s.OldPct == s.NewPct
+}
+
 type TopValuesStat struct {
 	Name        string           `json:"name"`
 	ShortName   string           `json:"shortName"`
@@ -83,4 +87,16 @@ func topValuesStatFactory(name, sname string, getField func(col *objects.ColumnP
 		sd.Values = compareValueCounts(newTblProf.RowsCount, oldTblProf.RowsCount, nv, ov)
 		return sd
 	}
+}
+
+func (s *TopValuesStat) Unchanged() bool {
+	if s.NewAddition || s.Removed {
+		return false
+	}
+	for _, v := range s.Values {
+		if !v.Unchanged() {
+			return false
+		}
+	}
+	return true
 }
