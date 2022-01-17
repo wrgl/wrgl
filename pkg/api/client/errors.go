@@ -48,3 +48,16 @@ func (obj *HTTPError) Error() string {
 	}
 	return fmt.Sprintf("status %d: %s", obj.Code, strings.TrimSpace(string(b)))
 }
+
+type ShallowCommitError struct {
+	CommitSum []byte
+	TableSum  []byte
+}
+
+func NewShallowCommitError(comSum, tblSum []byte) *ShallowCommitError {
+	return &ShallowCommitError{comSum, tblSum}
+}
+
+func (e *ShallowCommitError) Error() string {
+	return fmt.Sprintf("commit %x is shallow", e.CommitSum)
+}

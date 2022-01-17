@@ -23,10 +23,12 @@ type object struct {
 type ObjectSender struct {
 	db              objects.Store
 	commits         *list.List
+	tables          *list.List
 	objs            *list.List
 	commonTables    map[string]struct{}
 	commonBlocks    map[string]struct{}
 	maxPackfileSize uint64
+	buf             *bytes.Buffer
 }
 
 func getCommonTables(db objects.Store, commonCommits [][]byte) (map[string]struct{}, error) {
@@ -45,6 +47,9 @@ func getCommonBlocks(db objects.Store, commonTables map[string]struct{}) (map[st
 	commonBlocks := map[string]struct{}{}
 	for b := range commonTables {
 		t, err := objects.GetTable(db, []byte(b))
+		if err == objects.ErrKeyNotFound {
+			continue
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -55,18 +60,23 @@ func getCommonBlocks(db objects.Store, commonTables map[string]struct{}) (map[st
 	return commonBlocks, nil
 }
 
-func NewObjectSender(db objects.Store, toSend []*objects.Commit, commonCommits [][]byte, maxPackfileSize uint64) (s *ObjectSender, err error) {
+func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend [][]byte, commonCommits [][]byte, maxPackfileSize uint64) (s *ObjectSender, err error) {
 	if maxPackfileSize == 0 {
 		maxPackfileSize = defaultMaxPackfileSize
 	}
 	s = &ObjectSender{
 		db:              db,
 		commits:         list.New(),
+		tables:          list.New(),
 		objs:            list.New(),
+		buf:             bytes.NewBuffer(nil),
 		maxPackfileSize: maxPackfileSize,
 	}
 	for _, com := range toSend {
 		s.commits.PushBack(com)
+	}
+	for _, sum := range tablesToSend {
+		s.tables.PushBack(sum)
 	}
 	s.commonTables, err = getCommonTables(db, commonCommits)
 	if err != nil {
@@ -76,47 +86,64 @@ func NewObjectSender(db objects.Store, toSend []*objects.Commit, commonCommits [
 	if err != nil {
 		return nil, err
 	}
-	err = s.enqueueFrontCommit()
+	err = s.enqueueFrontTable()
 	if err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *ObjectSender) enqueueFrontCommit() (err error) {
-	if s.commits.Len() == 0 {
-		return
+func (s *ObjectSender) enqueueFrontTable() (err error) {
+	var sum []byte
+	for s.tables.Len() > 0 {
+		sum = s.tables.Remove(s.tables.Front()).([]byte)
+		if _, ok := s.commonTables[string(sum)]; !ok {
+			s.commonTables[string(sum)] = struct{}{}
+			break
+		} else {
+			sum = nil
+		}
 	}
-	com := s.commits.Remove(s.commits.Front()).(*objects.Commit)
-	buf := bytes.NewBuffer(nil)
-
-	if _, ok := s.commonTables[string(com.Table)]; !ok {
-		tbl, err := objects.GetTable(s.db, com.Table)
-		if err != nil {
-			return err
-		}
-		s.commonTables[string(com.Table)] = struct{}{}
-		for _, blk := range tbl.Blocks {
-			if _, ok := s.commonBlocks[string(blk)]; !ok {
-				s.objs.PushBack(object{Type: packfile.ObjectBlock, Sum: blk})
-				s.commonBlocks[string(blk)] = struct{}{}
-			}
-		}
-		_, err = tbl.WriteTo(buf)
-		if err != nil {
-			return err
-		}
-		b := make([]byte, buf.Len())
-		copy(b, buf.Bytes())
-		s.objs.PushBack(object{Type: packfile.ObjectTable, Content: b})
-		buf.Reset()
+	if sum == nil {
+		return nil
 	}
-
-	_, err = com.WriteTo(buf)
+	tbl, err := objects.GetTable(s.db, sum)
+	if err == objects.ErrKeyNotFound {
+		return nil
+	}
 	if err != nil {
 		return
 	}
-	s.objs.PushBack(object{Type: packfile.ObjectCommit, Content: buf.Bytes()})
+	for _, blk := range tbl.Blocks {
+		if _, ok := s.commonBlocks[string(blk)]; !ok {
+			s.objs.PushBack(object{Type: packfile.ObjectBlock, Sum: blk})
+			s.commonBlocks[string(blk)] = struct{}{}
+		}
+	}
+	s.buf.Reset()
+	_, err = tbl.WriteTo(s.buf)
+	if err != nil {
+		return
+	}
+	b := make([]byte, s.buf.Len())
+	copy(b, s.buf.Bytes())
+	s.objs.PushBack(object{Type: packfile.ObjectTable, Content: b})
+
+	return nil
+}
+
+func (s *ObjectSender) enqueueAllCommits() (err error) {
+	for s.commits.Len() > 0 {
+		com := s.commits.Remove(s.commits.Front()).(*objects.Commit)
+		s.buf.Reset()
+		_, err = com.WriteTo(s.buf)
+		if err != nil {
+			return
+		}
+		b := make([]byte, s.buf.Len())
+		copy(b, s.buf.Bytes())
+		s.objs.PushBack(object{Type: packfile.ObjectCommit, Content: b})
+	}
 	return nil
 }
 
@@ -144,9 +171,14 @@ func (s *ObjectSender) WriteObjects(w io.Writer) (done bool, err error) {
 		}
 		size += uint64(n)
 		if s.objs.Len() == 0 {
-			err = s.enqueueFrontCommit()
-			if err != nil {
-				return
+			if s.tables.Len() > 0 {
+				if err = s.enqueueFrontTable(); err != nil {
+					return
+				}
+			} else if s.commits.Len() > 0 {
+				if err = s.enqueueAllCommits(); err != nil {
+					return
+				}
 			}
 		}
 		if size >= s.maxPackfileSize {

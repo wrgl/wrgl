@@ -39,7 +39,7 @@ func AssertCommitEqual(t *testing.T, a, b *objects.Commit) {
 
 func AssertCommitsEqual(t *testing.T, sla, slb []*objects.Commit, ignoreOrder bool) {
 	t.Helper()
-	require.Equal(t, len(sla), len(slb))
+	require.Equal(t, len(sla), len(slb), "number of commits does not match")
 	if ignoreOrder {
 		sortedCopy := func(obj []*objects.Commit) []*objects.Commit {
 			sl := make([]*objects.Commit, len(obj))

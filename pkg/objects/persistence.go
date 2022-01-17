@@ -167,6 +167,7 @@ func GetCommit(s Store, sum []byte) (*Commit, error) {
 		return nil, err
 	}
 	_, com, err := ReadCommitFrom(bytes.NewReader(b))
+	com.Sum = sum
 	return com, err
 }
 

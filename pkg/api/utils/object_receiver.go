@@ -68,9 +68,6 @@ func (r *ObjectReceiver) saveCommit(b []byte) (err error) {
 	if err != nil {
 		return
 	}
-	if !objects.TableExist(r.db, com.Table) {
-		return fmt.Errorf("table %x does not exist", com.Table)
-	}
 	for _, parent := range com.Parents {
 		if !objects.CommitExist(r.db, parent) {
 			return fmt.Errorf("parent commit %x does not exist", parent)

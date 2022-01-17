@@ -4,14 +4,13 @@
 package apiutils_test
 
 import (
-	"bytes"
 	"encoding/hex"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
+	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objhelpers "github.com/wrgl/wrgl/pkg/objects/helpers"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
@@ -21,72 +20,56 @@ import (
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
-func assertSumsEqual(t *testing.T, a, b [][]byte, ignoreOrder bool) {
-	if ignoreOrder {
-		sl := make([][]byte, len(a))
-		copy(sl, a)
-		a = sl
-		sort.Slice(a, func(i, j int) bool {
-			return bytes.Compare(a[i], a[j]) == -1
-		})
-		sl = make([][]byte, len(b))
-		copy(sl, b)
-		b = sl
-		sort.Slice(b, func(i, j int) bool {
-			return bytes.Compare(b[i], b[j]) == -1
-		})
-	}
-	assert.Equal(t, a, b)
-}
-
 func TestClosedSetsFinder(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
-	sum1, c1 := refhelpers.SaveTestCommit(t, db, nil)
-	sum2, c2 := refhelpers.SaveTestCommit(t, db, nil)
-	sum3, c3 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
-	sum4, c4 := refhelpers.SaveTestCommit(t, db, [][]byte{sum2})
-	sum5, c5 := refhelpers.SaveTestCommit(t, db, [][]byte{sum3})
-	sum6, c6 := refhelpers.SaveTestCommit(t, db, [][]byte{sum4})
+	sum1, c1 := factory.CommitRandom(t, db, nil)
+	sum2, c2 := factory.CommitRandom(t, db, nil)
+	sum3, c3 := factory.CommitRandom(t, db, [][]byte{sum1})
+	sum4, c4 := factory.CommitRandom(t, db, [][]byte{sum2})
+	sum5, c5 := factory.CommitRandom(t, db, [][]byte{sum3})
+	sum6, c6 := factory.CommitRandom(t, db, [][]byte{sum4})
 	require.NoError(t, ref.CommitHead(rs, "main", sum5, c5))
 	require.NoError(t, ref.SaveTag(rs, "v1", sum6))
 
 	// send everything if haves are empty
-	finder := apiutils.NewClosedSetsFinder(db, rs)
+	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
 	acks, err := finder.Process([][]byte{sum5, sum6}, nil, false)
 	require.NoError(t, err)
 	assert.Empty(t, acks)
 	assert.Equal(t, [][]byte{}, finder.CommonCommmits())
 	commits := finder.CommitsToSend()
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c2, c1, c3, c4, c5, c6}, commits, true)
+	testutils.AssertBytesEqual(t, [][]byte{c2.Table, c1.Table, c3.Table, c4.Table, c5.Table, c6.Table}, finder.TablesToSend(), true)
 
 	// send only necessary commits
-	finder = apiutils.NewClosedSetsFinder(db, rs)
+	finder = apiutils.NewClosedSetsFinder(db, rs, 0)
 	acks, err = finder.Process([][]byte{sum3, sum4}, [][]byte{sum1, sum2}, false)
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1, sum2}, acks)
-	assertSumsEqual(t, [][]byte{sum1, sum2}, finder.CommonCommmits(), true)
+	testutils.AssertBytesEqual(t, [][]byte{sum1, sum2}, finder.CommonCommmits(), true)
 	commits = finder.CommitsToSend()
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c3, c4}, commits, true)
+	testutils.AssertBytesEqual(t, [][]byte{c3.Table, c4.Table}, finder.TablesToSend(), true)
 }
 
 func TestClosedSetsFinderACKs(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
-	sum1, _ := refhelpers.SaveTestCommit(t, db, nil)
-	sum2, _ := refhelpers.SaveTestCommit(t, db, nil)
-	sum3, _ := refhelpers.SaveTestCommit(t, db, nil)
-	sum4, c4 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
-	sum5, c5 := refhelpers.SaveTestCommit(t, db, [][]byte{sum2, sum3})
-	sum6, c6 := refhelpers.SaveTestCommit(t, db, [][]byte{sum4})
-	sum7, c7 := refhelpers.SaveTestCommit(t, db, [][]byte{sum5})
-	sum8, c8 := refhelpers.SaveTestCommit(t, db, nil)
-	sum9, c9 := refhelpers.SaveTestCommit(t, db, [][]byte{sum8})
+	sum1, _ := factory.CommitRandom(t, db, nil)
+	sum2, _ := factory.CommitRandom(t, db, nil)
+	sum3, _ := factory.CommitRandom(t, db, nil)
+	sum4, c4 := factory.CommitRandom(t, db, [][]byte{sum1})
+	sum5, c5 := factory.CommitRandom(t, db, [][]byte{sum2, sum3})
+	sum6, c6 := factory.CommitRandom(t, db, [][]byte{sum4})
+	sum7, c7 := factory.CommitRandom(t, db, [][]byte{sum5})
+	sum8, c8 := factory.CommitRandom(t, db, nil)
+	sum9, c9 := factory.CommitRandom(t, db, [][]byte{sum8})
 	require.NoError(t, ref.CommitHead(rs, "alpha", sum6, c6))
 	require.NoError(t, ref.SaveTag(rs, "v1", sum7))
 	require.NoError(t, ref.CommitHead(rs, "beta", sum9, c9))
 
-	finder := apiutils.NewClosedSetsFinder(db, rs)
+	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
 	acks, err := finder.Process([][]byte{sum6, sum7, sum9}, [][]byte{sum1}, false)
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1}, acks)
@@ -101,16 +84,49 @@ func TestClosedSetsFinderACKs(t *testing.T) {
 
 	commits := finder.CommitsToSend()
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c4, c5, c6, c7, c8, c9}, commits, true)
+	testutils.AssertBytesEqual(t, [][]byte{c4.Table, c5.Table, c6.Table, c7.Table, c8.Table, c9.Table}, finder.TablesToSend(), true)
 }
 
 func TestClosedSetsFinderUnrecognizedWants(t *testing.T) {
 	db := objmock.NewStore()
 	rs := refmock.NewStore()
-	sum1, _ := refhelpers.SaveTestCommit(t, db, nil)
-	sum2, c2 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
+	sum1, _ := factory.CommitRandom(t, db, nil)
+	sum2, c2 := factory.CommitRandom(t, db, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2))
-	sum3 := testutils.SecureRandomBytes(16)
-	finder := apiutils.NewClosedSetsFinder(db, rs)
-	_, err := finder.Process([][]byte{sum3}, [][]byte{sum1}, false)
+	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
+
+	sum3, _ := refhelpers.SaveTestCommit(t, db, [][]byte{sum2})
+	_, err := finder.Process([][]byte{sum3}, [][]byte{sum2}, false)
 	assert.Error(t, err, "unrecognized wants: "+hex.EncodeToString(sum3))
+
+	sum4 := testutils.SecureRandomBytes(16)
+	_, err = finder.Process([][]byte{sum4}, [][]byte{sum1}, false)
+	assert.Error(t, err, "unrecognized wants: "+hex.EncodeToString(sum4))
+}
+
+func TestClosedSetsFinderDepth(t *testing.T) {
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	sum1, c1 := factory.CommitRandom(t, db, nil)
+	sum2, c2 := factory.CommitRandom(t, db, [][]byte{sum1})
+	sum3, c3 := factory.CommitRandom(t, db, [][]byte{sum2})
+	sum4, c4 := factory.CommitRandom(t, db, [][]byte{sum3})
+	sum5, c5 := factory.CommitRandom(t, db, nil)
+	sum6, c6 := factory.CommitRandom(t, db, [][]byte{sum4, sum5})
+	require.NoError(t, ref.CommitHead(rs, "main", sum6, c6))
+
+	finder := apiutils.NewClosedSetsFinder(db, rs, 2)
+	acks, err := finder.Process([][]byte{sum4}, nil, true)
+	require.NoError(t, err)
+	assert.Nil(t, acks)
+	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c1, c2, c3, c4}, finder.CommitsToSend(), true)
+	testutils.AssertBytesEqual(t, [][]byte{c3.Table, c4.Table}, finder.TablesToSend(), true)
+
+	finder = apiutils.NewClosedSetsFinder(db, rs, 3)
+	acks, err = finder.Process([][]byte{sum6}, [][]byte{sum1}, true)
+	require.NoError(t, err)
+	assert.Equal(t, [][]byte{sum1}, acks)
+	assert.Equal(t, [][]byte{sum1}, finder.CommonCommmits())
+	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c6, c5, c4, c3, c2}, finder.CommitsToSend(), true)
+	testutils.AssertBytesEqual(t, [][]byte{c6.Table, c5.Table, c4.Table, c3.Table}, finder.TablesToSend(), true)
 }

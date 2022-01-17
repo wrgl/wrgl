@@ -35,6 +35,7 @@ func (s *testSuite) TestGetHead(t *testing.T) {
 		Columns:   tbl.Columns,
 		RowsCount: tbl.RowsCount,
 		PK:        tbl.PK,
+		Exist:     true,
 	}, cr.Table)
 	assert.Equal(t, sum, cr.Sum[:])
 	assert.Equal(t, com.AuthorName, cr.AuthorName)

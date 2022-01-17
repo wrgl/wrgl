@@ -13,6 +13,7 @@ import (
 )
 
 type Commit struct {
+	Sum         []byte
 	Table       []byte
 	AuthorName  string
 	AuthorEmail string

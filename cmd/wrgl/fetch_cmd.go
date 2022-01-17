@@ -336,7 +336,7 @@ func saveFetchedRefs(
 }
 
 func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *apiclient.Client, advertised [][]byte) (fetchedCommits [][]byte, err error) {
-	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised, 0)
+	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised, 0, 0)
 	if err != nil {
 		if err.Error() == "nothing wanted" {
 			err = nil

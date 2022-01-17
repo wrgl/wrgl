@@ -62,9 +62,9 @@ func (h *GZIPAwareHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	h.Handler.ServeHTTP(rw, r)
 }
 
-func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, advertised [][]byte, havesPerRoundTrip int, opts ...apiclient.RequestOption) [][]byte {
+func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, advertised [][]byte, havesPerRoundTrip, depth int, opts ...apiclient.RequestOption) [][]byte {
 	t.Helper()
-	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip, opts...)
+	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip, depth, opts...)
 	require.NoError(t, err)
 	commits, err := ses.Start()
 	require.NoError(t, err)
@@ -115,20 +115,51 @@ func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byt
 	}
 }
 
+func AssertTableNotPersisted(t *testing.T, db objects.Store, table []byte) {
+	t.Helper()
+	assert.False(t, objects.TableExist(db, table))
+}
+
+func AssertTablePersisted(t *testing.T, db objects.Store, table []byte) {
+	t.Helper()
+	tbl, err := objects.GetTable(db, table)
+	require.NoError(t, err, "table %x not found", table)
+	for _, blk := range tbl.Blocks {
+		assert.True(t, objects.BlockExist(db, blk), "block %x not found", blk)
+	}
+	_, err = objects.GetTableIndex(db, table)
+	require.NoError(t, err)
+	_, err = objects.GetTableProfile(db, table)
+	require.NoError(t, err)
+}
+
+func AssertTablesNotPersisted(t *testing.T, db objects.Store, tables [][]byte) {
+	t.Helper()
+	for _, sum := range tables {
+		AssertTableNotPersisted(t, db, sum)
+	}
+}
+
+func AssertTablesPersisted(t *testing.T, db objects.Store, tables [][]byte) {
+	t.Helper()
+	for _, sum := range tables {
+		AssertTablePersisted(t, db, sum)
+	}
+}
+
 func AssertCommitsPersisted(t *testing.T, db objects.Store, commits [][]byte) {
 	t.Helper()
 	for _, sum := range commits {
 		c, err := objects.GetCommit(db, sum)
 		require.NoError(t, err, "commit %x not found", sum)
-		tbl, err := objects.GetTable(db, c.Table)
-		require.NoError(t, err, "table %x not found", c.Table)
-		for _, blk := range tbl.Blocks {
-			assert.True(t, objects.BlockExist(db, blk), "block %x not found", blk)
-		}
-		_, err = objects.GetTableIndex(db, c.Table)
-		require.NoError(t, err)
-		_, err = objects.GetTableProfile(db, c.Table)
-		require.NoError(t, err)
+		AssertTablePersisted(t, db, c.Table)
+	}
+}
+
+func AssertCommitsShallowlyPersisted(t *testing.T, db objects.Store, commits [][]byte) {
+	t.Helper()
+	for _, sum := range commits {
+		assert.True(t, objects.CommitExist(db, sum))
 	}
 }
 

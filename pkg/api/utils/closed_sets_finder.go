@@ -15,20 +15,23 @@ import (
 // A set of commits is closed if all ancestors already exist
 // in destination repository.
 type ClosedSetsFinder struct {
-	db      objects.Store
-	rs      ref.Store
-	commons map[string]struct{}
-	acks    [][]byte
-	Wants   map[string]struct{}
-	lists   []*list.List
+	db            objects.Store
+	rs            ref.Store
+	commons       map[string]struct{}
+	acks          [][]byte
+	Wants         map[string]struct{}
+	commitLists   []*list.List
+	tableSumLists []*list.List
+	depth         int
 }
 
-func NewClosedSetsFinder(db objects.Store, rs ref.Store) *ClosedSetsFinder {
+func NewClosedSetsFinder(db objects.Store, rs ref.Store, depth int) *ClosedSetsFinder {
 	return &ClosedSetsFinder{
 		db:      db,
 		rs:      rs,
 		commons: map[string]struct{}{},
 		Wants:   map[string]struct{}{},
+		depth:   depth,
 	}
 }
 
@@ -41,7 +44,7 @@ func (f *ClosedSetsFinder) CommonCommmits() [][]byte {
 }
 
 func (f *ClosedSetsFinder) CommitsToSend() (commits []*objects.Commit) {
-	for _, l := range f.lists {
+	for _, l := range f.commitLists {
 		e := l.Front()
 		for e != nil {
 			commits = append(commits, e.Value.(*objects.Commit))
@@ -51,21 +54,51 @@ func (f *ClosedSetsFinder) CommitsToSend() (commits []*objects.Commit) {
 	return
 }
 
+func (f *ClosedSetsFinder) TablesToSend() (tableSums [][]byte) {
+	for _, l := range f.tableSumLists {
+		e := l.Front()
+		for e != nil {
+			tableSums = append(tableSums, e.Value.([]byte))
+			e = e.Next()
+		}
+	}
+	return
+}
+
+func (f *ClosedSetsFinder) isFullCommit(com *objects.Commit, sum []byte) (ok bool, err error) {
+	if com == nil {
+		com, err = objects.GetCommit(f.db, sum)
+		if err != nil {
+			return
+		}
+	}
+	return objects.TableExist(f.db, com.Table), nil
+}
+
 func (f *ClosedSetsFinder) ensureWantsAreReachable(queue *ref.CommitsQueue, wants [][]byte) error {
 	confirmed := map[string]struct{}{}
 	for _, want := range wants {
 		if queue.Seen(want) {
-			confirmed[string(want)] = struct{}{}
+			if ok, err := f.isFullCommit(nil, want); err != nil {
+				return err
+			} else if ok {
+				confirmed[string(want)] = struct{}{}
+			}
 			continue
 		}
-		_, _, err := queue.PopUntil(want)
+		_, com, err := queue.PopUntil(want)
+		if err != nil && err != io.EOF {
+			return err
+		} else if com != nil {
+			if ok, err := f.isFullCommit(com, nil); err != nil {
+				return err
+			} else if ok {
+				confirmed[string(want)] = struct{}{}
+			}
+		}
 		if err == io.EOF {
 			break
 		}
-		if err != nil {
-			return err
-		}
-		confirmed[string(want)] = struct{}{}
 	}
 	if len(confirmed) == len(wants) {
 		return nil
@@ -89,10 +122,9 @@ func (f *ClosedSetsFinder) findCommons(queue *ref.CommitsQueue, haves [][]byte) 
 		commons = append(commons, b)
 		q := list.New()
 		q.PushBack(b)
+		// ensure all ancestors of b ends up in ancestors map
 		for q.Len() > 0 {
-			e := q.Front()
-			q.Remove(e)
-			sum := e.Value.([]byte)
+			sum := q.Remove(q.Front()).([]byte)
 			if _, ok := ancestors[string(sum)]; ok {
 				continue
 			}
@@ -133,46 +165,51 @@ func (f *ClosedSetsFinder) findCommons(queue *ref.CommitsQueue, haves [][]byte) 
 	return commons, nil
 }
 
+type commitDepth struct {
+	sum   []byte
+	depth int
+}
+
 func (f *ClosedSetsFinder) findClosedSetOfObjects(done bool) (err error) {
 	alreadySeenCommits := map[string]struct{}{}
 	wants := map[string]struct{}{}
 wantsLoop:
 	for want := range f.Wants {
-		l := list.New()
+		commitList := list.New()
+		tableList := list.New()
 		q := list.New()
-		q.PushBack([]byte(want))
+		q.PushBack(commitDepth{[]byte(want), 0})
 		sums := [][]byte{}
 		for q.Len() > 0 {
-			e := q.Front()
-			q.Remove(e)
-			sum := e.Value.([]byte)
-			sums = append(sums, sum)
-			if _, ok := alreadySeenCommits[string(sum)]; ok {
+			cd := q.Remove(q.Front()).(commitDepth)
+			sums = append(sums, cd.sum)
+			if _, ok := alreadySeenCommits[string(cd.sum)]; ok {
 				continue
 			}
-			if _, ok := f.commons[string(sum)]; ok {
+			if _, ok := f.commons[string(cd.sum)]; ok {
 				continue
 			}
-			c, err := objects.GetCommit(f.db, sum)
+			c, err := objects.GetCommit(f.db, cd.sum)
 			if err != nil {
 				return err
 			}
-			l.PushFront(c)
+			commitList.PushFront(c)
+			if f.depth == 0 || cd.depth < f.depth {
+				tableList.PushFront(c.Table)
+			}
 			// reached a root commit but still haven't seen anything in common
-			if len(c.Parents) == 0 {
-				// if there's nothing in common then everything including the root should be sent
-				if len(f.commons) == 0 || done {
-					break
-				}
+			if len(c.Parents) == 0 && len(f.commons) > 0 && !done {
+				// preserve want for the next time findClosedSetOfObjects is called
 				wants[string(want)] = struct{}{}
 				continue wantsLoop
 			}
 			for _, p := range c.Parents {
-				q.PushBack(p)
+				q.PushBack(commitDepth{p, cd.depth + 1})
 			}
 		}
 		// queue is exhausted mean everything is reachable from commons
-		f.lists = append(f.lists, l)
+		f.commitLists = append(f.commitLists, commitList)
+		f.tableSumLists = append(f.tableSumLists, tableList)
 		for _, sum := range sums {
 			alreadySeenCommits[string(sum)] = struct{}{}
 		}

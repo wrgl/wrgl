@@ -26,7 +26,7 @@ func TestObjectSender(t *testing.T) {
 	sum2, c2 := apitest.CreateRandomCommit(t, db1, 5, 700, [][]byte{sum1})
 	sum3, c3 := apitest.CreateRandomCommit(t, db1, 5, 700, [][]byte{sum2})
 
-	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c2, c3}, [][]byte{sum1}, uint64(10*1024))
+	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c2, c3}, [][]byte{c2.Table, c3.Table}, [][]byte{sum1}, uint64(10*1024))
 	require.NoError(t, err)
 	r := apiutils.NewObjectReceiver(db2, [][]byte{sum3}, nil)
 

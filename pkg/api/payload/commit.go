@@ -12,6 +12,7 @@ type Table struct {
 	Columns   []string `json:"columns,omitempty"`
 	PK        []uint32 `json:"pk,omitempty"`
 	RowsCount uint32   `json:"rowsCount,omitempty"`
+	Exist     bool     `json:"exist"`
 }
 
 type Commit struct {

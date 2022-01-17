@@ -39,12 +39,18 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 	for _, sum := range remoteRefs {
 		haves = append(haves, sum)
 	}
-	finder := apiutils.NewClosedSetsFinder(db, rs)
+	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
 	_, err := finder.Process(wants, haves, true)
 	if err != nil {
 		return nil, err
 	}
-	sender, err := apiutils.NewObjectSender(db, finder.CommitsToSend(), finder.CommonCommmits(), maxPackfileSize)
+	coms := finder.CommitsToSend()
+	for _, com := range coms {
+		if !objects.TableExist(db, com.Table) {
+			return nil, NewShallowCommitError(com.Sum, com.Table)
+		}
+	}
+	sender, err := apiutils.NewObjectSender(db, coms, finder.TablesToSend(), finder.CommonCommmits(), maxPackfileSize)
 	if err != nil {
 		return nil, err
 	}

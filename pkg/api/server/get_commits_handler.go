@@ -28,13 +28,14 @@ func getQueryInt(query url.Values, key string, initial int) (res int, err error)
 	return
 }
 
-func CommitPayload(com *objects.Commit) *payload.Commit {
+func CommitPayload(db objects.Store, com *objects.Commit) *payload.Commit {
 	obj := &payload.Commit{
 		AuthorName:  com.AuthorName,
 		AuthorEmail: com.AuthorEmail,
 		Message:     com.Message,
 		Table: &payload.Table{
-			Sum: payload.BytesToHex(com.Table),
+			Sum:   payload.BytesToHex(com.Table),
+			Exist: objects.TableExist(db, com.Table),
 		},
 		Time: com.Time,
 	}
@@ -51,7 +52,7 @@ func getCommitTree(db objects.Store, sum []byte, maxDepth int) (*payload.Commit,
 	if err != nil {
 		return nil, err
 	}
-	obj := CommitPayload(com)
+	obj := CommitPayload(db, com)
 	commits = append(commits, obj)
 	result[hex.EncodeToString(sum)] = obj
 
@@ -63,7 +64,7 @@ func getCommitTree(db objects.Store, sum []byte, maxDepth int) (*payload.Commit,
 				if err != nil {
 					return nil, err
 				}
-				obj := CommitPayload(parent)
+				obj := CommitPayload(db, parent)
 				if com.ParentCommits == nil {
 					com.ParentCommits = map[string]*payload.Commit{}
 				}

@@ -38,6 +38,7 @@ type UploadPackSession struct {
 	finder          *apiutils.ClosedSetsFinder
 	sender          *apiutils.ObjectSender
 	state           stateFn
+	rs              ref.Store
 	maxPackfileSize uint64
 }
 
@@ -45,7 +46,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, id uuid.UUID, maxPackf
 	s := &UploadPackSession{
 		db:              db,
 		id:              id,
-		finder:          apiutils.NewClosedSetsFinder(db, rs),
+		rs:              rs,
 		maxPackfileSize: maxPackfileSize,
 	}
 	s.state = s.greet
@@ -79,7 +80,7 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, r *http.Request, ac
 func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	var err error
 	if s.sender == nil {
-		s.sender, err = apiutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.finder.CommonCommmits(), s.maxPackfileSize)
+		s.sender, err = apiutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.finder.TablesToSend(), s.finder.CommonCommmits(), s.maxPackfileSize)
 		if err != nil {
 			panic(err)
 		}
@@ -131,6 +132,7 @@ func (s *UploadPackSession) greet(rw http.ResponseWriter, r *http.Request) (next
 	if err != nil {
 		panic(err)
 	}
+	s.finder = apiutils.NewClosedSetsFinder(s.db, s.rs, req.Depth)
 	if len(req.Wants) == 0 {
 		sendError(rw, http.StatusBadRequest, "empty wants list")
 		return nil

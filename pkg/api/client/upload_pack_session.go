@@ -23,10 +23,11 @@ type UploadPackSession struct {
 	q                 *ref.CommitsQueue
 	popCount          int
 	havesPerRoundTrip int
+	depth             int
 	opts              []RequestOption
 }
 
-func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised [][]byte, havesPerRoundTrip int, opts ...RequestOption) (*UploadPackSession, error) {
+func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised [][]byte, havesPerRoundTrip, depth int, opts ...RequestOption) (*UploadPackSession, error) {
 	if havesPerRoundTrip == 0 {
 		havesPerRoundTrip = defaultHavesPerRoundTrip
 	}
@@ -35,6 +36,7 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, c *Client, advertised 
 		db:                db,
 		rs:                rs,
 		havesPerRoundTrip: havesPerRoundTrip,
+		depth:             depth,
 		opts:              opts,
 	}
 	for _, b := range advertised {
@@ -64,8 +66,8 @@ func (n *UploadPackSession) popHaves() (haves [][]byte, done bool, err error) {
 			return nil, false, err
 		}
 	}
-	for i := 0; i < n.havesPerRoundTrip; i++ {
-		sum, _, err := n.q.PopInsertParents()
+	for i := 0; i < n.havesPerRoundTrip; {
+		sum, com, err := n.q.PopInsertParents()
 		if err == io.EOF {
 			done = true
 			break
@@ -73,8 +75,11 @@ func (n *UploadPackSession) popHaves() (haves [][]byte, done bool, err error) {
 		if err != nil {
 			return nil, false, err
 		}
-		haves = append(haves, sum)
-		n.popCount++
+		if objects.TableExist(n.db, com.Table) {
+			haves = append(haves, sum)
+			n.popCount++
+			i++
+		}
 	}
 	if n.popCount >= 256 {
 		done = true
@@ -88,7 +93,7 @@ func (n *UploadPackSession) Start() ([][]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		acks, pr, err := n.c.PostUploadPack(n.wants, haves, done, n.opts...)
+		acks, pr, err := n.c.PostUploadPack(n.wants, haves, done, n.depth, n.opts...)
 		if err != nil {
 			return nil, err
 		}

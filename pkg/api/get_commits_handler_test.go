@@ -58,15 +58,15 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 
 	gcr, err := cli.GetCommits("heads/main", 0)
 	require.NoError(t, err)
-	assertCommitTreeEqual(t, apiserver.CommitPayload(com7), &gcr.Root)
+	assertCommitTreeEqual(t, apiserver.CommitPayload(db, com7), &gcr.Root)
 
 	gcr, err = cli.GetCommits("heads/main", 1)
 	require.NoError(t, err)
 	assert.Equal(t, sum7, (*gcr.Sum)[:])
 	assertCommitTreeEqual(t,
-		setParentCommits(apiserver.CommitPayload(com7), map[string]*payload.Commit{
-			hex.EncodeToString(sum5): apiserver.CommitPayload(com5),
-			hex.EncodeToString(sum6): apiserver.CommitPayload(com6),
+		setParentCommits(apiserver.CommitPayload(db, com7), map[string]*payload.Commit{
+			hex.EncodeToString(sum5): apiserver.CommitPayload(db, com5),
+			hex.EncodeToString(sum6): apiserver.CommitPayload(db, com6),
 		}),
 		&gcr.Root,
 	)
@@ -75,11 +75,11 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, sum4, (*gcr.Sum)[:])
 	assertCommitTreeEqual(t,
-		setParentCommits(apiserver.CommitPayload(com4), map[string]*payload.Commit{
-			hex.EncodeToString(sum2): setParentCommits(apiserver.CommitPayload(com2), map[string]*payload.Commit{
-				hex.EncodeToString(sum1): apiserver.CommitPayload(com1),
+		setParentCommits(apiserver.CommitPayload(db, com4), map[string]*payload.Commit{
+			hex.EncodeToString(sum2): setParentCommits(apiserver.CommitPayload(db, com2), map[string]*payload.Commit{
+				hex.EncodeToString(sum1): apiserver.CommitPayload(db, com1),
 			}),
-			hex.EncodeToString(sum3): apiserver.CommitPayload(com3),
+			hex.EncodeToString(sum3): apiserver.CommitPayload(db, com3),
 		}),
 		&gcr.Root,
 	)

@@ -521,7 +521,7 @@ func (c *Client) GetTable(sum []byte, opts ...RequestOption) (tr *payload.GetTab
 	return tr, nil
 }
 
-func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool, depth int, opts ...RequestOption) (resp *http.Response, err error) {
 	req := &payload.UploadPackRequest{}
 	for _, want := range wants {
 		req.Wants = payload.AppendHex(req.Wants, want)
@@ -530,6 +530,7 @@ func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool, opts ..
 		req.Haves = payload.AppendHex(req.Haves, have)
 	}
 	req.Done = done
+	req.Depth = depth
 	b, err := json.Marshal(req)
 	if err != nil {
 		return
@@ -556,8 +557,8 @@ func parseUploadPackResult(r io.ReadCloser) (acks [][]byte, err error) {
 	return
 }
 
-func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, opts ...RequestOption) (acks [][]byte, pr *packfile.PackfileReader, err error) {
-	resp, err := c.sendUploadPackRequest(wants, haves, done, opts...)
+func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, depth int, opts ...RequestOption) (acks [][]byte, pr *packfile.PackfileReader, err error) {
+	resp, err := c.sendUploadPackRequest(wants, haves, done, depth, opts...)
 	if err != nil {
 		return
 	}

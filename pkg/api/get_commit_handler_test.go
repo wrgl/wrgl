@@ -14,6 +14,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
+	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
@@ -38,6 +39,7 @@ func (s *testSuite) TestGetCommitHandler(t *testing.T) {
 		Columns:   tbl.Columns,
 		RowsCount: tbl.RowsCount,
 		PK:        tbl.PK,
+		Exist:     true,
 	}, cr.Table)
 	assert.Equal(t, sum, cr.Sum[:])
 	assert.Equal(t, com.AuthorName, cr.AuthorName)
@@ -73,4 +75,16 @@ func (s *testSuite) TestGetCommitHandler(t *testing.T) {
 		assert.NotEmpty(t, tr)
 	})
 	assert.Equal(t, "456", req.Header.Get("Custom-Header"))
+}
+
+func (s *testSuite) TestGetShallowCommit(t *testing.T) {
+	repo, cli, _, cleanup := s.s.NewClient(t, true, "", nil)
+	defer cleanup()
+	db := s.s.GetDB(repo)
+	sum1, c1 := refhelpers.SaveTestCommit(t, db, nil)
+	cr, err := cli.GetCommit(sum1)
+	require.NoError(t, err)
+	assert.Equal(t, &payload.Table{
+		Sum: payload.BytesToHex(c1.Table),
+	}, cr.Table)
 }

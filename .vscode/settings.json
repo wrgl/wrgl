@@ -9,5 +9,5 @@
       ]
     }
   }
-  // "go.testFlags": ["-run", "//CookieAuthentication"]
+  // "go.testFlags": ["-run", "//ReceivePackRejectsShallowCommits"]
 }

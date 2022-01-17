@@ -194,3 +194,20 @@ func (s *testSuite) TestReceivePackHandlerCustomHeader(t *testing.T) {
 	})
 	assert.Equal(t, "qwe", req.Header.Get("Custom-Header"))
 }
+
+func (s *testSuite) TestReceivePackRejectsShallowCommits(t *testing.T) {
+	repo, cli, _, cleanup := s.s.NewClient(t, true, "", nil)
+	defer cleanup()
+	// db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
+	remoteRefs, err := ref.ListAllRefs(rs)
+	require.NoError(t, err)
+
+	dbc := objmock.NewStore()
+	rsc := refmock.NewStore()
+	sum1, c1 := refhelpers.SaveTestCommit(t, dbc, nil)
+	sum2, c2 := apitest.CreateRandomCommit(t, dbc, 3, 4, [][]byte{sum1})
+	require.NoError(t, ref.CommitHead(rsc, "main", sum2, c2))
+	_, err = apiclient.NewReceivePackSession(dbc, rsc, cli, map[string]*payload.Update{"refs/heads/main": {Sum: payload.BytesToHex(sum2)}}, remoteRefs, 0)
+	assert.Equal(t, apiclient.NewShallowCommitError(sum1, c1.Table), err)
+}
