@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -60,12 +61,37 @@ func writeCommitLog(cmd *cobra.Command, db objects.Store, rs ref.Store, branchNa
 		return err
 	}
 	hash := commitSum
+	f, err := utils.NewRemoteFinder(db, rs)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 	for {
 		c, err := objects.GetCommit(db, hash)
 		if err != nil {
 			return err
 		}
+		tblExist := objects.TableExist(db, c.Table)
+		var tblRemote string
+		if !tblExist {
+			if s, err := f.FindRemoteFor(c.Sum); err != nil {
+				return err
+			} else if s != "" {
+				tblRemote = s
+			}
+		}
 		fmt.Fprintf(out, "commit %s\n", hex.EncodeToString(hash))
+		fmt.Fprintf(out, "table %x", c.Table)
+		if tblExist {
+			fmt.Fprintln(out)
+		} else {
+			c := color.New(color.FgRed)
+			c.Fprint(out, " <missing")
+			if tblRemote != "" {
+				c.Fprintf(out, ", possibly reside on %s", tblRemote)
+			}
+			c.Fprint(out, ">\n")
+		}
 		fmt.Fprintf(out, "Author: %s <%s>\n", c.AuthorName, c.AuthorEmail)
 		fmt.Fprintf(out, "Date: %s\n", c.Time)
 		fmt.Fprintf(out, "\n    %s\n\n", c.Message)

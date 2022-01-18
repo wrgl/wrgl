@@ -58,7 +58,7 @@ func newPreviewCmd() *cobra.Command {
 			if commit == nil {
 				return fmt.Errorf("commit \"%s\" not found", cStr)
 			}
-			tbl, err := objects.GetTable(db, commit.Table)
+			tbl, err := utils.GetTable(db, rs, commit)
 			if err != nil {
 				return fmt.Errorf("GetTable: %v", err)
 			}

@@ -86,6 +86,7 @@ func TestSaveTable(t *testing.T) {
 	assert.True(t, objects.TableExist(s, sum))
 	obj, err := objects.GetTable(s, sum)
 	require.NoError(t, err)
+	tbl.Sum = sum
 	assert.Equal(t, tbl, obj)
 	require.NoError(t, objects.DeleteTable(s, sum))
 	assert.False(t, objects.TableExist(s, sum))

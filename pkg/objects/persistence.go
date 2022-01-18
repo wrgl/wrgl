@@ -136,6 +136,7 @@ func GetTable(s Store, sum []byte) (*Table, error) {
 		return nil, err
 	}
 	_, tbl, err := ReadTableFrom(bytes.NewReader(b))
+	tbl.Sum = sum
 	return tbl, err
 }
 

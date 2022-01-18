@@ -14,6 +14,7 @@ import (
 )
 
 type Table struct {
+	Sum          []byte
 	Columns      []string
 	PK           []uint32
 	RowsCount    uint32

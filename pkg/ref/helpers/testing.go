@@ -37,6 +37,7 @@ func SaveTestCommit(t *testing.T, db objects.Store, parents [][]byte) (sum []byt
 	require.NoError(t, err)
 	sum, err = objects.SaveCommit(db, buf.Bytes())
 	require.NoError(t, err)
+	commit.Sum = sum
 	return sum, commit
 }
 

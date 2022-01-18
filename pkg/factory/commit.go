@@ -32,6 +32,7 @@ func Commit(t *testing.T, db objects.Store, rows []string, pk []uint32, parents 
 	require.NoError(t, err)
 	comSum, err := objects.SaveCommit(db, buf.Bytes())
 	require.NoError(t, err)
+	c.Sum = comSum
 	return comSum, c
 }
 

@@ -4,6 +4,8 @@
 package utils
 
 import (
+	"bytes"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func PrintAuthCmd(cmd *cobra.Command, remoteURL string) {
@@ -42,4 +46,81 @@ func HandleHTTPError(cmd *cobra.Command, cs *credentials.Store, remoteURL string
 		PrintAuthCmd(cmd, remoteURL)
 	}
 	return err
+}
+
+type RemoteFinder struct {
+	travs map[string]*ref.Traveller
+}
+
+func NewRemoteFinder(db objects.Store, rs ref.Store) (*RemoteFinder, error) {
+	m, err := ref.ListAllRefs(rs)
+	if err != nil {
+		return nil, err
+	}
+	travellers := map[string]*ref.Traveller{}
+	for name := range m {
+		travellers[name], err = ref.NewTraveller(db, rs, name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &RemoteFinder{
+		travs: travellers,
+	}, nil
+}
+
+func (f *RemoteFinder) FindRemoteFor(sum []byte) (string, error) {
+	if sum == nil {
+		return "", fmt.Errorf("empty commit sum")
+	}
+	for len(f.travs) > 0 {
+		for name, t := range f.travs {
+			com, err := t.Next()
+			if err != nil {
+				return "", err
+			}
+			if com == nil {
+				t.Close()
+				delete(f.travs, name)
+			} else if bytes.Equal(com.Sum, sum) {
+				if remote := t.Reflog.FetchRemote(); remote != "" {
+					return remote, nil
+				}
+				t.Close()
+				delete(f.travs, name)
+			}
+		}
+	}
+	return "", nil
+}
+
+func (f *RemoteFinder) Close() error {
+	for _, t := range f.travs {
+		if err := t.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func GetTable(db objects.Store, rs ref.Store, commit *objects.Commit) (*objects.Table, error) {
+	tbl, err := objects.GetTable(db, commit.Table)
+	if err != nil {
+		if err == objects.ErrKeyNotFound {
+			f, err := NewRemoteFinder(db, rs)
+			if err != nil {
+				return nil, err
+			}
+			remote, err := f.FindRemoteFor(commit.Sum)
+			if err != nil {
+				return nil, err
+			}
+			if remote == "" {
+				return nil, fmt.Errorf("table %x not found", commit.Table)
+			}
+			return nil, fmt.Errorf("table %x not found, try fetching it with:\n  wrgl fetch tables %s %x", commit.Table, remote, commit.Table)
+		}
+		return nil, err
+	}
+	return tbl, nil
 }
