@@ -92,7 +92,7 @@ func newCommitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := ensureUserSet(cmd, c); err != nil {
+			if err := utils.EnsureUserSet(cmd, c); err != nil {
 				return err
 			}
 			branchName, csvFilePath, message, primaryKey, commitFromBranchFile, err := parseCommitArgs(cmd, c, setFile, all, args)
@@ -146,18 +146,6 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) error {
 			fmt.Sprintf("Repository not initialized in directory \"%s\". Initialize with command:", rd.FullPath),
 			"",
 			"  wrgl init",
-		}, "\n"))
-	}
-	return nil
-}
-
-func ensureUserSet(cmd *cobra.Command, c *conf.Config) error {
-	if c.User == nil || c.User.Email == "" {
-		return fmt.Errorf(strings.Join([]string{
-			"User config not set. Set your user config with these commands:",
-			"",
-			`  wrgl config set --global user.email "john-doe@domain.com"`,
-			`  wrgl config set --global user.name "John Doe"`,
 		}, "\n"))
 	}
 	return nil

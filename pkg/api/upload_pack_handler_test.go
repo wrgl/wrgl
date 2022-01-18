@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -108,4 +109,14 @@ func (s *testSuite) TestUploadPackWithDepth(t *testing.T) {
 	apitest.AssertCommitsShallowlyPersisted(t, dbc, commits)
 	apitest.AssertTablesPersisted(t, dbc, [][]byte{c4.Table, c3.Table})
 	apitest.AssertTablesNotPersisted(t, dbc, [][]byte{c2.Table, c1.Table})
+
+	// get missing tables with GetObjects
+	pr, err := cli.GetObjects([][]byte{c2.Table, c1.Table})
+	require.NoError(t, err)
+	defer pr.Close()
+	or := apiutils.NewObjectReceiver(dbc, nil, nil)
+	done, err := or.Receive(pr)
+	require.NoError(t, err)
+	assert.True(t, done)
+	apitest.AssertTablesPersisted(t, dbc, [][]byte{c2.Table, c1.Table})
 }

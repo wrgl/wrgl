@@ -5,6 +5,7 @@ package apiclient
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -555,6 +556,23 @@ func parseUploadPackResult(r io.ReadCloser) (acks [][]byte, err error) {
 		acks = append(acks, (*h)[:])
 	}
 	return
+}
+
+func (c *Client) GetObjects(tables [][]byte, opts ...RequestOption) (pr *packfile.PackfileReader, err error) {
+	hexes := make([]string, len(tables))
+	for i, sum := range tables {
+		hexes[i] = hex.EncodeToString(sum)
+	}
+	q := url.Values{}
+	q.Set("tables", strings.Join(hexes, ","))
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/objects/?%s", q.Encode()), nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != CTPackfile {
+		return nil, fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	return packfile.NewPackfileReader(resp.Body)
 }
 
 func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, depth int, opts ...RequestOption) (acks [][]byte, pr *packfile.PackfileReader, err error) {

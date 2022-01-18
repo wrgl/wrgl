@@ -7,11 +7,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/wrgl/wrgl/pkg/encoding/objline"
 )
+
+var patFetchRemote = regexp.MustCompile(`^\[from ([^\]]+)\].+`)
 
 type Reflog struct {
 	OldOID      []byte
@@ -148,4 +151,13 @@ mainLoop:
 		}
 	}
 	return n, nil
+}
+
+func (rec *Reflog) FetchRemote() string {
+	if rec.Action == "fetch" {
+		if m := patFetchRemote.FindStringSubmatch(rec.Message); m != nil {
+			return m[1]
+		}
+	}
+	return ""
 }

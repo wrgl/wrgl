@@ -136,14 +136,14 @@ func TestFetchCmd(t *testing.T) {
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
 		Action:      "fetch",
-		Message:     "storing head",
+		Message:     "[from origin] storing head",
 	})
 	refhelpers.AssertLatestReflogEqual(t, rs, "remotes/origin/tickets", &ref.Reflog{
 		NewOID:      sum4,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
 		Action:      "fetch",
-		Message:     "storing head",
+		Message:     "[from origin] storing head",
 	})
 	require.NoError(t, db.Close())
 
@@ -267,7 +267,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
 		Action:      "fetch",
-		Message:     "storing ref",
+		Message:     "[from origin] storing ref",
 	})
 }
 
@@ -328,7 +328,7 @@ func TestFetchCmdTag(t *testing.T) {
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
 		Action:      "fetch",
-		Message:     "updating tag",
+		Message:     "[from origin] updating tag",
 	})
 	require.NoError(t, db.Close())
 
@@ -351,7 +351,7 @@ func TestFetchCmdTag(t *testing.T) {
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
 		Action:      "fetch",
-		Message:     "updating tag",
+		Message:     "[from origin] updating tag",
 	})
 	require.NoError(t, db.Close())
 }
@@ -410,6 +410,57 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@domain.com",
 		Action:      "fetch",
-		Message:     "forced-update",
+		Message:     "[from origin] forced-update",
 	})
+}
+
+func TestFetchCmdDepth(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
+	ts := apitest.NewServer(t, nil)
+	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
+	sum1, c1 := factory.CommitRandom(t, dbs, nil)
+	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
+	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
+
+	rd, cleanUp := createRepoDir(t)
+	defer cleanUp()
+
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"remote", "add", "origin", url})
+	require.NoError(t, cmd.Execute())
+
+	authenticate(t, url)
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"fetch", "--depth", "1"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"From " + url,
+		" * [new branch]      main        -> origin/main",
+		"",
+	}, "\n"))
+
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	rs := rd.OpenRefStore()
+	sum, err := ref.GetRemoteRef(rs, "origin", "main")
+	require.NoError(t, err)
+	assert.Equal(t, sum2, sum)
+	apitest.AssertCommitsShallowlyPersisted(t, db, [][]byte{sum2, sum1})
+	apitest.AssertTablesPersisted(t, db, [][]byte{c2.Table})
+	apitest.AssertTablesNotPersisted(t, db, [][]byte{c1.Table})
+	require.NoError(t, db.Close())
+
+	// fetch missing table
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"fetch", "tables", "origin", hex.EncodeToString(c1.Table)})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		fmt.Sprintf("Table %x persisted", c1.Table),
+		"",
+	}, "\n"))
+	db, err = rd.OpenObjectsStore()
+	require.NoError(t, err)
+	apitest.AssertTablesPersisted(t, db, [][]byte{c1.Table})
+	require.NoError(t, db.Close())
 }

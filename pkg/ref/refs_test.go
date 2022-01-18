@@ -20,65 +20,79 @@ import (
 func TestSaveRef(t *testing.T) {
 	s := refmock.NewStore()
 	sum := testutils.SecureRandomBytes(16)
-	err := ref.SaveRef(s, "remotes/origin/abc", sum, "John Doe", "john@doe.com", "fetch", "from origin")
+	err := ref.SaveRef(s, "heads/beta", sum, "John Doe", "john@doe.com", "branch", "from main")
 	require.NoError(t, err)
-	b, err := ref.GetRemoteRef(s, "origin", "abc")
-	require.NoError(t, err)
-	assert.Equal(t, sum, b)
-	b, err = ref.GetRef(s, "remotes/origin/abc")
+	b, err := ref.GetHead(s, "beta")
 	require.NoError(t, err)
 	assert.Equal(t, sum, b)
-	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin/abc", &ref.Reflog{
+	b, err = ref.GetRef(s, "heads/beta")
+	require.NoError(t, err)
+	assert.Equal(t, sum, b)
+	refhelpers.AssertLatestReflogEqual(t, s, "heads/beta", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
-		Action:      "fetch",
-		Message:     "from origin",
+		Action:      "branch",
+		Message:     "from main",
 	})
 
 	// test RenameRef
-	sum1, err := ref.RenameRef(s, "remotes/origin/abc", "remotes/origin2/abc")
+	sum1, err := ref.RenameRef(s, "heads/beta", "heads/gamma")
 	require.NoError(t, err)
 	assert.Equal(t, sum, sum1)
-	_, err = ref.GetRef(s, "remotes/origin/abc")
+	_, err = ref.GetRef(s, "heads/beta")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
-	sum1, err = ref.GetRef(s, "remotes/origin2/abc")
+	sum1, err = ref.GetRef(s, "heads/gamma")
 	require.NoError(t, err)
 	assert.Equal(t, sum, sum1)
-	_, err = s.LogReader("remotes/origin/abc")
+	_, err = s.LogReader("heads/beta")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
-	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/abc", &ref.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "heads/gamma", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
-		Action:      "fetch",
-		Message:     "from origin",
+		Action:      "branch",
+		Message:     "from main",
 	})
 
 	// test CopyRef
-	sum2, err := ref.CopyRef(s, "remotes/origin2/abc", "remotes/origin2/def")
+	sum2, err := ref.CopyRef(s, "heads/gamma", "heads/delta")
 	require.NoError(t, err)
 	assert.Equal(t, sum, sum2)
-	sum2, err = ref.GetRef(s, "remotes/origin2/abc")
+	sum2, err = ref.GetRef(s, "heads/gamma")
 	require.NoError(t, err)
 	assert.Equal(t, sum, sum2)
-	sum2, err = ref.GetRef(s, "remotes/origin2/def")
+	sum2, err = ref.GetRef(s, "heads/delta")
 	require.NoError(t, err)
 	assert.Equal(t, sum, sum2)
-	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/abc", &ref.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "heads/gamma", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
-		Action:      "fetch",
-		Message:     "from origin",
+		Action:      "branch",
+		Message:     "from main",
 	})
-	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin2/def", &ref.Reflog{
+	refhelpers.AssertLatestReflogEqual(t, s, "heads/delta", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
 		AuthorEmail: "john@doe.com",
-		Action:      "fetch",
-		Message:     "from origin",
+		Action:      "branch",
+		Message:     "from main",
 	})
+
+	// test SaveFetchRef
+	sum3 := testutils.SecureRandomBytes(16)
+	require.NoError(t, ref.SaveFetchRef(s, "remotes/origin/abc", sum3, "John Doe", "john@doe.com", "origin", "storing head"))
+	refhelpers.AssertLatestReflogEqual(t, s, "remotes/origin/abc", &ref.Reflog{
+		NewOID:      sum3,
+		AuthorName:  "John Doe",
+		AuthorEmail: "john@doe.com",
+		Action:      "fetch",
+		Message:     "[from origin] storing head",
+	})
+	b, err = ref.GetRemoteRef(s, "origin", "abc")
+	require.NoError(t, err)
+	assert.Equal(t, sum3, b)
 }
 
 func TestCommitMerge(t *testing.T) {

@@ -47,9 +47,9 @@ func getTable(db objects.Store, comSum []byte) (sum []byte, tbl *objects.Table, 
 
 func mergeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "merge BRANCH COMMIT...",
-		Short: "Merge two or more commits together.",
-		Long:  "Merge two or more commits together using merge UI. If merge is successful then create a merge commit under BRANCH.",
+		Use:   "merge BRANCH COMMIT",
+		Short: "Merge two commits together.",
+		Long:  "Merge two commits together using merge UI. If merge is successful then create a merge commit under BRANCH.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "merge two branches",
@@ -72,7 +72,7 @@ func mergeCmd() *cobra.Command {
 				Line:    "wrgl merge branch-1 branch-2 --commit-csv resolved.csv",
 			},
 		}),
-		Args: cobra.MinimumNArgs(2),
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
@@ -81,7 +81,7 @@ func mergeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := ensureUserSet(cmd, c); err != nil {
+			if err := utils.EnsureUserSet(cmd, c); err != nil {
 				return err
 			}
 			cleanup, err := setupDebugLog(cmd)

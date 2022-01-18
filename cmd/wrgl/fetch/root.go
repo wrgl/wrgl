@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package wrgl
+package fetch
 
 import (
 	"bytes"
@@ -21,7 +21,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
-func newFetchCmd() *cobra.Command {
+func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "fetch [REPOSITORY [REFSPEC...]]",
 		Short: "Download objects and refs from another repository.",
@@ -47,6 +47,10 @@ func newFetchCmd() *cobra.Command {
 				Comment: "fetch and force all non-fast-forward updates",
 				Line:    "wrgl fetch my-repo --force",
 			},
+			{
+				Comment: "fetch the first 2 commits in full, fetch the rest shallowly",
+				Line:    "wrgl fetch origin refs/heads/main:refs/remotes/origin/main --depth 2",
+			},
 		}),
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -56,7 +60,7 @@ func newFetchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := ensureUserSet(cmd, c); err != nil {
+			if err := utils.EnsureUserSet(cmd, c); err != nil {
 				return err
 			}
 			rd := utils.GetRepoDir(cmd)
@@ -75,32 +79,36 @@ func newFetchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			depth, err := cmd.Flags().GetInt32("depth")
+			if err != nil {
+				return err
+			}
 			cs, err := credentials.NewStore()
 			if err != nil {
 				return err
 			}
 			if all {
 				for k, v := range c.Remote {
-					uri, tok, err := getCredentials(cmd, cs, v.URL)
+					uri, tok, err := GetCredentials(cmd, cs, v.URL)
 					if err != nil {
 						return err
 					}
-					err = fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force)
+					err = Fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force, depth)
 					if err != nil {
 						return utils.HandleHTTPError(cmd, cs, v.URL, uri, err)
 					}
 				}
 				return nil
 			}
-			remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, "", args)
+			remote, rem, specs, err := ParseRemoteAndRefspec(cmd, c, "", args)
 			if err != nil {
 				return err
 			}
-			uri, tok, err := getCredentials(cmd, cs, rem.URL)
+			uri, tok, err := GetCredentials(cmd, cs, rem.URL)
 			if err != nil {
 				return err
 			}
-			if err := fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force); err != nil {
+			if err := Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth); err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
 			return nil
@@ -108,10 +116,12 @@ func newFetchCmd() *cobra.Command {
 	}
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
+	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history, you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
+	cmd.AddCommand(newTablesCmd())
 	return cmd
 }
 
-func getCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (uri *url.URL, token string, err error) {
+func GetCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (uri *url.URL, token string, err error) {
 	u, err := url.Parse(remote)
 	if err != nil {
 		return
@@ -125,7 +135,7 @@ func getCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (u
 	return
 }
 
-func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, args []string) (string, *conf.Remote, []*conf.Refspec, error) {
+func ParseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, args []string) (string, *conf.Remote, []*conf.Refspec, error) {
 	var remote = "origin"
 	b, ok := c.Branch[branch]
 	if ok && b.Remote != "" {
@@ -151,13 +161,7 @@ func parseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, ar
 	return remote, rem, specs, nil
 }
 
-type Ref struct {
-	Src   string
-	Dst   string
-	Force bool
-}
-
-func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
+func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs []*conf.Refspec, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
 	m, err := client.GetRefs()
 	if err != nil {
 		return
@@ -172,9 +176,11 @@ func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs 
 				dst = strings.TrimPrefix(dst, "refs/")
 				dstRefs[dst] = sum
 				advertised = append(advertised, sum)
-				refs = append(refs, &Ref{
-					r, dst, spec.Force,
-				})
+				ref, err := conf.NewRefspec(r, dst, false, spec.Force)
+				if err != nil {
+					return nil, nil, nil, nil, err
+				}
+				refs = append(refs, ref)
 				covered = true
 			}
 		}
@@ -199,7 +205,7 @@ func trimRefPrefix(r string) string {
 	return r
 }
 
-func displayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, from, to string) {
+func DisplayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, from, to string) {
 	if errStr != "" {
 		errStr = fmt.Sprintf(" (%s)", errStr)
 	}
@@ -216,7 +222,7 @@ func bytesSliceToMap(sl [][]byte) (m map[string]struct{}) {
 	return m
 }
 
-func quickref(oldSum, sum []byte, fastForward bool) string {
+func Quickref(oldSum, sum []byte, fastForward bool) string {
 	a := hex.EncodeToString(oldSum)[:7]
 	b := hex.EncodeToString(sum)[:7]
 	if fastForward {
@@ -226,9 +232,9 @@ func quickref(oldSum, sum []byte, fastForward bool) string {
 }
 
 func saveFetchedRefs(
-	cmd *cobra.Command, u *conf.User, db objects.Store, rs ref.Store, remoteURL string,
-	fetchedCommits [][]byte, refs []*Ref, dstRefs, maybeSaveTags map[string][]byte, force bool,
-) ([]*Ref, error) {
+	cmd *cobra.Command, u *conf.User, db objects.Store, rs ref.Store, remoteName, remoteURL string,
+	fetchedCommits [][]byte, refs []*conf.Refspec, dstRefs, maybeSaveTags map[string][]byte, force bool,
+) ([]*conf.Refspec, error) {
 	someFailed := false
 	// if a remote tag point to an existing object then save that tag
 	cm := bytesSliceToMap(fetchedCommits)
@@ -236,25 +242,29 @@ func saveFetchedRefs(
 		if _, ok := cm[string(sum)]; ok || objects.CommitExist(db, sum) {
 			_, err := ref.GetRef(rs, r)
 			if err != nil {
-				refs = append(refs, &Ref{r, r, false})
+				ref, err := conf.NewRefspec(r, r, false, false)
+				if err != nil {
+					return nil, err
+				}
+				refs = append(refs, ref)
 				dstRefs[r] = sum
 			}
 		}
 	}
 	// sort refs so that output is always deterministic
 	sort.Slice(refs, func(i, j int) bool {
-		if refs[i].Src < refs[j].Src {
+		if refs[i].Src() < refs[j].Src() {
 			return true
-		} else if refs[i].Src > refs[j].Src {
+		} else if refs[i].Src() > refs[j].Src() {
 			return false
 		}
-		return refs[i].Dst < refs[j].Dst
+		return refs[i].Dst() < refs[j].Dst()
 	})
-	savedRefs := []*Ref{}
+	savedRefs := []*conf.Refspec{}
 	remoteDisplayed := false
 	for _, r := range refs {
-		oldSum, _ := ref.GetRef(rs, r.Dst)
-		sum := dstRefs[r.Dst]
+		oldSum, _ := ref.GetRef(rs, r.Dst())
+		sum := dstRefs[r.Dst()]
 		if bytes.Equal(oldSum, sum) {
 			continue
 		}
@@ -262,40 +272,40 @@ func saveFetchedRefs(
 			cmd.Printf("From %s\n", remoteURL)
 			remoteDisplayed = true
 		}
-		if oldSum != nil && strings.HasPrefix(r.Dst, "tags/") {
+		if oldSum != nil && strings.HasPrefix(r.Dst(), "tags/") {
 			if force || r.Force {
-				err := ref.SaveRef(rs, r.Dst, sum, u.Name, u.Email, "fetch", "updating tag")
+				err := ref.SaveFetchRef(rs, r.Dst(), sum, u.Name, u.Email, remoteName, "updating tag")
 				if err != nil {
-					displayRefUpdate(cmd, '!', "[tag update]", "unable to update local ref", r.Src, r.Dst)
+					DisplayRefUpdate(cmd, '!', "[tag update]", "unable to update local ref", r.Src(), r.Dst())
 					someFailed = true
 				} else {
-					displayRefUpdate(cmd, 't', "[tag update]", "", r.Src, r.Dst)
+					DisplayRefUpdate(cmd, 't', "[tag update]", "", r.Src(), r.Dst())
 					savedRefs = append(savedRefs, r)
 				}
 			} else {
-				displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", r.Src, r.Dst)
+				DisplayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", r.Src(), r.Dst())
 				someFailed = true
 			}
 			continue
 		}
 		if oldSum == nil {
 			var msg, what string
-			if strings.HasPrefix(r.Src, "tags/") {
+			if strings.HasPrefix(r.Src(), "tags/") {
 				msg = "storing tag"
 				what = "[new tag]"
-			} else if strings.HasPrefix(r.Src, "heads/") {
+			} else if strings.HasPrefix(r.Src(), "heads/") {
 				msg = "storing head"
 				what = "[new branch]"
 			} else {
 				msg = "storing ref"
 				what = "[new ref]"
 			}
-			err := ref.SaveRef(rs, r.Dst, sum, u.Name, u.Email, "fetch", msg)
+			err := ref.SaveFetchRef(rs, r.Dst(), sum, u.Name, u.Email, remoteName, msg)
 			if err != nil {
-				displayRefUpdate(cmd, '!', what, "unable to update local ref", r.Src, r.Dst)
+				DisplayRefUpdate(cmd, '!', what, "unable to update local ref", r.Src(), r.Dst())
 				someFailed = true
 			} else {
-				displayRefUpdate(cmd, '*', what, "", r.Src, r.Dst)
+				DisplayRefUpdate(cmd, '*', what, "", r.Src(), r.Dst())
 				savedRefs = append(savedRefs, r)
 			}
 			continue
@@ -305,27 +315,27 @@ func saveFetchedRefs(
 			return nil, err
 		}
 		if fastForward {
-			err := ref.SaveRef(rs, r.Dst, sum, u.Name, u.Email, "fetch", "fast-forward")
-			qr := quickref(oldSum, sum, true)
+			err := ref.SaveFetchRef(rs, r.Dst(), sum, u.Name, u.Email, remoteName, "fast-forward")
+			qr := Quickref(oldSum, sum, true)
 			if err != nil {
-				displayRefUpdate(cmd, '!', qr, "unable to update local ref", r.Src, r.Dst)
+				DisplayRefUpdate(cmd, '!', qr, "unable to update local ref", r.Src(), r.Dst())
 				someFailed = true
 			} else {
-				displayRefUpdate(cmd, ' ', qr, "", r.Src, r.Dst)
+				DisplayRefUpdate(cmd, ' ', qr, "", r.Src(), r.Dst())
 				savedRefs = append(savedRefs, r)
 			}
 		} else if force || r.Force {
-			err := ref.SaveRef(rs, r.Dst, sum, u.Name, u.Email, "fetch", "forced-update")
-			qr := quickref(oldSum, sum, false)
+			err := ref.SaveFetchRef(rs, r.Dst(), sum, u.Name, u.Email, remoteName, "forced-update")
+			qr := Quickref(oldSum, sum, false)
 			if err != nil {
-				displayRefUpdate(cmd, '!', qr, "unable to update local ref", r.Src, r.Dst)
+				DisplayRefUpdate(cmd, '!', qr, "unable to update local ref", r.Src(), r.Dst())
 				someFailed = true
 			} else {
-				displayRefUpdate(cmd, '+', qr, "forced update", r.Src, r.Dst)
+				DisplayRefUpdate(cmd, '+', qr, "forced update", r.Src(), r.Dst())
 				savedRefs = append(savedRefs, r)
 			}
 		} else {
-			displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", r.Src, r.Dst)
+			DisplayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", r.Src(), r.Dst())
 			someFailed = true
 		}
 	}
@@ -335,8 +345,8 @@ func saveFetchedRefs(
 	return savedRefs, nil
 }
 
-func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *apiclient.Client, advertised [][]byte) (fetchedCommits [][]byte, err error) {
-	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised, 0, 0)
+func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *apiclient.Client, advertised [][]byte, depth int32) (fetchedCommits [][]byte, err error) {
+	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised, 0, int(depth))
 	if err != nil {
 		if err.Error() == "nothing wanted" {
 			err = nil
@@ -347,7 +357,7 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 	return ses.Start()
 }
 
-func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool) error {
+func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool, depth int32) error {
 	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(token))
 	if err != nil {
 		return err
@@ -356,10 +366,10 @@ func fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, rem
 	if err != nil {
 		return err
 	}
-	fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised)
+	fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised, depth)
 	if err != nil {
 		return err
 	}
-	_, err = saveFetchedRefs(cmd, u, db, rs, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
+	_, err = saveFetchedRefs(cmd, u, db, rs, remote, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
 	return err
 }

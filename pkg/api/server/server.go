@@ -139,6 +139,11 @@ func NewServer(
 				HandlerFunc: s.handleGetRows,
 			},
 			{
+				Method:      http.MethodGet,
+				Pat:         patObjects,
+				HandlerFunc: s.handleGetObjects,
+			},
+			{
 				Pat: patCommits,
 				Subs: []*router.Routes{
 					{

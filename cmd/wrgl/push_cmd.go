@@ -11,6 +11,7 @@ import (
 
 	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/api/payload"
@@ -138,7 +139,7 @@ func newPushCmd() *cobra.Command {
 	return cmd
 }
 
-func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) error {
+func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*conf.Refspec) error {
 	s := conffs.NewStore(wrglDir, conffs.LocalSource, "")
 	c, err := s.Open()
 	if err != nil {
@@ -148,9 +149,9 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) 
 		c.Branch = map[string]*conf.Branch{}
 	}
 	for _, ref := range refs {
-		if strings.HasPrefix(ref.Src, "heads/") && strings.HasPrefix(ref.Dst, "heads/") {
-			branch := strings.TrimPrefix(ref.Src, "heads/")
-			merge := "refs/" + ref.Dst
+		if strings.HasPrefix(ref.Src(), "heads/") && strings.HasPrefix(ref.Dst(), "heads/") {
+			branch := strings.TrimPrefix(ref.Src(), "heads/")
+			merge := "refs/" + ref.Dst()
 			c.Branch[branch] = &conf.Branch{
 				Remote: remote,
 				Merge:  merge,
@@ -160,12 +161,12 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*Ref) 
 			sort.Sort(rem.Fetch)
 			globRS := conf.MustParseRefspec(fmt.Sprintf("+refs/heads/*:refs/remotes/%s/*", remote))
 			branchRS := conf.MustParseRefspec(
-				fmt.Sprintf("+%s:refs/remotes/%s/%s", merge, remote, strings.TrimPrefix(ref.Dst, "heads/")),
+				fmt.Sprintf("+%s:refs/remotes/%s/%s", merge, remote, strings.TrimPrefix(ref.Dst(), "heads/")),
 			)
 			if rem.Fetch.IndexOf(globRS) == -1 && rem.Fetch.IndexOf(branchRS) == -1 {
 				rem.Fetch = append(rem.Fetch, branchRS)
 			}
-			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src[6:], ref.Dst[6:], remote)
+			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src()[6:], ref.Dst()[6:], remote)
 		}
 	}
 	return s.Save(c)
@@ -199,7 +200,7 @@ func getRefspecsToPush(cmd *cobra.Command, rs ref.Store, cr *conf.Remote, args [
 			} else if !bytes.Equal(v, sum) {
 				refspecs = append(refspecs, conf.MustParseRefspec(fmt.Sprintf("+refs/%s:refs/%s", ref, ref)))
 			} else {
-				displayRefUpdate(cmd, '=', "[up to date]", "", ref, ref)
+				fetch.DisplayRefUpdate(cmd, '=', "[up to date]", "", ref, ref)
 			}
 		}
 		for ref := range remoteRefs {
@@ -297,7 +298,7 @@ func identifyUpdates(
 		}
 		if v, ok := remoteRefs[dst]; ok {
 			if string(v) == string(sum) {
-				displayRefUpdate(cmd, '=', "[up to date]", "", src, dst)
+				fetch.DisplayRefUpdate(cmd, '=', "[up to date]", "", src, dst)
 				upToDateRefspecs = append(upToDateRefspecs, s)
 			} else if sum == nil {
 				// delete ref
@@ -317,7 +318,7 @@ func identifyUpdates(
 						Force:  true,
 					})
 				} else {
-					displayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", src, dst)
+					fetch.DisplayRefUpdate(cmd, '!', "[rejected]", "would clobber existing tag", src, dst)
 				}
 			} else if fastForward, err := ref.IsAncestorOf(db, v, sum); err != nil {
 				return nil, nil, err
@@ -337,7 +338,7 @@ func identifyUpdates(
 					Force:  true,
 				})
 			} else {
-				displayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", src, dst)
+				fetch.DisplayRefUpdate(cmd, '!', "[rejected]", "non-fast-forward", src, dst)
 			}
 		} else if sum != nil {
 			updates = append(updates, &receivePackUpdate{
@@ -355,7 +356,7 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*receivePackUpdate) {
 	for _, u := range updates {
 		if u.ErrMsg == "" {
 			if u.Sum == nil {
-				displayRefUpdate(cmd, '-', "[deleted]", "", "", u.Dst)
+				fetch.DisplayRefUpdate(cmd, '-', "[deleted]", "", "", u.Dst)
 			} else if u.OldSum == nil {
 				var summary string
 				if strings.HasPrefix(u.Dst, "heads/") {
@@ -365,14 +366,14 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*receivePackUpdate) {
 				} else {
 					summary = "[new reference]"
 				}
-				displayRefUpdate(cmd, '*', summary, "", u.Src, u.Dst)
+				fetch.DisplayRefUpdate(cmd, '*', summary, "", u.Src, u.Dst)
 			} else if u.Force {
-				displayRefUpdate(cmd, '+', quickref(u.OldSum, u.Sum, false), "forced update", u.Src, u.Dst)
+				fetch.DisplayRefUpdate(cmd, '+', fetch.Quickref(u.OldSum, u.Sum, false), "forced update", u.Src, u.Dst)
 			} else {
-				displayRefUpdate(cmd, ' ', quickref(u.OldSum, u.Sum, true), "", u.Src, u.Dst)
+				fetch.DisplayRefUpdate(cmd, ' ', fetch.Quickref(u.OldSum, u.Sum, true), "", u.Src, u.Dst)
 			}
 		} else {
-			displayRefUpdate(cmd, '!', "[remote rejected]", u.ErrMsg, u.Src, u.Dst)
+			fetch.DisplayRefUpdate(cmd, '!', "[remote rejected]", u.ErrMsg, u.Src, u.Dst)
 		}
 	}
 }
@@ -392,7 +393,7 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 	if err != nil {
 		return err
 	}
-	uri, tok, err := getCredentials(cmd, cs, cr.URL)
+	uri, tok, err := fetch.GetCredentials(cmd, cs, cr.URL)
 	if err != nil {
 		return err
 	}
@@ -437,18 +438,28 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 	}
 	reportUpdateStatus(cmd, updates)
 	if setUpstream {
-		refs := []*Ref{}
+		refs := []*conf.Refspec{}
 		for _, rs := range upToDateRefspecs {
-			refs = append(refs, &Ref{
-				Src: strings.TrimPrefix(rs.Src(), "refs/"),
-				Dst: strings.TrimPrefix(rs.Dst(), "refs/"),
-			})
+			ref, err := conf.NewRefspec(
+				strings.TrimPrefix(rs.Src(), "refs/"),
+				strings.TrimPrefix(rs.Dst(), "refs/"),
+				false, false,
+			)
+			if err != nil {
+				return err
+			}
+			refs = append(refs, ref)
 		}
 		for _, u := range updates {
-			refs = append(refs, &Ref{
-				Src: strings.TrimPrefix(u.Src, "refs/"),
-				Dst: strings.TrimPrefix(u.Dst, "refs/"),
-			})
+			ref, err := conf.NewRefspec(
+				strings.TrimPrefix(u.Src, "refs/"),
+				strings.TrimPrefix(u.Dst, "refs/"),
+				false, false,
+			)
+			if err != nil {
+				return err
+			}
+			refs = append(refs, ref)
 		}
 		return setBranchUpstream(cmd, wrglDir, remote, refs)
 	}

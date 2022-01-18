@@ -41,6 +41,7 @@ var (
 	patRootedRows    *regexp.Regexp
 	patCommitProfile *regexp.Regexp
 	patTableProfile  *regexp.Regexp
+	patObjects       *regexp.Regexp
 )
 
 func init() {
@@ -66,6 +67,7 @@ func init() {
 	patDiff = regexp.MustCompile(`^/diff/[0-9a-f]{32}/[0-9a-f]{32}/`)
 	patCommitProfile = regexp.MustCompile(`^/commits/[0-9a-f]{32}/profile/`)
 	patTableProfile = regexp.MustCompile(`^/tables/[0-9a-f]{32}/profile/`)
+	patObjects = regexp.MustCompile(`^/objects/`)
 	routeScopes = []routeScope{
 		{
 			Pat:    patAuthenticate,
@@ -108,6 +110,11 @@ func init() {
 		},
 		{
 			Pat:    patRootedRows,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRepoRead,
+		},
+		{
+			Pat:    patObjects,
 			Method: http.MethodGet,
 			Scope:  auth.ScopeRepoRead,
 		},

@@ -31,8 +31,8 @@ func RemoteRef(remote, name string) string {
 	return fmt.Sprintf("%s%s/%s", string(remoteRefPrefix), remote, name)
 }
 
-func reflogKey(refKey []byte) []byte {
-	return append([]byte("logs/"), refKey...)
+func SaveFetchRef(s Store, name string, commit []byte, authorName, authorEmail, remote, message string) error {
+	return SaveRef(s, name, commit, authorName, authorEmail, "fetch", fmt.Sprintf("[from %s] %s", remote, message))
 }
 
 func SaveRef(s Store, name string, commit []byte, authorName, authorEmail, action, message string) error {

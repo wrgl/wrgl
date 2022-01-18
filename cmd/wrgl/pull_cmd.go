@@ -10,6 +10,7 @@ import (
 
 	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
+	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
@@ -45,7 +46,7 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := ensureUserSet(cmd, c); err != nil {
+			if err := utils.EnsureUserSet(cmd, c); err != nil {
 				return err
 			}
 			rd := utils.GetRepoDir(cmd)
@@ -85,6 +86,10 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			depth, err := cmd.Flags().GetInt32("depth")
+			if err != nil {
+				return err
+			}
 			ff, err := getFastForward(cmd, c)
 			if err != nil {
 				return err
@@ -101,7 +106,7 @@ func pullCmd() *cobra.Command {
 				sort.Strings(names)
 				for _, name := range names {
 					colorstring.Fprintf(cmd.OutOrStdout(), "pulling [bold]%s[reset]...\n", name)
-					if err := pullSingleRepo(cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI, wrglDir, ff, numWorkers, message); err != nil {
+					if err := pullSingleRepo(cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI, wrglDir, ff, numWorkers, message, depth); err != nil {
 						if err.Error() == `status 404: {"message":"Not Found"}` {
 							cmd.Println("Repository not found, skipping.")
 						} else {
@@ -112,7 +117,7 @@ func pullCmd() *cobra.Command {
 				return nil
 			}
 
-			return pullSingleRepo(cmd, c, db, rs, args, force, setUpstream, noCommit, noGUI, wrglDir, ff, numWorkers, message)
+			return pullSingleRepo(cmd, c, db, rs, args, force, setUpstream, noCommit, noGUI, wrglDir, ff, numWorkers, message, depth)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update local branch in certain conditions.")
@@ -125,6 +130,7 @@ func pullCmd() *cobra.Command {
 	cmd.Flags().Bool("ff", false, "when merging a descendant commit into a branch, don't create a merge commit but simply fast-forward branch to the descendant commit. Create an extra merge commit otherwise. This is the default behavior unless merge.fastForward is configured.")
 	cmd.Flags().Bool("no-ff", false, "always create a merge commit, even when a simple fast-forward is possible. This is the default when merge.fastFoward is set to \"never\".")
 	cmd.Flags().Bool("ff-only", false, "only allow fast-forward merges. This is the default when merge.fastForward is set to \"only\".")
+	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
 	return cmd
 }
 
@@ -166,8 +172,8 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 }
 
 func pullSingleRepo(
-	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, force bool,
-	setUpstream, noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string,
+	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, force, setUpstream bool,
+	noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string, depth int32,
 ) error {
 	newBranch := false
 	name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
@@ -186,7 +192,7 @@ func pullSingleRepo(
 		name = "heads/" + args[0]
 		newBranch = true
 	}
-	remote, rem, specs, err := parseRemoteAndRefspec(cmd, c, name[6:], args[1:])
+	remote, rem, specs, err := fetch.ParseRemoteAndRefspec(cmd, c, name[6:], args[1:])
 	if err != nil {
 		return err
 	}
@@ -194,18 +200,20 @@ func pullSingleRepo(
 	if err != nil {
 		return err
 	}
-	uri, tok, err := getCredentials(cmd, cs, rem.URL)
+	uri, tok, err := fetch.GetCredentials(cmd, cs, rem.URL)
 	if err != nil {
 		return err
 	}
-	err = fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force)
+	err = fetch.Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth)
 	if err != nil {
 		return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 	}
 	if setUpstream && len(args) > 2 {
-		err = setBranchUpstream(cmd, wrglDir, remote, []*Ref{
-			{Src: name, Dst: strings.TrimPrefix(specs[0].Src(), "refs/")},
-		})
+		ref, err := conf.NewRefspec(name, strings.TrimPrefix(specs[0].Src(), "refs/"), false, false)
+		if err != nil {
+			return err
+		}
+		err = setBranchUpstream(cmd, wrglDir, remote, []*conf.Refspec{ref})
 		if err != nil {
 			return err
 		}

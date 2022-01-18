@@ -137,3 +137,36 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, sum7, sum)
 }
+
+func TestPullCmdDepth(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
+	ts := apitest.NewServer(t, nil)
+	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
+	sum1, c1 := factory.CommitRandom(t, dbs, nil)
+	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
+	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
+
+	rd, cleanUp := createRepoDir(t)
+	defer cleanUp()
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
+	require.NoError(t, cmd.Execute())
+
+	authenticate(t, url)
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"pull", "main", "my-repo", "refs/heads/main:refs/remotes/my-repo/main", "--depth", "1"})
+	require.NoError(t, cmd.Execute())
+
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	apitest.AssertCommitsShallowlyPersisted(t, db, [][]byte{sum1, sum2})
+	apitest.AssertTablePersisted(t, db, c2.Table)
+	apitest.AssertTableNotPersisted(t, db, c1.Table)
+	rs := rd.OpenRefStore()
+	sum, err := ref.GetHead(rs, "main")
+	require.NoError(t, err)
+	assert.Equal(t, sum2, sum)
+}
