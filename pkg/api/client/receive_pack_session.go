@@ -42,7 +42,7 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
 	_, err := finder.Process(wants, haves, true)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("finder.Process error: %v", err)
 	}
 	coms := finder.CommitsToSend()
 	for _, com := range coms {

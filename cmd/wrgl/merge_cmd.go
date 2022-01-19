@@ -33,12 +33,12 @@ import (
 	"github.com/wrgl/wrgl/pkg/widgets"
 )
 
-func getTable(db objects.Store, comSum []byte) (sum []byte, tbl *objects.Table, err error) {
+func getTable(db objects.Store, rs ref.Store, comSum []byte) (sum []byte, tbl *objects.Table, err error) {
 	com, err := objects.GetCommit(db, comSum)
 	if err != nil {
 		return
 	}
-	tbl, err = objects.GetTable(db, com.Table)
+	tbl, err = utils.GetTable(db, rs, com)
 	if err != nil {
 		return
 	}
@@ -176,9 +176,12 @@ func runMerge(
 	commits := [][]byte{sum}
 	commitNames := []string{displayableCommitName(args[0], sum)}
 	for _, s := range args[1:] {
-		_, sum, _, err := ref.InterpretCommitName(db, rs, s, true)
+		_, sum, com, err := ref.InterpretCommitName(db, rs, s, true)
 		if err != nil {
 			return err
+		}
+		if !objects.TableExist(db, com.Table) {
+			return utils.ErrTableNotFound(db, rs, com)
 		}
 		commits = append(commits, sum)
 		commitNames = append(commitNames, displayableCommitName(s, sum))
@@ -215,14 +218,14 @@ func runMerge(
 	}
 	commits = nonAncestralCommits
 
-	baseSum, baseT, err := getTable(db, baseCommit)
+	baseSum, baseT, err := getTable(db, rs, baseCommit)
 	if err != nil {
 		return err
 	}
 	otherTs := make([]*objects.Table, len(commits))
 	otherSums := make([][]byte, len(commits))
 	for i, sum := range commits {
-		otherSums[i], otherTs[i], err = getTable(db, sum)
+		otherSums[i], otherTs[i], err = getTable(db, rs, sum)
 		if err != nil {
 			return err
 		}

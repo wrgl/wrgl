@@ -4,6 +4,7 @@
 package ref
 
 import (
+	"fmt"
 	"io"
 	"sort"
 
@@ -31,7 +32,7 @@ func NewCommitsQueue(db objects.Store, initialSums [][]byte) (*CommitsQueue, err
 		}
 		commit, err := objects.GetCommit(db, v)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GetCommit %x error: %v", v, err)
 		}
 		sums = append(sums, v)
 		commits = append(commits, commit)

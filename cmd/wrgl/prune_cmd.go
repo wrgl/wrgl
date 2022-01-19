@@ -106,7 +106,7 @@ func pbar(max int64, desc string, out, err io.Writer) *progressbar.ProgressBar {
 func findCommitsToRemove(cmd *cobra.Command, db objects.Store, rs ref.Store) (commitsToRemove [][]byte, survivingCommits [][]byte, err error) {
 	bar := pbar(-1, "finding commits to remove", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
-	branchMap, err := ref.ListHeads(rs)
+	refMap, err := ref.ListAllRefs(rs)
 	if err != nil {
 		return
 	}
@@ -114,7 +114,7 @@ func findCommitsToRemove(cmd *cobra.Command, db objects.Store, rs ref.Store) (co
 	if err != nil {
 		return
 	}
-	for _, sum := range branchMap {
+	for _, sum := range refMap {
 		q.Insert(sum)
 	}
 	commitKeys, err := objects.GetAllCommitKeys(db)

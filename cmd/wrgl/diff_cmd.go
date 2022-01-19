@@ -491,9 +491,9 @@ func commitTitle(commitName, commitSum string) string {
 }
 
 func getDiffChan(
-	db1, db2 objects.Store, commit1, commit2 *objects.Commit, debugFile io.Writer,
+	db1, db2 objects.Store, rs ref.Store, commit1, commit2 *objects.Commit, debugFile io.Writer,
 ) (tbl1, tbl2 *objects.Table, diffChan <-chan *objects.Diff, pt progress.Tracker, cd *diff.ColDiff, errChan chan error, err error) {
-	tbl1, err = objects.GetTable(db1, commit1.Table)
+	tbl1, err = utils.GetTable(db1, rs, commit1)
 	if err != nil {
 		return
 	}
@@ -501,7 +501,7 @@ func getDiffChan(
 	if err != nil {
 		return
 	}
-	tbl2, err = objects.GetTable(db2, commit2.Table)
+	tbl2, err = utils.GetTable(db2, rs, commit2)
 	if err != nil {
 		return
 	}
@@ -722,7 +722,7 @@ func runDiff(
 		return err
 	}
 
-	tbl1, tbl2, diffChan, pt, cd, errChan, err := getDiffChan(db1, db2, commit1, commit2, debugFile)
+	tbl1, tbl2, diffChan, pt, cd, errChan, err := getDiffChan(db1, db2, rs, commit1, commit2, debugFile)
 	if err != nil {
 		return err
 	}

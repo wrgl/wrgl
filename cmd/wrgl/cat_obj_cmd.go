@@ -12,9 +12,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
-func newCatFileCmd() *cobra.Command {
+func newCatObjCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cat-obj OBJECT_SUM",
 		Short: "Print information for an object.",
@@ -35,9 +36,10 @@ func newCatFileCmd() *cobra.Command {
 				return err
 			}
 			defer db.Close()
+			rs := rd.OpenRefStore()
 			commit, err := objects.GetCommit(db, hash)
 			if err == nil {
-				return catCommit(cmd, commit)
+				return catCommit(cmd, db, rs, commit)
 			}
 			tbl, err := objects.GetTable(db, hash)
 			if err == nil {
@@ -53,9 +55,19 @@ func newCatFileCmd() *cobra.Command {
 	return cmd
 }
 
-func catCommit(cmd *cobra.Command, commit *objects.Commit) error {
+func catCommit(cmd *cobra.Command, db objects.Store, rs ref.Store, commit *objects.Commit) error {
 	out := cmd.OutOrStdout()
-	colorstring.Fprintf(out, "[yellow]table[white]  %s\n", hex.EncodeToString(commit.Table))
+	colorstring.Fprintf(out, "[yellow]table[white]  %s", hex.EncodeToString(commit.Table))
+	if !objects.TableExist(db, commit.Table) {
+		if remote, err := utils.FindRemoteFor(db, rs, commit.Sum); err != nil {
+			return err
+		} else if remote != "" {
+			colorstring.Fprintf(out, " [red]<missing, possibly reside on %s>[white]", remote)
+		} else {
+			colorstring.Fprintf(out, " [red]<missing>[white]")
+		}
+	}
+	fmt.Fprintln(out)
 	colorstring.Fprintf(out, "[yellow]author[white] %s <%s>\n", commit.AuthorName, commit.AuthorEmail)
 	colorstring.Fprintf(out, "[yellow]time[white]   %d %s\n\n", commit.Time.Unix(), commit.Time.Format("-0700"))
 	colorstring.Fprintln(out, commit.Message)

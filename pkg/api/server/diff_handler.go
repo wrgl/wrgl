@@ -27,7 +27,7 @@ func (s *Server) getTable(db objects.Store, x string) ([]byte, *objects.Table, [
 	}
 	tbl, err := objects.GetTable(db, com.Table)
 	if err != nil {
-		panic(err)
+		return nil, nil, nil
 	}
 	idx, err := objects.GetTableIndex(db, com.Table)
 	if err != nil {

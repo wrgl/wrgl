@@ -34,6 +34,7 @@ func (s *Server) handleGetObjects(rw http.ResponseWriter, r *http.Request) {
 		tbl, err := objects.GetTable(db, sum)
 		if err == objects.ErrKeyNotFound {
 			sendError(rw, http.StatusNotFound, fmt.Sprintf("table %s not found", h))
+			return
 		}
 		if err != nil {
 			panic(err)

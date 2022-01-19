@@ -85,7 +85,7 @@ func profileCmd() *cobra.Command {
 							break
 						}
 						start := time.Now()
-						if err = profileTable(db, commit.Table); err != nil {
+						if err = profileTable(db, rs, commit); err != nil {
 							return err
 						}
 						if !silent {
@@ -96,13 +96,16 @@ func profileCmd() *cobra.Command {
 					}
 					return nil
 				}
-				if err = profileTable(db, commit.Table); err != nil {
+				if err = profileTable(db, rs, commit); err != nil {
 					return err
 				}
 			}
 			tblProf, err := objects.GetTableProfile(db, commit.Table)
 			if err != nil {
-				if err = profileTable(db, commit.Table); err != nil {
+				if err == objects.ErrKeyNotFound {
+					return utils.ErrTableNotFound(db, rs, commit)
+				}
+				if err = profileTable(db, rs, commit); err != nil {
 					return err
 				}
 				tblProf, err = objects.GetTableProfile(db, commit.Table)
@@ -122,12 +125,15 @@ func profileCmd() *cobra.Command {
 	return cmd
 }
 
-func profileTable(db objects.Store, tblSum []byte) error {
-	tbl, err := objects.GetTable(db, tblSum)
+func profileTable(db objects.Store, rs ref.Store, commit *objects.Commit) error {
+	tbl, err := objects.GetTable(db, commit.Table)
 	if err != nil {
+		if err == objects.ErrKeyNotFound {
+			return utils.ErrTableNotFound(db, rs, commit)
+		}
 		return err
 	}
-	return ingest.ProfileTable(db, tblSum, tbl)
+	return ingest.ProfileTable(db, commit.Table, tbl)
 }
 
 func showProfileApp(comSum []byte, tblProf *objects.TableProfile) error {

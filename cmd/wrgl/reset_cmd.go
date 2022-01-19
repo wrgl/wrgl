@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -47,12 +48,20 @@ func newResetCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
-			_, hash, _, err := ref.InterpretCommitName(db, rs, args[1], false)
+			_, hash, com, err := ref.InterpretCommitName(db, rs, args[1], false)
 			if err != nil {
 				return err
 			}
 			if len(hash) == 0 {
 				return fmt.Errorf("commit \"%s\" not found", args[1])
+			}
+			if !objects.TableExist(db, com.Table) {
+				if remote, err := utils.FindRemoteFor(db, rs, hash); err != nil {
+					return err
+				} else if remote != "" {
+					return fmt.Errorf("cannot reset branch to a shallow commit: table %x is missing. Fetch missing table with:\n  wrgl fetch tables %s %x", com.Table, remote, com.Table)
+				}
+				return fmt.Errorf("cannot reset branch to a shallow commit: table %x is missing", com.Table)
 			}
 			return ref.SaveRef(rs, "heads/"+branch, hash, c.User.Name, c.User.Email, "reset", "to commit "+hex.EncodeToString(hash))
 		},

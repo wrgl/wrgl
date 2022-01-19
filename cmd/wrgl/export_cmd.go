@@ -50,7 +50,7 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	if err != nil {
 		return err
 	}
-	tbl, err := objects.GetTable(db, commit.Table)
+	tbl, err := utils.GetTable(db, rs, commit)
 	if err != nil {
 		return err
 	}

@@ -103,22 +103,30 @@ func (f *RemoteFinder) Close() error {
 	return nil
 }
 
+func FindRemoteFor(db objects.Store, rs ref.Store, sum []byte) (string, error) {
+	f, err := NewRemoteFinder(db, rs)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	return f.FindRemoteFor(sum)
+}
+
+func ErrTableNotFound(db objects.Store, rs ref.Store, commit *objects.Commit) error {
+	if remote, err := FindRemoteFor(db, rs, commit.Sum); err != nil {
+		return err
+	} else if remote == "" {
+		return fmt.Errorf("table %x not found", commit.Table)
+	} else {
+		return fmt.Errorf("table %x not found, try fetching it with:\n  wrgl fetch tables %s %x", commit.Table, remote, commit.Table)
+	}
+}
+
 func GetTable(db objects.Store, rs ref.Store, commit *objects.Commit) (*objects.Table, error) {
 	tbl, err := objects.GetTable(db, commit.Table)
 	if err != nil {
 		if err == objects.ErrKeyNotFound {
-			f, err := NewRemoteFinder(db, rs)
-			if err != nil {
-				return nil, err
-			}
-			remote, err := f.FindRemoteFor(commit.Sum)
-			if err != nil {
-				return nil, err
-			}
-			if remote == "" {
-				return nil, fmt.Errorf("table %x not found", commit.Table)
-			}
-			return nil, fmt.Errorf("table %x not found, try fetching it with:\n  wrgl fetch tables %s %x", commit.Table, remote, commit.Table)
+			return nil, ErrTableNotFound(db, rs, commit)
 		}
 		return nil, err
 	}

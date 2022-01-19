@@ -5,6 +5,7 @@ package apiutils
 
 import (
 	"container/list"
+	"fmt"
 	"io"
 
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -221,7 +222,7 @@ wantsLoop:
 func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]byte, err error) {
 	m, err := ref.ListAllRefs(f.rs)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("ListAllRefs error: %v", err)
 	}
 	sl := make([][]byte, 0, len(m))
 	for _, v := range m {
@@ -229,12 +230,12 @@ func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]b
 	}
 	queue, err := ref.NewCommitsQueue(f.db, sl)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("NewCommitsQueue error: %v", err)
 	}
 	if len(wants) > 0 {
 		err = f.ensureWantsAreReachable(queue, wants)
 		if err != nil {
-			return
+			return nil, fmt.Errorf("ensureWantsAreReachable error: %v", err)
 		}
 		for _, b := range wants {
 			f.Wants[string(b)] = struct{}{}
@@ -242,7 +243,7 @@ func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]b
 	}
 	commons, err := f.findCommons(queue, haves)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("findCommons error: %v", err)
 	}
 	f.acks = f.acks[:0]
 	for _, b := range commons {
@@ -251,7 +252,7 @@ func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]b
 	}
 	err = f.findClosedSetOfObjects(done)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("findClosedSetOfObjects error: %v", err)
 	}
 	return f.acks, nil
 }

@@ -60,7 +60,7 @@ func newPreviewCmd() *cobra.Command {
 			}
 			tbl, err := utils.GetTable(db, rs, commit)
 			if err != nil {
-				return fmt.Errorf("GetTable: %v", err)
+				return err
 			}
 			return previewTable(cmd, db, hex.EncodeToString(hash), commit, tbl)
 		},

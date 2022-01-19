@@ -81,7 +81,7 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(newBranchCmd())
 	rootCmd.AddCommand(newPruneCmd())
 	rootCmd.AddCommand(newResetCmd())
-	rootCmd.AddCommand(newCatFileCmd())
+	rootCmd.AddCommand(newCatObjCmd())
 	rootCmd.AddCommand(fetch.RootCmd())
 	rootCmd.AddCommand(newPushCmd())
 	rootCmd.AddCommand(mergeCmd())
