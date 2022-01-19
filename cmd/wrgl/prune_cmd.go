@@ -46,20 +46,36 @@ func newPruneCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			keepRow := make([]bool, len(allBlockKeys))
+			allBlockIdxKeys, err := objects.GetAllBlockIndexKeys(db)
+			if err != nil {
+				return err
+			}
+			keepBlock := make([]bool, len(allBlockKeys))
+			keepBlockIdx := make([]bool, len(allBlockIdxKeys))
 
 			// remove orphaned tables
-			err = pruneTables(cmd, db, survivingCommits, allBlockKeys, keepRow)
+			err = pruneTables(cmd, db, survivingCommits, allBlockKeys, allBlockIdxKeys, keepBlock, keepBlockIdx)
 			if err != nil {
 				return err
 			}
 
-			// remove orphaned rows
-			bar := pbar(-1, "removing rows", cmd.OutOrStdout(), cmd.ErrOrStderr())
+			// remove orphaned blocks
+			bar := pbar(-1, "removing blocks", cmd.OutOrStdout(), cmd.ErrOrStderr())
 			for i, sum := range allBlockKeys {
-				if !keepRow[i] {
-					err := objects.DeleteBlock(db, sum)
-					if err != nil {
+				if !keepBlock[i] {
+					if err := objects.DeleteBlock(db, sum); err != nil {
+						return err
+					}
+					bar.Add(1)
+				}
+			}
+			if err := bar.Finish(); err != nil {
+				return err
+			}
+			bar = pbar(-1, "removing block indices", cmd.OutOrStdout(), cmd.ErrOrStderr())
+			for i, sum := range allBlockIdxKeys {
+				if !keepBlockIdx[i] {
+					if err := objects.DeleteBlockIndex(db, sum); err != nil {
 						return err
 					}
 					bar.Add(1)
@@ -146,7 +162,7 @@ func findCommitsToRemove(cmd *cobra.Command, db objects.Store, rs ref.Store) (co
 	return
 }
 
-func pruneTables(cmd *cobra.Command, db objects.Store, survivingCommits [][]byte, allBlockKeys [][]byte, keepRow []bool) (err error) {
+func pruneTables(cmd *cobra.Command, db objects.Store, survivingCommits [][]byte, allBlockKeys, allBlockIdxKeys [][]byte, keepBlock, keepBlockIndex []bool) (err error) {
 	bar := pbar(-1, "removing small tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
 	tableHashes, err := objects.GetAllTableKeys(db)
@@ -165,8 +181,13 @@ func pruneTables(cmd *cobra.Command, db objects.Store, survivingCommits [][]byte
 	for i, keep := range tableFound {
 		sum := tableHashes[i]
 		if !keep {
-			err := objects.DeleteTable(db, sum)
-			if err != nil {
+			if err := objects.DeleteTable(db, sum); err != nil {
+				return err
+			}
+			if err := objects.DeleteTableIndex(db, sum); err != nil {
+				return err
+			}
+			if err := objects.DeleteTableProfile(db, sum); err != nil {
 				return err
 			}
 			bar.Add(1)
@@ -179,7 +200,13 @@ func pruneTables(cmd *cobra.Command, db objects.Store, survivingCommits [][]byte
 				j := sort.Search(len(allBlockKeys), func(i int) bool {
 					return string(allBlockKeys[i]) >= string(blk)
 				})
-				keepRow[j] = true
+				keepBlock[j] = true
+			}
+			for _, blk := range ts.BlockIndices {
+				j := sort.Search(len(allBlockIdxKeys), func(i int) bool {
+					return string(allBlockIdxKeys[i]) >= string(blk)
+				})
+				keepBlockIndex[j] = true
 			}
 		}
 	}

@@ -236,8 +236,20 @@ func GetAllBlockKeys(s Store) ([][]byte, error) {
 	return getAllKeys(s, blkPrefix)
 }
 
+func GetAllBlockIndexKeys(s Store) ([][]byte, error) {
+	return getAllKeys(s, blkIdxPrefix)
+}
+
 func GetAllTableKeys(s Store) ([][]byte, error) {
 	return getAllKeys(s, tblPrefix)
+}
+
+func GetAllTableIndexKeys(s Store) ([][]byte, error) {
+	return getAllKeys(s, tblIdxPrefix)
+}
+
+func GetAllTableProfileKeys(s Store) ([][]byte, error) {
+	return getAllKeys(s, tblSumPrefix)
 }
 
 func GetAllCommitKeys(s Store) ([][]byte, error) {
