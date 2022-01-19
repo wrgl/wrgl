@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -66,6 +67,7 @@ func writeCommitLog(cmd *cobra.Command, db objects.Store, rs ref.Store, branchNa
 		return err
 	}
 	defer f.Close()
+	zone, offset := time.Now().Zone()
 	for {
 		c, err := objects.GetCommit(db, hash)
 		if err != nil {
@@ -93,7 +95,7 @@ func writeCommitLog(cmd *cobra.Command, db objects.Store, rs ref.Store, branchNa
 			c.Fprint(out, ">\n")
 		}
 		fmt.Fprintf(out, "Author: %s <%s>\n", c.AuthorName, c.AuthorEmail)
-		fmt.Fprintf(out, "Date: %s\n", c.Time)
+		fmt.Fprintf(out, "Date: %s\n", c.Time.In(time.FixedZone(zone, offset)))
 		fmt.Fprintf(out, "\n    %s\n\n", c.Message)
 		if len(c.Parents) == 0 {
 			break

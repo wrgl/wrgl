@@ -65,25 +65,26 @@ func TestShallowCommit(t *testing.T) {
 	// test log shallow commit
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"log", "main", "--no-pager"})
+	zone, offset := time.Now().Zone()
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("commit %x", sum3),
 		fmt.Sprintf("table %x", c3.Table),
 		fmt.Sprintf("Author: %s <%s>", c3.AuthorName, c3.AuthorEmail),
-		fmt.Sprintf("Date: %s", c3.Time.In(time.FixedZone("+0700", 7*3600)).Truncate(time.Second)),
+		fmt.Sprintf("Date: %s", c3.Time.In(time.FixedZone(zone, offset)).Truncate(time.Second)),
 		"",
 		fmt.Sprintf("    %s", c3.Message),
 		"",
 		fmt.Sprintf("commit %x", sum2),
 		fmt.Sprintf("table %x <missing, possibly reside on my-repo>", c2.Table),
 		fmt.Sprintf("Author: %s <%s>", c2.AuthorName, c2.AuthorEmail),
-		fmt.Sprintf("Date: %s", c2.Time.In(time.FixedZone("+0700", 7*3600)).Truncate(time.Second)),
+		fmt.Sprintf("Date: %s", c2.Time.In(time.FixedZone(zone, offset)).Truncate(time.Second)),
 		"",
 		fmt.Sprintf("    %s", c2.Message),
 		"",
 		fmt.Sprintf("commit %x", sum1),
 		fmt.Sprintf("table %x <missing, possibly reside on my-repo>", c1.Table),
 		fmt.Sprintf("Author: %s <%s>", c1.AuthorName, c1.AuthorEmail),
-		fmt.Sprintf("Date: %s", c1.Time.In(time.FixedZone("+0700", 7*3600)).Truncate(time.Second)),
+		fmt.Sprintf("Date: %s", c1.Time.In(time.FixedZone(zone, offset)).Truncate(time.Second)),
 		"",
 		fmt.Sprintf("    %s", c1.Message),
 		"",
