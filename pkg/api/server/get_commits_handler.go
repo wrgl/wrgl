@@ -80,10 +80,10 @@ func getCommitTree(db objects.Store, sum []byte, maxDepth int) (*payload.Commit,
 	return obj, nil
 }
 
-func (s *Server) getHeadSum(rw http.ResponseWriter, r *http.Request, query url.Values) (sum []byte) {
+func (s *Server) getCommitSum(rw http.ResponseWriter, r *http.Request, query url.Values, key string) (sum []byte) {
 	rs := s.getRS(r)
-	if s := query.Get("head"); s == "" {
-		sendError(rw, http.StatusBadRequest, "missing head query param")
+	if s := query.Get(key); s == "" {
+		sendError(rw, http.StatusBadRequest, fmt.Sprintf("missing %s query param", key))
 		return nil
 	} else if sumRegexp.MatchString(s) {
 		sum, _ = hex.DecodeString(s)
@@ -100,7 +100,7 @@ func (s *Server) getHeadSum(rw http.ResponseWriter, r *http.Request, query url.V
 
 func (s *Server) handleGetCommits(rw http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	sum := s.getHeadSum(rw, r, query)
+	sum := s.getCommitSum(rw, r, query, "head")
 	if sum == nil {
 		return
 	}

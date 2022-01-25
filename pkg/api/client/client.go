@@ -406,9 +406,9 @@ func (c *Client) Diff(sum1, sum2 []byte, opts ...RequestOption) (dr *payload.Dif
 	return dr, nil
 }
 
-func (c *Client) GetBlocks(head string, start, end int, format payload.BlockFormat, columns bool, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) GetBlocks(commit string, start, end int, format payload.BlockFormat, columns bool, opts ...RequestOption) (resp *http.Response, err error) {
 	v := url.Values{}
-	v.Set("head", head)
+	v.Set("commit", commit)
 	if start > 0 {
 		v.Set("start", strconv.Itoa(start))
 	}
@@ -449,9 +449,9 @@ func (c *Client) GetTableBlocks(sum []byte, start, end int, format payload.Block
 	return c.Request(http.MethodGet, fmt.Sprintf("/tables/%x/blocks/%s", sum, qs), nil, nil, opts...)
 }
 
-func (c *Client) GetRows(head string, offsets []int, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) GetRows(commit string, offsets []int, opts ...RequestOption) (resp *http.Response, err error) {
 	v := url.Values{}
-	v.Set("head", head)
+	v.Set("commit", commit)
 	if len(offsets) > 0 {
 		sl := make([]string, len(offsets))
 		for i := range sl {

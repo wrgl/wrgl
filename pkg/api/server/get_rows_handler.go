@@ -82,7 +82,7 @@ func (s *Server) transferRows(rw http.ResponseWriter, r *http.Request, db object
 
 func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 	values := r.URL.Query()
-	sum := s.getHeadSum(rw, r, values)
+	sum := s.getCommitSum(rw, r, values, "commit")
 	if sum == nil {
 		return
 	}
