@@ -108,7 +108,7 @@ func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db obje
 
 func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 	values := r.URL.Query()
-	sum := s.getCommitSum(rw, r, values, "commit")
+	sum := s.getCommitSum(rw, r, values, "head")
 	if sum == nil {
 		return
 	}
