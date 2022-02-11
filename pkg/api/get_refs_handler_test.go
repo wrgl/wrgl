@@ -16,7 +16,7 @@ import (
 )
 
 func (s *testSuite) TestGetRefsHandler(t *testing.T) {
-	repo, cli, m, cleanup := s.s.NewClient(t, true, "", nil)
+	repo, cli, m, cleanup := s.s.NewClient(t, "", nil, true)
 	defer cleanup()
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)

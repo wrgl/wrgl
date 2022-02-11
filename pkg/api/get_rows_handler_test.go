@@ -17,7 +17,7 @@ import (
 )
 
 func (s *testSuite) TestGetRowsHandler(t *testing.T) {
-	repo, cli, _, cleanup := s.s.NewClient(t, true, "", nil)
+	repo, cli, _, cleanup := s.s.NewClient(t, "", nil, true)
 	defer cleanup()
 	db := s.s.GetDB(repo)
 

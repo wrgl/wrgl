@@ -11,7 +11,7 @@ import (
 )
 
 func (s *testSuite) TestGetConfig(t *testing.T) {
-	_, cli, m, cleanup := s.s.NewClient(t, true, "", nil)
+	_, cli, m, cleanup := s.s.NewClient(t, "", nil, true)
 	defer cleanup()
 
 	cfg := &conf.Config{

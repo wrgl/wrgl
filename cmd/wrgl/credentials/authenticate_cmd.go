@@ -5,12 +5,16 @@ package credentials
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
-	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
 )
@@ -53,6 +57,48 @@ func authenticateCmd() *cobra.Command {
 	return cmd
 }
 
+type AuthenticateRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type AuthenticateResponse struct {
+	IDToken string `json:"idToken"`
+}
+
+func authenticate(uri, email, password string) (token string, err error) {
+	b, err := json.Marshal(&AuthenticateRequest{
+		Email:    email,
+		Password: password,
+	})
+	if err != nil {
+		return
+	}
+	r, err := http.NewRequest(http.MethodPost, uri+"/authenticate/", bytes.NewReader(b))
+	if err != nil {
+		return
+	}
+	r.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(r)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		return "", fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	b, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	ar := &AuthenticateResponse{}
+	err = json.Unmarshal(b, ar)
+	if err != nil {
+		return
+	}
+	return ar.IDToken, nil
+}
+
 func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string) (uri *url.URL, token string, err error) {
 	u, err := url.Parse(uriS)
 	if err != nil {
@@ -70,11 +116,7 @@ func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string) (uri
 	if err != nil {
 		return nil, "", err
 	}
-	client, err := apiclient.NewClient(uriS)
-	if err != nil {
-		return nil, "", err
-	}
-	token, err = client.Authenticate(email, password)
+	token, err = authenticate(uriS, email, password)
 	if err != nil {
 		return nil, "", err
 	}

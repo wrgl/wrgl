@@ -183,36 +183,6 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 	return resp, nil
 }
 
-func (c *Client) Authenticate(email, password string, opts ...RequestOption) (token string, err error) {
-	b, err := json.Marshal(&payload.AuthenticateRequest{
-		Email:    email,
-		Password: password,
-	})
-	if err != nil {
-		return
-	}
-	resp, err := c.Request(http.MethodPost, "/authenticate/", bytes.NewReader(b), map[string]string{
-		"Content-Type": CTJSON,
-	}, opts...)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return "", fmt.Errorf("unrecognized content type: %q", ct)
-	}
-	b, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	ar := &payload.AuthenticateResponse{}
-	err = json.Unmarshal(b, ar)
-	if err != nil {
-		return
-	}
-	return ar.IDToken, nil
-}
-
 func (c *Client) GetConfig(opts ...RequestOption) (cfg *conf.Config, err error) {
 	resp, err := c.Request(http.MethodGet, "/config/", nil, nil, opts...)
 	if err != nil {

@@ -1,12 +1,11 @@
 package apiserver
 
 import (
+	"context"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 
-	"github.com/golang-jwt/jwt"
 	"github.com/wrgl/wrgl/pkg/auth"
 )
 
@@ -19,7 +18,6 @@ type routeScope struct {
 var routeScopes []routeScope
 
 var (
-	patAuthenticate  *regexp.Regexp
 	patConfig        *regexp.Regexp
 	patRefs          *regexp.Regexp
 	patHead          *regexp.Regexp
@@ -45,7 +43,6 @@ var (
 )
 
 func init() {
-	patAuthenticate = regexp.MustCompile(`^/authenticate/`)
 	patConfig = regexp.MustCompile(`^/config/`)
 	patRefs = regexp.MustCompile(`^/refs/`)
 	patHead = regexp.MustCompile(`^heads/[-_0-9a-zA-Z]+/`)
@@ -69,10 +66,6 @@ func init() {
 	patTableProfile = regexp.MustCompile(`^/tables/[0-9a-f]{32}/profile/`)
 	patObjects = regexp.MustCompile(`^/objects/`)
 	routeScopes = []routeScope{
-		{
-			Pat:    patAuthenticate,
-			Method: http.MethodPost,
-		},
 		{
 			Pat:    patConfig,
 			Method: http.MethodGet,
@@ -166,81 +159,43 @@ func init() {
 	}
 }
 
-type authenticateMiddleware struct {
-	handler   http.Handler
-	getAuthnS func(r *http.Request) auth.AuthnStore
+type claimsKey struct{}
+
+func setClaims(r *http.Request, claims *auth.Claims) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), claimsKey{}, claims))
 }
 
-func AuthenticateMiddleware(getAuthnS func(r *http.Request) auth.AuthnStore) func(handler http.Handler) http.Handler {
-	return func(handler http.Handler) http.Handler {
-		return &authenticateMiddleware{
-			handler:   handler,
-			getAuthnS: getAuthnS,
-		}
+func getClaims(r *http.Request) *auth.Claims {
+	if i := r.Context().Value(claimsKey{}); i != nil {
+		return i.(*auth.Claims)
 	}
+	return nil
 }
 
-func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	var token string
-	if h := r.Header.Get("Authorization"); h != "" && strings.HasPrefix(h, "Bearer ") {
-		token = h[7:]
-	}
-	if token == "" && r.Method == http.MethodGet {
-		cookie, err := r.Cookie("Authorization")
-		if err == nil {
-			if strings.HasPrefix(cookie.Value, "Bearer ") {
-				token = cookie.Value[7:]
-			} else if strings.HasPrefix(cookie.Value, "Bearer%20") || strings.HasPrefix(cookie.Value, "Bearer+") {
-				s, err := url.QueryUnescape(cookie.Value)
-				if err != nil {
-					sendError(rw, http.StatusUnauthorized, "invalid token")
-					return
-				}
-				token = s[7:]
-			}
-		}
-	}
-	if token != "" {
-		authnS := m.getAuthnS(r)
-		var claims *auth.Claims
-		var err error
-		r, claims, err = authnS.CheckToken(r, token)
-		if err != nil {
-			if _, ok := err.(*jwt.ValidationError); ok {
-				sendError(rw, http.StatusUnauthorized, "invalid token")
-				return
-			}
-			panic(err)
-		}
-		r = SetClaims(r, claims)
-	}
-	m.handler.ServeHTTP(rw, r)
-}
-
-type authorizeMiddleware struct {
+type authzMiddleware struct {
 	handler              http.Handler
-	getAuthzS            func(r *http.Request) auth.AuthzStore
-	pathPrefix           *regexp.Regexp
+	rootPath             *regexp.Regexp
 	maskUnauthorizedPath bool
+	getClaims            func(r *http.Request) *auth.Claims
 }
 
-func AuthorizeMiddleware(getAuthzS func(r *http.Request) auth.AuthzStore, pathPrefix *regexp.Regexp, maskUnauthorizedPath bool) func(handler http.Handler) http.Handler {
+func AuthorizeMiddleware(rootPath *regexp.Regexp, getClaims func(r *http.Request) *auth.Claims, maskUnauthorizedPath bool) func(handler http.Handler) http.Handler {
 	return func(handler http.Handler) http.Handler {
-		m := &authorizeMiddleware{
+		m := &authzMiddleware{
 			handler:              handler,
-			getAuthzS:            getAuthzS,
-			pathPrefix:           pathPrefix,
+			rootPath:             rootPath,
+			getClaims:            getClaims,
 			maskUnauthorizedPath: maskUnauthorizedPath,
 		}
 		return m
 	}
 }
 
-func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+func (m *authzMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	var route *routeScope
 	p := r.URL.Path
-	if m.pathPrefix != nil {
-		p = strings.TrimPrefix(p, m.pathPrefix.FindString(p))
+	if m.rootPath != nil {
+		p = strings.TrimPrefix(p, m.rootPath.FindString(p))
 		if !strings.HasPrefix(p, "/") {
 			p = "/" + p
 		}
@@ -252,28 +207,23 @@ func (m *authorizeMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request)
 		}
 	}
 	if route == nil {
-		sendError(rw, http.StatusNotFound, "not found")
+		sendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	if route.Scope != "" {
-		authzS := m.getAuthzS(r)
-		claims := getClaims(r)
-		var email string
+		claims := m.getClaims(r)
 		if claims != nil {
-			email = claims.Email
-		}
-		if ok, err := authzS.Authorized(r, email, route.Scope); err != nil {
-			panic(err)
-		} else if !ok {
-			if m.maskUnauthorizedPath {
-				sendError(rw, http.StatusNotFound, "not found")
-			} else if claims == nil {
-				sendError(rw, http.StatusUnauthorized, "unauthorized")
-			} else {
-				sendError(rw, http.StatusForbidden, "forbidden")
+			for _, s := range claims.Scopes {
+				if s == route.Scope {
+					m.handler.ServeHTTP(rw, setClaims(r, claims))
+					return
+				}
 			}
-			return
+		}
+		if m.maskUnauthorizedPath {
+			sendHTTPError(rw, http.StatusNotFound)
+		} else {
+			sendHTTPError(rw, http.StatusForbidden)
 		}
 	}
-	m.handler.ServeHTTP(rw, r)
 }

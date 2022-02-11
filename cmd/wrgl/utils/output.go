@@ -34,7 +34,7 @@ func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri *url.URL)
 }
 
 func HandleHTTPError(cmd *cobra.Command, cs *credentials.Store, remoteURL string, uri *url.URL, err error) error {
-	if v, ok := err.(*apiclient.HTTPError); ok && v.Code == http.StatusUnauthorized {
+	if v, ok := err.(*apiclient.HTTPError); ok && v.Code == http.StatusForbidden {
 		if uri != nil {
 			cmd.Println("Credentials are invalid")
 			if err := discardCredentials(cmd, cs, uri); err != nil {

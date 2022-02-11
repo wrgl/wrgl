@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2021 Wrangle Ltd
 
-package payload
+package authlocal
 
 type AuthenticateRequest struct {
 	Email    string `json:"email"`

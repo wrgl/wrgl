@@ -25,14 +25,16 @@ import (
 	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
 )
 
-func authenticate(t *testing.T, uri string) {
+func authenticate(t *testing.T, ts *apitest.Server, uri string, scopes ...string) {
 	t.Helper()
 	cs, err := credentials.NewStore()
 	require.NoError(t, err)
-	cli, err := apiclient.NewClient(uri)
-	require.NoError(t, err)
-	tok, err := cli.Authenticate(apitest.Email, apitest.Password)
-	require.NoError(t, err)
+	var tok string
+	if len(scopes) == 0 {
+		tok = ts.AdminToken(t)
+	} else {
+		tok = ts.Authorize(t, apitest.Email, apitest.Name, scopes...)
+	}
 	u, err := url.Parse(uri)
 	require.NoError(t, err)
 	cs.Set(*u, tok)
@@ -71,13 +73,13 @@ func assertCmdUnauthorized(t *testing.T, cmd *cobra.Command, url string) {
 		"Run this command to authenticate:",
 		fmt.Sprintf("    wrgl credentials authenticate %s", url),
 		"",
-	}, "\n"), httpError(t, http.StatusUnauthorized, "unauthorized"))
+	}, "\n"), httpError(t, http.StatusForbidden, "Forbidden"))
 }
 
 func TestFetchCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
@@ -107,7 +109,7 @@ func TestFetchCmd(t *testing.T) {
 	cmd.SetArgs([]string{"fetch"})
 	assertCmdUnauthorized(t, cmd, url)
 
-	authenticate(t, url)
+	authenticate(t, ts, url)
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch"})
@@ -160,21 +162,21 @@ func assertCommandNoErr(t *testing.T, cmd *cobra.Command) {
 func TestFetchCmdAllRepos(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url1, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url1, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
 	rs1 := ts.GetRS(repo)
 	sum1, c1 := factory.CommitRandom(t, db1, nil)
 	require.NoError(t, ref.CommitHead(rs1, "main", sum1, c1))
 
-	repo, url2, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url2, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db2 := ts.GetDB(repo)
 	rs2 := ts.GetRS(repo)
 	sum2, c2 := factory.CommitRandom(t, db2, nil)
 	require.NoError(t, ref.CommitHead(rs2, "main", sum2, c2))
 
-	repo, url3, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url3, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db3 := ts.GetDB(repo)
 	rs3 := ts.GetRS(repo)
@@ -195,9 +197,9 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "home", url3})
 	assertCommandNoErr(t, cmd)
 
-	authenticate(t, url1)
-	authenticate(t, url2)
-	authenticate(t, url3)
+	authenticate(t, ts, url1)
+	authenticate(t, ts, url2)
+	authenticate(t, ts, url3)
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "acme"})
@@ -232,7 +234,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 func TestFetchCmdCustomRefSpec(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
 	rs1 := ts.GetRS(repo)
@@ -246,7 +248,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	assertCommandNoErr(t, cmd)
-	authenticate(t, url)
+	authenticate(t, ts, url)
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/custom/abc:refs/custom/abc"})
@@ -274,7 +276,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 func TestFetchCmdTag(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
 	rs1 := ts.GetRS(repo)
@@ -298,7 +300,7 @@ func TestFetchCmdTag(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	assertCommandNoErr(t, cmd)
 
-	authenticate(t, url)
+	authenticate(t, ts, url)
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/202*:refs/tags/202*"})
@@ -359,7 +361,7 @@ func TestFetchCmdTag(t *testing.T) {
 func TestFetchCmdForceUpdate(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
 	rs1 := ts.GetRS(repo)
@@ -379,7 +381,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	require.NoError(t, cmd.Execute())
 
-	authenticate(t, url)
+	authenticate(t, ts, url)
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "origin", "refs/heads/abc:refs/heads/abc"})
@@ -417,7 +419,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 func TestFetchCmdDepth(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
@@ -432,7 +434,7 @@ func TestFetchCmdDepth(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "origin", url})
 	require.NoError(t, cmd.Execute())
 
-	authenticate(t, url)
+	authenticate(t, ts, url)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"fetch", "--depth", "1"})
 	assertCmdOutput(t, cmd, strings.Join([]string{

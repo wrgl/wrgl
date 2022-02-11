@@ -21,7 +21,7 @@ func uint32Ptr(u uint32) *uint32 {
 }
 
 func (s *testSuite) TestDiffHandler(t *testing.T) {
-	repo, cli, m, cleanup := s.s.NewClient(t, true, "", nil)
+	repo, cli, m, cleanup := s.s.NewClient(t, "", nil, true)
 	defer cleanup()
 	db := s.s.GetDB(repo)
 

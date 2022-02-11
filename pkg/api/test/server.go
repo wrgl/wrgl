@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
@@ -45,14 +46,12 @@ func getRepo(r *http.Request) string {
 type Server struct {
 	dbMx       sync.Mutex
 	rsMx       sync.Mutex
-	anMx       sync.Mutex
 	azMx       sync.Mutex
 	cMx        sync.Mutex
 	upMx       sync.Mutex
 	rpMx       sync.Mutex
 	db         map[string]objects.Store
 	rs         map[string]ref.Store
-	authnS     map[string]auth.AuthnStore
 	authzS     map[string]auth.AuthzStore
 	confS      map[string]conf.Store
 	upSessions map[string]apiserver.UploadPackSessionStore
@@ -64,7 +63,6 @@ func NewServer(t *testing.T, rootPath *regexp.Regexp, opts ...apiserver.ServerOp
 	ts := &Server{
 		db:         map[string]objects.Store{},
 		rs:         map[string]ref.Store{},
-		authnS:     map[string]auth.AuthnStore{},
 		authzS:     map[string]auth.AuthzStore{},
 		confS:      map[string]conf.Store{},
 		upSessions: map[string]apiserver.UploadPackSessionStore{},
@@ -72,9 +70,6 @@ func NewServer(t *testing.T, rootPath *regexp.Regexp, opts ...apiserver.ServerOp
 	}
 	ts.s = apiserver.NewServer(
 		rootPath,
-		func(r *http.Request) auth.AuthnStore {
-			return ts.GetAuthnS(getRepo(r))
-		},
 		func(r *http.Request) objects.Store {
 			return ts.GetDB(getRepo(r))
 		},
@@ -93,15 +88,6 @@ func NewServer(t *testing.T, rootPath *regexp.Regexp, opts ...apiserver.ServerOp
 		opts...,
 	)
 	return ts
-}
-
-func (s *Server) GetAuthnS(repo string) auth.AuthnStore {
-	s.anMx.Lock()
-	defer s.anMx.Unlock()
-	if _, ok := s.authnS[repo]; !ok {
-		s.authnS[repo] = authtest.NewAuthnStore()
-	}
-	return s.authnS[repo]
 }
 
 func (s *Server) GetAuthzS(repo string) auth.AuthzStore {
@@ -158,19 +144,23 @@ func (s *Server) GetRpSessions(repo string) apiserver.ReceivePackSessionStore {
 	return s.rpSessions[repo]
 }
 
-func (s *Server) AddUser(t *testing.T, repo string) {
+func (s *Server) Authorize(t *testing.T, email, name string, scopes ...string) (signedToken string) {
 	t.Helper()
-	authnS := s.GetAuthnS(repo)
-	authzS := s.GetAuthzS(repo)
-	require.NoError(t, authnS.SetPassword(Email, Password))
-	for _, s := range []string{
-		auth.ScopeRepoRead, auth.ScopeRepoReadConfig, auth.ScopeRepoWrite, auth.ScopeRepoWriteConfig,
-	} {
-		require.NoError(t, authzS.AddPolicy(Email, s))
-	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodNone, &auth.Claims{
+		Email:  email,
+		Name:   name,
+		Scopes: scopes,
+	})
+	signedToken, err := tok.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	require.NoError(t, err)
+	return
 }
 
-func (s *Server) NewRemote(t *testing.T, authenticate bool, pathPrefix string, pathPrefixPat *regexp.Regexp) (repo string, url string, m *RequestCaptureMiddleware, cleanup func()) {
+func (s *Server) AdminToken(t *testing.T) (signedToken string) {
+	return s.Authorize(t, Email, Name, auth.ScopeRepoRead, auth.ScopeRepoReadConfig, auth.ScopeRepoWrite, auth.ScopeRepoWriteConfig)
+}
+
+func (s *Server) NewRemote(t *testing.T, pathPrefix string, pathPrefixRegexp *regexp.Regexp) (repo string, url string, m *RequestCaptureMiddleware, cleanup func()) {
 	t.Helper()
 	repo = testutils.BrokenRandomLowerAlphaString(6)
 	cs := s.GetConfS(repo)
@@ -188,42 +178,37 @@ func (s *Server) NewRemote(t *testing.T, authenticate bool, pathPrefix string, p
 			s.s.ServeHTTP(rw, r)
 		},
 	})
-	handler := apiserver.AuthenticateMiddleware(
-		func(r *http.Request) auth.AuthnStore {
-			return s.GetAuthnS(repo)
+	var handler http.Handler = apiserver.AuthorizeMiddleware(
+		pathPrefixRegexp,
+		func(r *http.Request) *auth.Claims {
+			if s := r.Header.Get("Authorization"); s != "" {
+				claims := &auth.Claims{}
+				_, err := jwt.ParseWithClaims(
+					strings.TrimPrefix(s, "Bearer "), claims,
+					func(t *jwt.Token) (interface{}, error) { return jwt.UnsafeAllowNoneSignatureType, nil },
+				)
+				require.NoError(t, err)
+				return claims
+			}
+			return nil
 		},
-	)(apiserver.AuthorizeMiddleware(
-		func(r *http.Request) auth.AuthzStore { return s.GetAuthzS(repo) },
-		pathPrefixPat, false,
-	)(m))
+		false,
+	)(m)
 	if pathPrefix != "" {
 		mux := http.NewServeMux()
 		mux.Handle(pathPrefix, handler)
 		handler = mux
 	}
 	ts := httptest.NewServer(handler)
-	if authenticate {
-		s.AddUser(t, repo)
-	}
 	return repo, strings.TrimSuffix(ts.URL+pathPrefix, "/"), m, ts.Close
 }
 
-func (s *Server) GetToken(t *testing.T, repo string) string {
+func (s *Server) NewClient(t *testing.T, pathPrefix string, pathPrefixRegexp *regexp.Regexp, authorized bool) (string, *apiclient.Client, *RequestCaptureMiddleware, func()) {
 	t.Helper()
-	authnS := s.GetAuthnS(repo)
-	require.NoError(t, authnS.SetName(Email, Name))
-	tok, err := authnS.Authenticate(Email, Password)
-	require.NoError(t, err)
-	return tok
-}
-
-func (s *Server) NewClient(t *testing.T, authenticate bool, pathPrefix string, pathPrefixPat *regexp.Regexp) (string, *apiclient.Client, *RequestCaptureMiddleware, func()) {
-	t.Helper()
-	repo, url, m, cleanup := s.NewRemote(t, authenticate, pathPrefix, pathPrefixPat)
+	repo, url, m, cleanup := s.NewRemote(t, pathPrefix, pathPrefixRegexp)
 	var opts []apiclient.ClientOption
-	if authenticate {
-		tok := s.GetToken(t, repo)
-		opts = []apiclient.ClientOption{apiclient.WithAuthorization(tok)}
+	if authorized {
+		opts = append(opts, apiclient.WithAuthorization(s.AdminToken(t)))
 	}
 	cli, err := apiclient.NewClient(url, opts...)
 	require.NoError(t, err)

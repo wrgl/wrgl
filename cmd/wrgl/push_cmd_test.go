@@ -33,7 +33,7 @@ func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {
 func TestPushCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
@@ -71,7 +71,7 @@ func TestPushCmd(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
 
-	authenticate(t, url)
+	authenticate(t, ts, url)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{
 		"push", "my-repo",
@@ -126,7 +126,7 @@ func TestPushCmd(t *testing.T) {
 func TestPushCmdForce(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
@@ -158,7 +158,7 @@ func TestPushCmdForce(t *testing.T) {
 		require.NoError(t, cmd.Execute())
 	}
 
-	authenticate(t, url)
+	authenticate(t, ts, url)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
@@ -178,7 +178,7 @@ func TestPushCmdForce(t *testing.T) {
 func TestPushCmdSetUpstream(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
@@ -200,7 +200,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url, "-t", "delta"})
 	require.NoError(t, cmd.Execute())
 
-	authenticate(t, url)
+	authenticate(t, ts, url)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{
 		"push", "my-repo", "--set-upstream",
@@ -251,7 +251,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
@@ -273,7 +273,7 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:"})
 	assertCmdUnauthorized(t, cmd, url)
-	authenticate(t, url)
+	authenticate(t, ts, url)
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:"})
@@ -290,7 +290,7 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 func TestPushMirror(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
@@ -314,7 +314,7 @@ func TestPushMirror(t *testing.T) {
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
 	require.NoError(t, cmd.Execute())
-	authenticate(t, url)
+	authenticate(t, ts, url)
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "my-repo", "--mirror"})

@@ -21,7 +21,7 @@ import (
 func TestShallowCommit(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := apitest.NewServer(t, nil)
-	repo, url, _, cleanup := ts.NewRemote(t, true, "", nil)
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
@@ -37,7 +37,7 @@ func TestShallowCommit(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 
 	// test pull depth
-	authenticate(t, url)
+	authenticate(t, ts, url)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "main", "my-repo", "refs/heads/main:refs/remotes/my-repo/main", "--depth", "1"})
 	require.NoError(t, cmd.Execute())

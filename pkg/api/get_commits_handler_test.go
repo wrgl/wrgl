@@ -40,7 +40,7 @@ func assertCommitTreeEqual(t *testing.T, com1, com2 *payload.Commit) {
 }
 
 func (s *testSuite) TestGetCommits(t *testing.T) {
-	repo, cli, m, cleanup := s.s.NewClient(t, true, "", nil)
+	repo, cli, m, cleanup := s.s.NewClient(t, "", nil, true)
 	defer cleanup()
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)

@@ -21,6 +21,10 @@ import (
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	claims := getClaims(r)
+	if claims == nil || claims.Email == "" {
+		sendHTTPError(rw, http.StatusUnauthorized)
+		return
+	}
 	err := r.ParseMultipartForm(0)
 	if err != nil {
 		if err == http.ErrNotMultipart || err == http.ErrMissingBoundary {

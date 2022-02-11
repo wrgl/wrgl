@@ -8,6 +8,7 @@
         ""
       ]
     }
-  }
+  },
+  "git.ignoreLimitWarning": true
   // "go.testFlags": ["-run", "//ReceivePackRejectsShallowCommits"]
 }

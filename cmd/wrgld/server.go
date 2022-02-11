@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	authlocal "github.com/wrgl/wrgl/cmd/wrgld/auth/local"
+	wrgldutils "github.com/wrgl/wrgl/cmd/wrgld/utils"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
 	"github.com/wrgl/wrgl/pkg/auth"
 	"github.com/wrgl/wrgl/pkg/conf"
@@ -19,7 +21,6 @@ import (
 type Server struct {
 	srv *http.Server
 	db  objects.Store
-	s   *apiserver.Server
 }
 
 func NewServer(authnS auth.AuthnStore, authzS auth.AuthzStore, db objects.Store, rs ref.Store, c conf.Store, readTimeout, writeTimeout time.Duration) *Server {
@@ -31,19 +32,22 @@ func NewServer(authnS auth.AuthnStore, authzS auth.AuthzStore, db objects.Store,
 			WriteTimeout: writeTimeout,
 		},
 		db: db,
-		s: apiserver.NewServer(
-			nil,
-			func(r *http.Request) auth.AuthnStore { return authnS },
-			func(r *http.Request) objects.Store { return db },
-			func(r *http.Request) ref.Store { return rs },
-			func(r *http.Request) conf.Store { return c },
-			func(r *http.Request) apiserver.UploadPackSessionStore { return upSessions },
-			func(r *http.Request) apiserver.ReceivePackSessionStore { return rpSessions },
-		),
 	}
-	s.srv.Handler = RecoveryMiddleware(LoggingMiddleware(apiserver.AuthenticateMiddleware(
-		func(r *http.Request) auth.AuthnStore { return authnS },
-	)(apiserver.AuthorizeMiddleware(func(r *http.Request) auth.AuthzStore { return authzS }, nil, false)(s.s))))
+	handler := apiserver.NewServer(
+		nil,
+		func(r *http.Request) objects.Store { return db },
+		func(r *http.Request) ref.Store { return rs },
+		func(r *http.Request) conf.Store { return c },
+		func(r *http.Request) apiserver.UploadPackSessionStore { return upSessions },
+		func(r *http.Request) apiserver.ReceivePackSessionStore { return rpSessions },
+	)
+	s.srv.Handler = wrgldutils.ApplyMiddlewares(
+		authlocal.NewHandler(
+			handler, nil, authnS, authzS, false,
+		),
+		LoggingMiddleware,
+		RecoveryMiddleware,
+	)
 	return s
 }
 
