@@ -20,35 +20,35 @@ import (
 )
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
-	claims := getClaims(r)
-	if claims == nil || claims.Email == "" {
-		sendHTTPError(rw, http.StatusUnauthorized)
+	email := getEmail(r)
+	if email == "" {
+		SendHTTPError(rw, http.StatusUnauthorized)
 		return
 	}
 	err := r.ParseMultipartForm(0)
 	if err != nil {
 		if err == http.ErrNotMultipart || err == http.ErrMissingBoundary {
-			sendError(rw, http.StatusUnsupportedMediaType, err.Error())
+			SendError(rw, http.StatusUnsupportedMediaType, err.Error())
 			return
 		}
 		panic(err)
 	}
 	branch := r.PostFormValue("branch")
 	if branch == "" {
-		sendError(rw, http.StatusBadRequest, "missing branch name")
+		SendError(rw, http.StatusBadRequest, "missing branch name")
 		return
 	}
 	if !ref.HeadPattern.MatchString(branch) {
-		sendError(rw, http.StatusBadRequest, "invalid branch name")
+		SendError(rw, http.StatusBadRequest, "invalid branch name")
 		return
 	}
 	message := r.PostFormValue("message")
 	if message == "" {
-		sendError(rw, http.StatusBadRequest, "missing message")
+		SendError(rw, http.StatusBadRequest, "missing message")
 		return
 	}
 	if len(r.MultipartForm.File["file"]) == 0 {
-		sendError(rw, http.StatusBadRequest, "missing file")
+		SendError(rw, http.StatusBadRequest, "missing file")
 		return
 	}
 	fh := r.MultipartForm.File["file"][0]
@@ -88,12 +88,13 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	name := getName(r)
 	commit := &objects.Commit{
 		Table:       sum,
 		Message:     message,
 		Time:        time.Now(),
-		AuthorEmail: claims.Email,
-		AuthorName:  claims.Name,
+		AuthorEmail: email,
+		AuthorName:  name,
 	}
 	rs := s.getRS(r)
 	parent, _ := ref.GetHead(rs, branch)
@@ -122,5 +123,5 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	}
 	copy((*resp.Sum)[:], commitSum)
 	copy((*resp.Table)[:], sum)
-	writeJSON(rw, resp)
+	WriteJSON(rw, resp)
 }

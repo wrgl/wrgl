@@ -30,6 +30,13 @@ const (
 	Name     = "Test User"
 )
 
+type Claims struct {
+	jwt.StandardClaims
+	Email  string   `json:"email,omitempty"`
+	Name   string   `json:"name,omitempty"`
+	Scopes []string `json:"scopes,omitempty"`
+}
+
 type repoKey struct{}
 
 func setRepo(r *http.Request, repo string) *http.Request {
@@ -146,7 +153,7 @@ func (s *Server) GetRpSessions(repo string) apiserver.ReceivePackSessionStore {
 
 func (s *Server) Authorize(t *testing.T, email, name string, scopes ...string) (signedToken string) {
 	t.Helper()
-	tok := jwt.NewWithClaims(jwt.SigningMethodNone, &auth.Claims{
+	tok := jwt.NewWithClaims(jwt.SigningMethodNone, &Claims{
 		Email:  email,
 		Name:   name,
 		Scopes: scopes,
@@ -179,20 +186,33 @@ func (s *Server) NewRemote(t *testing.T, pathPrefix string, pathPrefixRegexp *re
 		},
 	})
 	var handler http.Handler = apiserver.AuthorizeMiddleware(
-		pathPrefixRegexp,
-		func(r *http.Request) *auth.Claims {
-			if s := r.Header.Get("Authorization"); s != "" {
-				claims := &auth.Claims{}
-				_, err := jwt.ParseWithClaims(
-					strings.TrimPrefix(s, "Bearer "), claims,
-					func(t *jwt.Token) (interface{}, error) { return jwt.UnsafeAllowNoneSignatureType, nil },
-				)
-				require.NoError(t, err)
-				return claims
-			}
-			return nil
+		apiserver.AuthzMiddlewareOptions{
+			RootPath: pathPrefixRegexp,
+			GetEmailName: func(r *http.Request) (email string, name string) {
+				if s := r.Header.Get("Authorization"); s != "" {
+					claims := &Claims{}
+					_, err := jwt.ParseWithClaims(
+						strings.TrimPrefix(s, "Bearer "), claims,
+						func(t *jwt.Token) (interface{}, error) { return jwt.UnsafeAllowNoneSignatureType, nil },
+					)
+					require.NoError(t, err)
+					return claims.Email, claims.Name
+				}
+				return "", ""
+			},
+			GetScopes: func(r *http.Request) (scopes []string) {
+				if s := r.Header.Get("Authorization"); s != "" {
+					claims := &Claims{}
+					_, err := jwt.ParseWithClaims(
+						strings.TrimPrefix(s, "Bearer "), claims,
+						func(t *jwt.Token) (interface{}, error) { return jwt.UnsafeAllowNoneSignatureType, nil },
+					)
+					require.NoError(t, err)
+					return claims.Scopes
+				}
+				return nil
+			},
 		},
-		false,
 	)(m)
 	if pathPrefix != "" {
 		mux := http.NewServeMux()

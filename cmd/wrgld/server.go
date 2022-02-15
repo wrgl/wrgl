@@ -10,20 +10,44 @@ import (
 	"time"
 
 	authlocal "github.com/wrgl/wrgl/cmd/wrgld/auth/local"
+	authoidc "github.com/wrgl/wrgl/cmd/wrgld/auth/oidc"
 	wrgldutils "github.com/wrgl/wrgl/cmd/wrgld/utils"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
-	"github.com/wrgl/wrgl/pkg/auth"
+	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
 	"github.com/wrgl/wrgl/pkg/conf"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
-type Server struct {
-	srv *http.Server
-	db  objects.Store
+type ServerOptions struct {
+	ObjectsStore objects.Store
+
+	RefStore ref.Store
+
+	ConfigStore conf.Store
+
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 }
 
-func NewServer(authnS auth.AuthnStore, authzS auth.AuthzStore, db objects.Store, rs ref.Store, c conf.Store, readTimeout, writeTimeout time.Duration) *Server {
+type Server struct {
+	srv      *http.Server
+	cleanups []func()
+}
+
+func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration) (*Server, error) {
+	objstore, err := rd.OpenObjectsStore()
+	if err != nil {
+		return nil, err
+	}
+	refstore := rd.OpenRefStore()
+	cs := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
+	c, err := cs.Open()
+	if err != nil {
+		return nil, err
+	}
 	upSessions := apiserver.NewUploadPackSessionMap()
 	rpSessions := apiserver.NewReceivePackSessionMap()
 	s := &Server{
@@ -31,24 +55,45 @@ func NewServer(authnS auth.AuthnStore, authzS auth.AuthzStore, db objects.Store,
 			ReadTimeout:  readTimeout,
 			WriteTimeout: writeTimeout,
 		},
-		db: db,
+		cleanups: []func(){
+			func() { rd.Close() },
+			func() { objstore.Close() },
+		},
 	}
-	handler := apiserver.NewServer(
+	var handler http.Handler = apiserver.NewServer(
 		nil,
-		func(r *http.Request) objects.Store { return db },
-		func(r *http.Request) ref.Store { return rs },
-		func(r *http.Request) conf.Store { return c },
+		func(r *http.Request) objects.Store { return objstore },
+		func(r *http.Request) ref.Store { return refstore },
+		func(r *http.Request) conf.Store { return cs },
 		func(r *http.Request) apiserver.UploadPackSessionStore { return upSessions },
 		func(r *http.Request) apiserver.ReceivePackSessionStore { return rpSessions },
 	)
+	if c.Auth.Type == conf.ATLegacy {
+		authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
+		if err != nil {
+			return nil, err
+		}
+		authzS, err := authfs.NewAuthzStore(rd)
+		if err != nil {
+			return nil, err
+		}
+		handler = authlocal.NewHandler(handler, authnS, authzS)
+		s.cleanups = append(s.cleanups,
+			func() { authnS.Close() },
+			func() { authzS.Close() },
+		)
+	} else {
+		handler, err = authoidc.NewHandler(handler, c.Auth)
+		if err != nil {
+			return nil, err
+		}
+	}
 	s.srv.Handler = wrgldutils.ApplyMiddlewares(
-		authlocal.NewHandler(
-			handler, nil, authnS, authzS, false,
-		),
+		handler,
 		LoggingMiddleware,
 		RecoveryMiddleware,
 	)
-	return s
+	return s, nil
 }
 
 func (s *Server) Start(addr string) error {
@@ -63,5 +108,8 @@ func (s *Server) Close() error {
 	if err := s.srv.Shutdown(ctx); err != nil {
 		return err
 	}
-	return s.db.Close()
+	for i := len(s.cleanups) - 1; i >= 0; i-- {
+		s.cleanups[i]()
+	}
+	return nil
 }

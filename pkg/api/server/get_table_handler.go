@@ -17,7 +17,7 @@ var tableURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/`)
 func (s *Server) handleGetTable(rw http.ResponseWriter, r *http.Request) {
 	m := tableURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		sendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	sum, err := hex.DecodeString(m[1])
@@ -27,7 +27,7 @@ func (s *Server) handleGetTable(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
 	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
-		sendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	resp := &payload.GetTableResponse{
@@ -36,5 +36,5 @@ func (s *Server) handleGetTable(rw http.ResponseWriter, r *http.Request) {
 		RowsCount: tbl.RowsCount,
 	}
 	s.cacheControlImmutable(rw)
-	writeJSON(rw, resp)
+	WriteJSON(rw, resp)
 }

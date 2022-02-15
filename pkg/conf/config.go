@@ -45,11 +45,60 @@ type Branch struct {
 	PrimaryKey []string `yaml:"primaryKey,omitempty" json:"primaryKey,omitempty"`
 }
 
+type AuthType string
+
+func (s AuthType) String() string {
+	return string(s)
+}
+
+const (
+	// When Auth.Type is set to ATLegacy, read & write users/permissions into flat files.
+	// See `wrgl auth -h` for more info
+	ATLegacy AuthType = "legacy"
+
+	// When Auth.Type is set to ATOauth2, the wrgld server behaves like an OAuth 2.0 server while
+	// relying on an external OIDC provider (most likely Keycloak) for user & permission management.
+	ATOauth2 AuthType = "oauth2"
+)
+
+type AuthOIDCProvider struct {
+	// Issuer is the http URI of the OIDC provider
+	Issuer string `yaml:"issuer,omitempty" json:"issuer,omitempty"`
+
+	// ClientID is the registered client id of the wrgld server
+	ClientID string `yaml:"clientID,omitempty" json:"clientID,omitempty"`
+
+	// ClientSecret is the registered client secret of the wrgld server
+	ClientSecret string `yaml:"clientSecret,omitempty" json:"clientSecret,omitempty"`
+
+	// Address is the address of the wrgld server that the OIDC provider can reach.
+	// It will be used when constructing callback URI during authorization flow.
+	Address string `yaml:"address,omitempty" json:"address,omitempty"`
+}
+
+// AuthClient is the config of a public client of wrgld server
+type AuthClient struct {
+	// ID is the client id of a public client. To authorize against wrgld, the provided
+	// "client_id" param must match one of the registered ids.
+	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+
+	// RedirectURIs are glob patterns that "redirect_uri" will be compared against.
+	// See https://github.com/gobwas/glob for supported format
+	RedirectURIs []string `yaml:"redirectURIs,omitempty" json:"redirectURIs,omitempty"`
+}
+
 type Auth struct {
 	// TokenDuration specifies how long before a JWT token given by the `/authenticate/`
 	// endpoint of Wrgld expire. This is a string in the format "72h3m0.5s". Tokens last for
 	// 90 days by default.
 	TokenDuration time.Duration `yaml:"tokenDuration,omitempty" json:"tokenDuration,omitempty"`
+
+	// Types specifies how authorization work with wrgld API
+	Type AuthType `yaml:"type,omitempty" json:"type,omitempty"`
+
+	OIDCProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
+
+	Clients []AuthClient `yaml:"clients,omitempty" json:"clients,omitempty"`
 }
 
 type Pack struct {

@@ -51,18 +51,18 @@ func diffDataProfile(db objects.Store, resp *payload.DiffResponse, sum1, sum2 []
 func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	m := diffURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		sendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	db := s.getDB(r)
 	sum1, tbl1, idx1 := s.getTable(db, m[1])
 	if tbl1 == nil {
-		sendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	sum2, tbl2, idx2 := s.getTable(db, m[2])
 	if tbl2 == nil {
-		sendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	errCh := make(chan error, 10)
@@ -98,5 +98,5 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	}
 	diffDataProfile(db, resp, sum1, sum2)
 	s.cacheControlImmutable(rw)
-	writeJSON(rw, resp)
+	WriteJSON(rw, resp)
 }

@@ -10,5 +10,5 @@ func (s *Server) handleGetConfig(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	writeJSON(rw, c)
+	WriteJSON(rw, c)
 }

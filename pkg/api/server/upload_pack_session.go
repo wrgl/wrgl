@@ -116,7 +116,7 @@ func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Reque
 	acks, err := s.finder.Process(payload.HexSliceToBytesSlice(req.Wants), payload.HexSliceToBytesSlice(req.Haves), req.Done)
 	if err != nil {
 		if v, ok := err.(*apiutils.UnrecognizedWantsError); ok {
-			sendError(rw, http.StatusBadRequest, v.Error())
+			SendError(rw, http.StatusBadRequest, v.Error())
 			return nil
 		}
 		panic(err)
@@ -134,7 +134,7 @@ func (s *UploadPackSession) greet(rw http.ResponseWriter, r *http.Request) (next
 	}
 	s.finder = apiutils.NewClosedSetsFinder(s.db, s.rs, req.Depth)
 	if len(req.Wants) == 0 {
-		sendError(rw, http.StatusBadRequest, "empty wants list")
+		SendError(rw, http.StatusBadRequest, "empty wants list")
 		return nil
 	}
 	return s.findClosedSets(rw, r, req)
@@ -152,7 +152,7 @@ func (s *UploadPackSession) negotiate(rw http.ResponseWriter, r *http.Request) (
 // returns true when this session is completed and should be removed.
 func (s *UploadPackSession) ServeHTTP(rw http.ResponseWriter, r *http.Request) bool {
 	if ct := r.Header.Get("Content-Type"); ct != api.CTJSON {
-		sendError(rw, http.StatusUnsupportedMediaType, "")
+		SendError(rw, http.StatusUnsupportedMediaType, "")
 		return true
 	}
 	s.state = s.state(rw, r)

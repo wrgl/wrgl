@@ -31,8 +31,10 @@ require (
 )
 
 require (
+	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/fatih/color v1.13.0
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
+	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 )
 
 require (
@@ -56,6 +58,7 @@ require (
 	github.com/pelletier/go-toml v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/spf13/afero v1.1.2 // indirect
 	github.com/spf13/cast v1.3.0 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
@@ -63,7 +66,9 @@ require (
 	github.com/subosito/gotenv v1.2.0 // indirect
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/text v0.3.6 // indirect
+	google.golang.org/appengine v1.6.1 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect
+	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

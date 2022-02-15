@@ -24,7 +24,7 @@ var rowsURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/rows/`)
 func (s *Server) transferRows(rw http.ResponseWriter, r *http.Request, db objects.Store, sum []byte) {
 	tbl, err := objects.GetTable(db, sum)
 	if err != nil {
-		sendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	values := r.URL.Query()
@@ -35,11 +35,11 @@ func (s *Server) transferRows(rw http.ResponseWriter, r *http.Request, db object
 		for i, s := range sl {
 			u, err := strconv.Atoi(s)
 			if err != nil {
-				sendError(rw, http.StatusBadRequest, fmt.Sprintf("invalid offset %q", s))
+				SendError(rw, http.StatusBadRequest, fmt.Sprintf("invalid offset %q", s))
 				return
 			}
 			if u < 0 || u > int(tbl.RowsCount) {
-				sendError(rw, http.StatusBadRequest, fmt.Sprintf("offset out of range %q", s))
+				SendError(rw, http.StatusBadRequest, fmt.Sprintf("offset out of range %q", s))
 				return
 			}
 			offsets[i] = uint32(u)
@@ -89,7 +89,7 @@ func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
 	com, err := objects.GetCommit(db, sum)
 	if err != nil {
-		sendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	s.transferRows(rw, r, db, com.Table)
@@ -98,7 +98,7 @@ func (s *Server) handleGetRows(rw http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetTableRows(rw http.ResponseWriter, r *http.Request) {
 	m := rowsURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		sendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
 	sum, err := hex.DecodeString(m[1])

@@ -87,7 +87,7 @@ func TestHandler(t *testing.T) {
 		http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 			rw.Write([]byte("OK"))
 		}),
-		nil, authnS, authzS, false,
+		authnS, authzS,
 	)
 
 	email := "john@doe.com"

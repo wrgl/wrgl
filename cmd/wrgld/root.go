@@ -10,8 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
-	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
-	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/local"
 )
 
@@ -66,41 +64,10 @@ func RootCmd() *cobra.Command {
 			}
 			rd := local.NewRepoDir(dir, badgerLog)
 			defer rd.Close()
-			objstore, err := rd.OpenObjectsStore()
+			server, err := NewServer(rd, readTimeout, writeTimeout)
 			if err != nil {
 				return
 			}
-			refstore := rd.OpenRefStore()
-			cs := conffs.NewStore(rd.FullPath, conffs.LocalSource, "")
-			c, err := cs.Open()
-			if err != nil {
-				return
-			}
-			authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
-			if err != nil {
-				return
-			}
-			defer authnS.Close()
-			authzS, err := authfs.NewAuthzStore(rd)
-			if err != nil {
-				return
-			}
-			defer authzS.Close()
-			go func() {
-				select {
-				case err, ok := <-authnS.ErrChan:
-					if !ok {
-						return
-					}
-					log.Printf("authn store error: %v", err)
-				case err, ok := <-authzS.ErrChan:
-					if !ok {
-						return
-					}
-					log.Printf("authz store error: %v", err)
-				}
-			}()
-			server := NewServer(authnS, authzS, objstore, refstore, cs, readTimeout, writeTimeout)
 			defer server.Close()
 			return server.Start(fmt.Sprintf(":%d", port))
 		},

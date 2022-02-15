@@ -159,71 +159,80 @@ func init() {
 	}
 }
 
-type claimsKey struct{}
+type emailKey struct{}
 
-func setClaims(r *http.Request, claims *auth.Claims) *http.Request {
-	return r.WithContext(context.WithValue(r.Context(), claimsKey{}, claims))
+func setEmail(r *http.Request, email string) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), emailKey{}, email))
 }
 
-func getClaims(r *http.Request) *auth.Claims {
-	if i := r.Context().Value(claimsKey{}); i != nil {
-		return i.(*auth.Claims)
+func getEmail(r *http.Request) string {
+	if i := r.Context().Value(emailKey{}); i != nil {
+		return i.(string)
 	}
-	return nil
+	return ""
 }
 
-type authzMiddleware struct {
-	handler              http.Handler
-	rootPath             *regexp.Regexp
-	maskUnauthorizedPath bool
-	getClaims            func(r *http.Request) *auth.Claims
+type nameKey struct{}
+
+func setName(r *http.Request, name string) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), nameKey{}, name))
 }
 
-func AuthorizeMiddleware(rootPath *regexp.Regexp, getClaims func(r *http.Request) *auth.Claims, maskUnauthorizedPath bool) func(handler http.Handler) http.Handler {
+func getName(r *http.Request) string {
+	if i := r.Context().Value(nameKey{}); i != nil {
+		return i.(string)
+	}
+	return ""
+}
+
+type AuthzMiddlewareOptions struct {
+	RootPath             *regexp.Regexp
+	MaskUnauthorizedPath bool
+	GetEmailName         func(r *http.Request) (email, name string)
+	GetScopes            func(r *http.Request) (scopes []string)
+	RequestScope         func(rw http.ResponseWriter, r *http.Request, scope string)
+}
+
+func AuthorizeMiddleware(options AuthzMiddlewareOptions) func(handler http.Handler) http.Handler {
 	return func(handler http.Handler) http.Handler {
-		m := &authzMiddleware{
-			handler:              handler,
-			rootPath:             rootPath,
-			getClaims:            getClaims,
-			maskUnauthorizedPath: maskUnauthorizedPath,
-		}
-		return m
-	}
-}
-
-func (m *authzMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	var route *routeScope
-	p := r.URL.Path
-	if m.rootPath != nil {
-		p = strings.TrimPrefix(p, m.rootPath.FindString(p))
-		if !strings.HasPrefix(p, "/") {
-			p = "/" + p
-		}
-	}
-	for _, o := range routeScopes {
-		if o.Pat.MatchString(p) && o.Method == r.Method {
-			route = &o
-			break
-		}
-	}
-	if route == nil {
-		sendHTTPError(rw, http.StatusNotFound)
-		return
-	}
-	if route.Scope != "" {
-		claims := m.getClaims(r)
-		if claims != nil {
-			for _, s := range claims.Scopes {
-				if s == route.Scope {
-					m.handler.ServeHTTP(rw, setClaims(r, claims))
-					return
+		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			var route *routeScope
+			p := r.URL.Path
+			if options.RootPath != nil {
+				p = strings.TrimPrefix(p, options.RootPath.FindString(p))
+				if !strings.HasPrefix(p, "/") {
+					p = "/" + p
 				}
 			}
-		}
-		if m.maskUnauthorizedPath {
-			sendHTTPError(rw, http.StatusNotFound)
-		} else {
-			sendHTTPError(rw, http.StatusForbidden)
-		}
+			for _, o := range routeScopes {
+				if o.Pat.MatchString(p) && o.Method == r.Method {
+					route = &o
+					break
+				}
+			}
+			if route == nil {
+				SendHTTPError(rw, http.StatusNotFound)
+				return
+			}
+			if route.Scope != "" {
+				scopes := options.GetScopes(r)
+				for _, s := range scopes {
+					if s == route.Scope {
+						email, name := options.GetEmailName(r)
+						handler.ServeHTTP(rw, setEmail(setName(r, name), email))
+						return
+					}
+				}
+				if options.RequestScope != nil {
+					options.RequestScope(rw, r, route.Scope)
+				} else {
+					if options.MaskUnauthorizedPath {
+						SendHTTPError(rw, http.StatusNotFound)
+					} else {
+						SendHTTPError(rw, http.StatusForbidden)
+					}
+				}
+			}
+		})
 	}
 }

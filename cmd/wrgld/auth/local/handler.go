@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 
 	wrgldutils "github.com/wrgl/wrgl/cmd/wrgld/utils"
 	"github.com/wrgl/wrgl/pkg/api"
-	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
 	"github.com/wrgl/wrgl/pkg/auth"
 )
@@ -18,7 +16,7 @@ type LocalAuthHandler struct {
 	authnS auth.AuthnStore
 }
 
-func NewHandler(handler http.Handler, rootPath *regexp.Regexp, authnS auth.AuthnStore, authzS auth.AuthzStore, maskUnauthorizedPath bool) *LocalAuthHandler {
+func NewHandler(handler http.Handler, authnS auth.AuthnStore, authzS auth.AuthzStore) *LocalAuthHandler {
 	h := &LocalAuthHandler{
 		sm:     http.NewServeMux(),
 		authnS: authnS,
@@ -26,17 +24,26 @@ func NewHandler(handler http.Handler, rootPath *regexp.Regexp, authnS auth.Authn
 	h.sm.HandleFunc("/authenticate/", h.handleAuthenticate)
 	h.sm.Handle("/", wrgldutils.ApplyMiddlewares(
 		handler,
-		apiserver.AuthorizeMiddleware(rootPath, func(r *http.Request) *auth.Claims {
-			claims := getClaims(r)
-			if claims != nil {
-				scopes, err := authzS.ListPolicies(claims.Email)
-				if err != nil {
-					panic(err)
+		apiserver.AuthorizeMiddleware(apiserver.AuthzMiddlewareOptions{
+			GetEmailName: func(r *http.Request) (email string, name string) {
+				claims := getClaims(r)
+				if claims != nil {
+					return claims.Email, claims.Name
 				}
-				claims.Scopes = scopes
-			}
-			return claims
-		}, maskUnauthorizedPath),
+				return "", ""
+			},
+			GetScopes: func(r *http.Request) (scopes []string) {
+				claims := getClaims(r)
+				if claims != nil {
+					scopes, err := authzS.ListPolicies(claims.Email)
+					if err != nil {
+						panic(err)
+					}
+					return scopes
+				}
+				return nil
+			},
+		}),
 		AuthenticateMiddleware(authnS),
 	))
 	return h
@@ -46,28 +53,13 @@ func (h *LocalAuthHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	h.sm.ServeHTTP(rw, r)
 }
 
-func sendError(rw http.ResponseWriter, code int, message string) {
-	rw.Header().Set("Content-Type", api.CTJSON)
-	rw.WriteHeader(code)
-	b, err := json.Marshal(&payload.Error{
-		Message: message,
-	})
-	if err != nil {
-		panic(err)
-	}
-	_, err = rw.Write(b)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func (h *LocalAuthHandler) handleAuthenticate(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		sendError(rw, http.StatusMethodNotAllowed, "method not allowed")
+		apiserver.SendError(rw, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 	if v := r.Header.Get("Content-Type"); v != api.CTJSON {
-		sendError(rw, http.StatusUnsupportedMediaType, "json expected")
+		apiserver.SendError(rw, http.StatusUnsupportedMediaType, "json expected")
 		return
 	}
 	b, err := ioutil.ReadAll(r.Body)
@@ -82,7 +74,7 @@ func (h *LocalAuthHandler) handleAuthenticate(rw http.ResponseWriter, r *http.Re
 	tok, err := h.authnS.Authenticate(req.Email, req.Password)
 	if err != nil {
 		if err.Error() == "email/password invalid" {
-			sendError(rw, http.StatusUnauthorized, err.Error())
+			apiserver.SendError(rw, http.StatusUnauthorized, err.Error())
 			return
 		}
 		panic(err)
@@ -90,13 +82,5 @@ func (h *LocalAuthHandler) handleAuthenticate(rw http.ResponseWriter, r *http.Re
 	resp := &AuthenticateResponse{
 		IDToken: tok,
 	}
-	b, err = json.Marshal(resp)
-	if err != nil {
-		panic(err)
-	}
-	rw.Header().Set("Content-Type", api.CTJSON)
-	_, err = rw.Write(b)
-	if err != nil {
-		panic(err)
-	}
+	apiserver.WriteJSON(rw, resp)
 }
