@@ -46,6 +46,11 @@ func TestConfigAddCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push"})
 	assertCmdOutput(t, cmd, "refs/heads/main\nrefs/tags/december\n")
 
+	// get the second value
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push.1"})
+	assertCmdOutput(t, cmd, "refs/tags/december\n")
+
 	// get with value pattern
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "^refs/heads/.+", "--null"})
@@ -61,4 +66,14 @@ func TestConfigAddCmd(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "refs/tags/december", "--fixed-value", "--null"})
 	assertCmdOutput(t, cmd, "refs/tags/december\x00")
+
+	// add with json value
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "add", "auth.clients", `{"id": "123", "redirectURIs": ["http://my-client.com"]}`})
+	require.NoError(t, cmd.Execute())
+
+	// get json value
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "get", "auth.clients.0"})
+	assertCmdOutput(t, cmd, "{\"id\":\"123\",\"redirectURIs\":[\"http://my-client.com\"]}\n")
 }

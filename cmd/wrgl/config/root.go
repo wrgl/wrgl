@@ -32,7 +32,6 @@ func RootCmd() *cobra.Command {
 	cmd.AddCommand(replaceAllCmd())
 	cmd.AddCommand(addCmd())
 	cmd.AddCommand(unsetCmd())
-	cmd.AddCommand(unsetAllCmd())
 	cmd.AddCommand(renameSectionCmd())
 	return cmd
 }

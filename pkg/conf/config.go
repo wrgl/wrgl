@@ -91,12 +91,12 @@ type Auth struct {
 	// TokenDuration specifies how long before a JWT token given by the `/authenticate/`
 	// endpoint of Wrgld expire. This is a string in the format "72h3m0.5s". Tokens last for
 	// 90 days by default.
-	TokenDuration time.Duration `yaml:"tokenDuration,omitempty" json:"tokenDuration,omitempty"`
+	TokenDuration *Duration `yaml:"tokenDuration,omitempty" json:"tokenDuration,omitempty"`
 
 	// Types specifies how authorization work with wrgld API
 	Type AuthType `yaml:"type,omitempty" json:"type,omitempty"`
 
-	OIDCProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
+	OidcProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
 
 	Clients []AuthClient `yaml:"clients,omitempty" json:"clients,omitempty"`
 }
@@ -140,7 +140,7 @@ type Config struct {
 
 func (c *Config) TokenDuration() time.Duration {
 	if c.Auth != nil {
-		return c.Auth.TokenDuration
+		return time.Duration(*c.Auth.TokenDuration)
 	}
 	return 0
 }

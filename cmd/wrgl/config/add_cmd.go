@@ -16,8 +16,12 @@ func addCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		Example: utils.CombineExamples([]utils.Example{
 			{
-				Comment: "Add new value to remote.origin.push",
+				Comment: "add new value to remote.origin.push",
 				Line:    "wrgl config add remote.origin.push refs/heads/main",
+			},
+			{
+				Comment: "add whole object with JSON string",
+				Line:    `wrgl config add auth.clients '{"id": "123", "redirectURIs": ["http://my-client.com"]}'`,
 			},
 		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -31,28 +35,14 @@ func addCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			err = addValue(v, args[1])
-			if err != nil {
+			if v.Kind() != reflect.Slice {
+				return fmt.Errorf("command only support multiple values field. Use \"config set\" command instead")
+			}
+			if err = dotno.AppendSlice(v.Addr(), args[1]); err != nil {
 				return err
 			}
 			return s.Save(c)
 		},
 	}
 	return cmd
-}
-
-func addValue(v reflect.Value, val string) error {
-	if v.Kind() != reflect.Slice {
-		return fmt.Errorf("command only support multiple values field. Use \"config set\" command instead")
-	}
-	if sl, ok := dotno.ToTextSlice(v.Interface()); ok {
-		err := sl.Append(val)
-		if err != nil {
-			return err
-		}
-		v.Set(sl.Value)
-	} else {
-		panic(fmt.Sprintf("type %v does not implement encoding.TextUnmarshaler and encoding.TextMarshaler", v.Type().Elem()))
-	}
-	return nil
 }

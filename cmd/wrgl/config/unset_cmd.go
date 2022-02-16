@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -13,9 +14,9 @@ import (
 
 func unsetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "unset NAME [VALUE_PATTERN]",
-		Short: "Remove a single value.",
-		Long:  "Remove a single value. If VALUE_PATTERN is not given, the matching field must be single-valued. If VALUE_PATTERN is given and the field is multi-valued, there must be only one matching value.",
+		Use:   "unset NAME [VALUE_PATTERN] [--all]",
+		Short: "Remove one or more values.",
+		Long:  "Remove one or more values. If VALUE_PATTERN is given, the field must be multi-valued. All values matching VALUE_PATTERN will be removed.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "remove an option",
@@ -34,6 +35,10 @@ func unsetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			all, err := cmd.Flags().GetBool("all")
+			if err != nil {
+				return err
+			}
 			if len(args) > 1 {
 				v, err := dotno.GetFieldValue(c, args[0], false)
 				if err != nil {
@@ -43,29 +48,22 @@ func unsetCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if len(idxMap) > 1 {
-					return fmt.Errorf("key contains multiple values")
-				} else if len(idxMap) == 1 {
-					sl := dotno.MustBeTextSlice(v.Interface())
-					result := []string{}
-					n := sl.Len()
-					for i := 0; i < n; i++ {
-						if _, ok := idxMap[i]; !ok {
-							s, err := sl.Get(i)
-							if err != nil {
-								return err
-							}
-							result = append(result, s)
-						}
-					}
-					sl, err = dotno.TextSliceFromStrSlice(v.Type(), result)
-					if err != nil {
-						return err
-					}
-					v.Set(sl.Value)
+				if len(idxMap) > 1 && !all {
+					return fmt.Errorf("key contains multiple values, specify flag --all to remove multiple values")
 				}
+				n := v.Len()
+				newLen := n - len(idxMap)
+				result := reflect.MakeSlice(v.Type(), newLen, newLen)
+				j := 0
+				for i := 0; i < n; i++ {
+					if _, ok := idxMap[i]; !ok {
+						result.Index(j).Set(v.Index(i))
+						j++
+					}
+				}
+				v.Set(result)
 			} else {
-				err := dotno.UnsetField(c, args[0], false)
+				err := dotno.UnsetField(c, args[0], all)
 				if err != nil {
 					return err
 				}
@@ -73,5 +71,6 @@ func unsetCmd() *cobra.Command {
 			return s.Save(c)
 		},
 	}
+	cmd.Flags().Bool("all", false, "remove all values. If VALUE_PATTERN is defined, remove all values that match VALUE_PATTERN.")
 	return cmd
 }

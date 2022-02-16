@@ -58,11 +58,11 @@ type Handler struct {
 	stateMutext sync.Mutex
 }
 
-func NewHandler(serverHandler http.Handler, authConf *conf.Auth) (h *Handler, err error) {
+func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Client) (h *Handler, err error) {
 	if authConf == nil {
 		return nil, fmt.Errorf("empty auth config")
 	}
-	if authConf.OIDCProvider == nil {
+	if authConf.OidcProvider == nil {
 		return nil, fmt.Errorf("empty auth.oidcProvider config")
 	}
 	if len(authConf.Clients) == 0 {
@@ -87,21 +87,25 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth) (h *Handler, er
 		}
 		h.clients[c.ID] = *client
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx := context.Background()
+	if client != nil {
+		ctx = oidc.ClientContext(ctx, client)
+	}
+	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
-	h.provider, err = oidc.NewProvider(ctx, authConf.OIDCProvider.Issuer)
+	h.provider, err = oidc.NewProvider(ctx, authConf.OidcProvider.Issuer)
 	if err != nil {
 		return nil, err
 	}
 	h.oidcConfig = &oauth2.Config{
-		ClientID:     authConf.OIDCProvider.ClientID,
-		ClientSecret: authConf.OIDCProvider.ClientSecret,
-		RedirectURL:  strings.TrimRight(authConf.OIDCProvider.Address, "/") + "/oidc/callback/",
+		ClientID:     authConf.OidcProvider.ClientID,
+		ClientSecret: authConf.OidcProvider.ClientSecret,
+		RedirectURL:  strings.TrimRight(authConf.OidcProvider.Address, "/") + "/oidc/callback/",
 		Endpoint:     h.provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 	h.verifier = h.provider.Verifier(&oidc.Config{
-		ClientID: authConf.OIDCProvider.ClientID,
+		ClientID: authConf.OidcProvider.ClientID,
 	})
 
 	h.sm.HandleFunc("/oauth2/authorize/", h.handleAuthorize)
@@ -121,7 +125,7 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth) (h *Handler, er
 			GetScopes: func(r *http.Request) (scopes []string) {
 				c := getClaims(r)
 				if c != nil {
-					if ra, ok := c.ResourceAccess[authConf.OIDCProvider.ClientID]; ok {
+					if ra, ok := c.ResourceAccess[authConf.OidcProvider.ClientID]; ok {
 						scopes = ra.Roles
 					}
 				}
@@ -131,7 +135,7 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth) (h *Handler, er
 				var scopes []string
 				c := getClaims(r)
 				if c != nil {
-					if ra, ok := c.ResourceAccess[authConf.OIDCProvider.ClientID]; ok {
+					if ra, ok := c.ResourceAccess[authConf.OidcProvider.ClientID]; ok {
 						scopes = ra.Roles
 					}
 				}

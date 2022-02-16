@@ -4,14 +4,49 @@
 package dotno
 
 import (
+	"encoding"
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
-func GetFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value, error) {
+func parseSliceIndex(v reflect.Value, index string) (int, error) {
+	ind, err := strconv.Atoi(index)
+	if err != nil {
+		err = fmt.Errorf("error parsing key %q as number: %v", index, err)
+		return 0, err
+	}
+	if n := v.Len(); ind >= n {
+		return 0, fmt.Errorf("index out of range: %d >= %d", ind, n)
+	}
+	return ind, nil
+}
+
+// structField try all variants of a name on struct and return the first matching struct field
+func structField(structType reflect.Type, name string) (sf *reflect.StructField, err error) {
+	nameLower := strings.ToLower(name)
+	n := structType.NumField()
+	for i := 0; i < n; i++ {
+		field := structType.Field(i)
+		r, _ := utf8.DecodeRuneInString(field.Name)
+		// only consider exported fields
+		if unicode.IsLower(r) {
+			continue
+		}
+		if strings.ToLower(field.Name) == nameLower {
+			return &field, nil
+		}
+	}
+	return nil, fmt.Errorf("field %q not found", name)
+}
+
+func GetFieldValue(s interface{}, prop string, createIfZero bool) (v reflect.Value, err error) {
 	props := strings.Split(prop, ".")
-	v := reflect.ValueOf(s)
+	v = reflect.ValueOf(s)
 	t := reflect.TypeOf(s)
 	if prop == "" {
 		return v, nil
@@ -30,45 +65,52 @@ func GetFieldValue(s interface{}, prop string, createIfZero bool) (reflect.Value
 		switch t.Kind() {
 		case reflect.Struct:
 			name = strings.ToUpper(string(p[0])) + p[1:]
-			sf, ok := t.FieldByName(name)
-			if !ok {
-				return reflect.Value{}, fmt.Errorf(`field "%s" not found`, name)
+			sf, err := structField(t, name)
+			if err != nil {
+				return reflect.Value{}, err
 			}
-			v = v.FieldByName(name)
+			v = v.FieldByName(sf.Name)
 			t = sf.Type
 			if v.IsZero() {
-				if createIfZero {
-					if t.Kind() == reflect.Ptr {
-						v.Set(reflect.New(t.Elem()))
-					} else if t.Kind() == reflect.Map {
-						v.Set(reflect.MakeMap(t))
-					} else {
-						v.Set(reflect.New(t).Elem())
-					}
+				if !createIfZero {
+					return reflect.Value{}, fmt.Errorf(`field "%s" is zero`, sf.Name)
+				}
+				if t.Kind() == reflect.Ptr {
+					v.Set(reflect.New(t.Elem()))
+				} else if t.Kind() == reflect.Map {
+					v.Set(reflect.MakeMap(t))
 				} else {
-					return reflect.Value{}, fmt.Errorf(`field "%s" is zero`, name)
+					v.Set(reflect.New(t).Elem())
 				}
 			}
 		case reflect.Map:
 			if t.Key().Kind() != reflect.String {
-				return reflect.Value{}, fmt.Errorf("map key must be a string")
+				err = fmt.Errorf("map key must be a string")
+				return
 			}
 			t = t.Elem()
 			key := reflect.ValueOf(name)
 			e := v.MapIndex(key)
 			if !e.IsValid() {
-				if createIfZero {
-					if t.Kind() == reflect.Ptr {
-						e = reflect.New(t.Elem())
-					} else {
-						e = reflect.New(t).Elem()
-					}
-					v.SetMapIndex(key, e)
-				} else {
-					return reflect.Value{}, fmt.Errorf("key not found: %q", name)
+				if !createIfZero {
+					err = fmt.Errorf("key not found: %q", name)
+					return
 				}
+				if t.Kind() == reflect.Ptr {
+					e = reflect.New(t.Elem())
+				} else {
+					e = reflect.New(t).Elem()
+				}
+				v.SetMapIndex(key, e)
 			}
 			v = e
+		case reflect.Slice:
+			ind, err := parseSliceIndex(v, name)
+			if err != nil {
+				return v, err
+			}
+			t = t.Elem()
+			v = v.Index(ind)
 		default:
 			return reflect.Value{}, fmt.Errorf("unhandled kind %v", t.Kind())
 		}
@@ -97,77 +139,86 @@ func UnsetField(s interface{}, prop string, all bool) (err error) {
 	case reflect.Struct:
 		name = strings.ToUpper(string(name[0])) + name[1:]
 		field := parent.FieldByName(name)
-		if !all && field.Kind() == reflect.Slice && len(field.Interface().([]string)) > 1 {
+		if !all && field.Kind() == reflect.Slice && field.Len() > 1 {
 			return fmt.Errorf("key contains multiple values")
 		}
-		field.Set(reflect.New(field.Type()).Elem())
+		field.Set(reflect.Zero(field.Type()))
 	case reflect.Map:
 		ft := parent.Type().Elem()
 		key := reflect.ValueOf(name)
-		if !all && ft.Kind() == reflect.Slice {
-			field := parent.MapIndex(key)
-			if len(field.Interface().([]string)) > 1 {
-				return fmt.Errorf("key contains multiple values")
-			}
+		field := parent.MapIndex(key)
+		if !all && ft.Kind() == reflect.Slice && field.Len() > 1 {
+			return fmt.Errorf("key contains multiple values")
 		}
 		parent.SetMapIndex(key, reflect.Value{})
+	case reflect.Slice:
+		ind, err := parseSliceIndex(parent, name)
+		if err != nil {
+			return err
+		}
+		field := parent.Index(ind)
+		parentType := parent.Type()
+		if !all && parentType.Elem().Kind() == reflect.Slice && field.Len() > 1 {
+			return fmt.Errorf("key contains multiple values")
+		}
+		n := parent.Len()
+		v := reflect.MakeSlice(parentType, n-1, n-1)
+		reflect.Copy(v, parent.Slice(0, ind))
+		if ind < n-1 {
+			reflect.Copy(v.Slice(ind, n-1), parent.Slice(ind+1, n))
+		}
+		parent.Set(v)
 	default:
 		return fmt.Errorf("unhandled kind %v", parent.Type().Kind())
 	}
 	return nil
 }
 
-func GetWithDotNotation(s interface{}, prop string) (interface{}, error) {
-	fv, err := GetFieldValue(s, prop, false)
-	if err != nil {
-		return nil, err
+func SetValue(v reflect.Value, val string) error {
+	if v.Kind() == reflect.Ptr && v.IsZero() {
+		v.Set(reflect.New(v.Type().Elem()))
 	}
-	return fv.Interface(), nil
-}
-
-func SetWithDotNotation(s interface{}, prop string, val interface{}) error {
-	fv, err := GetFieldValue(s, prop, true)
-	if err != nil {
-		return err
+	if v.Type().Implements(reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()) {
+		o := v.Interface().(encoding.TextUnmarshaler)
+		return o.UnmarshalText([]byte(val))
 	}
-	fv.Set(reflect.ValueOf(val).Convert(fv.Type()))
-	return nil
-}
-
-func SetValue(v reflect.Value, val string, setMultiple bool) error {
 	switch v.Kind() {
 	case reflect.String:
 		v.Set(reflect.ValueOf(val).Convert(v.Type()))
 	case reflect.Ptr:
-		if v.Type().Elem().Kind() == reflect.Bool {
-			yes := true
-			no := false
-			if strings.ToLower(val) == "true" {
-				v.Set(reflect.ValueOf(&yes))
-			} else if strings.ToLower(val) == "false" {
-				v.Set(reflect.ValueOf(&no))
-			} else {
-				return fmt.Errorf("bad value: %q, only accept %q or %q", val, "true", "false")
+		switch v.Type().Elem().Kind() {
+		case reflect.String:
+			return SetValue(v.Elem(), val)
+		default:
+			if err := json.Unmarshal([]byte(val), v.Interface()); err != nil {
+				return err
 			}
-		} else {
-			return fmt.Errorf("setValue: unhandled pointer of type %v", v.Type().Elem())
-		}
-	case reflect.Slice:
-		if _, ok := ToTextSlice(v.Interface()); ok {
-			if setMultiple {
-				sl, err := TextSliceFromStrSlice(v.Type(), []string{val})
-				if err != nil {
-					return err
-				}
-				v.Set(sl.Value)
-			} else {
-				return fmt.Errorf("more than one value for this key")
-			}
-		} else {
-			return fmt.Errorf("setValue: unhandled slice of type %v", v.Type().Elem())
 		}
 	default:
-		return fmt.Errorf("setValue: unhandled type %v", v.Type())
+		o := reflect.New(v.Type())
+		if err := SetValue(o, val); err != nil {
+			return err
+		}
+		v.Set(o.Elem())
 	}
+	return nil
+}
+
+func AppendSlice(sl reflect.Value, values ...string) (err error) {
+	t := sl.Type()
+	if t.Kind() != reflect.Ptr && t.Elem().Kind() != reflect.Slice {
+		return fmt.Errorf("can only append to pointer of slice")
+	}
+	elems := sl.Elem()
+	n := elems.Len()
+	m := len(values)
+	v := reflect.MakeSlice(t.Elem(), n+m, n+m)
+	reflect.Copy(v, elems)
+	for i, s := range values {
+		if err := SetValue(v.Index(n+i), s); err != nil {
+			return err
+		}
+	}
+	elems.Set(v)
 	return nil
 }

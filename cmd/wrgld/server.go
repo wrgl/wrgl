@@ -37,7 +37,7 @@ type Server struct {
 	cleanups []func()
 }
 
-func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration) (*Server, error) {
+func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration, client *http.Client) (*Server, error) {
 	objstore, err := rd.OpenObjectsStore()
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration) (*Ser
 			func() { authzS.Close() },
 		)
 	} else {
-		handler, err = authoidc.NewHandler(handler, c.Auth)
+		handler, err = authoidc.NewHandler(handler, c.Auth, client)
 		if err != nil {
 			return nil, err
 		}

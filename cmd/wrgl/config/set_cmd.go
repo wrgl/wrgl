@@ -37,7 +37,7 @@ func setCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			err = dotno.SetValue(v, args[1], false)
+			err = dotno.SetValue(v, args[1])
 			if err != nil {
 				return err
 			}

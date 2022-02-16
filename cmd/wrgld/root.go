@@ -6,6 +6,8 @@ package wrgld
 import (
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -62,9 +64,28 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return
 			}
+			proxy, err := cmd.Flags().GetString("proxy")
+			if err != nil {
+				return
+			}
+			proxyURL, err := url.Parse(proxy)
+			if err != nil {
+				return
+			}
 			rd := local.NewRepoDir(dir, badgerLog)
 			defer rd.Close()
-			server, err := NewServer(rd, readTimeout, writeTimeout)
+			var client *http.Client
+			if proxyURL != nil {
+				transport := &http.Transport{}
+				*transport = *(http.DefaultTransport).(*http.Transport)
+				transport.Proxy = func(r *http.Request) (*url.URL, error) {
+					return proxyURL, nil
+				}
+				client = &http.Client{
+					Transport: transport,
+				}
+			}
+			server, err := NewServer(rd, readTimeout, writeTimeout, client)
 			if err != nil {
 				return
 			}
@@ -75,7 +96,8 @@ func RootCmd() *cobra.Command {
 	cmd.Flags().IntP("port", "p", 80, "port number to listen to")
 	cmd.Flags().Duration("read-timeout", 30*time.Second, "request read timeout as described at https://pkg.go.dev/net/http#Server.ReadTimeout")
 	cmd.Flags().Duration("write-timeout", 30*time.Second, "response write timeout as described at https://pkg.go.dev/net/http#Server.WriteTimeout")
-	cmd.PersistentFlags().String("badger-log", "", `set Badger log level, valid options are "error", "warning", "debug", and "info" (defaults to "error")`)
+	cmd.Flags().String("proxy", "", "make all outgoing requests through this proxy")
+	cmd.Flags().String("badger-log", "", `set Badger log level, valid options are "error", "warning", "debug", and "info" (defaults to "error")`)
 	cmd.AddCommand(newVersionCmd())
 	return cmd
 }

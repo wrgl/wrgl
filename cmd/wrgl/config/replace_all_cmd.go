@@ -4,7 +4,7 @@
 package config
 
 import (
-	"fmt"
+	"reflect"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -43,32 +43,26 @@ func replaceAllCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if sl, ok := dotno.ToTextSlice(v.Interface()); ok {
-					result := []string{}
-					n := sl.Len()
-					for i := 0; i < n; i++ {
-						if _, ok := idxMap[i]; !ok {
-							s, err := sl.Get(i)
-							if err != nil {
-								return err
-							}
-							result = append(result, s)
-						}
+				n := v.Len()
+				newLen := n - len(idxMap) + 1
+				result := reflect.MakeSlice(v.Type(), newLen, newLen)
+				j := 0
+				for i := 0; i < n; i++ {
+					if _, ok := idxMap[i]; !ok {
+						result.Index(j).Set(v.Index(i))
+						j++
 					}
-					result = append(result, args[1])
-					sl, err = dotno.TextSliceFromStrSlice(v.Type(), result)
-					if err != nil {
-						return err
-					}
-					v.Set(sl.Value)
-				} else {
-					panic(fmt.Sprintf("type %v does not implement encoding.TextUnmarshaler", v.Type().Elem()))
 				}
-			} else {
-				err = dotno.SetValue(v, args[1], true)
-				if err != nil {
+				if err := dotno.SetValue(result.Index(j), args[1]); err != nil {
 					return err
 				}
+				v.Set(result)
+			} else {
+				result := reflect.MakeSlice(v.Type(), 1, 1)
+				if err := dotno.SetValue(result.Index(0), args[1]); err != nil {
+					return err
+				}
+				v.Set(result)
 			}
 			return s.Save(c)
 		},

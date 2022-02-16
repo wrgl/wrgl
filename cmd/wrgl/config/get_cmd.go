@@ -22,6 +22,18 @@ func getCmd() *cobra.Command {
 				Comment: "get the last branch reference in field remote.origin.push",
 				Line:    "wrgl config get remote.origin.push ^refs/heads/",
 			},
+			{
+				Comment: "print an object as JSON string",
+				Line:    "wrgl config get remote.origin",
+			},
+			{
+				Comment: "get the last push refspec",
+				Line:    "wrgl config get remote.origin.push",
+			},
+			{
+				Comment: "get the second push refspec",
+				Line:    "wrgl config get remote.origin.push.1",
+			},
 		}),
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
