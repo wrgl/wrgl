@@ -146,7 +146,6 @@ func TestFilterWithValuePattern(t *testing.T) {
 func TestOutputValues(t *testing.T) {
 	for i, c := range []struct {
 		Obj            interface{}
-		LastOneOnly    bool
 		Null           bool
 		ExpectedOutput string
 		ExpectedErr    error
@@ -169,12 +168,6 @@ func TestOutputValues(t *testing.T) {
 			Null:           true,
 			ExpectedOutput: "abc\ndef\x00",
 		},
-		{
-			Obj:            []string{"abc", "def"},
-			Null:           true,
-			LastOneOnly:    true,
-			ExpectedOutput: "def\x00",
-		},
 	} {
 		cmd := &cobra.Command{Use: "output"}
 		cmd.Flags().Bool("null", false, "")
@@ -183,7 +176,7 @@ func TestOutputValues(t *testing.T) {
 		if c.Null {
 			cmd.Flags().Set("null", "true")
 		}
-		err := OutputValues(cmd, c.Obj, c.LastOneOnly)
+		err := OutputValues(cmd, c.Obj)
 		if err != nil {
 			assert.Equal(t, c.ExpectedErr, err, "case %d", i)
 		} else {

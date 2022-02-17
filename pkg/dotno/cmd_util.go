@@ -99,7 +99,7 @@ func FilterWithValuePattern(cmd *cobra.Command, v reflect.Value, valuePattern st
 	return
 }
 
-func OutputValues(cmd *cobra.Command, vals interface{}, lastOneOnly bool) (err error) {
+func OutputValues(cmd *cobra.Command, vals interface{}) (err error) {
 	null, err := cmd.Flags().GetBool("null")
 	if err != nil {
 		return
@@ -107,22 +107,14 @@ func OutputValues(cmd *cobra.Command, vals interface{}, lastOneOnly bool) (err e
 	v := reflect.ValueOf(vals)
 	if v.Kind() == reflect.Slice {
 		n := v.Len()
-		if lastOneOnly {
-			s, err := marshalText(v.Index(n - 1))
+		for i := 0; i < n; i++ {
+			s, err := marshalText(v.Index(i))
 			if err != nil {
 				return err
 			}
 			cmd.Print(s)
-		} else {
-			for i := 0; i < n; i++ {
-				s, err := marshalText(v.Index(i))
-				if err != nil {
-					return err
-				}
-				cmd.Print(s)
-				if i < n-1 {
-					cmd.Print("\n")
-				}
+			if i < n-1 {
+				cmd.Print("\n")
 			}
 		}
 	} else {

@@ -40,10 +40,10 @@ func TestConfigRenameSectionCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "rename-section", "remote.origin.push", "remote.acme.fetch"})
 	require.NoError(t, cmd.Execute())
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "--local"})
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "--local"})
 	assertCmdFailed(t, cmd, "", fmt.Errorf(`key "remote.origin.push" is not set`))
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.acme.fetch", "--local"})
+	cmd.SetArgs([]string{"config", "get", "remote.acme.fetch", "--local"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"refs/heads/alpha",
 		"refs/tags/jan",
@@ -54,10 +54,10 @@ func TestConfigRenameSectionCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "rename-section", "remote.acme", "remote.origin"})
 	require.NoError(t, cmd.Execute())
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.acme.fetch", "--local"})
+	cmd.SetArgs([]string{"config", "get", "remote.acme.fetch", "--local"})
 	assertCmdFailed(t, cmd, "", fmt.Errorf(`key "remote.acme.fetch" is not set`))
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.origin.fetch", "--local"})
+	cmd.SetArgs([]string{"config", "get", "remote.origin.fetch", "--local"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"refs/heads/alpha",
 		"refs/tags/jan",

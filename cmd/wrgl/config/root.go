@@ -27,7 +27,6 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().Bool("fixed-value", false, "when used with the VALUE_PATTERN argument, treat VALUE_PATTERN as an exact string instead of a regular expression.")
 	cmd.PersistentFlags().BoolP("null", "z", false, "for all options that output values and/or keys, always end values with the null character (instead of a newline). Use newline instead as a delimiter between key and value. This allows for secure parsing of the output without getting confused e.g. by values that contain line breaks.")
 	cmd.AddCommand(getCmd())
-	cmd.AddCommand(getAllCmd())
 	cmd.AddCommand(setCmd())
 	cmd.AddCommand(replaceAllCmd())
 	cmd.AddCommand(addCmd())

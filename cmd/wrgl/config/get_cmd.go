@@ -12,7 +12,7 @@ func getCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get NAME [VALUE_PATTERN]",
 		Short: "Get value of a field.",
-		Long:  "Get value of a field. Return the last value if there are multiple values in this field. If VALUE_PATTERN is given then only return the value if it matches pattern (a regular expression if --fixed-value is not set). Returns error code 1 if the key was not found.",
+		Long:  "Get value of a field. If VALUE_PATTERN is given then only return the value if it matches pattern (a regular expression if --fixed-value is not set). Returns error code 1 if the key was not found.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "get current user email",
@@ -27,7 +27,7 @@ func getCmd() *cobra.Command {
 				Line:    "wrgl config get remote.origin",
 			},
 			{
-				Comment: "get the last push refspec",
+				Comment: "get all the push refspec",
 				Line:    "wrgl config get remote.origin.push",
 			},
 			{
@@ -52,9 +52,9 @@ func getCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return dotno.OutputValues(cmd, vals, true)
+				return dotno.OutputValues(cmd, vals)
 			}
-			return dotno.OutputValues(cmd, v.Interface(), true)
+			return dotno.OutputValues(cmd, v.Interface())
 		},
 	}
 	return cmd

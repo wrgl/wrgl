@@ -38,25 +38,23 @@ func TestConfigAddCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "add", "remote.origin.push", "refs/tags/december"})
 	require.NoError(t, cmd.Execute())
 
-	// vanilla get & get-all
+	// vanilla get
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get", "remote.origin.push"})
-	assertCmdOutput(t, cmd, "refs/tags/december\n")
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push"})
-	assertCmdOutput(t, cmd, "refs/heads/main\nrefs/tags/december\n")
-
-	// get the second value
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push.0"})
+	assertCmdOutput(t, cmd, "refs/heads/main\n")
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push.1"})
 	assertCmdOutput(t, cmd, "refs/tags/december\n")
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push"})
+	assertCmdOutput(t, cmd, "refs/heads/main\nrefs/tags/december\n")
 
 	// get with value pattern
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "^refs/heads/.+", "--null"})
 	assertCmdOutput(t, cmd, "refs/heads/main\x00")
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "^refs/tags/.+", "--null"})
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "^refs/tags/.+", "--null"})
 	assertCmdOutput(t, cmd, "refs/tags/december\x00")
 
 	// get with fixed value
@@ -64,7 +62,7 @@ func TestConfigAddCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "refs/heads/main", "--fixed-value", "--null"})
 	assertCmdOutput(t, cmd, "refs/heads/main\x00")
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "refs/tags/december", "--fixed-value", "--null"})
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "refs/tags/december", "--fixed-value", "--null"})
 	assertCmdOutput(t, cmd, "refs/tags/december\x00")
 
 	// add with json value

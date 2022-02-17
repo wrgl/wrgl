@@ -94,7 +94,7 @@ func TestConfigUnsetAllCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "unset", "--all", "remote.origin.push", "refs/heads/alpha", "--fixed-value"})
 	require.NoError(t, cmd.Execute())
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "--local"})
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "--local"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"refs/heads/beta",
 		"refs/heads/gamma",
@@ -108,7 +108,7 @@ func TestConfigUnsetAllCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "unset", "--all", "remote.origin.push", "^refs/tags/.+"})
 	require.NoError(t, cmd.Execute())
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "--local"})
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "--local"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"refs/heads/beta",
 		"refs/heads/gamma",
@@ -119,6 +119,6 @@ func TestConfigUnsetAllCmd(t *testing.T) {
 	cmd.SetArgs([]string{"config", "unset", "--all", "remote.origin.push"})
 	require.NoError(t, cmd.Execute())
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get-all", "remote.origin.push", "--local"})
+	cmd.SetArgs([]string{"config", "get", "remote.origin.push", "--local"})
 	assertCmdFailed(t, cmd, "", fmt.Errorf(`key "remote.origin.push" is not set`))
 }
