@@ -185,10 +185,10 @@ func (s *Server) NewRemote(t *testing.T, pathPrefix string, pathPrefixRegexp *re
 			s.s.ServeHTTP(rw, r)
 		},
 	})
-	var handler http.Handler = apiserver.AuthorizeMiddleware(
-		apiserver.AuthzMiddlewareOptions{
-			RootPath: pathPrefixRegexp,
-			GetEmailName: func(r *http.Request) (email string, name string) {
+	var handler http.Handler = ApplyMiddlewares(
+		m,
+		func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 				if s := r.Header.Get("Authorization"); s != "" {
 					claims := &Claims{}
 					_, err := jwt.ParseWithClaims(
@@ -196,24 +196,31 @@ func (s *Server) NewRemote(t *testing.T, pathPrefix string, pathPrefixRegexp *re
 						func(t *jwt.Token) (interface{}, error) { return jwt.UnsafeAllowNoneSignatureType, nil },
 					)
 					require.NoError(t, err)
-					return claims.Email, claims.Name
+					r = apiserver.SetEmail(apiserver.SetName(r, claims.Name), claims.Email)
 				}
-				return "", ""
-			},
-			GetScopes: func(r *http.Request) (scopes []string) {
-				if s := r.Header.Get("Authorization"); s != "" {
-					claims := &Claims{}
-					_, err := jwt.ParseWithClaims(
-						strings.TrimPrefix(s, "Bearer "), claims,
-						func(t *jwt.Token) (interface{}, error) { return jwt.UnsafeAllowNoneSignatureType, nil },
-					)
-					require.NoError(t, err)
-					return claims.Scopes
-				}
-				return nil
-			},
+				h.ServeHTTP(rw, r)
+			})
 		},
-	)(m)
+		apiserver.AuthorizeMiddleware(apiserver.AuthzMiddlewareOptions{
+			RootPath: pathPrefixRegexp,
+			Enforce: func(r *http.Request, scope string) bool {
+				if s := r.Header.Get("Authorization"); s != "" {
+					claims := &Claims{}
+					_, err := jwt.ParseWithClaims(
+						strings.TrimPrefix(s, "Bearer "), claims,
+						func(t *jwt.Token) (interface{}, error) { return jwt.UnsafeAllowNoneSignatureType, nil },
+					)
+					require.NoError(t, err)
+					for _, a := range claims.Scopes {
+						if a == scope {
+							return true
+						}
+					}
+				}
+				return false
+			},
+		}),
+	)
 	if pathPrefix != "" {
 		mux := http.NewServeMux()
 		mux.Handle(pathPrefix, handler)

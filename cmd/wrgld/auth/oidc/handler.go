@@ -113,23 +113,28 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 	h.sm.HandleFunc("/oidc/callback/", h.handleCallback)
 	h.sm.Handle("/", wrgldutils.ApplyMiddlewares(
 		serverHandler,
-		apiserver.AuthorizeMiddleware(apiserver.AuthzMiddlewareOptions{
-			GetEmailName: func(r *http.Request) (email string, name string) {
+		func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 				c := getClaims(r)
 				if c != nil {
-					email = c.Email
-					name = c.Name
+					r = apiserver.SetEmail(apiserver.SetName(r, c.Name), c.Email)
 				}
-				return
-			},
-			GetScopes: func(r *http.Request) (scopes []string) {
+				h.ServeHTTP(rw, r)
+			})
+		},
+		apiserver.AuthorizeMiddleware(apiserver.AuthzMiddlewareOptions{
+			Enforce: func(r *http.Request, scope string) bool {
 				c := getClaims(r)
 				if c != nil {
 					if ra, ok := c.ResourceAccess[authConf.OidcProvider.ClientID]; ok {
-						scopes = ra.Roles
+						for _, s := range ra.Roles {
+							if s == scope {
+								return true
+							}
+						}
 					}
 				}
-				return
+				return false
 			},
 			RequestScope: func(rw http.ResponseWriter, r *http.Request, scope string) {
 				var scopes []string
@@ -149,12 +154,11 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 				if !found {
 					scopes = append(scopes, scope)
 				}
-				handleError(rw,
-					&UnauthorizedError{
-						Message:      fmt.Sprintf("scope %q required", scope),
-						CurrentScope: strings.Join(scopes, " "),
-						MissingScope: scope,
-					})
+				handleError(rw, &UnauthorizedError{
+					Message:      fmt.Sprintf("scope %q required", scope),
+					CurrentScope: strings.Join(scopes, " "),
+					MissingScope: scope,
+				})
 			},
 		}),
 		h.validateAccessToken,

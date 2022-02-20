@@ -161,11 +161,11 @@ func init() {
 
 type emailKey struct{}
 
-func setEmail(r *http.Request, email string) *http.Request {
+func SetEmail(r *http.Request, email string) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), emailKey{}, email))
 }
 
-func getEmail(r *http.Request) string {
+func GetEmail(r *http.Request) string {
 	if i := r.Context().Value(emailKey{}); i != nil {
 		return i.(string)
 	}
@@ -174,11 +174,11 @@ func getEmail(r *http.Request) string {
 
 type nameKey struct{}
 
-func setName(r *http.Request, name string) *http.Request {
+func SetName(r *http.Request, name string) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), nameKey{}, name))
 }
 
-func getName(r *http.Request) string {
+func GetName(r *http.Request) string {
 	if i := r.Context().Value(nameKey{}); i != nil {
 		return i.(string)
 	}
@@ -188,8 +188,7 @@ func getName(r *http.Request) string {
 type AuthzMiddlewareOptions struct {
 	RootPath             *regexp.Regexp
 	MaskUnauthorizedPath bool
-	GetEmailName         func(r *http.Request) (email, name string)
-	GetScopes            func(r *http.Request) (scopes []string)
+	Enforce              func(r *http.Request, scope string) bool
 	RequestScope         func(rw http.ResponseWriter, r *http.Request, scope string)
 }
 
@@ -215,13 +214,9 @@ func AuthorizeMiddleware(options AuthzMiddlewareOptions) func(handler http.Handl
 				return
 			}
 			if route.Scope != "" {
-				scopes := options.GetScopes(r)
-				for _, s := range scopes {
-					if s == route.Scope {
-						email, name := options.GetEmailName(r)
-						handler.ServeHTTP(rw, setEmail(setName(r, name), email))
-						return
-					}
+				if options.Enforce(r, route.Scope) {
+					handler.ServeHTTP(rw, r)
+					return
 				}
 				if options.RequestScope != nil {
 					options.RequestScope(rw, r, route.Scope)

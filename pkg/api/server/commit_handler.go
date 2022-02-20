@@ -20,7 +20,7 @@ import (
 )
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
-	email := getEmail(r)
+	email := GetEmail(r)
 	if email == "" {
 		SendHTTPError(rw, http.StatusUnauthorized)
 		return
@@ -88,7 +88,7 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	name := getName(r)
+	name := GetName(r)
 	commit := &objects.Commit{
 		Table:       sum,
 		Message:     message,

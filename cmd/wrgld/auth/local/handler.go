@@ -24,24 +24,26 @@ func NewHandler(handler http.Handler, authnS auth.AuthnStore, authzS auth.AuthzS
 	h.sm.HandleFunc("/authenticate/", h.handleAuthenticate)
 	h.sm.Handle("/", wrgldutils.ApplyMiddlewares(
 		handler,
-		apiserver.AuthorizeMiddleware(apiserver.AuthzMiddlewareOptions{
-			GetEmailName: func(r *http.Request) (email string, name string) {
+		func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 				claims := getClaims(r)
 				if claims != nil {
-					return claims.Email, claims.Name
+					r = apiserver.SetEmail(apiserver.SetName(r, claims.Name), claims.Email)
 				}
-				return "", ""
-			},
-			GetScopes: func(r *http.Request) (scopes []string) {
+				h.ServeHTTP(rw, r)
+			})
+		},
+		apiserver.AuthorizeMiddleware(apiserver.AuthzMiddlewareOptions{
+			Enforce: func(r *http.Request, scope string) bool {
 				claims := getClaims(r)
 				if claims != nil {
-					scopes, err := authzS.ListPolicies(claims.Email)
+					ok, err := authzS.Authorized(r, claims.Email, scope)
 					if err != nil {
 						panic(err)
 					}
-					return scopes
+					return ok
 				}
-				return nil
+				return false
 			},
 		}),
 		AuthenticateMiddleware(authnS),
