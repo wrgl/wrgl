@@ -68,14 +68,14 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return
 			}
-			proxyURL, err := url.Parse(proxy)
-			if err != nil {
-				return
-			}
 			rd := local.NewRepoDir(dir, badgerLog)
 			defer rd.Close()
 			var client *http.Client
-			if proxyURL != nil {
+			if proxy != "" {
+				proxyURL, err := url.Parse(proxy)
+				if err != nil {
+					return err
+				}
 				transport := &http.Transport{}
 				*transport = *(http.DefaultTransport).(*http.Transport)
 				transport.Proxy = func(r *http.Request) (*url.URL, error) {

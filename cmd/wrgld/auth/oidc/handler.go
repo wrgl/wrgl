@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,23 +16,12 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/google/uuid"
 	wrgldutils "github.com/wrgl/wrgl/cmd/wrgld/utils"
+	"github.com/wrgl/wrgl/pkg/api"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
-	"github.com/wrgl/wrgl/pkg/auth"
 	"github.com/wrgl/wrgl/pkg/conf"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 )
-
-var validScopes map[string]struct{}
-
-func init() {
-	validScopes = map[string]struct{}{
-		auth.ScopeRepoRead:        {},
-		auth.ScopeRepoWrite:       {},
-		auth.ScopeRepoReadConfig:  {},
-		auth.ScopeRepoWriteConfig: {},
-	}
-}
 
 type ClientSession struct {
 	ClientID            string
@@ -48,11 +36,12 @@ type Client struct {
 }
 
 type Handler struct {
-	clients    map[string]Client
-	provider   *oidc.Provider
-	verifier   *oidc.IDTokenVerifier
-	oidcConfig *oauth2.Config
-	sm         *http.ServeMux
+	clients     map[string]Client
+	corsOrigins []string
+	provider    *oidc.Provider
+	verifier    *oidc.IDTokenVerifier
+	oidcConfig  *oauth2.Config
+	handler     http.Handler
 
 	stateMap    map[string]*ClientSession
 	stateMutext sync.Mutex
@@ -69,7 +58,6 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 		return nil, fmt.Errorf("no registered client (empty auth.clients config)")
 	}
 	h = &Handler{
-		sm:       http.NewServeMux(),
 		stateMap: map[string]*ClientSession{},
 		clients:  map[string]Client{},
 	}
@@ -79,6 +67,11 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 			return nil, fmt.Errorf("empty redirectURIs for client %q", c.ID)
 		}
 		for _, s := range c.RedirectURIs {
+			u, err := url.Parse(s)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing url %q", s)
+			}
+			h.corsOrigins = append(h.corsOrigins, fmt.Sprintf("%s://%s", u.Scheme, u.Host))
 			g, err := glob.Compile(s)
 			if err != nil {
 				return nil, fmt.Errorf("error compiling glob pattern %q", s)
@@ -86,13 +79,12 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 			client.RedirectURIs = append(client.RedirectURIs, g)
 		}
 		h.clients[c.ID] = *client
+		log.Printf("client %q registered", c.ID)
 	}
 	ctx := context.Background()
 	if client != nil {
 		ctx = oidc.ClientContext(ctx, client)
 	}
-	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
-	defer cancel()
 	h.provider, err = oidc.NewProvider(ctx, authConf.OidcProvider.Issuer)
 	if err != nil {
 		return nil, err
@@ -108,10 +100,11 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 		ClientID: authConf.OidcProvider.ClientID,
 	})
 
-	h.sm.HandleFunc("/oauth2/authorize/", h.handleAuthorize)
-	h.sm.HandleFunc("/oauth2/token/", h.handleToken)
-	h.sm.HandleFunc("/oidc/callback/", h.handleCallback)
-	h.sm.Handle("/", wrgldutils.ApplyMiddlewares(
+	sm := http.NewServeMux()
+	sm.HandleFunc("/oauth2/authorize/", h.handleAuthorize)
+	sm.HandleFunc("/oauth2/token/", h.handleToken)
+	sm.HandleFunc("/oidc/callback/", h.handleCallback)
+	sm.Handle("/", wrgldutils.ApplyMiddlewares(
 		serverHandler,
 		func(h http.Handler) http.Handler {
 			return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
@@ -136,35 +129,62 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 				}
 				return false
 			},
-			RequestScope: func(rw http.ResponseWriter, r *http.Request, scope string) {
-				var scopes []string
-				c := getClaims(r)
-				if c != nil {
-					if ra, ok := c.ResourceAccess[authConf.OidcProvider.ClientID]; ok {
-						scopes = ra.Roles
-					}
-				}
-				found := false
-				for _, s := range scopes {
-					if s == scope {
-						found = true
-						break
-					}
-				}
-				if !found {
-					scopes = append(scopes, scope)
-				}
-				handleError(rw, &UnauthorizedError{
-					Message:      fmt.Sprintf("scope %q required", scope),
-					CurrentScope: strings.Join(scopes, " "),
-					MissingScope: scope,
-				})
-			},
+			// RequestScope: func(rw http.ResponseWriter, r *http.Request, scope string) {
+			// 	var scopes []string
+			// 	c := getClaims(r)
+			// 	if c != nil {
+			// 		if ra, ok := c.ResourceAccess[authConf.OidcProvider.ClientID]; ok {
+			// 			scopes = ra.Roles
+			// 		}
+			// 	}
+			// 	found := false
+			// 	for _, s := range scopes {
+			// 		if s == scope {
+			// 			found = true
+			// 			break
+			// 		}
+			// 	}
+			// 	if !found {
+			// 		scopes = append(scopes, scope)
+			// 	}
+			// 	handleError(rw, &UnauthorizedError{
+			// 		Message:      fmt.Sprintf("scope %q required", scope),
+			// 		CurrentScope: strings.Join(scopes, " "),
+			// 		MissingScope: scope,
+			// 	})
+			// },
 		}),
 		h.validateAccessToken,
 	))
+	h.handler = wrgldutils.ApplyMiddlewares(
+		sm,
+		h.CORSMiddleware,
+	)
 
 	return h, nil
+}
+
+func (h *Handler) CORSMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		for _, s := range h.corsOrigins {
+			rw.Header().Add("Access-Control-Allow-Origin", s)
+		}
+		if r.Method == http.MethodOptions {
+			rw.Header().Set("Access-Control-Allow-Methods", strings.Join([]string{
+				http.MethodOptions, http.MethodGet, http.MethodPost, http.MethodPut,
+			}, ", "))
+			rw.Header().Set("Access-Control-Allow-Headers", strings.Join([]string{
+				"Authorization",
+				"Cache-Control",
+				"Pragma",
+				"Content-Encoding",
+				"Trailer",
+				api.HeaderPurgeUploadPackSession,
+			}, ", "))
+		} else {
+			handler.ServeHTTP(rw, r)
+		}
+	})
 }
 
 func (h *Handler) validateAccessToken(handler http.Handler) http.Handler {
@@ -192,6 +212,7 @@ func (h *Handler) validateAccessToken(handler http.Handler) http.Handler {
 }
 
 func (h *Handler) validClientID(clientID string) bool {
+	log.Printf("validating client id %q", clientID)
 	for id := range h.clients {
 		if clientID == id {
 			return true
@@ -211,10 +232,9 @@ func (h *Handler) validRedirectURI(clientID, uri string) bool {
 	return false
 }
 
-func (h *Handler) configWithScopes(scopes ...string) *oauth2.Config {
+func (h *Handler) cloneOauth2Config() *oauth2.Config {
 	c := &oauth2.Config{}
 	*c = *h.oidcConfig
-	c.Scopes = append(c.Scopes, scopes...)
 	return c
 }
 
@@ -243,7 +263,7 @@ func (h *Handler) parseForm(r *http.Request) (url.Values, error) {
 		return r.URL.Query(), nil
 	}
 	if r.Method == http.MethodPost {
-		if s := r.Header.Get("Content-Type"); s != "application/x-www-form-urlencoded" {
+		if s := r.Header.Get("Content-Type"); !strings.Contains(s, "application/x-www-form-urlencoded") {
 			return nil, &HTTPError{http.StatusBadRequest, fmt.Sprintf("unsupported content type %q", s)}
 		}
 		defer r.Body.Close()
@@ -267,28 +287,16 @@ func (h *Handler) handleAuthorize(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clientID := values.Get("client_id")
-	if h.validClientID(clientID) {
-		handleError(rw, &Oauth2Error{"invalid_client", "unknown cient"})
+	if !h.validClientID(clientID) {
+		handleError(rw, &Oauth2Error{"invalid_client", "unknown client"})
 		return
-	}
-	var scopes []string
-	if s := values.Get("scope"); s != "" {
-		scopes = strings.Split(s, " ")
-		for _, s := range scopes {
-			if _, ok := validScopes[s]; !ok {
-				handleError(rw, &Oauth2Error{"invalid_scope", fmt.Sprintf("unknown scope %q", s)})
-				return
-			}
-		}
-	} else {
-		scopes = []string{auth.ScopeRepoRead}
 	}
 	for _, key := range []string{
 		"code_challenge",
 		"state",
 		"redirect_uri",
 	} {
-		if s := values.Get(key); s != "" {
+		if s := values.Get(key); s == "" {
 			handleError(rw, &Oauth2Error{"invalid_request", fmt.Sprintf("%s required", key)})
 			return
 		}
@@ -313,7 +321,7 @@ func (h *Handler) handleAuthorize(rw http.ResponseWriter, r *http.Request) {
 		CodeChallenge:       values.Get("code_challenge"),
 		CodeChallengeMethod: values.Get("code_challenge_method"),
 	})
-	oauth2Config := h.configWithScopes(scopes...)
+	oauth2Config := h.cloneOauth2Config()
 	http.Redirect(rw, r, oauth2Config.AuthCodeURL(state), http.StatusFound)
 }
 
@@ -329,13 +337,6 @@ func (h *Handler) handleCallback(rw http.ResponseWriter, r *http.Request) {
 		handleError(rw, &Oauth2Error{"invalid_request", "invalid state"})
 		return
 	}
-	code := values.Get("code")
-	h.saveSession(code, &ClientSession{
-		RedirectURI:         session.RedirectURI,
-		ClientID:            session.ClientID,
-		CodeChallenge:       session.CodeChallenge,
-		CodeChallengeMethod: session.CodeChallengeMethod,
-	})
 	uri, err := url.Parse(session.RedirectURI)
 	if err != nil {
 		log.Printf("error parsing redirect_uri: %v", err)
@@ -344,13 +345,29 @@ func (h *Handler) handleCallback(rw http.ResponseWriter, r *http.Request) {
 	}
 	query := uri.Query()
 	query.Set("state", session.State)
-	query.Set("code", code)
+	if errStr := values.Get("error"); errStr != "" {
+		query.Set("error", errStr)
+		query.Set("error_description", values.Get("error_description"))
+	} else {
+		code := values.Get("code")
+		h.saveSession(code, &ClientSession{
+			RedirectURI:         session.RedirectURI,
+			ClientID:            session.ClientID,
+			CodeChallenge:       session.CodeChallenge,
+			CodeChallengeMethod: session.CodeChallengeMethod,
+		})
+		query.Set("code", code)
+	}
 	uri.RawQuery = query.Encode()
 	http.Redirect(rw, r, uri.String(), http.StatusFound)
 }
 
 func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
-	values := r.URL.Query()
+	values, err := h.parseForm(r)
+	if err != nil {
+		handleError(rw, err)
+		return
+	}
 	if s := values.Get("grant_type"); s != "authorization_code" {
 		handleError(rw, &Oauth2Error{"invalid_request", "grant_type must be authorization_code"})
 		return
@@ -369,7 +386,13 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 		handleError(rw, &Oauth2Error{"invalid_client", "invalid client_id"})
 		return
 	}
-	if s := values.Get("redirect_uri"); s != session.RedirectURI {
+	redirectURI, err := url.Parse(values.Get("redirect_uri"))
+	if err != nil {
+		handleError(rw, &Oauth2Error{"invalid_request", "failed to parse redirect_uri"})
+		return
+	}
+	if s := fmt.Sprintf("%s://%s%s", redirectURI.Scheme, redirectURI.Host, redirectURI.Path); s != session.RedirectURI {
+		log.Printf("redirect URI does not match %q != %q", s, session.RedirectURI)
 		handleError(rw, &Oauth2Error{"invalid_request", "redirect_uri does not match"})
 		return
 	}
@@ -377,9 +400,13 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 		handleError(rw, &Oauth2Error{"invalid_grant", "code_verifier required"})
 		return
 	} else {
-		sum := sha256.Sum256([]byte(strconv.QuoteToASCII(s)))
-		if base64.URLEncoding.EncodeToString(sum[:]) != session.CodeChallenge {
+		hash := sha256.New()
+		if _, err := hash.Write([]byte(s)); err != nil {
+			panic(err)
+		}
+		if base64.RawURLEncoding.EncodeToString(hash.Sum([]byte{})) != session.CodeChallenge {
 			handleError(rw, &Oauth2Error{"invalid_grant", "code challenge failed"})
+			return
 		}
 	}
 
@@ -387,25 +414,23 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	token, err := h.oidcConfig.Exchange(ctx, values.Get("code"))
 	if err != nil {
-		log.Printf("error exchanging code: %v", err)
+		log.Printf("error: error exchanging code: %v", err)
 		apiserver.SendError(rw, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if token.TokenType != "Bearer" {
-		log.Printf("expected bearer token, found %q", token.TokenType)
+		log.Printf("error: expected bearer token, found %q", token.TokenType)
 		apiserver.SendError(rw, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
-		log.Printf("no id_token field in oauth2 token")
+		log.Printf("error: no id_token field in oauth2 token")
 		apiserver.SendError(rw, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel()
-	if _, err = h.verifier.Verify(ctx, rawIDToken); err != nil {
-		log.Printf("failed to verify id_token: %v", err)
+	if _, err = h.verifier.Verify(context.Background(), rawIDToken); err != nil {
+		log.Printf("error: failed to verify id_token: %v", err)
 		apiserver.SendError(rw, http.StatusInternalServerError, "internal server error")
 		return
 	}
@@ -419,5 +444,5 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	h.sm.ServeHTTP(rw, r)
+	h.handler.ServeHTTP(rw, r)
 }
