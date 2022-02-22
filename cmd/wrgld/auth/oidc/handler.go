@@ -119,40 +119,14 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 			Enforce: func(r *http.Request, scope string) bool {
 				c := getClaims(r)
 				if c != nil {
-					if ra, ok := c.ResourceAccess[authConf.OidcProvider.ClientID]; ok {
-						for _, s := range ra.Roles {
-							if s == scope {
-								return true
-							}
+					for _, s := range c.Roles {
+						if s == scope {
+							return true
 						}
 					}
 				}
 				return false
 			},
-			// RequestScope: func(rw http.ResponseWriter, r *http.Request, scope string) {
-			// 	var scopes []string
-			// 	c := getClaims(r)
-			// 	if c != nil {
-			// 		if ra, ok := c.ResourceAccess[authConf.OidcProvider.ClientID]; ok {
-			// 			scopes = ra.Roles
-			// 		}
-			// 	}
-			// 	found := false
-			// 	for _, s := range scopes {
-			// 		if s == scope {
-			// 			found = true
-			// 			break
-			// 		}
-			// 	}
-			// 	if !found {
-			// 		scopes = append(scopes, scope)
-			// 	}
-			// 	handleError(rw, &UnauthorizedError{
-			// 		Message:      fmt.Sprintf("scope %q required", scope),
-			// 		CurrentScope: strings.Join(scopes, " "),
-			// 		MissingScope: scope,
-			// 	})
-			// },
 		}),
 		h.validateAccessToken,
 	))

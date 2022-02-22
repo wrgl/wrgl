@@ -5,14 +5,10 @@ import (
 	"net/http"
 )
 
-type ResourceAccess struct {
-	Roles []string `json:"roles"`
-}
-
 type Claims struct {
-	Email          string                    `json:"email"`
-	Name           string                    `json:"name"`
-	ResourceAccess map[string]ResourceAccess `json:"resource_access"`
+	Email string   `json:"email"`
+	Name  string   `json:"name"`
+	Roles []string `json:"roles"`
 }
 
 type claimsKey struct{}
