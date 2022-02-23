@@ -35,7 +35,7 @@ jobs:
           go-version: 1.17.x
       - uses: actions/checkout@v2
       - name: Build
-        run: scripts/build_binaries.sh
+        run: make
       - id: get_version
         uses: battila7/get-version-action@v2
       - name: Put version number in install script
