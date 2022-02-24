@@ -99,8 +99,13 @@ func (d *RepoDir) Init() error {
 }
 
 func (d *RepoDir) Exist() bool {
-	_, err := os.Stat(d.FullPath)
-	return err == nil
+	for _, s := range []string{d.FullPath, d.FilesPath(), d.KVPath()} {
+		_, err := os.Stat(s)
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func FindWrglDir() (string, error) {

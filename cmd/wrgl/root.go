@@ -4,9 +4,11 @@
 package wrgl
 
 import (
+	_ "embed"
 	"log"
 	"os"
 	"runtime/pprof"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -20,10 +22,18 @@ import (
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 )
 
+//go:embed VERSION
+var version string
+
+func init() {
+	version = strings.TrimSpace(version)
+}
+
 func RootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "wrgl",
-		Short: "Git-like data versioning",
+		Use:     "wrgl",
+		Short:   "Git-like data versioning",
+		Version: version,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cpuprofile, err := cmd.Flags().GetString("cpuprofile")
 			if err != nil {
@@ -73,7 +83,6 @@ func RootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().String("heapprofile", "", "write heap profile to file")
 	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newCommitCmd())
-	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newLogCmd())
 	rootCmd.AddCommand(newPreviewCmd())
 	rootCmd.AddCommand(newDiffCmd())

@@ -5,6 +5,7 @@ package wrgld
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -68,6 +69,9 @@ func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration, clien
 		func(r *http.Request) apiserver.UploadPackSessionStore { return upSessions },
 		func(r *http.Request) apiserver.ReceivePackSessionStore { return rpSessions },
 	)
+	if c.Auth == nil {
+		return nil, fmt.Errorf("auth config not defined")
+	}
 	if c.Auth.Type == conf.ATLegacy {
 		authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
 		if err != nil {

@@ -4,16 +4,28 @@
 package wrgld
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/conf"
+	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/local"
 )
+
+//go:embed VERSION
+var version string
+
+func init() {
+	version = strings.TrimSpace(version)
+}
 
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -33,7 +45,8 @@ func RootCmd() *cobra.Command {
 				Line:    "wrgld --read-timeout 60s --write-timeout 60s",
 			},
 		}),
-		Args: cobra.MaximumNArgs(1),
+		Version: version,
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			var dir string
 			if len(args) > 0 {
@@ -48,28 +61,35 @@ func RootCmd() *cobra.Command {
 				}
 				log.Printf("repository found at %s\n", dir)
 			}
-			port, err := cmd.Flags().GetInt("port")
-			if err != nil {
-				return
-			}
-			readTimeout, err := cmd.Flags().GetDuration("read-timeout")
-			if err != nil {
-				return
-			}
-			writeTimeout, err := cmd.Flags().GetDuration("write-timeout")
-			if err != nil {
-				return
-			}
-			badgerLog, err := cmd.Flags().GetString("badger-log")
-			if err != nil {
-				return
-			}
-			proxy, err := cmd.Flags().GetString("proxy")
-			if err != nil {
-				return
-			}
+			port := viper.GetInt("port")
+			readTimeout := viper.GetDuration("read-timeout")
+			writeTimeout := viper.GetDuration("write-timeout")
+			badgerLog := viper.GetString("badger-log")
+			proxy := viper.GetString("proxy")
+			init := viper.GetBool("init")
+			configFrom := viper.GetString("init-config-from")
 			rd := local.NewRepoDir(dir, badgerLog)
 			defer rd.Close()
+			if init && !rd.Exist() {
+				cmd.Printf("initializing repo at %q\n", dir)
+				var c *conf.Config
+				if configFrom != "" {
+					cs := conffs.NewStore(dir, conffs.FileSource, configFrom)
+					c, err = cs.Open()
+					if err != nil {
+						return fmt.Errorf("error reading config from %q: %v", configFrom, err)
+					}
+					cmd.Printf("read initial config from %q\n", configFrom)
+				}
+				if err = rd.Init(); err != nil {
+					return
+				}
+				cs := conffs.NewStore(dir, conffs.LocalSource, "")
+				if err = cs.Save(c); err != nil {
+					return
+				}
+				cmd.Println("repo initialized")
+			}
 			var client *http.Client
 			if proxy != "" {
 				proxyURL, err := url.Parse(proxy)
@@ -98,6 +118,11 @@ func RootCmd() *cobra.Command {
 	cmd.Flags().Duration("write-timeout", 30*time.Second, "response write timeout as described at https://pkg.go.dev/net/http#Server.WriteTimeout")
 	cmd.Flags().String("proxy", "", "make all outgoing requests through this proxy")
 	cmd.Flags().String("badger-log", "", `set Badger log level, valid options are "error", "warning", "debug", and "info" (defaults to "error")`)
-	cmd.AddCommand(newVersionCmd())
+	cmd.Flags().Bool("init", false, "initialize repo at WRGL_DIR if not already initialized")
+	cmd.Flags().String("init-config-from", "", "initialize repo with initial config from this location")
+	viper.BindPFlags(cmd.Flags())
+	viper.SetEnvPrefix("wrgld")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
 	return cmd
 }
