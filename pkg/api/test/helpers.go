@@ -66,7 +66,7 @@ func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Cli
 	t.Helper()
 	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip, depth, opts...)
 	require.NoError(t, err)
-	commits, err := ses.Start()
+	commits, err := ses.Start(nil)
 	require.NoError(t, err)
 	return commits
 }

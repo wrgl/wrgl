@@ -71,10 +71,13 @@ func newTablesCmd() *cobra.Command {
 			}
 			defer pr.Close()
 			or := apiutils.NewObjectReceiver(db, nil, nil)
-			_, err = or.Receive(pr)
+			// pbar := utils.PBar(0, "fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+			// defer pbar.Finish()
+			_, err = or.Receive(pr, nil)
 			if err != nil {
 				return err
 			}
+			// pbar.Finish()
 			for _, b := range sums {
 				cmd.Printf("Table %x persisted\n", b)
 			}

@@ -467,7 +467,7 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	if err != nil {
 		return err
 	}
-	bar := pbar(-1, fmt.Sprintf("saving merge result to %s", name), cmd.OutOrStdout(), cmd.ErrOrStderr())
+	bar := utils.PBar(-1, fmt.Sprintf("saving merge result to %s", name), cmd.OutOrStdout(), cmd.ErrOrStderr())
 	for blk := range blocks {
 		for _, row := range blk.Rows {
 			err = w.Write(row)
@@ -484,8 +484,8 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 }
 
 func displayCommitProgress(cmd *cobra.Command) (sortPT, blkPT *progressbar.ProgressBar) {
-	sortPT = pbar(-1, "sorting", cmd.OutOrStdout(), cmd.OutOrStderr())
-	blkPT = pbar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
+	sortPT = utils.PBar(-1, "sorting", cmd.OutOrStdout(), cmd.OutOrStderr())
+	blkPT = utils.PBar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
 	return
 }
 
@@ -510,7 +510,7 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
-	blkPT := pbar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
+	blkPT := utils.PBar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
 	s, err := sorter.NewSorter(0, nil)
 	if err != nil {
 		return err
@@ -594,7 +594,7 @@ mainLoop:
 		select {
 		case p := <-pch:
 			if bar == nil {
-				bar = pbar(p.Total, "collecting merge conflicts", cmd.OutOrStdout(), cmd.OutOrStderr())
+				bar = utils.PBar(p.Total, "collecting merge conflicts", cmd.OutOrStdout(), cmd.OutOrStderr())
 			}
 			bar.Set64(p.Progress)
 		case m, ok := <-mch:

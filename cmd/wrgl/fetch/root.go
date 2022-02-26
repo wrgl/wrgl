@@ -17,6 +17,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -352,23 +353,26 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 			err = nil
 			return
 		}
+		err = errors.Wrap("error creating new upload pack session", err)
 		return
 	}
-	return ses.Start()
+	// pbar := utils.PBar(0, "Fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+	// defer pbar.Finish()
+	return ses.Start(nil)
 }
 
 func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool, depth int32) error {
 	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(token))
 	if err != nil {
-		return err
+		return errors.Wrap("error creating new client", err)
 	}
 	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(client, specs)
 	if err != nil {
-		return err
+		return errors.Wrap("error fetching refs", err)
 	}
 	fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised, depth)
 	if err != nil {
-		return err
+		return errors.Wrap("error fetching objects", err)
 	}
 	_, err = saveFetchedRefs(cmd, u, db, rs, remote, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
 	return err

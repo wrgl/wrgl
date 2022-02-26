@@ -2,6 +2,7 @@ package apiclient
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -60,4 +61,17 @@ func NewShallowCommitError(comSum, tblSum []byte) *ShallowCommitError {
 
 func (e *ShallowCommitError) Error() string {
 	return fmt.Sprintf("commit %x is shallow", e.CommitSum)
+}
+
+func UnwrapHTTPError(err error) *HTTPError {
+	werr := err
+	for {
+		if v, ok := werr.(*HTTPError); ok {
+			return v
+		}
+		werr = errors.Unwrap(werr)
+		if werr == nil {
+			return nil
+		}
+	}
 }

@@ -39,7 +39,7 @@ func (s *testSuite) TestUploadPack(t *testing.T) {
 
 	apitest.CopyCommitsToNewStore(t, db, dbc, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rsc, "main", sum1, c1))
-	_, err := apiclient.NewUploadPackSession(db, rs, cli, [][]byte{sum2}, 0, 0)
+	_, err := apiclient.NewUploadPackSession(db, rs, cli, [][]byte{sum2}, 0, 0, nil)
 	assert.Error(t, err, "nothing wanted")
 
 	apitest.CopyCommitsToNewStore(t, db, dbc, [][]byte{sum3})
@@ -115,7 +115,7 @@ func (s *testSuite) TestUploadPackWithDepth(t *testing.T) {
 	require.NoError(t, err)
 	defer pr.Close()
 	or := apiutils.NewObjectReceiver(dbc, nil, nil)
-	done, err := or.Receive(pr)
+	done, err := or.Receive(pr, nil)
 	require.NoError(t, err)
 	assert.True(t, done)
 	apitest.AssertTablesPersisted(t, dbc, [][]byte{c2.Table, c1.Table})

@@ -15,6 +15,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -107,10 +108,10 @@ func pullCmd() *cobra.Command {
 				for _, name := range names {
 					colorstring.Fprintf(cmd.OutOrStdout(), "pulling [bold]%s[reset]...\n", name)
 					if err := pullSingleRepo(cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI, wrglDir, ff, numWorkers, message, depth); err != nil {
-						if err.Error() == `status 404: {"message":"Not Found"}` {
+						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
 							cmd.Println("Repository not found, skipping.")
 						} else {
-							return err
+							cmd.PrintErrf("error: %v\n", err)
 						}
 					}
 				}

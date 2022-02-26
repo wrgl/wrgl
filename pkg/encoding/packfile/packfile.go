@@ -132,7 +132,7 @@ func (r *PackfileReader) readVersion() error {
 		return fmt.Errorf("not a packfile")
 	}
 	_, err = r.r.Read(b)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return fmt.Errorf("error reading packfile version: %v", err)
 	}
 	r.Version = int(binary.BigEndian.Uint32(b))

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/schollz/progressbar/v3"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
+	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -87,22 +89,22 @@ func (n *UploadPackSession) popHaves() (haves [][]byte, done bool, err error) {
 	return
 }
 
-func (n *UploadPackSession) Start() ([][]byte, error) {
+func (n *UploadPackSession) Start(pbar *progressbar.ProgressBar) ([][]byte, error) {
 	for {
 		haves, done, err := n.popHaves()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap("error poping haves", err)
 		}
 		acks, pr, err := n.c.PostUploadPack(n.wants, haves, done, n.depth, n.opts...)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap("error requesting upload pack", err)
 		}
 		n.wants = nil
 		if len(acks) == 0 {
 			defer pr.Close()
-			doneReceiving, err := n.receiver.Receive(pr)
+			doneReceiving, err := n.receiver.Receive(pr, pbar)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap("error receiving objects", err)
 			}
 			if doneReceiving {
 				break

@@ -39,7 +39,7 @@ func TestObjectSender(t *testing.T) {
 
 		pr, err := packfile.NewPackfileReader(io.NopCloser(buf))
 		require.NoError(t, err)
-		done, err = r.Receive(pr)
+		done, err = r.Receive(pr, nil)
 		require.NoError(t, err)
 		assert.Equal(t, sendDone, done)
 		if done {

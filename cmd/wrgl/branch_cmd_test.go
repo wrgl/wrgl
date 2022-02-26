@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -52,7 +53,8 @@ func assertCmdFailed(t *testing.T, cmd *cobra.Command, output string, err error)
 	t.Helper()
 	buf := bytes.NewBufferString("")
 	cmd.SetOut(buf)
-	assert.Equal(t, err, cmd.Execute())
+	exErr := cmd.Execute()
+	assert.True(t, errors.Contains(exErr, err), "expecting error %v to contain error %v", exErr, err)
 	assert.Equal(t, output, buf.String())
 }
 
