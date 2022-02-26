@@ -84,9 +84,11 @@ func RootCmd() *cobra.Command {
 				if err = rd.Init(); err != nil {
 					return
 				}
-				cs := conffs.NewStore(dir, conffs.LocalSource, "")
-				if err = cs.Save(c); err != nil {
-					return
+				if c != nil {
+					cs := conffs.NewStore(dir, conffs.LocalSource, "")
+					if err = cs.Save(c); err != nil {
+						return
+					}
 				}
 				cmd.Println("repo initialized")
 			}

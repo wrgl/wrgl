@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/coreos/go-oidc"
 	"github.com/gobwas/glob"
 	"github.com/google/uuid"
@@ -85,8 +86,16 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 	if client != nil {
 		ctx = oidc.ClientContext(ctx, client)
 	}
-	h.provider, err = oidc.NewProvider(ctx, authConf.OidcProvider.Issuer)
-	if err != nil {
+	if err = backoff.RetryNotify(
+		func() (err error) {
+			h.provider, err = oidc.NewProvider(ctx, authConf.OidcProvider.Issuer)
+			return err
+		},
+		backoff.NewExponentialBackOff(),
+		func(e error, d time.Duration) {
+			log.Printf("error creating oidc provider: %v. backoff for %s", e, d)
+		},
+	); err != nil {
 		return nil, err
 	}
 	h.oidcConfig = &oauth2.Config{
