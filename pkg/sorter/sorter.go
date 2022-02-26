@@ -217,8 +217,20 @@ func (s *Sorter) removeCols(row []string, removedCols map[int]struct{}) []string
 	return strs
 }
 
+func (s *Sorter) pkIndices() []uint32 {
+	if len(s.PK) > 0 {
+		return s.PK
+	}
+	sl := make([]uint32, len(s.Columns))
+	for i := range sl {
+		sl[i] = uint32(i)
+	}
+	return sl
+}
+
 func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error) (blocks chan *Block) {
 	blocks = make(chan *Block, 10)
+	pkIndices := s.pkIndices()
 	go func() {
 		defer close(blocks)
 		blk := make([][]byte, 0, 255)
@@ -292,7 +304,7 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 			minRow = nil
 
 			if len(blk) == 1 {
-				pk = objects.StrList(blk[0]).ReadColumns(s.PK)
+				pk = objects.StrList(blk[0]).ReadColumns(pkIndices)
 			}
 			if minInd < n {
 				chunkRows[minInd] = chunkRows[minInd][:0]

@@ -30,7 +30,12 @@ func IndexTable(db objects.Store, tblProf []byte, tbl *objects.Table, debugOut i
 		if err != nil {
 			return fmt.Errorf("GetBlock: %v", err)
 		}
-		tblIdx[i] = slice.IndicesToValues(blk[0], tbl.PK)
+		if len(tbl.PK) > 0 {
+			tblIdx[i] = slice.IndicesToValues(blk[0], tbl.PK)
+		} else {
+			tblIdx[i] = make([]string, len(blk[0]))
+			copy(tblIdx[i], blk[0])
+		}
 		idx, err := objects.IndexBlock(enc, hash, blk, tbl.PK)
 		if err != nil {
 			return fmt.Errorf("IndexBlock: %v", err)
