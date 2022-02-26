@@ -110,8 +110,10 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, pbar *progressbar.
 				return false, fmt.Errorf("unrecognized object type %d", ot)
 			}
 		}
-		if pbar != nil {
-			pbar.Add(1)
+		if ot != 0 && pbar != nil {
+			if err = pbar.Add(1); err != nil {
+				return false, err
+			}
 		}
 		if err == io.EOF {
 			break

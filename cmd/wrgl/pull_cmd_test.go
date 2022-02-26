@@ -102,7 +102,7 @@ func TestPullCmd(t *testing.T) {
 
 	// pull all branches with upstream configured
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"pull", "--all"})
+	cmd.SetArgs([]string{"pull", "--all", "--no-progress"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"pulling \x1b[1mgamma\x1b[0m...",
 		fmt.Sprintf("\x1b[0m[gamma %s] %s", hex.EncodeToString(sum6)[:7], c6.Message),
@@ -124,7 +124,7 @@ func TestPullCmd(t *testing.T) {
 	authzS := ts.GetAuthzS(repo)
 	require.NoError(t, authzS.AddPolicy(auth.Anyone, auth.ScopeRepoRead))
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"pull", "main"})
+	cmd.SetArgs([]string{"pull", "main", "--no-progress"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("No credential found for %s", url),
 		"Proceed as anonymous user...",

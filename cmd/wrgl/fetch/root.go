@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
@@ -118,6 +119,7 @@ func RootCmd() *cobra.Command {
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
 	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history, you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
+	cmd.Flags().Bool("no-progress", false, "Don't display progress bar")
 	cmd.AddCommand(newTablesCmd())
 	return cmd
 }
@@ -356,9 +358,16 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 		err = errors.Wrap("error creating new upload pack session", err)
 		return
 	}
-	// pbar := utils.PBar(0, "Fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-	// defer pbar.Finish()
-	return ses.Start(nil)
+	noP, err := cmd.Flags().GetBool("no-progress")
+	if err != nil {
+		return
+	}
+	var pbar *progressbar.ProgressBar
+	if !noP {
+		pbar = utils.PBar(-1, "Fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		defer pbar.Finish()
+	}
+	return ses.Start(pbar)
 }
 
 func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool, depth int32) error {

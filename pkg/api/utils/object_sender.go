@@ -60,7 +60,7 @@ func getCommonBlocks(db objects.Store, commonTables map[string]struct{}) (map[st
 	return commonBlocks, nil
 }
 
-func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend [][]byte, commonCommits [][]byte, maxPackfileSize uint64) (s *ObjectSender, err error) {
+func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend map[string]struct{}, commonCommits [][]byte, maxPackfileSize uint64) (s *ObjectSender, err error) {
 	if maxPackfileSize == 0 {
 		maxPackfileSize = defaultMaxPackfileSize
 	}
@@ -75,8 +75,8 @@ func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend []
 	for _, com := range toSend {
 		s.commits.PushBack(com)
 	}
-	for _, sum := range tablesToSend {
-		s.tables.PushBack(sum)
+	for sum := range tablesToSend {
+		s.tables.PushBack([]byte(sum))
 	}
 	s.commonTables, err = getCommonTables(db, commonCommits)
 	if err != nil {

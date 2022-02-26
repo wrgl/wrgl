@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
@@ -71,18 +72,28 @@ func newTablesCmd() *cobra.Command {
 			}
 			defer pr.Close()
 			or := apiutils.NewObjectReceiver(db, nil, nil)
-			// pbar := utils.PBar(0, "fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-			// defer pbar.Finish()
-			_, err = or.Receive(pr, nil)
+			noP, err := cmd.Flags().GetBool("no-progress")
 			if err != nil {
 				return err
 			}
-			// pbar.Finish()
+			var pbar *progressbar.ProgressBar
+			if !noP {
+				pbar = utils.PBar(-1, "fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+				defer pbar.Finish()
+			}
+			_, err = or.Receive(pr, pbar)
+			if err != nil {
+				return err
+			}
+			if pbar != nil {
+				pbar.Finish()
+			}
 			for _, b := range sums {
 				cmd.Printf("Table %x persisted\n", b)
 			}
 			return nil
 		},
 	}
+	cmd.Flags().Bool("no-progress", false, "Don't display progress bar")
 	return cmd
 }

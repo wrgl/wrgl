@@ -40,7 +40,14 @@ func TestClosedSetsFinder(t *testing.T) {
 	assert.Equal(t, [][]byte{}, finder.CommonCommmits())
 	commits := finder.CommitsToSend()
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c2, c1, c3, c4, c5, c6}, commits, true)
-	testutils.AssertBytesEqual(t, [][]byte{c2.Table, c1.Table, c3.Table, c4.Table, c5.Table, c6.Table}, finder.TablesToSend(), true)
+	assert.Equal(t, map[string]struct{}{
+		string(c2.Table): {},
+		string(c1.Table): {},
+		string(c3.Table): {},
+		string(c4.Table): {},
+		string(c5.Table): {},
+		string(c6.Table): {},
+	}, finder.TablesToSend(), true)
 
 	// send only necessary commits
 	finder = apiutils.NewClosedSetsFinder(db, rs, 0)
@@ -50,7 +57,10 @@ func TestClosedSetsFinder(t *testing.T) {
 	testutils.AssertBytesEqual(t, [][]byte{sum1, sum2}, finder.CommonCommmits(), true)
 	commits = finder.CommitsToSend()
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c3, c4}, commits, true)
-	testutils.AssertBytesEqual(t, [][]byte{c3.Table, c4.Table}, finder.TablesToSend(), true)
+	assert.Equal(t, map[string]struct{}{
+		string(c3.Table): {},
+		string(c4.Table): {},
+	}, finder.TablesToSend(), true)
 }
 
 func TestClosedSetsFinderACKs(t *testing.T) {
@@ -84,7 +94,14 @@ func TestClosedSetsFinderACKs(t *testing.T) {
 
 	commits := finder.CommitsToSend()
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c4, c5, c6, c7, c8, c9}, commits, true)
-	testutils.AssertBytesEqual(t, [][]byte{c4.Table, c5.Table, c6.Table, c7.Table, c8.Table, c9.Table}, finder.TablesToSend(), true)
+	assert.Equal(t, map[string]struct{}{
+		string(c4.Table): {},
+		string(c5.Table): {},
+		string(c6.Table): {},
+		string(c7.Table): {},
+		string(c8.Table): {},
+		string(c9.Table): {},
+	}, finder.TablesToSend(), true)
 }
 
 func TestClosedSetsFinderUnrecognizedWants(t *testing.T) {
@@ -120,7 +137,10 @@ func TestClosedSetsFinderDepth(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, acks)
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c1, c2, c3, c4}, finder.CommitsToSend(), true)
-	testutils.AssertBytesEqual(t, [][]byte{c3.Table, c4.Table}, finder.TablesToSend(), true)
+	assert.Equal(t, map[string]struct{}{
+		string(c3.Table): {},
+		string(c4.Table): {},
+	}, finder.TablesToSend(), true)
 
 	finder = apiutils.NewClosedSetsFinder(db, rs, 3)
 	acks, err = finder.Process([][]byte{sum6}, [][]byte{sum1}, true)
@@ -128,5 +148,10 @@ func TestClosedSetsFinderDepth(t *testing.T) {
 	assert.Equal(t, [][]byte{sum1}, acks)
 	assert.Equal(t, [][]byte{sum1}, finder.CommonCommmits())
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c6, c5, c4, c3, c2}, finder.CommitsToSend(), true)
-	testutils.AssertBytesEqual(t, [][]byte{c6.Table, c5.Table, c4.Table, c3.Table}, finder.TablesToSend(), true)
+	assert.Equal(t, map[string]struct{}{
+		string(c6.Table): {},
+		string(c5.Table): {},
+		string(c4.Table): {},
+		string(c3.Table): {},
+	}, finder.TablesToSend(), true)
 }

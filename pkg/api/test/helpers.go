@@ -176,6 +176,24 @@ func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *conf.Config {
 	}
 }
 
+func CreateRandomCommitWithTable(t *testing.T, db objects.Store, tableSum []byte, parents [][]byte) ([]byte, *objects.Commit) {
+	t.Helper()
+	com := &objects.Commit{
+		Table:       tableSum,
+		Parents:     parents,
+		Time:        time.Now(),
+		AuthorName:  testutils.BrokenRandomLowerAlphaString(10),
+		AuthorEmail: testutils.BrokenRandomLowerAlphaString(10),
+		Message:     testutils.BrokenRandomAlphaNumericString(10),
+	}
+	buf := bytes.NewBuffer(nil)
+	_, err := com.WriteTo(buf)
+	require.NoError(t, err)
+	sum, err := objects.SaveCommit(db, buf.Bytes())
+	require.NoError(t, err)
+	return sum, com
+}
+
 func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, parents [][]byte) ([]byte, *objects.Commit) {
 	t.Helper()
 	rows := testutils.BuildRawCSV(numCols, numRows)
@@ -186,18 +204,5 @@ func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, pa
 	require.NoError(t, err)
 	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1])
 	require.NoError(t, err)
-	com := &objects.Commit{
-		Table:       sum,
-		Parents:     parents,
-		Time:        time.Now(),
-		AuthorName:  testutils.BrokenRandomLowerAlphaString(10),
-		AuthorEmail: testutils.BrokenRandomLowerAlphaString(10),
-		Message:     testutils.BrokenRandomAlphaNumericString(10),
-	}
-	buf.Reset()
-	_, err = com.WriteTo(buf)
-	require.NoError(t, err)
-	sum, err = objects.SaveCommit(db, buf.Bytes())
-	require.NoError(t, err)
-	return sum, com
+	return CreateRandomCommitWithTable(t, db, sum, parents)
 }

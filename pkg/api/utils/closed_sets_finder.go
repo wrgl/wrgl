@@ -55,11 +55,12 @@ func (f *ClosedSetsFinder) CommitsToSend() (commits []*objects.Commit) {
 	return
 }
 
-func (f *ClosedSetsFinder) TablesToSend() (tableSums [][]byte) {
+func (f *ClosedSetsFinder) TablesToSend() (tableSums map[string]struct{}) {
+	tableSums = map[string]struct{}{}
 	for _, l := range f.tableSumLists {
 		e := l.Front()
 		for e != nil {
-			tableSums = append(tableSums, e.Value.([]byte))
+			tableSums[string(e.Value.([]byte))] = struct{}{}
 			e = e.Next()
 		}
 	}
