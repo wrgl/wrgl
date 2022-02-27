@@ -10,7 +10,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/slice"
 )
 
-func IndexTable(db objects.Store, tblProf []byte, tbl *objects.Table, debugOut io.Writer) error {
+func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io.Writer) error {
 	var (
 		tblIdx    = make([][]string, len(tbl.Blocks))
 		buf       = bytes.NewBuffer(nil)
@@ -19,10 +19,10 @@ func IndexTable(db objects.Store, tblProf []byte, tbl *objects.Table, debugOut i
 		blk       [][]string
 		err       error
 		bb        []byte
-		tblIdxSum []byte
+		blkIdxSum []byte
 	)
 	if debugOut != nil {
-		fmt.Fprintf(debugOut, "Indexing table %x\n", tblProf)
+		fmt.Fprintf(debugOut, "Indexing table %x\n", tblSum)
 	}
 	var idxSum = make([]byte, meow.Size)
 	for i, sum := range tbl.Blocks {
@@ -51,12 +51,12 @@ func IndexTable(db objects.Store, tblProf []byte, tbl *objects.Table, debugOut i
 			hash.SumTo(idxSum)
 			fmt.Fprintf(debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
 		}
-		tblIdxSum, bb, err = objects.SaveBlockIndex(db, bb, buf.Bytes())
+		blkIdxSum, bb, err = objects.SaveBlockIndex(db, bb, buf.Bytes())
 		if err != nil {
 			return fmt.Errorf("objects.SaveBlockIndex: %v", err)
 		}
-		if !bytes.Equal(tblIdxSum, tbl.BlockIndices[i]) {
-			return fmt.Errorf("block index at offset %d has different sum: %x != %x", i, tblIdxSum, tbl.BlockIndices[i])
+		if !bytes.Equal(blkIdxSum, tbl.BlockIndices[i]) {
+			return fmt.Errorf("block index at offset %d has different sum: %x != %x", i, blkIdxSum, tbl.BlockIndices[i])
 		}
 	}
 	buf.Reset()
@@ -64,5 +64,5 @@ func IndexTable(db objects.Store, tblProf []byte, tbl *objects.Table, debugOut i
 	if err != nil {
 		return fmt.Errorf("objects.WriteBlockTo: %v", err)
 	}
-	return objects.SaveTableIndex(db, tblProf, buf.Bytes())
+	return objects.SaveTableIndex(db, tblSum, buf.Bytes())
 }
