@@ -23,7 +23,7 @@ func sendAll(t *testing.T, sender *apiutils.ObjectSender, receiver *apiutils.Obj
 	done := false
 	for i := 0; ; i++ {
 		buf.Reset()
-		sendDone, err := sender.WriteObjects(buf)
+		sendDone, err := sender.WriteObjects(buf, nil)
 		require.NoError(t, err)
 
 		pr, err := packfile.NewPackfileReader(io.NopCloser(buf))

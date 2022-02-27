@@ -8,6 +8,7 @@ import (
 	"container/list"
 	"io"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
@@ -147,7 +148,7 @@ func (s *ObjectSender) enqueueAllCommits() (err error) {
 	return nil
 }
 
-func (s *ObjectSender) WriteObjects(w io.Writer) (done bool, err error) {
+func (s *ObjectSender) WriteObjects(w io.Writer, pbar *progressbar.ProgressBar) (done bool, err error) {
 	pw, err := packfile.NewPackfileWriter(w)
 	if err != nil {
 		return
@@ -168,6 +169,11 @@ func (s *ObjectSender) WriteObjects(w io.Writer) (done bool, err error) {
 		n, err = pw.WriteObject(obj.Type, b)
 		if err != nil {
 			return
+		}
+		if pbar != nil {
+			if err = pbar.Add(1); err != nil {
+				return false, err
+			}
 		}
 		size += uint64(n)
 		if s.objs.Len() == 0 {

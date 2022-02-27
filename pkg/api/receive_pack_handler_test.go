@@ -208,6 +208,6 @@ func (s *testSuite) TestReceivePackRejectsShallowCommits(t *testing.T) {
 	sum1, c1 := refhelpers.SaveTestCommit(t, dbc, nil)
 	sum2, c2 := apitest.CreateRandomCommit(t, dbc, 3, 4, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rsc, "main", sum2, c2))
-	_, err = apiclient.NewReceivePackSession(dbc, rsc, cli, map[string]*payload.Update{"refs/heads/main": {Sum: payload.BytesToHex(sum2)}}, remoteRefs, 0)
+	_, err = apiclient.NewReceivePackSession(dbc, rsc, cli, map[string]*payload.Update{"refs/heads/main": {Sum: payload.BytesToHex(sum2)}}, remoteRefs, 0, nil)
 	assert.Equal(t, apiclient.NewShallowCommitError(sum1, c1.Table), err)
 }

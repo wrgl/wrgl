@@ -100,7 +100,7 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 	gzw := gzip.NewWriter(rw)
 	defer gzw.Close()
 
-	done, err := s.sender.WriteObjects(gzw)
+	done, err := s.sender.WriteObjects(gzw, nil)
 	if err != nil {
 		panic(err)
 	}

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -25,10 +26,11 @@ type ReceivePackSession struct {
 	c       *Client
 	updates map[string]*payload.Update
 	state   stateFn
+	pbar    *progressbar.ProgressBar
 	opts    []RequestOption
 }
 
-func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, opts ...RequestOption) (*ReceivePackSession, error) {
+func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, pbar *progressbar.ProgressBar, opts ...RequestOption) (*ReceivePackSession, error) {
 	wants := [][]byte{}
 	for _, u := range updates {
 		if u.Sum != nil {
@@ -59,6 +61,7 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 		updates: updates,
 		c:       c,
 		opts:    opts,
+		pbar:    pbar,
 	}
 	s.state = s.initialize
 	return s, nil
@@ -107,7 +110,7 @@ func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	reqBody := bytes.NewBuffer(nil)
 	gzw := gzip.NewWriter(reqBody)
-	done, err := s.sender.WriteObjects(gzw)
+	done, err := s.sender.WriteObjects(gzw, s.pbar)
 	if err != nil {
 		return nil, err
 	}
