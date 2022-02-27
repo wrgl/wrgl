@@ -33,7 +33,7 @@ func StringNotInSubset(s1, s2 []string) string {
 }
 
 func IndicesToValues(vals []string, keys []uint32) []string {
-	res := []string{}
+	res := make([]string, 0, len(keys))
 	for _, k := range keys {
 		res = append(res, vals[k])
 	}

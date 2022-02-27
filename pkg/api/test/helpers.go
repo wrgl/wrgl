@@ -66,14 +66,14 @@ func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Cli
 	t.Helper()
 	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip, depth, opts...)
 	require.NoError(t, err)
-	commits, err := ses.Start()
+	commits, err := ses.Start(nil)
 	require.NoError(t, err)
 	return commits
 }
 
 func PushObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, opts ...apiclient.RequestOption) map[string]*payload.Update {
 	t.Helper()
-	ses, err := apiclient.NewReceivePackSession(db, rs, c, updates, remoteRefs, maxPackfileSize, opts...)
+	ses, err := apiclient.NewReceivePackSession(db, rs, c, updates, remoteRefs, maxPackfileSize, nil, opts...)
 	require.NoError(t, err)
 	updates, err = ses.Start()
 	require.NoError(t, err)
@@ -176,6 +176,24 @@ func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *conf.Config {
 	}
 }
 
+func CreateRandomCommitWithTable(t *testing.T, db objects.Store, tableSum []byte, parents [][]byte) ([]byte, *objects.Commit) {
+	t.Helper()
+	com := &objects.Commit{
+		Table:       tableSum,
+		Parents:     parents,
+		Time:        time.Now(),
+		AuthorName:  testutils.BrokenRandomLowerAlphaString(10),
+		AuthorEmail: testutils.BrokenRandomLowerAlphaString(10),
+		Message:     testutils.BrokenRandomAlphaNumericString(10),
+	}
+	buf := bytes.NewBuffer(nil)
+	_, err := com.WriteTo(buf)
+	require.NoError(t, err)
+	sum, err := objects.SaveCommit(db, buf.Bytes())
+	require.NoError(t, err)
+	return sum, com
+}
+
 func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, parents [][]byte) ([]byte, *objects.Commit) {
 	t.Helper()
 	rows := testutils.BuildRawCSV(numCols, numRows)
@@ -186,18 +204,5 @@ func CreateRandomCommit(t *testing.T, db objects.Store, numCols, numRows int, pa
 	require.NoError(t, err)
 	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1])
 	require.NoError(t, err)
-	com := &objects.Commit{
-		Table:       sum,
-		Parents:     parents,
-		Time:        time.Now(),
-		AuthorName:  testutils.BrokenRandomLowerAlphaString(10),
-		AuthorEmail: testutils.BrokenRandomLowerAlphaString(10),
-		Message:     testutils.BrokenRandomAlphaNumericString(10),
-	}
-	buf.Reset()
-	_, err = com.WriteTo(buf)
-	require.NoError(t, err)
-	sum, err = objects.SaveCommit(db, buf.Bytes())
-	require.NoError(t, err)
-	return sum, com
+	return CreateRandomCommitWithTable(t, db, sum, parents)
 }

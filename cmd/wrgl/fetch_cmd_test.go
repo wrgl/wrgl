@@ -112,7 +112,7 @@ func TestFetchCmd(t *testing.T) {
 	authenticate(t, ts, url)
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch"})
+	cmd.SetArgs([]string{"fetch", "--no-progress"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
 		" * [new branch]      main        -> origin/main",
@@ -251,7 +251,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	authenticate(t, ts, url)
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch", "origin", "refs/custom/abc:refs/custom/abc"})
+	cmd.SetArgs([]string{"fetch", "--no-progress", "origin", "refs/custom/abc:refs/custom/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
 		" * [new ref]         refs/custom/abc -> refs/custom/abc",
@@ -303,7 +303,7 @@ func TestFetchCmdTag(t *testing.T) {
 	authenticate(t, ts, url)
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/202*:refs/tags/202*"})
+	cmd.SetArgs([]string{"fetch", "--no-progress", "origin", "refs/tags/202*:refs/tags/202*"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
 		"From " + url,
 		" ! [rejected]        2020-dec    -> 2020-dec (would clobber existing tag)",
@@ -312,7 +312,7 @@ func TestFetchCmdTag(t *testing.T) {
 	}, "\n"), fmt.Errorf("failed to fetch some refs from "+url))
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch", "origin", "+refs/tags/2020*:refs/tags/2020*"})
+	cmd.SetArgs([]string{"fetch", "--no-progress", "origin", "+refs/tags/2020*:refs/tags/2020*"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
 		" t [tag update]      2020-dec    -> 2020-dec",
@@ -335,7 +335,7 @@ func TestFetchCmdTag(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch", "origin", "refs/tags/2021*:refs/tags/2021*", "--force"})
+	cmd.SetArgs([]string{"fetch", "--no-progress", "origin", "refs/tags/2021*:refs/tags/2021*", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
 		" t [tag update]      2021-dec    -> 2021-dec",
@@ -384,7 +384,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	authenticate(t, ts, url)
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch", "origin", "refs/heads/abc:refs/heads/abc"})
+	cmd.SetArgs([]string{"fetch", "--no-progress", "origin", "refs/heads/abc:refs/heads/abc"})
 	assertCmdFailed(t, cmd, strings.Join([]string{
 		"From " + url,
 		" ! [rejected]        abc         -> abc (non-fast-forward)",
@@ -392,7 +392,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	}, "\n"), fmt.Errorf("failed to fetch some refs from "+url))
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch", "origin", "+refs/heads/abc:refs/heads/abc"})
+	cmd.SetArgs([]string{"fetch", "--no-progress", "origin", "+refs/heads/abc:refs/heads/abc"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
 		fmt.Sprintf(" + %s...%s abc         -> abc (forced update)", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum1)[:7]),
@@ -436,7 +436,7 @@ func TestFetchCmdDepth(t *testing.T) {
 
 	authenticate(t, ts, url)
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch", "--depth", "1"})
+	cmd.SetArgs([]string{"fetch", "--no-progress", "--depth", "1"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"From " + url,
 		" * [new branch]      main        -> origin/main",
@@ -456,7 +456,7 @@ func TestFetchCmdDepth(t *testing.T) {
 
 	// fetch missing table
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch", "tables", "origin", hex.EncodeToString(c1.Table)})
+	cmd.SetArgs([]string{"fetch", "tables", "--no-progress", "origin", hex.EncodeToString(c1.Table)})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("Table %x persisted", c1.Table),
 		"",

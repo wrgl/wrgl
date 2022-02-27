@@ -181,7 +181,7 @@ func TestSetValue(t *testing.T) {
 			Prop:  "oidcProvider",
 			Value: `{"issuer": "http://oidc.google.com"}`,
 			ExpectedObj: &conf.Auth{
-				OidcProvider: &conf.AuthOIDCProvider{
+				OIDCProvider: &conf.AuthOIDCProvider{
 					Issuer: "http://oidc.google.com",
 				},
 			},

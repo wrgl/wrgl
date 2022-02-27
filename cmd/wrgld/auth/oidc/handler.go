@@ -48,21 +48,21 @@ type Handler struct {
 	stateMutext sync.Mutex
 }
 
-func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Client) (h *Handler, err error) {
-	if authConf == nil {
+func NewHandler(serverHandler http.Handler, c *conf.Config, client *http.Client) (h *Handler, err error) {
+	if c == nil || c.Auth == nil {
 		return nil, fmt.Errorf("empty auth config")
 	}
-	if authConf.OidcProvider == nil {
+	if c.Auth.OIDCProvider == nil {
 		return nil, fmt.Errorf("empty auth.oidcProvider config")
 	}
-	if len(authConf.Clients) == 0 {
+	if len(c.Auth.Clients) == 0 {
 		return nil, fmt.Errorf("no registered client (empty auth.clients config)")
 	}
 	h = &Handler{
 		stateMap: map[string]*ClientSession{},
 		clients:  map[string]Client{},
 	}
-	for _, c := range authConf.Clients {
+	for _, c := range c.Auth.Clients {
 		client := &Client{}
 		if len(c.RedirectURIs) == 0 {
 			return nil, fmt.Errorf("empty redirectURIs for client %q", c.ID)
@@ -88,7 +88,7 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 	}
 	if err = backoff.RetryNotify(
 		func() (err error) {
-			h.provider, err = oidc.NewProvider(ctx, authConf.OidcProvider.Issuer)
+			h.provider, err = oidc.NewProvider(ctx, c.Auth.OIDCProvider.Issuer)
 			return err
 		},
 		backoff.NewExponentialBackOff(),
@@ -99,14 +99,14 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 		return nil, err
 	}
 	h.oidcConfig = &oauth2.Config{
-		ClientID:     authConf.OidcProvider.ClientID,
-		ClientSecret: authConf.OidcProvider.ClientSecret,
-		RedirectURL:  strings.TrimRight(authConf.OidcProvider.Address, "/") + "/oidc/callback/",
+		ClientID:     c.Auth.OIDCProvider.ClientID,
+		ClientSecret: c.Auth.OIDCProvider.ClientSecret,
+		RedirectURL:  strings.TrimRight(c.Auth.OIDCProvider.Address, "/") + "/oidc/callback/",
 		Endpoint:     h.provider.Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 	h.verifier = h.provider.Verifier(&oidc.Config{
-		ClientID: authConf.OidcProvider.ClientID,
+		ClientID: c.Auth.OIDCProvider.ClientID,
 	})
 
 	sm := http.NewServeMux()
@@ -135,6 +135,9 @@ func NewHandler(serverHandler http.Handler, authConf *conf.Auth, client *http.Cl
 					}
 				}
 				return false
+			},
+			GetConfig: func(r *http.Request) *conf.Config {
+				return c
 			},
 		}),
 		h.validateAccessToken,

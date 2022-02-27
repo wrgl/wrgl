@@ -96,9 +96,15 @@ type Auth struct {
 	// Types specifies how authorization work with wrgld API
 	Type AuthType `yaml:"type,omitempty" json:"type,omitempty"`
 
-	OidcProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
+	// OIDCProvider contains configurations of OIDC provider
+	OIDCProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
 
+	// Clients contains OAuth 2 client configurations when Type is ATOauth2
 	Clients []AuthClient `yaml:"clients,omitempty" json:"clients,omitempty"`
+
+	// AnonymousRead when set to true, allow anonymous users (users without an access token)
+	// to be assigned auth.ScopeRepoRead scope, thus are able to read the data from this repo.
+	AnonymousRead bool `yaml:"anonymousRead,omitempty" json:"anonymousRead,omitempty"`
 }
 
 type Pack struct {

@@ -81,13 +81,13 @@ func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration, clien
 		if err != nil {
 			return nil, err
 		}
-		handler = authlocal.NewHandler(handler, authnS, authzS)
+		handler = authlocal.NewHandler(handler, c, authnS, authzS)
 		s.cleanups = append(s.cleanups,
 			func() { authnS.Close() },
 			func() { authzS.Close() },
 		)
 	} else {
-		handler, err = authoidc.NewHandler(handler, c.Auth, client)
+		handler, err = authoidc.NewHandler(handler, c, client)
 		if err != nil {
 			return nil, err
 		}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/klauspost/compress/s2"
 	"github.com/pckhoi/meow"
+	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -82,7 +83,7 @@ func (r *ObjectReceiver) saveCommit(b []byte) (err error) {
 	return nil
 }
 
-func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader) (done bool, err error) {
+func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, pbar *progressbar.ProgressBar) (done bool, err error) {
 	for {
 		ot, b, err := pr.ReadObject()
 		if err != nil && err != io.EOF {
@@ -107,6 +108,11 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader) (done bool, err er
 		default:
 			if ot != 0 || len(b) != 0 {
 				return false, fmt.Errorf("unrecognized object type %d", ot)
+			}
+		}
+		if ot != 0 && pbar != nil {
+			if err = pbar.Add(1); err != nil {
+				return false, err
 			}
 		}
 		if err == io.EOF {

@@ -15,6 +15,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -107,10 +108,10 @@ func pullCmd() *cobra.Command {
 				for _, name := range names {
 					colorstring.Fprintf(cmd.OutOrStdout(), "pulling [bold]%s[reset]...\n", name)
 					if err := pullSingleRepo(cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI, wrglDir, ff, numWorkers, message, depth); err != nil {
-						if err.Error() == `status 404: {"message":"Not Found"}` {
+						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
 							cmd.Println("Repository not found, skipping.")
 						} else {
-							return err
+							cmd.PrintErrf("error: %v\n", err)
 						}
 					}
 				}
@@ -131,6 +132,7 @@ func pullCmd() *cobra.Command {
 	cmd.Flags().Bool("no-ff", false, "always create a merge commit, even when a simple fast-forward is possible. This is the default when merge.fastFoward is set to \"never\".")
 	cmd.Flags().Bool("ff-only", false, "only allow fast-forward merges. This is the default when merge.fastForward is set to \"only\".")
 	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
+	cmd.Flags().Bool("no-progress", false, "Don't display progress bar")
 	return cmd
 }
 

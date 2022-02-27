@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/auth"
 	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
+	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
@@ -87,6 +88,7 @@ func TestHandler(t *testing.T) {
 		http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 			rw.Write([]byte("OK"))
 		}),
+		&conf.Config{},
 		authnS, authzS,
 	)
 
@@ -159,6 +161,21 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, authzS.AddPolicy(email, auth.ScopeRepoRead))
 	assertResponse(t, h,
 		requestWithAuthCookie("/commits/abcd1234/", url.QueryEscape("Bearer "+authResp.IDToken)),
+		http.StatusOK, "OK",
+	)
+
+	// should allow data read when AnonymousRead is true
+	h = NewHandler(
+		http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			rw.Write([]byte("OK"))
+		}),
+		&conf.Config{
+			Auth: &conf.Auth{AnonymousRead: true},
+		},
+		authnS, authzS,
+	)
+	assertResponse(t, h,
+		requestWithAuthCookie("/commits/abcd1234/", ""),
 		http.StatusOK, "OK",
 	)
 }

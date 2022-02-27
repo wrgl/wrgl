@@ -19,6 +19,16 @@ import (
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
+func TestStrSliceEqual(t *testing.T) {
+	assert.True(t, strSliceEqual([]string{}, []string{}))
+	assert.True(t, strSliceEqual(nil, nil))
+	assert.True(t, strSliceEqual([]string{"a"}, []string{"a"}))
+	assert.False(t, strSliceEqual([]string{"a"}, []string{"b"}))
+	assert.False(t, strSliceEqual([]string{"a"}, nil))
+	assert.False(t, strSliceEqual(nil, []string{"b"}))
+	assert.False(t, strSliceEqual([]string{"c"}, []string{"c", "d"}))
+}
+
 func getTable(t testing.TB, db objects.Store, sum []byte) (*objects.Table, [][]string) {
 	t.Helper()
 	tbl, err := objects.GetTable(db, sum)

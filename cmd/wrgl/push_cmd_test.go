@@ -74,7 +74,7 @@ func TestPushCmd(t *testing.T) {
 	authenticate(t, ts, url)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{
-		"push", "my-repo",
+		"push", "--no-progress", "my-repo",
 		"refs/heads/delta:",
 		"refs/heads/alpha:alpha",
 		"refs/heads/xi:heads/xi",
@@ -160,7 +160,7 @@ func TestPushCmdForce(t *testing.T) {
 
 	authenticate(t, ts, url)
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"push", "--force"})
+	cmd.SetArgs([]string{"push", "--no-progress", "--force"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("To %s", url),
 		fmt.Sprintf(" + %s...%s alpha       -> alpha (forced update)", hex.EncodeToString(sum1)[:7], hex.EncodeToString(sum3)[:7]),
@@ -203,7 +203,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	authenticate(t, ts, url)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{
-		"push", "my-repo", "--set-upstream",
+		"push", "my-repo", "--set-upstream", "--no-progress",
 		"refs/heads/alpha:",
 		"refs/heads/beta:",
 	})
@@ -236,7 +236,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	sum3, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	require.NoError(t, db.Close())
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"push", "--all"})
+	cmd.SetArgs([]string{"push", "--no-progress", "--all"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"pushing \x1b[1malpha\x1b[0m...",
 		"\x1b[0mTo " + url,
@@ -271,12 +271,12 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:"})
+	cmd.SetArgs([]string{"push", "--no-progress", "my-repo", "refs/heads/alpha:"})
 	assertCmdUnauthorized(t, cmd, url)
 	authenticate(t, ts, url)
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:"})
+	cmd.SetArgs([]string{"push", "--no-progress", "my-repo", "refs/heads/alpha:"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("To %s", url),
 		" * [new branch]      alpha       -> alpha",
@@ -317,7 +317,7 @@ func TestPushMirror(t *testing.T) {
 	authenticate(t, ts, url)
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"push", "my-repo", "--mirror"})
+	cmd.SetArgs([]string{"push", "--no-progress", "my-repo", "--mirror"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		fmt.Sprintf("To %s", url),
 		" = [up to date]      beta        -> beta",

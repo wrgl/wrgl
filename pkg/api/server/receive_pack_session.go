@@ -164,7 +164,7 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 	if err != nil {
 		panic(err)
 	}
-	done, err := s.receiver.Receive(pr)
+	done, err := s.receiver.Receive(pr, nil)
 	if err != nil {
 		panic(err)
 	}

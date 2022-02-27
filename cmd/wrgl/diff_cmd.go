@@ -268,7 +268,7 @@ func collectDiffObjects(
 	}
 	var bar *progressbar.ProgressBar
 	if !quiet {
-		bar = pbar(0, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		bar = utils.PBar(-1, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
 		defer bar.Finish()
 	}
 mainLoop:
@@ -339,7 +339,7 @@ func writeRowChanges(
 	}
 	progChan := pt.Start()
 	defer pt.Stop()
-	bar := pbar(0, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
+	bar := utils.PBar(-1, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
 mainLoop:
 	for {
 		select {

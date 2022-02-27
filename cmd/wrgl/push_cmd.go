@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mitchellh/colorstring"
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -18,6 +19,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -109,7 +111,7 @@ func newPushCmd() *cobra.Command {
 						cmd, c, db, rs, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
 						mirror, force, false, wrglDir,
 					); err != nil {
-						if err.Error() == `status 404: {"message":"Not Found"}` {
+						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
 							cmd.Println("Repository not found, skipping.")
 						} else {
 							return err
@@ -136,6 +138,7 @@ func newPushCmd() *cobra.Command {
 		"remote.<remote>.mirror is set.",
 	}, " "))
 	cmd.Flags().Bool("all", false, "push all branches that have upstream configured.")
+	cmd.Flags().Bool("no-progress", false, "don't display progress bar")
 	return cmd
 }
 
@@ -421,7 +424,16 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 			OldSum: payload.BytesToHex(u.OldSum),
 		}
 	}
-	ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, 0)
+	noP, err := cmd.Flags().GetBool("no-progress")
+	if err != nil {
+		return err
+	}
+	var pbar *progressbar.ProgressBar
+	if !noP {
+		pbar = utils.PBar(-1, "Pushing objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		defer pbar.Finish()
+	}
+	ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, 0, pbar)
 	if err != nil {
 		return utils.HandleHTTPError(cmd, cs, cr.URL, uri, err)
 	}

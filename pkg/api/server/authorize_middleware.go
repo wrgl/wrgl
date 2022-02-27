@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/wrgl/wrgl/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/conf"
 )
 
 type routeScope struct {
@@ -189,7 +190,7 @@ type AuthzMiddlewareOptions struct {
 	RootPath             *regexp.Regexp
 	MaskUnauthorizedPath bool
 	Enforce              func(r *http.Request, scope string) bool
-	RequestScope         func(rw http.ResponseWriter, r *http.Request, scope string)
+	GetConfig            func(r *http.Request) *conf.Config
 }
 
 func AuthorizeMiddleware(options AuthzMiddlewareOptions) func(handler http.Handler) http.Handler {
@@ -214,18 +215,15 @@ func AuthorizeMiddleware(options AuthzMiddlewareOptions) func(handler http.Handl
 				return
 			}
 			if route.Scope != "" {
-				if options.Enforce(r, route.Scope) {
+				c := options.GetConfig(r)
+				if (route.Scope == auth.ScopeRepoRead && c.Auth != nil && c.Auth.AnonymousRead) || options.Enforce(r, route.Scope) {
 					handler.ServeHTTP(rw, r)
 					return
 				}
-				if options.RequestScope != nil {
-					options.RequestScope(rw, r, route.Scope)
+				if options.MaskUnauthorizedPath {
+					SendHTTPError(rw, http.StatusNotFound)
 				} else {
-					if options.MaskUnauthorizedPath {
-						SendHTTPError(rw, http.StatusNotFound)
-					} else {
-						SendHTTPError(rw, http.StatusForbidden)
-					}
+					SendHTTPError(rw, http.StatusForbidden)
 				}
 			}
 		})

@@ -9,6 +9,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/api"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
 	"github.com/wrgl/wrgl/pkg/auth"
+	"github.com/wrgl/wrgl/pkg/conf"
 )
 
 type LocalAuthHandler struct {
@@ -16,7 +17,7 @@ type LocalAuthHandler struct {
 	authnS auth.AuthnStore
 }
 
-func NewHandler(handler http.Handler, authnS auth.AuthnStore, authzS auth.AuthzStore) *LocalAuthHandler {
+func NewHandler(handler http.Handler, c *conf.Config, authnS auth.AuthnStore, authzS auth.AuthzStore) *LocalAuthHandler {
 	h := &LocalAuthHandler{
 		sm:     http.NewServeMux(),
 		authnS: authnS,
@@ -44,6 +45,9 @@ func NewHandler(handler http.Handler, authnS auth.AuthnStore, authzS auth.AuthzS
 					return ok
 				}
 				return false
+			},
+			GetConfig: func(r *http.Request) *conf.Config {
+				return c
 			},
 		}),
 		AuthenticateMiddleware(authnS),

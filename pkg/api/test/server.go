@@ -219,6 +219,10 @@ func (s *Server) NewRemote(t *testing.T, pathPrefix string, pathPrefixRegexp *re
 				}
 				return false
 			},
+			GetConfig: func(r *http.Request) *conf.Config {
+				c, _ := cs.Open()
+				return c
+			},
 		}),
 	)
 	if pathPrefix != "" {

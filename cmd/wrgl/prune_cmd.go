@@ -4,12 +4,9 @@
 package wrgl
 
 import (
-	"fmt"
 	"io"
 	"sort"
-	"time"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -60,7 +57,7 @@ func newPruneCmd() *cobra.Command {
 			}
 
 			// remove orphaned blocks
-			bar := pbar(-1, "removing blocks", cmd.OutOrStdout(), cmd.ErrOrStderr())
+			bar := utils.PBar(-1, "removing blocks", cmd.OutOrStdout(), cmd.ErrOrStderr())
 			for i, sum := range allBlockKeys {
 				if !keepBlock[i] {
 					if err := objects.DeleteBlock(db, sum); err != nil {
@@ -72,7 +69,7 @@ func newPruneCmd() *cobra.Command {
 			if err := bar.Finish(); err != nil {
 				return err
 			}
-			bar = pbar(-1, "removing block indices", cmd.OutOrStdout(), cmd.ErrOrStderr())
+			bar = utils.PBar(-1, "removing block indices", cmd.OutOrStdout(), cmd.ErrOrStderr())
 			for i, sum := range allBlockIdxKeys {
 				if !keepBlockIdx[i] {
 					if err := objects.DeleteBlockIndex(db, sum); err != nil {
@@ -86,7 +83,7 @@ func newPruneCmd() *cobra.Command {
 			}
 
 			// remove orphaned commits
-			bar = pbar(-1, "removing commits", cmd.OutOrStdout(), cmd.ErrOrStderr())
+			bar = utils.PBar(-1, "removing commits", cmd.OutOrStdout(), cmd.ErrOrStderr())
 			for _, sum := range commitsToRemove {
 				err = objects.DeleteCommit(db, sum)
 				if err != nil {
@@ -100,27 +97,8 @@ func newPruneCmd() *cobra.Command {
 	return cmd
 }
 
-func pbar(max int64, desc string, out, err io.Writer) *progressbar.ProgressBar {
-	bar := progressbar.NewOptions64(
-		max,
-		progressbar.OptionSetDescription(desc),
-		progressbar.OptionSetWriter(out),
-		progressbar.OptionSetWidth(10),
-		progressbar.OptionThrottle(65*time.Millisecond),
-		progressbar.OptionShowCount(),
-		progressbar.OptionShowIts(),
-		progressbar.OptionOnCompletion(func() {
-			fmt.Fprint(err, "\n")
-		}),
-		progressbar.OptionSpinnerType(14),
-		progressbar.OptionFullWidth(),
-	)
-	bar.RenderBlank()
-	return bar
-}
-
 func findCommitsToRemove(cmd *cobra.Command, db objects.Store, rs ref.Store) (commitsToRemove [][]byte, survivingCommits [][]byte, err error) {
-	bar := pbar(-1, "finding commits to remove", cmd.OutOrStdout(), cmd.ErrOrStderr())
+	bar := utils.PBar(-1, "finding commits to remove", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
 	refMap, err := ref.ListAllRefs(rs)
 	if err != nil {
@@ -163,7 +141,7 @@ func findCommitsToRemove(cmd *cobra.Command, db objects.Store, rs ref.Store) (co
 }
 
 func pruneTables(cmd *cobra.Command, db objects.Store, survivingCommits [][]byte, allBlockKeys, allBlockIdxKeys [][]byte, keepBlock, keepBlockIndex []bool) (err error) {
-	bar := pbar(-1, "removing small tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
+	bar := utils.PBar(-1, "removing small tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
 	defer bar.Finish()
 	tableHashes, err := objects.GetAllTableKeys(db)
 	if err != nil {

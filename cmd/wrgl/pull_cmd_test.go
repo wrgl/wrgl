@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apitest "github.com/wrgl/wrgl/pkg/api/test"
+	"github.com/wrgl/wrgl/pkg/conf"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -101,7 +102,7 @@ func TestPullCmd(t *testing.T) {
 
 	// pull all branches with upstream configured
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"pull", "--all"})
+	cmd.SetArgs([]string{"pull", "--all", "--no-progress"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		"pulling \x1b[1mgamma\x1b[0m...",
 		fmt.Sprintf("\x1b[0m[gamma %s] %s", hex.EncodeToString(sum6)[:7], c6.Message),
@@ -112,4 +113,34 @@ func TestPullCmd(t *testing.T) {
 	sum, err = ref.GetHead(rs, "gamma")
 	require.NoError(t, err)
 	assert.Equal(t, sum6, sum)
+
+	// pull from public repo as an anynomous user
+	sum7, c7 := factory.CommitRandom(t, dbs, [][]byte{sum3})
+	require.NoError(t, ref.CommitHead(rss, "main", sum7, c7))
+	unauthenticate(t, url)
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"pull", "main"})
+	assertCmdUnauthorized(t, cmd, url)
+
+	cs := ts.GetConfS(repo)
+	c, err := cs.Open()
+	require.NoError(t, err)
+	c.Auth = &conf.Auth{
+		AnonymousRead: true,
+	}
+	require.NoError(t, cs.Save(c))
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"pull", "main", "--no-progress"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		fmt.Sprintf("No credential found for %s", url),
+		"Proceed as anonymous user...",
+		fmt.Sprintf("From %s", url),
+		fmt.Sprintf("   %s..%s  main        -> my-repo/main", hex.EncodeToString(sum3)[:7], hex.EncodeToString(sum7)[:7]),
+		fmt.Sprintf("Fast forward to %s", hex.EncodeToString(sum7)[:7]),
+		"",
+	}, "\n"))
+	sum, err = ref.GetHead(rs, "main")
+	require.NoError(t, err)
+	assert.Equal(t, sum7, sum)
 }

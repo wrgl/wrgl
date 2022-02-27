@@ -141,6 +141,17 @@ func TestSorterSortedBlocks(t *testing.T) {
 	blocks2 := sortedBlocks(t, s, 700)
 	assert.Equal(t, blocks, blocks2)
 	require.NoError(t, s.Close())
+
+	// sorter return entire row as PK if PK is nil
+	f, err = os.Open(f.Name())
+	require.NoError(t, err)
+	s, err = NewSorter(0, nil)
+	require.NoError(t, err)
+	require.NoError(t, s.SortFile(f, nil))
+	blocks3 := sortedBlocks(t, s, 700)
+	for _, blk := range blocks3 {
+		assert.Len(t, blk.PK, 4)
+	}
 }
 
 func TestSorterAddRow(t *testing.T) {

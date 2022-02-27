@@ -147,7 +147,7 @@ func TestShallowCommit(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"push", "my-repo", "refs/heads/alpha:alpha"})
+	cmd.SetArgs([]string{"push", "--no-progress", "my-repo", "refs/heads/alpha:alpha"})
 	assertCmdFailed(t, cmd, fmt.Sprintf("To %s\n", url), apiclient.NewShallowCommitError(sum4, c4.Table))
 
 	cmd = rootCmd()

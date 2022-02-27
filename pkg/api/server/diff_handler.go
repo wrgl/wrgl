@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"bytes"
 	"encoding/hex"
 	"net/http"
 	"regexp"
@@ -65,12 +66,6 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 		SendHTTPError(rw, http.StatusNotFound)
 		return
 	}
-	errCh := make(chan error, 10)
-	opts := []diff.DiffOption{}
-	if s.debugOut != nil {
-		opts = append(opts, diff.WithDebugOutput(s.debugOut))
-	}
-	diffChan, _ := diff.DiffTables(db, db, tbl1, tbl2, idx1, idx2, errCh, opts...)
 	resp := &payload.DiffResponse{
 		TableSum:    payload.BytesToHex(sum1),
 		OldTableSum: payload.BytesToHex(sum2),
@@ -79,24 +74,32 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 		PK:          tbl1.PK,
 		OldPK:       tbl2.PK,
 	}
-	for obj := range diffChan {
-		rd := &payload.RowDiff{}
-		if obj.Sum != nil {
-			u := obj.Offset
-			rd.Offset1 = &u
+	if !bytes.Equal(sum1, sum2) {
+		errCh := make(chan error, 10)
+		opts := []diff.DiffOption{}
+		if s.debugOut != nil {
+			opts = append(opts, diff.WithDebugOutput(s.debugOut))
 		}
-		if obj.OldSum != nil {
-			u := obj.OldOffset
-			rd.Offset2 = &u
+		diffChan, _ := diff.DiffTables(db, db, tbl1, tbl2, idx1, idx2, errCh, opts...)
+		for obj := range diffChan {
+			rd := &payload.RowDiff{}
+			if obj.Sum != nil {
+				u := obj.Offset
+				rd.Offset1 = &u
+			}
+			if obj.OldSum != nil {
+				u := obj.OldOffset
+				rd.Offset2 = &u
+			}
+			resp.RowDiff = append(resp.RowDiff, rd)
 		}
-		resp.RowDiff = append(resp.RowDiff, rd)
+		close(errCh)
+		err, ok := <-errCh
+		if ok {
+			panic(err)
+		}
+		diffDataProfile(db, resp, sum1, sum2)
 	}
-	close(errCh)
-	err, ok := <-errCh
-	if ok {
-		panic(err)
-	}
-	diffDataProfile(db, resp, sum1, sum2)
 	s.cacheControlImmutable(rw)
 	WriteJSON(rw, resp)
 }

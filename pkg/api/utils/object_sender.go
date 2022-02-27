@@ -8,6 +8,7 @@ import (
 	"container/list"
 	"io"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
@@ -60,7 +61,7 @@ func getCommonBlocks(db objects.Store, commonTables map[string]struct{}) (map[st
 	return commonBlocks, nil
 }
 
-func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend [][]byte, commonCommits [][]byte, maxPackfileSize uint64) (s *ObjectSender, err error) {
+func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend map[string]struct{}, commonCommits [][]byte, maxPackfileSize uint64) (s *ObjectSender, err error) {
 	if maxPackfileSize == 0 {
 		maxPackfileSize = defaultMaxPackfileSize
 	}
@@ -75,8 +76,8 @@ func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend []
 	for _, com := range toSend {
 		s.commits.PushBack(com)
 	}
-	for _, sum := range tablesToSend {
-		s.tables.PushBack(sum)
+	for sum := range tablesToSend {
+		s.tables.PushBack([]byte(sum))
 	}
 	s.commonTables, err = getCommonTables(db, commonCommits)
 	if err != nil {
@@ -147,7 +148,7 @@ func (s *ObjectSender) enqueueAllCommits() (err error) {
 	return nil
 }
 
-func (s *ObjectSender) WriteObjects(w io.Writer) (done bool, err error) {
+func (s *ObjectSender) WriteObjects(w io.Writer, pbar *progressbar.ProgressBar) (done bool, err error) {
 	pw, err := packfile.NewPackfileWriter(w)
 	if err != nil {
 		return
@@ -168,6 +169,11 @@ func (s *ObjectSender) WriteObjects(w io.Writer) (done bool, err error) {
 		n, err = pw.WriteObject(obj.Type, b)
 		if err != nil {
 			return
+		}
+		if pbar != nil {
+			if err = pbar.Add(1); err != nil {
+				return false, err
+			}
 		}
 		size += uint64(n)
 		if s.objs.Len() == 0 {
