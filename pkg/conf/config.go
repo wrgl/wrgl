@@ -87,6 +87,14 @@ type AuthClient struct {
 	RedirectURIs []string `yaml:"redirectURIs,omitempty" json:"redirectURIs,omitempty"`
 }
 
+type AuthOAuth2 struct {
+	// OIDCProvider contains configurations of OIDC provider
+	OIDCProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
+
+	// Clients contains OAuth 2 client configurations when Type is ATOauth2
+	Clients []AuthClient `yaml:"clients,omitempty" json:"clients,omitempty"`
+}
+
 type Auth struct {
 	// TokenDuration specifies how long before a JWT token given by the `/authenticate/`
 	// endpoint of Wrgld expire. This is a string in the format "72h3m0.5s". Tokens last for
@@ -96,15 +104,12 @@ type Auth struct {
 	// Types specifies how authorization work with wrgld API
 	Type AuthType `yaml:"type,omitempty" json:"type,omitempty"`
 
-	// OIDCProvider contains configurations of OIDC provider
-	OIDCProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
-
-	// Clients contains OAuth 2 client configurations when Type is ATOauth2
-	Clients []AuthClient `yaml:"clients,omitempty" json:"clients,omitempty"`
-
 	// AnonymousRead when set to true, allow anonymous users (users without an access token)
 	// to be assigned auth.ScopeRepoRead scope, thus are able to read the data from this repo.
 	AnonymousRead bool `yaml:"anonymousRead,omitempty" json:"anonymousRead,omitempty"`
+
+	// OAuth2 configurations that is effective when Type is ATOauth2
+	OAuth2 *AuthOAuth2 `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
 }
 
 type Pack struct {
