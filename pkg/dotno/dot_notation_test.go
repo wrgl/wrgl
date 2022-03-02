@@ -95,7 +95,9 @@ func TestGetFieldValue(t *testing.T) {
 			ExpectedValue: false,
 		},
 		{
-			Obj:         &conf.Auth{Clients: []conf.AuthClient{}},
+			Obj: &conf.AuthOAuth2{
+				Clients: []conf.AuthClient{},
+			},
 			Prop:        "clients.0.id",
 			ExpectedErr: fmt.Errorf("index out of range: 0 >= 0"),
 		},
@@ -177,10 +179,10 @@ func TestSetValue(t *testing.T) {
 			},
 		},
 		{
-			Obj:   &conf.Auth{},
+			Obj:   &conf.AuthOAuth2{},
 			Prop:  "oidcProvider",
 			Value: `{"issuer": "http://oidc.google.com"}`,
-			ExpectedObj: &conf.Auth{
+			ExpectedObj: &conf.AuthOAuth2{
 				OIDCProvider: &conf.AuthOIDCProvider{
 					Issuer: "http://oidc.google.com",
 				},
@@ -220,7 +222,7 @@ func TestUnsetField(t *testing.T) {
 			},
 		},
 		{
-			Obj: &conf.Auth{
+			Obj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{
 						ID: "abc123",
@@ -228,10 +230,10 @@ func TestUnsetField(t *testing.T) {
 				},
 			},
 			Prop:        "clients",
-			ExpectedObj: &conf.Auth{},
+			ExpectedObj: &conf.AuthOAuth2{},
 		},
 		{
-			Obj: &conf.Auth{
+			Obj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{
 						ID: "abc123",
@@ -245,7 +247,7 @@ func TestUnsetField(t *testing.T) {
 			ExpectedErr: fmt.Errorf("key contains multiple values"),
 		},
 		{
-			Obj: &conf.Auth{
+			Obj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{
 						ID: "abc123",
@@ -257,7 +259,7 @@ func TestUnsetField(t *testing.T) {
 			},
 			Prop:        "clients",
 			All:         true,
-			ExpectedObj: &conf.Auth{},
+			ExpectedObj: &conf.AuthOAuth2{},
 		},
 		{
 			Obj: map[string]*conf.Remote{
@@ -276,7 +278,7 @@ func TestUnsetField(t *testing.T) {
 			},
 		},
 		{
-			Obj: &conf.Auth{
+			Obj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{ID: "123"},
 					{ID: "456"},
@@ -284,7 +286,7 @@ func TestUnsetField(t *testing.T) {
 				},
 			},
 			Prop: "clients.1",
-			ExpectedObj: &conf.Auth{
+			ExpectedObj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{ID: "123"},
 					{ID: "789"},
@@ -292,7 +294,7 @@ func TestUnsetField(t *testing.T) {
 			},
 		},
 		{
-			Obj: &conf.Auth{
+			Obj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{ID: "123"},
 					{ID: "456"},
@@ -300,7 +302,7 @@ func TestUnsetField(t *testing.T) {
 				},
 			},
 			Prop: "clients.0",
-			ExpectedObj: &conf.Auth{
+			ExpectedObj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{ID: "456"},
 					{ID: "789"},
@@ -308,7 +310,7 @@ func TestUnsetField(t *testing.T) {
 			},
 		},
 		{
-			Obj: &conf.Auth{
+			Obj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{ID: "123"},
 					{ID: "456"},
@@ -316,7 +318,7 @@ func TestUnsetField(t *testing.T) {
 				},
 			},
 			Prop: "clients.2",
-			ExpectedObj: &conf.Auth{
+			ExpectedObj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{ID: "123"},
 					{ID: "456"},
@@ -324,7 +326,7 @@ func TestUnsetField(t *testing.T) {
 			},
 		},
 		{
-			Obj: &conf.Auth{
+			Obj: &conf.AuthOAuth2{
 				Clients: []conf.AuthClient{
 					{ID: "123"},
 					{ID: "456"},
@@ -354,7 +356,7 @@ func TestAppendSlice(t *testing.T) {
 	require.NoError(t, AppendSlice(v, "c", "d"))
 	assert.Equal(t, []string{"a", "b", "c", "d"}, branch.PrimaryKey)
 
-	auth := &conf.Auth{}
+	auth := &conf.AuthOAuth2{}
 	v = reflect.ValueOf(auth).Elem().FieldByName("Clients").Addr()
 	require.NoError(t, AppendSlice(v, `{"id":"123"}`))
 	assert.Equal(t, []conf.AuthClient{

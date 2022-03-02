@@ -4,14 +4,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
 )
 
 const (
-	deviceCodeDuration = 15 * 60 // 15 minutes
+	codeDuration       = 15 * 60 // 15 minutes
 	deviceCodeInterval = 1       // 1 second
 )
 
@@ -43,7 +42,6 @@ func (h *Handler) handleDeviceCode(rw http.ResponseWriter, r *http.Request) {
 		DeviceCode: &deviceCode,
 		UserCode:   &userCode,
 		State:      state,
-		Start:      time.Now(),
 	})
 	uri := &url.URL{
 		Scheme: r.URL.Scheme,
@@ -54,7 +52,7 @@ func (h *Handler) handleDeviceCode(rw http.ResponseWriter, r *http.Request) {
 		DeviceCode:      deviceCode.String(),
 		UserCode:        userCode.String(),
 		VerificationURI: uri.String(),
-		ExpiresIn:       deviceCodeDuration,
+		ExpiresIn:       codeDuration,
 		Interval:        deviceCodeInterval,
 	}
 	apiserver.WriteJSON(rw, resp)

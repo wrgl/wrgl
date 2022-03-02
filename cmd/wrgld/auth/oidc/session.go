@@ -31,18 +31,16 @@ type Session struct {
 	UserCode   *uuid.UUID
 	State      string
 	Code       string
-	Start      time.Time
-	// TODO: implement ExpiresIn
 }
 
 type SessionManager struct {
-	stateMap map[string]*Session
+	stateMap *TTLMap
 	mutex    sync.Mutex
 }
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		stateMap: map[string]*Session{},
+		stateMap: NewTTLMap(0),
 	}
 }
 
@@ -52,16 +50,15 @@ func (m *SessionManager) SaveWithState(state string, ses *Session) string {
 	if state == "" {
 		state = uuid.New().String()
 	}
-	m.stateMap[state] = ses
+	m.stateMap.Add(state, ses, codeDuration*time.Second)
 	return state
 }
 
 func (m *SessionManager) PopWithState(state string) *Session {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	if v, ok := m.stateMap[state]; ok {
-		delete(m.stateMap, state)
-		return v
+	if v := m.stateMap.Pop(state); v != nil {
+		return v.(*Session)
 	}
 	return nil
 }
