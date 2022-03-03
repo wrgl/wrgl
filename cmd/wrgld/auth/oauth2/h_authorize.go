@@ -1,4 +1,4 @@
-package authoidc
+package authoauth2
 
 import (
 	"fmt"

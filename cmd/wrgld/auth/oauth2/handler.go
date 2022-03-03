@@ -1,4 +1,4 @@
-package authoidc
+package authoauth2
 
 import (
 	"fmt"
@@ -132,6 +132,7 @@ func NewHandler(serverHandler http.Handler, c *conf.Config, client *http.Client)
 		}),
 		h.validateAccessToken,
 	))
+	sm.Handle("/static/", http.FileServer(http.FS(contentFS)))
 	h.handler = wrgldutils.ApplyMiddlewares(
 		sm,
 		h.CORSMiddleware,

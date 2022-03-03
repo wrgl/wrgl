@@ -1,4 +1,4 @@
-package authoidc
+package authoauth2
 
 import (
 	"embed"
@@ -18,15 +18,15 @@ var (
 
 func init() {
 	var err error
-	deviceTmpl, err = template.ParseFS(contentFS, "templates/device.html", "templates/head.html")
+	deviceTmpl, err = template.ParseFS(contentFS, "templates/device.html", "templates/head.html", "templates/header.html")
 	if err != nil {
 		panic(err)
 	}
-	deviceLoggedInTmpl, err = template.ParseFS(contentFS, "templates/device-logged-in.html", "templates/head.html")
+	deviceLoggedInTmpl, err = template.ParseFS(contentFS, "templates/device-logged-in.html", "templates/head.html", "templates/header.html")
 	if err != nil {
 		panic(err)
 	}
-	errorTmpl, err = template.ParseFS(contentFS, "templates/error.html", "templates/head.html")
+	errorTmpl, err = template.ParseFS(contentFS, "templates/error.html", "templates/head.html", "templates/header.html")
 	if err != nil {
 		panic(err)
 	}

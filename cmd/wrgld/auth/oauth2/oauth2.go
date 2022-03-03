@@ -1,4 +1,4 @@
-package authoidc
+package authoauth2
 
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`

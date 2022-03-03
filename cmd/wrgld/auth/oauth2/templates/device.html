@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  {{template "head.html" .Head}}
+  <body>
+    {{template "header.html"}}
+    <div class="content">
+      <div class="main">
+        <h2>Device Log In</h2>
+        <form method="post" action=".">
+          <label for="user_code">Enter User Code:</label>
+          <input type="text" id="user_code" name="user_code" />
+          <input type="submit" value="Submit" />
+          {{if .ErrorMessage}}
+          <p class="error">{{print .ErrorMessage}}</p>
+          {{end}}
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

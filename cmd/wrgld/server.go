@@ -11,7 +11,7 @@ import (
 	"time"
 
 	authlocal "github.com/wrgl/wrgl/cmd/wrgld/auth/local"
-	authoidc "github.com/wrgl/wrgl/cmd/wrgld/auth/oidc"
+	authoauth2 "github.com/wrgl/wrgl/cmd/wrgld/auth/oauth2"
 	wrgldutils "github.com/wrgl/wrgl/cmd/wrgld/utils"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
 	authfs "github.com/wrgl/wrgl/pkg/auth/fs"
@@ -87,7 +87,7 @@ func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration, clien
 			func() { authzS.Close() },
 		)
 	} else {
-		handler, err = authoidc.NewHandler(handler, c, client)
+		handler, err = authoauth2.NewHandler(handler, c, client)
 		if err != nil {
 			return nil, err
 		}
