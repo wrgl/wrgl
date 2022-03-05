@@ -76,6 +76,15 @@ func (m *TTLMap) Pop(key string) interface{} {
 	return nil
 }
 
+func (m *TTLMap) Get(key string) interface{} {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	if v, ok := m.items[key]; ok {
+		return v
+	}
+	return nil
+}
+
 func (m *TTLMap) removeExpiredItems() (sleepDuration time.Duration) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()

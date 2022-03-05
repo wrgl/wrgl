@@ -10,15 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
-	"github.com/coreos/go-oidc"
 	"github.com/gobwas/glob"
 	wrgldutils "github.com/wrgl/wrgl/cmd/wrgld/utils"
 	"github.com/wrgl/wrgl/pkg/api"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
 	"github.com/wrgl/wrgl/pkg/conf"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
 )
 
 type Client struct {
@@ -28,33 +25,25 @@ type Client struct {
 type Handler struct {
 	clients     map[string]Client
 	corsOrigins []string
-	provider    *oidc.Provider
-	verifier    *oidc.IDTokenVerifier
-	oidcConfig  *oauth2.Config
+	provider    OIDCProvider
 	handler     http.Handler
+	address     string
 
 	sessions *SessionManager
 }
 
-func NewHandler(serverHandler http.Handler, c *conf.Config, client *http.Client) (h *Handler, err error) {
-	if c == nil || c.Auth == nil || c.Auth.OAuth2 == nil {
-		return nil, fmt.Errorf("empty auth.oauth2 config")
-	}
-	if c.Auth.OAuth2.OIDCProvider == nil {
-		return nil, fmt.Errorf("empty auth.oauth2.oidcProvider config")
-	}
-	if len(c.Auth.OAuth2.Clients) == 0 {
+func NewHandler(serverHandler http.Handler, config *conf.Config, provider OIDCProvider) (h *Handler, err error) {
+	if len(config.Auth.OAuth2.Clients) == 0 {
 		return nil, fmt.Errorf("no registered client (empty auth.oauth2.clients config)")
 	}
 	h = &Handler{
 		clients:  map[string]Client{},
 		sessions: NewSessionManager(),
+		provider: provider,
+		address:  config.Auth.OAuth2.OIDCProvider.Address,
 	}
-	for _, c := range c.Auth.OAuth2.Clients {
+	for _, c := range config.Auth.OAuth2.Clients {
 		client := &Client{}
-		if len(c.RedirectURIs) == 0 {
-			return nil, fmt.Errorf("empty redirectURIs for client %q", c.ID)
-		}
 		for _, s := range c.RedirectURIs {
 			u, err := url.Parse(s)
 			if err != nil {
@@ -70,32 +59,6 @@ func NewHandler(serverHandler http.Handler, c *conf.Config, client *http.Client)
 		h.clients[c.ID] = *client
 		log.Printf("client %q registered", c.ID)
 	}
-	ctx := context.Background()
-	if client != nil {
-		ctx = oidc.ClientContext(ctx, client)
-	}
-	if err = backoff.RetryNotify(
-		func() (err error) {
-			h.provider, err = oidc.NewProvider(ctx, c.Auth.OAuth2.OIDCProvider.Issuer)
-			return err
-		},
-		backoff.NewExponentialBackOff(),
-		func(e error, d time.Duration) {
-			log.Printf("error creating oidc provider: %v. backoff for %s", e, d)
-		},
-	); err != nil {
-		return nil, err
-	}
-	h.oidcConfig = &oauth2.Config{
-		ClientID:     c.Auth.OAuth2.OIDCProvider.ClientID,
-		ClientSecret: c.Auth.OAuth2.OIDCProvider.ClientSecret,
-		RedirectURL:  strings.TrimRight(c.Auth.OAuth2.OIDCProvider.Address, "/") + "/oidc/callback/",
-		Endpoint:     h.provider.Endpoint(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
-	}
-	h.verifier = h.provider.Verifier(&oidc.Config{
-		ClientID: c.Auth.OAuth2.OIDCProvider.ClientID,
-	})
 
 	sm := http.NewServeMux()
 	sm.HandleFunc("/oauth2/authorize/", h.handleAuthorize)
@@ -127,7 +90,7 @@ func NewHandler(serverHandler http.Handler, c *conf.Config, client *http.Client)
 				return false
 			},
 			GetConfig: func(r *http.Request) *conf.Config {
-				return c
+				return config
 			},
 		}),
 		h.validateAccessToken,
@@ -170,16 +133,10 @@ func (h *Handler) validateAccessToken(handler http.Handler) http.Handler {
 			rawIDToken := strings.Split(s, " ")[1]
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 			defer cancel()
-			token, err := h.verifier.Verify(ctx, rawIDToken)
+			c, err := h.provider.Claims(ctx, rawIDToken)
 			if err != nil {
 				log.Printf("failed to verify access_token: %v", err)
 				apiserver.SendError(rw, http.StatusUnauthorized, "unauthorized")
-				return
-			}
-			c := &Claims{}
-			if err = token.Claims(c); err != nil {
-				log.Printf("error parsing claims: %v", err)
-				apiserver.SendError(rw, http.StatusInternalServerError, "internal server error")
 				return
 			}
 			r = setClaims(r, c)
@@ -209,16 +166,7 @@ func (h *Handler) validRedirectURI(clientID, uri string) bool {
 	return false
 }
 
-func (h *Handler) cloneOauth2Config() *oauth2.Config {
-	c := &oauth2.Config{}
-	*c = *h.oidcConfig
-	return c
-}
-
-func (h *Handler) parseForm(r *http.Request) (url.Values, error) {
-	if r.Method == http.MethodGet {
-		return r.URL.Query(), nil
-	}
+func (h *Handler) parsePOSTForm(r *http.Request) (url.Values, error) {
 	if r.Method == http.MethodPost {
 		if s := r.Header.Get("Content-Type"); !strings.Contains(s, "application/x-www-form-urlencoded") {
 			return nil, &HTTPError{http.StatusBadRequest, fmt.Sprintf("unsupported content type %q", s)}
@@ -231,6 +179,13 @@ func (h *Handler) parseForm(r *http.Request) (url.Values, error) {
 		return url.ParseQuery(string(b))
 	}
 	return nil, &HTTPError{http.StatusMethodNotAllowed, "method not allowed"}
+}
+
+func (h *Handler) parseForm(r *http.Request) (url.Values, error) {
+	if r.Method == http.MethodGet {
+		return r.URL.Query(), nil
+	}
+	return h.parsePOSTForm(r)
 }
 
 func (h *Handler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {

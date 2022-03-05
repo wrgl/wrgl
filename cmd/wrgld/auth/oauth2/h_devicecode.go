@@ -2,8 +2,6 @@ package authoauth2
 
 import (
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/google/uuid"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
@@ -36,22 +34,17 @@ func (h *Handler) handleDeviceCode(rw http.ResponseWriter, r *http.Request) {
 	deviceCode := uuid.New()
 	userCode := uuid.New()
 	state := uuid.New().String()
-	h.sessions.SaveWithState(userCode.String(), &Session{
+	h.sessions.Save(userCode.String(), &Session{
 		Flow:       FlowDeviceCode,
 		ClientID:   clientID,
 		DeviceCode: &deviceCode,
 		UserCode:   &userCode,
 		State:      state,
 	})
-	uri := &url.URL{
-		Scheme: r.URL.Scheme,
-		Host:   r.URL.Host,
-		Path:   strings.Replace(r.URL.Path, "/oauth2/devicecode/", "/oauth2/device/", 1),
-	}
 	resp := &DeviceCodeResponse{
 		DeviceCode:      deviceCode.String(),
 		UserCode:        userCode.String(),
-		VerificationURI: uri.String(),
+		VerificationURI: h.address + "/oauth2/device/",
 		ExpiresIn:       codeDuration,
 		Interval:        deviceCodeInterval,
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/wrgl/wrgl/pkg/api"
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
 )
 
@@ -18,6 +19,7 @@ type Oauth2Error struct {
 }
 
 func (e *Oauth2Error) WriteResponse(rw http.ResponseWriter) {
+	rw.Header().Set("Content-Type", api.CTJSON)
 	rw.WriteHeader(http.StatusBadRequest)
 	apiserver.WriteJSON(rw, e)
 }
@@ -33,6 +35,7 @@ type UnauthorizedError struct {
 }
 
 func (e *UnauthorizedError) WriteResponse(rw http.ResponseWriter) {
+	rw.Header().Set("Content-Type", api.CTJSON)
 	rw.WriteHeader(http.StatusUnauthorized)
 	apiserver.WriteJSON(rw, e)
 }
@@ -47,6 +50,7 @@ type HTTPError struct {
 }
 
 func (e *HTTPError) WriteResponse(rw http.ResponseWriter) {
+	rw.Header().Set("Content-Type", api.CTJSON)
 	rw.WriteHeader(e.Code)
 	apiserver.WriteJSON(rw, e)
 }

@@ -3,12 +3,20 @@ package authoauth2
 import (
 	"context"
 	"net/http"
+
+	"github.com/coreos/go-oidc"
 )
 
 type Claims struct {
+	oidc.IDToken
+
 	Email string   `json:"email"`
 	Name  string   `json:"name"`
 	Roles []string `json:"roles"`
+}
+
+func (c *Claims) Valid() error {
+	return nil
 }
 
 type claimsKey struct{}

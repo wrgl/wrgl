@@ -44,7 +44,7 @@ func (h *Handler) handleAuthorize(rw http.ResponseWriter, r *http.Request) {
 		handleError(rw, &Oauth2Error{"invalid_request", fmt.Sprintf("invalid redirect_uri: %v", err)})
 		return
 	}
-	state := h.sessions.SaveWithState("", &Session{
+	state := h.sessions.Save("", &Session{
 		Flow:                FlowCode,
 		ClientID:            clientID,
 		ClientState:         values.Get("state"),
@@ -52,6 +52,5 @@ func (h *Handler) handleAuthorize(rw http.ResponseWriter, r *http.Request) {
 		CodeChallenge:       values.Get("code_challenge"),
 		CodeChallengeMethod: values.Get("code_challenge_method"),
 	})
-	oauth2Config := h.cloneOauth2Config()
-	http.Redirect(rw, r, oauth2Config.AuthCodeURL(state), http.StatusFound)
+	http.Redirect(rw, r, h.provider.AuthCodeURL(state), http.StatusFound)
 }

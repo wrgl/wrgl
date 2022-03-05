@@ -13,13 +13,22 @@ import (
 	apiserver "github.com/wrgl/wrgl/pkg/api/server"
 )
 
-func (h *Handler) getSessionForTokenEndpoint(values url.Values, stateKey string) (state string, session *Session, err error) {
+func generateCodeChallenge(codeVerifier string) string {
+	hash := sha256.New()
+	if _, err := hash.Write([]byte(codeVerifier)); err != nil {
+		panic(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(hash.Sum([]byte{}))
+
+}
+
+func (h *Handler) getSessionForTokenEndpoint(values url.Values, stateKey string) (state string, session *Session, popState func(), err error) {
 	state = values.Get(stateKey)
 	if state == "" {
 		err = &Oauth2Error{"invalid_request", stateKey + " required"}
 		return
 	}
-	session = h.sessions.PopWithState(state)
+	session = h.sessions.Get(state)
 	if session == nil {
 		err = &Oauth2Error{"invalid_request", "invalid " + stateKey}
 		return
@@ -28,11 +37,11 @@ func (h *Handler) getSessionForTokenEndpoint(values url.Values, stateKey string)
 		err = &Oauth2Error{"invalid_client", "invalid client_id"}
 		return
 	}
-	return state, session, nil
+	return state, session, func() { h.sessions.Pop(state) }, nil
 }
 
 func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
-	values, err := h.parseForm(r)
+	values, err := h.parsePOSTForm(r)
 	if err != nil {
 		handleError(rw, err)
 		return
@@ -41,7 +50,7 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	grantType := values.Get("grant_type")
 	switch grantType {
 	case "authorization_code":
-		state, session, err := h.getSessionForTokenEndpoint(values, "code")
+		state, session, popState, err := h.getSessionForTokenEndpoint(values, "code")
 		if err != nil {
 			handleError(rw, err)
 			return
@@ -59,24 +68,20 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 		if s := values.Get("code_verifier"); s == "" {
 			handleError(rw, &Oauth2Error{"invalid_grant", "code_verifier required"})
 			return
-		} else {
-			hash := sha256.New()
-			if _, err := hash.Write([]byte(s)); err != nil {
-				panic(err)
-			}
-			if base64.RawURLEncoding.EncodeToString(hash.Sum([]byte{})) != session.CodeChallenge {
-				handleError(rw, &Oauth2Error{"invalid_grant", "code challenge failed"})
-				return
-			}
+		} else if generateCodeChallenge(s) != session.CodeChallenge {
+			handleError(rw, &Oauth2Error{"invalid_grant", "code challenge failed"})
+			return
 		}
 		code = state
+		popState()
 	case "urn:ietf:params:oauth:grant-type:device_code":
-		_, session, err := h.getSessionForTokenEndpoint(values, "device_code")
+		_, session, popState, err := h.getSessionForTokenEndpoint(values, "device_code")
 		if err != nil {
 			handleError(rw, err)
 			return
 		}
 		code = session.Code
+		popState()
 	default:
 		handleError(rw, &Oauth2Error{"invalid_request", "invalid grant_type"})
 		return
@@ -84,7 +89,7 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-	token, err := h.oidcConfig.Exchange(ctx, code)
+	token, err := h.provider.Exchange(ctx, code)
 	if err != nil {
 		log.Printf("error: error exchanging code: %v", err)
 		apiserver.SendError(rw, http.StatusInternalServerError, "internal server error")
@@ -101,7 +106,7 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 		apiserver.SendError(rw, http.StatusInternalServerError, "internal server error")
 		return
 	}
-	if _, err = h.verifier.Verify(context.Background(), rawIDToken); err != nil {
+	if err = h.provider.Verify(context.Background(), rawIDToken); err != nil {
 		log.Printf("error: failed to verify id_token: %v", err)
 		apiserver.SendError(rw, http.StatusInternalServerError, "internal server error")
 		return

@@ -87,7 +87,17 @@ func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration, clien
 			func() { authzS.Close() },
 		)
 	} else {
-		handler, err = authoauth2.NewHandler(handler, c, client)
+		if c == nil || c.Auth == nil || c.Auth.OAuth2 == nil {
+			return nil, fmt.Errorf("empty auth.oauth2 config")
+		}
+		if c.Auth.OAuth2.OIDCProvider == nil {
+			return nil, fmt.Errorf("empty auth.oauth2.oidcProvider config")
+		}
+		provider, err := authoauth2.NewOIDCProvider(c.Auth.OAuth2.OIDCProvider, client)
+		if err != nil {
+			return nil, err
+		}
+		handler, err = authoauth2.NewHandler(handler, c, provider)
 		if err != nil {
 			return nil, err
 		}

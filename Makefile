@@ -11,6 +11,7 @@ PROGRAMS := wrgl wrgld
 BINARIES := $(foreach prog,$(PROGRAMS),$(foreach osarch,$(OS_ARCHS),$(BUILD_DIR)/$(prog)-$(osarch)/bin/$(prog)))
 TAR_FILES := $(foreach osarch,$(OS_ARCHS),$(BUILD_DIR)/wrgl-$(osarch).tar.gz)
 IMAGES := $(foreach prog,$(PROGRAMS),$(patsubst %,$(BUILD_DIR)/%.image,$(prog)))
+WRGLD_STATIC_ASSETS := $(wildcard cmd/wrgld/auth/oauth2/static/*) $(wildcard cmd/wrgld/auth/oauth2/templates/*)
 
 .PHONY: all clean images
 all: $(TAR_FILES)
@@ -28,7 +29,7 @@ echo "" >> $(4)
 endef
 
 define program_mk_file_rule =
-$(BUILD_DIR)/$(1).d: $(MD5_DIR)/$(1)/main.go.md5 | $(BUILD_DIR)
+$(BUILD_DIR)/$(1).d: | $(BUILD_DIR)
 	echo "$(1)_SOURCES =" > $$@
 	echo "$$$$($(GO) list -deps github.com/wrgl/wrgl/$(1) | \
 		grep github.com/wrgl/wrgl/ | \
@@ -37,6 +38,10 @@ $(BUILD_DIR)/$(1).d: $(MD5_DIR)/$(1)/main.go.md5 | $(BUILD_DIR)
 		sed -r -e 's/(.+)/$$(subst /,\/,$(1)_SOURCES += $(MD5_DIR))\/\1.md5/g')" >> $$@
 	echo "" >> $$@
 	$$(foreach osarch,$$(OS_ARCHS),$$(call binary_rule,$(1),$$(word 2,$$(subst -, ,$$(osarch))),$$(word 1,$$(subst -, ,$$(osarch))),$$@))
+endef
+
+define wrgld_bin_rule =
+$(BUILD_DIR)/wrgl-$(1)/bin/wrgld: $$(patsubst %,$$(MD5_DIR)/%.md5,$$(WRGLD_STATIC_ASSETS))
 endef
 
 define license_rule =
@@ -56,6 +61,8 @@ $(MD5_DIR)/%.md5: % | $(MD5_DIR)
 	$(if $(filter-out $(shell cat $@ 2>/dev/null),$(shell $(MD5) $<)),$(MD5) $< > $@)
 
 $(foreach prog,$(PROGRAMS),$(eval $(call program_mk_file_rule,$(prog))))
+
+$(foreach osarch,$(OS_ARCHS),$(eval $(call wrgld_bin_rule,$(osarch))))
 
 $(foreach osarch,$(OS_ARCHS),$(eval $(call license_rule,$(osarch))))
 

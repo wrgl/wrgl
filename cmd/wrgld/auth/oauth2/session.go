@@ -1,7 +1,6 @@
 package authoauth2
 
 import (
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,7 +34,6 @@ type Session struct {
 
 type SessionManager struct {
 	stateMap *TTLMap
-	mutex    sync.Mutex
 }
 
 func NewSessionManager() *SessionManager {
@@ -44,9 +42,7 @@ func NewSessionManager() *SessionManager {
 	}
 }
 
-func (m *SessionManager) SaveWithState(state string, ses *Session) string {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+func (m *SessionManager) Save(state string, ses *Session) string {
 	if state == "" {
 		state = uuid.New().String()
 	}
@@ -54,9 +50,14 @@ func (m *SessionManager) SaveWithState(state string, ses *Session) string {
 	return state
 }
 
-func (m *SessionManager) PopWithState(state string) *Session {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+func (m *SessionManager) Get(state string) *Session {
+	if v := m.stateMap.Get(state); v != nil {
+		return v.(*Session)
+	}
+	return nil
+}
+
+func (m *SessionManager) Pop(state string) *Session {
 	if v := m.stateMap.Pop(state); v != nil {
 		return v.(*Session)
 	}

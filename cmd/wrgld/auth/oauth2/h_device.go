@@ -24,16 +24,16 @@ func (h *Handler) handleDevice(rw http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		ses := h.sessions.PopWithState(userCode.String())
+		ses := h.sessions.Get(userCode.String())
 		if ses == nil {
 			writeDeviceHTML(rw, &deviceTmplData{
 				ErrorMessage: "User Code not found",
 			})
 			return
 		}
-		h.sessions.SaveWithState(ses.State, ses)
-		oauth2Config := h.cloneOauth2Config()
-		http.Redirect(rw, r, oauth2Config.AuthCodeURL(ses.State), http.StatusFound)
+		h.sessions.Save(ses.State, ses)
+		http.Redirect(rw, r, h.provider.AuthCodeURL(ses.State), http.StatusFound)
+		h.sessions.Pop(userCode.String())
 	default:
 		handleError(rw, &HTTPError{http.StatusMethodNotAllowed, "method not allowed"})
 	}
