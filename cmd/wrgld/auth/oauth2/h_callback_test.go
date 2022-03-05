@@ -37,6 +37,8 @@ func assertHTMLResponse(t *testing.T, i int, c responseTestCase) {
 			assertHTMLContains(t, string(b), fmt.Sprintf(`<h2 class="error">Error: %s</h2>`, v.ErrorMessage), "case %d", i)
 		case *deviceLoggedInTmplData:
 			assertHTMLContains(t, string(b), "<h2>Device logged in!</h2>", "case %d", i)
+		case *deviceTmplData:
+			assertHTMLContains(t, string(b), fmt.Sprintf(`<p class="error">%s</p>`, v.ErrorMessage), "case %d", i)
 		default:
 			t.Errorf("unsupported type %T (case %d)", v, i)
 		}

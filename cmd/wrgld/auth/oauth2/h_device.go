@@ -10,23 +10,23 @@ import (
 func (h *Handler) handleDevice(rw http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeDeviceHTML(rw, &deviceTmplData{})
+		writeDeviceHTML(rw, http.StatusOK, &deviceTmplData{})
 	case http.MethodPost:
-		values, err := h.parseForm(r)
+		values, err := h.parsePOSTForm(r)
 		if err != nil {
-			handleError(rw, err)
+			outputHTMLError(rw, err)
 			return
 		}
 		userCode, err := uuid.Parse(values.Get("user_code"))
 		if err != nil {
-			writeDeviceHTML(rw, &deviceTmplData{
+			writeDeviceHTML(rw, http.StatusBadRequest, &deviceTmplData{
 				ErrorMessage: "Invalid User Code",
 			})
 			return
 		}
 		ses := h.sessions.Get(userCode.String())
 		if ses == nil {
-			writeDeviceHTML(rw, &deviceTmplData{
+			writeDeviceHTML(rw, http.StatusBadRequest, &deviceTmplData{
 				ErrorMessage: "User Code not found",
 			})
 			return
@@ -35,6 +35,6 @@ func (h *Handler) handleDevice(rw http.ResponseWriter, r *http.Request) {
 		http.Redirect(rw, r, h.provider.AuthCodeURL(ses.State), http.StatusFound)
 		h.sessions.Pop(userCode.String())
 	default:
-		handleError(rw, &HTTPError{http.StatusMethodNotAllowed, "method not allowed"})
+		writeErrorHTML(rw, http.StatusMethodNotAllowed, &errorTmplData{ErrorMessage: "method not allowed"})
 	}
 }

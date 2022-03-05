@@ -11,6 +11,7 @@ import (
 type ResponseError interface {
 	error
 	WriteResponse(rw http.ResponseWriter)
+	WriteHTMLResponse(rw http.ResponseWriter)
 }
 
 type Oauth2Error struct {
@@ -24,24 +25,12 @@ func (e *Oauth2Error) WriteResponse(rw http.ResponseWriter) {
 	apiserver.WriteJSON(rw, e)
 }
 
+func (e *Oauth2Error) WriteHTMLResponse(rw http.ResponseWriter) {
+	writeErrorHTML(rw, http.StatusBadRequest, &errorTmplData{ErrorMessage: fmt.Sprintf("%s: %s", e.Err, e.ErrorDescription)})
+}
+
 func (e *Oauth2Error) Error() string {
 	return fmt.Sprintf("Oauth2Error %s: %s", e.Err, e.ErrorDescription)
-}
-
-type UnauthorizedError struct {
-	Message      string `json:"message,omitempty"`
-	CurrentScope string `json:"current_scope,omitempty"`
-	MissingScope string `json:"missing_scope,omitempty"`
-}
-
-func (e *UnauthorizedError) WriteResponse(rw http.ResponseWriter) {
-	rw.Header().Set("Content-Type", api.CTJSON)
-	rw.WriteHeader(http.StatusUnauthorized)
-	apiserver.WriteJSON(rw, e)
-}
-
-func (e *UnauthorizedError) Error() string {
-	return fmt.Sprintf("UnauthorizedError: %s {current_scope: %s, missing_scope: %s}", e.Message, e.CurrentScope, e.MissingScope)
 }
 
 type HTTPError struct {
@@ -55,14 +44,26 @@ func (e *HTTPError) WriteResponse(rw http.ResponseWriter) {
 	apiserver.WriteJSON(rw, e)
 }
 
+func (e *HTTPError) WriteHTMLResponse(rw http.ResponseWriter) {
+	writeErrorHTML(rw, http.StatusBadRequest, &errorTmplData{ErrorMessage: e.Message})
+}
+
 func (e *HTTPError) Error() string {
 	return fmt.Sprintf("HTTPError: %d %s", e.Code, e.Message)
 }
 
-func handleError(rw http.ResponseWriter, err error) {
+func outputError(rw http.ResponseWriter, err error) {
 	if v, ok := err.(ResponseError); ok {
 		v.WriteResponse(rw)
-	} else if v, ok := err.(error); ok {
-		panic(v)
+	} else {
+		panic(err)
+	}
+}
+
+func outputHTMLError(rw http.ResponseWriter, err error) {
+	if v, ok := err.(ResponseError); ok {
+		v.WriteHTMLResponse(rw)
+	} else {
+		panic(err)
 	}
 }

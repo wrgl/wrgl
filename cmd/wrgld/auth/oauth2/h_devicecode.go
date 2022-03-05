@@ -21,14 +21,14 @@ type DeviceCodeResponse struct {
 }
 
 func (h *Handler) handleDeviceCode(rw http.ResponseWriter, r *http.Request) {
-	values, err := h.parseForm(r)
+	values, err := h.parsePOSTForm(r)
 	if err != nil {
-		handleError(rw, err)
+		outputError(rw, err)
 		return
 	}
 	clientID := values.Get("client_id")
 	if !h.validClientID(clientID) {
-		handleError(rw, &Oauth2Error{"invalid_client", "unknown client"})
+		outputError(rw, &Oauth2Error{"invalid_client", "unknown client"})
 		return
 	}
 	deviceCode := uuid.New()

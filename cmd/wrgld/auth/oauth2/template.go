@@ -56,10 +56,11 @@ type errorTmplData struct {
 	ErrorMessage string
 }
 
-func writeDeviceHTML(rw http.ResponseWriter, data *deviceTmplData) {
+func writeDeviceHTML(rw http.ResponseWriter, status int, data *deviceTmplData) {
 	data.Head = &headTmplData{
 		Title: "Device Log In",
 	}
+	rw.WriteHeader(status)
 	writeHTML(rw, deviceTmpl, data)
 }
 

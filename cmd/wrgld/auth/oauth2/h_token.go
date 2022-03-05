@@ -43,7 +43,7 @@ func (h *Handler) getSessionForTokenEndpoint(values url.Values, stateKey string)
 func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	values, err := h.parsePOSTForm(r)
 	if err != nil {
-		handleError(rw, err)
+		outputError(rw, err)
 		return
 	}
 	var code string
@@ -52,24 +52,24 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	case "authorization_code":
 		state, session, popState, err := h.getSessionForTokenEndpoint(values, "code")
 		if err != nil {
-			handleError(rw, err)
+			outputError(rw, err)
 			return
 		}
 		redirectURI, err := url.Parse(values.Get("redirect_uri"))
 		if err != nil {
-			handleError(rw, &Oauth2Error{"invalid_request", "failed to parse redirect_uri"})
+			outputError(rw, &Oauth2Error{"invalid_request", "failed to parse redirect_uri"})
 			return
 		}
 		if s := fmt.Sprintf("%s://%s%s", redirectURI.Scheme, redirectURI.Host, redirectURI.Path); s != session.RedirectURI {
 			log.Printf("redirect URI does not match %q != %q", s, session.RedirectURI)
-			handleError(rw, &Oauth2Error{"invalid_request", "redirect_uri does not match"})
+			outputError(rw, &Oauth2Error{"invalid_request", "redirect_uri does not match"})
 			return
 		}
 		if s := values.Get("code_verifier"); s == "" {
-			handleError(rw, &Oauth2Error{"invalid_grant", "code_verifier required"})
+			outputError(rw, &Oauth2Error{"invalid_grant", "code_verifier required"})
 			return
 		} else if generateCodeChallenge(s) != session.CodeChallenge {
-			handleError(rw, &Oauth2Error{"invalid_grant", "code challenge failed"})
+			outputError(rw, &Oauth2Error{"invalid_grant", "code challenge failed"})
 			return
 		}
 		code = state
@@ -77,13 +77,13 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	case "urn:ietf:params:oauth:grant-type:device_code":
 		_, session, popState, err := h.getSessionForTokenEndpoint(values, "device_code")
 		if err != nil {
-			handleError(rw, err)
+			outputError(rw, err)
 			return
 		}
 		code = session.Code
 		popState()
 	default:
-		handleError(rw, &Oauth2Error{"invalid_request", "invalid grant_type"})
+		outputError(rw, &Oauth2Error{"invalid_request", "invalid grant_type"})
 		return
 	}
 
