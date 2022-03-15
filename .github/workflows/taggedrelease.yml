@@ -40,7 +40,7 @@ jobs:
         uses: battila7/get-version-action@v2
       - name: Put version number in wrgl installer
         uses: bluwy/substitute-string-action@v1
-        id: sub
+        id: sub-wrgl-installer
         with:
           _input-file: "./.github/workflows/template/install.sh"
           _output-file: "./build/install.sh"
@@ -48,7 +48,7 @@ jobs:
           version: "${{ steps.get_version.outputs.version }}"
       - name: Put version number in wrgld installer
         uses: bluwy/substitute-string-action@v1
-        id: sub
+        id: sub-wrgld-installer
         with:
           _input-file: "./.github/workflows/template/install_wrgld.sh"
           _output-file: "./build/install_wrgld.sh"
