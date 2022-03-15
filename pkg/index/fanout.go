@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2022 Wrangle Ltd
+
 package index
 
 func computeFanoutTable(fanout *[256]uint32, hashes [][]byte) {
