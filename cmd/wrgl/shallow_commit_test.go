@@ -10,17 +10,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
-	apitest "github.com/wrgl/wrgl/pkg/api/test"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
+	server_testutils "github.com/wrgl/wrgl/wrgld/pkg/server/testutils"
 )
 
 func TestShallowCommit(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -44,9 +44,9 @@ func TestShallowCommit(t *testing.T) {
 
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
-	apitest.AssertCommitsShallowlyPersisted(t, db, [][]byte{sum1, sum2, sum3})
-	apitest.AssertTablePersisted(t, db, c3.Table)
-	apitest.AssertTablesNotPersisted(t, db, [][]byte{c1.Table, c2.Table})
+	factory.AssertCommitsShallowlyPersisted(t, db, [][]byte{sum1, sum2, sum3})
+	factory.AssertTablePersisted(t, db, c3.Table)
+	factory.AssertTablesNotPersisted(t, db, [][]byte{c1.Table, c2.Table})
 	rs := rd.OpenRefStore()
 	sum, err := ref.GetHead(rs, "main")
 	require.NoError(t, err)

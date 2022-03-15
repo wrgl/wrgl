@@ -8,16 +8,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apitest "github.com/wrgl/wrgl/pkg/api/test"
 	"github.com/wrgl/wrgl/pkg/conf"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/ref"
+	server_testutils "github.com/wrgl/wrgl/wrgld/pkg/server/testutils"
 )
 
 func TestPullCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -36,7 +36,7 @@ func TestPullCmd(t *testing.T) {
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
-	apitest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum4})
+	factory.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum4})
 	require.NoError(t, ref.CommitHead(rs, "beta", sum4, c4))
 	require.NoError(t, db.Close())
 

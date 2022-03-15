@@ -17,15 +17,15 @@ import (
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/api/payload"
-	apitest "github.com/wrgl/wrgl/pkg/api/test"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 	"github.com/wrgl/wrgl/pkg/credentials"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/ref"
 	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
+	server_testutils "github.com/wrgl/wrgl/wrgld/pkg/server/testutils"
 )
 
-func authenticate(t *testing.T, ts *apitest.Server, uri string, scopes ...string) {
+func authenticate(t *testing.T, ts *server_testutils.Server, uri string, scopes ...string) {
 	t.Helper()
 	cs, err := credentials.NewStore()
 	require.NoError(t, err)
@@ -33,7 +33,7 @@ func authenticate(t *testing.T, ts *apitest.Server, uri string, scopes ...string
 	if len(scopes) == 0 {
 		tok = ts.AdminToken(t)
 	} else {
-		tok = ts.Authorize(t, apitest.Email, apitest.Name, scopes...)
+		tok = ts.Authorize(t, server_testutils.Email, server_testutils.Name, scopes...)
 	}
 	u, err := url.Parse(uri)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func assertCmdUnauthorized(t *testing.T, cmd *cobra.Command, url string) {
 
 func TestFetchCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -96,7 +96,7 @@ func TestFetchCmd(t *testing.T) {
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
-	apitest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum3})
+	factory.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum3})
 	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
 	require.NoError(t, ref.CommitHead(rs, "tickets", sum3, c3))
 	require.NoError(t, db.Close())
@@ -132,7 +132,7 @@ func TestFetchCmd(t *testing.T) {
 	sum, err = ref.GetTag(rs, "2020")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	apitest.AssertCommitsPersisted(t, db, [][]byte{sum2, sum4})
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum2, sum4})
 	refhelpers.AssertLatestReflogEqual(t, rs, "remotes/origin/main", &ref.Reflog{
 		NewOID:      sum2,
 		AuthorName:  "John Doe",
@@ -161,7 +161,7 @@ func assertCommandNoErr(t *testing.T, cmd *cobra.Command) {
 
 func TestFetchCmdAllRepos(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url1, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
@@ -213,7 +213,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	assert.Equal(t, ref.ErrKeyNotFound, err)
 	_, err = ref.GetRemoteRef(rs, "home", "main")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
-	apitest.AssertCommitsPersisted(t, db, [][]byte{sum2})
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum2})
 	require.NoError(t, db.Close())
 
 	cmd = rootCmd()
@@ -227,13 +227,13 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	sum, err = ref.GetRemoteRef(rs, "home", "main")
 	require.NoError(t, err)
 	assert.Equal(t, sum3, sum)
-	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1, sum3})
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum1, sum3})
 	require.NoError(t, db.Close())
 }
 
 func TestFetchCmdCustomRefSpec(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
@@ -263,7 +263,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	sum, err := ref.GetRef(rs, "custom/abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1})
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum1})
 	refhelpers.AssertLatestReflogEqual(t, rs, "custom/abc", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
@@ -275,7 +275,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 
 func TestFetchCmdTag(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
@@ -323,7 +323,7 @@ func TestFetchCmdTag(t *testing.T) {
 	sum, err := ref.GetTag(rs, "2020-dec")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1})
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum1})
 	refhelpers.AssertLatestReflogEqual(t, rs, "tags/2020-dec", &ref.Reflog{
 		OldOID:      sum3,
 		NewOID:      sum1,
@@ -346,7 +346,7 @@ func TestFetchCmdTag(t *testing.T) {
 	sum, err = ref.GetTag(rs, "2021-dec")
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	apitest.AssertCommitsPersisted(t, db, [][]byte{sum2})
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum2})
 	refhelpers.AssertLatestReflogEqual(t, rs, "tags/2021-dec", &ref.Reflog{
 		OldOID:      sum4,
 		NewOID:      sum2,
@@ -360,7 +360,7 @@ func TestFetchCmdTag(t *testing.T) {
 
 func TestFetchCmdForceUpdate(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
@@ -405,7 +405,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	sum, err := ref.GetHead(rs, "abc")
 	require.NoError(t, err)
 	assert.Equal(t, sum1, sum)
-	apitest.AssertCommitsPersisted(t, db, [][]byte{sum1})
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum1})
 	refhelpers.AssertLatestReflogEqual(t, rs, "heads/abc", &ref.Reflog{
 		OldOID:      sum2,
 		NewOID:      sum1,
@@ -418,7 +418,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 
 func TestFetchCmdDepth(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -449,9 +449,9 @@ func TestFetchCmdDepth(t *testing.T) {
 	sum, err := ref.GetRemoteRef(rs, "origin", "main")
 	require.NoError(t, err)
 	assert.Equal(t, sum2, sum)
-	apitest.AssertCommitsShallowlyPersisted(t, db, [][]byte{sum2, sum1})
-	apitest.AssertTablesPersisted(t, db, [][]byte{c2.Table})
-	apitest.AssertTablesNotPersisted(t, db, [][]byte{c1.Table})
+	factory.AssertCommitsShallowlyPersisted(t, db, [][]byte{sum2, sum1})
+	factory.AssertTablesPersisted(t, db, [][]byte{c2.Table})
+	factory.AssertTablesNotPersisted(t, db, [][]byte{c1.Table})
 	require.NoError(t, db.Close())
 
 	// fetch missing table
@@ -463,6 +463,6 @@ func TestFetchCmdDepth(t *testing.T) {
 	}, "\n"))
 	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
-	apitest.AssertTablesPersisted(t, db, [][]byte{c1.Table})
+	factory.AssertTablesPersisted(t, db, [][]byte{c1.Table})
 	require.NoError(t, db.Close())
 }

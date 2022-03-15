@@ -16,11 +16,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
-var tg func() time.Time
-
-func init() {
-	tg = testutils.CreateTimeGen()
-}
+var tg = testutils.CreateTimeGen()
 
 func SaveTestCommit(t *testing.T, db objects.Store, parents [][]byte) (sum []byte, commit *objects.Commit) {
 	t.Helper()

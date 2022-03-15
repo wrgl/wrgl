@@ -40,17 +40,28 @@ func parseRows(rows []string, pk []uint32) ([][]string, []uint32) {
 	return records, pk
 }
 
+func ingestTable(t *testing.T, db objects.Store, rows [][]string, pk []uint32) []byte {
+	t.Helper()
+	buf := bytes.NewBuffer(nil)
+	w := csv.NewWriter(buf)
+	require.NoError(t, w.WriteAll(rows))
+	s, err := sorter.NewSorter(0, nil)
+	require.NoError(t, err)
+	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), slice.IndicesToValues(rows[0], pk))
+	require.NoError(t, err)
+	return sum
+}
+
 func BuildTable(t *testing.T, db objects.Store, rows []string, pk []uint32) []byte {
 	t.Helper()
 	records, pk := parseRows(rows, pk)
-	buf := bytes.NewBuffer(nil)
-	w := csv.NewWriter(buf)
-	require.NoError(t, w.WriteAll(records))
-	s, err := sorter.NewSorter(0, nil)
-	require.NoError(t, err)
-	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), slice.IndicesToValues(records[0], pk))
-	require.NoError(t, err)
-	return sum
+	return ingestTable(t, db, records, pk)
+}
+
+func BuildTableN(t *testing.T, db objects.Store, numCols, numRows int, pk []uint32) []byte {
+	t.Helper()
+	rows := testutils.BuildRawCSV(numCols, numRows)
+	return ingestTable(t, db, rows, pk)
 }
 
 func SdumpTable(t *testing.T, db objects.Store, sum []byte, indent int) string {

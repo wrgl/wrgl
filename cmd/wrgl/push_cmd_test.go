@@ -11,12 +11,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apitest "github.com/wrgl/wrgl/pkg/api/test"
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/ref"
+	server_testutils "github.com/wrgl/wrgl/wrgld/pkg/server/testutils"
 )
 
 func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {
@@ -32,7 +32,7 @@ func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {
 
 func TestPushCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -50,7 +50,7 @@ func TestPushCmd(t *testing.T) {
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
-	apitest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum8})
+	factory.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum8})
 	sum11, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	require.NoError(t, ref.CommitHead(rs, "beta", sum1, c1))
 	require.NoError(t, ref.CommitHead(rs, "theta", sum8, c8))
@@ -107,7 +107,7 @@ func TestPushCmd(t *testing.T) {
 		"",
 	}, "\n"))
 
-	apitest.AssertCommitsPersisted(t, dbs, [][]byte{sum2, sum3, sum7, sum5, sum11, sum12, sum13, sum14, sum15})
+	factory.AssertCommitsPersisted(t, dbs, [][]byte{sum2, sum3, sum7, sum5, sum11, sum12, sum13, sum14, sum15})
 	assertRefStore(t, rss, "heads/beta", sum2)
 	assertRefStore(t, rss, "tags/2018", sum7)
 	assertRefStore(t, rss, "heads/gamma", sum5)
@@ -125,13 +125,13 @@ func TestPushCmd(t *testing.T) {
 
 func TestPushCmdForce(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
 	cs := ts.GetConfS(repo)
-	require.NoError(t, cs.Save(apitest.ReceivePackConfig(false, true)))
+	require.NoError(t, cs.Save(server_testutils.ReceivePackConfig(false, true)))
 	sum1, _ := factory.CommitHead(t, dbs, rss, "alpha", nil, nil)
 	sum5, _ := factory.CommitHead(t, dbs, rss, "beta", nil, nil)
 	sum2, _ := factory.CommitTag(t, dbs, rss, "2017", nil, nil, nil)
@@ -169,7 +169,7 @@ func TestPushCmdForce(t *testing.T) {
 		"",
 	}, "\n"))
 
-	apitest.AssertCommitsPersisted(t, dbs, [][]byte{sum3, sum4})
+	factory.AssertCommitsPersisted(t, dbs, [][]byte{sum3, sum4})
 	assertRefStore(t, rss, "heads/alpha", sum3)
 	assertRefStore(t, rss, "tags/2017", sum4)
 	assertRefStore(t, rss, "heads/beta", sum5)
@@ -177,13 +177,13 @@ func TestPushCmdForce(t *testing.T) {
 
 func TestPushCmdSetUpstream(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
 	rss := ts.GetRS(repo)
 	cs := ts.GetConfS(repo)
-	require.NoError(t, cs.Save(apitest.ReceivePackConfig(false, true)))
+	require.NoError(t, cs.Save(server_testutils.ReceivePackConfig(false, true)))
 	sum1, c1 := factory.CommitHead(t, dbs, rss, "alpha", nil, nil)
 
 	rd, cleanUp := createRepoDir(t)
@@ -191,7 +191,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
-	apitest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1})
+	factory.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1})
 	require.NoError(t, ref.CommitHead(rs, "alpha", sum1, c1))
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	require.NoError(t, db.Close())
@@ -250,7 +250,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 
 func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -283,13 +283,13 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 		"",
 	}, "\n"))
 
-	apitest.AssertCommitsPersisted(t, dbs, [][]byte{sum1, sum2})
+	factory.AssertCommitsPersisted(t, dbs, [][]byte{sum1, sum2})
 	assertRefStore(t, rss, "heads/alpha", sum2)
 }
 
 func TestPushMirror(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
-	ts := apitest.NewServer(t, nil)
+	ts := server_testutils.NewServer(t, nil)
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -303,7 +303,7 @@ func TestPushMirror(t *testing.T) {
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
-	apitest.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum2})
+	factory.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum2})
 	require.NoError(t, ref.CommitHead(rs, "beta", sum2, c2))
 	sum3, _ := factory.CommitHead(t, db, rs, "main", nil, nil)
 	sum4, _ := factory.CommitTag(t, db, rs, "dec-2021", nil, nil, nil)
@@ -328,7 +328,7 @@ func TestPushMirror(t *testing.T) {
 		"",
 	}, "\n"))
 
-	apitest.AssertCommitsPersisted(t, dbs, [][]byte{sum1, sum2, sum3, sum4, sum5})
+	factory.AssertCommitsPersisted(t, dbs, [][]byte{sum1, sum2, sum3, sum4, sum5})
 	assertRefStore(t, rss, "heads/beta", sum2)
 	assertRefStore(t, rss, "heads/main", sum3)
 	assertRefStore(t, rss, "tags/dec-2021", sum4)

@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apitest "github.com/wrgl/wrgl/pkg/api/test"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
+	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
 )
@@ -43,10 +43,10 @@ func TestObjectSender(t *testing.T) {
 	db1 := objmock.NewStore()
 	db2 := objmock.NewStore()
 
-	sum1, _ := apitest.CreateRandomCommit(t, db1, 5, 700, nil)
-	apitest.CopyCommitsToNewStore(t, db1, db2, [][]byte{sum1})
-	sum2, c2 := apitest.CreateRandomCommit(t, db1, 5, 700, [][]byte{sum1})
-	sum3, c3 := apitest.CreateRandomCommit(t, db1, 5, 700, [][]byte{sum2})
+	sum1, _ := factory.CommitRandomN(t, db1, 5, 700, nil)
+	factory.CopyCommitsToNewStore(t, db1, db2, [][]byte{sum1})
+	sum2, c2 := factory.CommitRandomN(t, db1, 5, 700, [][]byte{sum1})
+	sum3, c3 := factory.CommitRandomN(t, db1, 5, 700, [][]byte{sum2})
 
 	tables := map[string]struct{}{
 		string(c2.Table): {},
@@ -56,16 +56,16 @@ func TestObjectSender(t *testing.T) {
 	require.NoError(t, err)
 	r := apiutils.NewObjectReceiver(db2, [][]byte{sum3}, nil)
 	sendAll(t, s, r)
-	apitest.AssertCommitsPersisted(t, db2, [][]byte{sum2, sum3})
+	factory.AssertCommitsPersisted(t, db2, [][]byte{sum2, sum3})
 }
 
 func TestSendCommitsWithIdenticalTable(t *testing.T) {
 	db1 := objmock.NewStore()
 	db2 := objmock.NewStore()
 
-	sum1, c1 := apitest.CreateRandomCommit(t, db1, 5, 700, nil)
-	sum2, c2 := apitest.CreateRandomCommit(t, db1, 5, 700, nil)
-	sum3, c3 := apitest.CreateRandomCommitWithTable(t, db1, c1.Table, [][]byte{sum2})
+	sum1, c1 := factory.CommitRandomN(t, db1, 5, 700, nil)
+	sum2, c2 := factory.CommitRandomN(t, db1, 5, 700, nil)
+	sum3, c3 := factory.CommitRandomWithTable(t, db1, c1.Table, [][]byte{sum2})
 
 	tables := map[string]struct{}{
 		string(c1.Table): {},
@@ -75,5 +75,5 @@ func TestSendCommitsWithIdenticalTable(t *testing.T) {
 	require.NoError(t, err)
 	r := apiutils.NewObjectReceiver(db2, [][]byte{sum1, sum3}, nil)
 	sendAll(t, s, r)
-	apitest.AssertCommitsPersisted(t, db2, [][]byte{sum1, sum2, sum3})
+	factory.AssertCommitsPersisted(t, db2, [][]byte{sum1, sum2, sum3})
 }
