@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	wrgldutils "github.com/wrgl/wrgl/wrgld/pkg/utils"
 )
 
 type Flow string
@@ -33,12 +35,12 @@ type Session struct {
 }
 
 type SessionManager struct {
-	stateMap *TTLMap
+	stateMap *wrgldutils.TTLMap
 }
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		stateMap: NewTTLMap(0),
+		stateMap: wrgldutils.NewTTLMap(0),
 	}
 }
 

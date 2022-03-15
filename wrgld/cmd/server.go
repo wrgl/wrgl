@@ -15,7 +15,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ref"
 	authlocal "github.com/wrgl/wrgl/wrgld/pkg/auth/local"
 	authoauth2 "github.com/wrgl/wrgl/wrgld/pkg/auth/oauth2"
-	apiserver "github.com/wrgl/wrgl/wrgld/pkg/server"
+	"github.com/wrgl/wrgl/wrgld/pkg/server"
 	wrgldutils "github.com/wrgl/wrgl/wrgld/pkg/utils"
 )
 
@@ -31,8 +31,10 @@ type ServerOptions struct {
 }
 
 type Server struct {
-	srv      *http.Server
-	cleanups []func()
+	srv        *http.Server
+	cleanups   []func()
+	upSessions *server.UploadPackSessionMap
+	rpSessions *server.ReceivePackSessionMap
 }
 
 func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration, client *http.Client) (*Server, error) {
@@ -46,9 +48,9 @@ func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration, clien
 	if err != nil {
 		return nil, err
 	}
-	upSessions := apiserver.NewUploadPackSessionMap()
-	rpSessions := apiserver.NewReceivePackSessionMap()
 	s := &Server{
+		upSessions: server.NewUploadPackSessionMap(0, 0),
+		rpSessions: server.NewReceivePackSessionMap(0, 0),
 		srv: &http.Server{
 			ReadTimeout:  readTimeout,
 			WriteTimeout: writeTimeout,
@@ -58,13 +60,13 @@ func NewServer(rd *local.RepoDir, readTimeout, writeTimeout time.Duration, clien
 			func() { objstore.Close() },
 		},
 	}
-	var handler http.Handler = apiserver.NewServer(
+	var handler http.Handler = server.NewServer(
 		nil,
 		func(r *http.Request) objects.Store { return objstore },
 		func(r *http.Request) ref.Store { return refstore },
 		func(r *http.Request) conf.Store { return cs },
-		func(r *http.Request) apiserver.UploadPackSessionStore { return upSessions },
-		func(r *http.Request) apiserver.ReceivePackSessionStore { return rpSessions },
+		func(r *http.Request) server.UploadPackSessionStore { return s.upSessions },
+		func(r *http.Request) server.ReceivePackSessionStore { return s.rpSessions },
 	)
 	if c.Auth == nil {
 		return nil, fmt.Errorf("auth config not defined")
@@ -114,6 +116,8 @@ func (s *Server) Start(addr string) error {
 }
 
 func (s *Server) Close() error {
+	s.upSessions.Stop()
+	s.rpSessions.Stop()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := s.srv.Shutdown(ctx); err != nil {

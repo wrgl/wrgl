@@ -79,6 +79,7 @@ func assertCmdUnauthorized(t *testing.T, cmd *cobra.Command, url string) {
 func TestFetchCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -162,6 +163,7 @@ func assertCommandNoErr(t *testing.T, cmd *cobra.Command) {
 func TestFetchCmdAllRepos(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url1, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
@@ -234,6 +236,7 @@ func TestFetchCmdAllRepos(t *testing.T) {
 func TestFetchCmdCustomRefSpec(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
@@ -276,6 +279,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 func TestFetchCmdTag(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
@@ -361,6 +365,7 @@ func TestFetchCmdTag(t *testing.T) {
 func TestFetchCmdForceUpdate(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db1 := ts.GetDB(repo)
@@ -419,6 +424,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 func TestFetchCmdDepth(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)

@@ -49,6 +49,7 @@ func assertCSVError(t *testing.T, err error, message string, csvLoc *payload.CSV
 
 func TestSuite(t *testing.T) {
 	suite := newSuite(t)
+	defer suite.s.Close()
 	t.Run("", func(t *testing.T) {
 		ty := reflect.TypeOf(suite)
 		v := reflect.ValueOf(suite)

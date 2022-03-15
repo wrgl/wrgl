@@ -1,4 +1,4 @@
-package authoauth2
+package wrgldutils
 
 import (
 	"container/heap"
@@ -98,7 +98,10 @@ func (m *TTLMap) removeExpiredItems() (sleepDuration time.Duration) {
 		if k.expire.After(now) {
 			if _, ok := m.items[k.key]; ok {
 				heap.Push(m.keys, k)
-				return k.expire.Sub(now)
+				if d := k.expire.Sub(now); d < m.idleDuration {
+					return d
+				}
+				return m.idleDuration
 			}
 		}
 		delete(m.items, k.key)

@@ -1,4 +1,4 @@
-package authoauth2
+package wrgldutils
 
 import (
 	"testing"

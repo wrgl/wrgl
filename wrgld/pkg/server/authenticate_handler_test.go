@@ -21,6 +21,7 @@ import (
 
 func (s *testSuite) TestAuthenticate(t *testing.T) {
 	srv := server_testutils.NewServer(t, regexp.MustCompile(`^/my-repo/`))
+	defer srv.Close()
 	repo, cli, _, cleanup := srv.NewClient(t, "/my-repo/", regexp.MustCompile(`^/my-repo/`), false)
 	defer cleanup()
 	db := srv.GetDB(repo)

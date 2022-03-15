@@ -33,6 +33,7 @@ func assertRefStore(t *testing.T, rs ref.Store, name string, sum []byte) {
 func TestPushCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -126,6 +127,7 @@ func TestPushCmd(t *testing.T) {
 func TestPushCmdForce(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -178,6 +180,7 @@ func TestPushCmdForce(t *testing.T) {
 func TestPushCmdSetUpstream(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -251,6 +254,7 @@ func TestPushCmdSetUpstream(t *testing.T) {
 func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)
@@ -290,6 +294,7 @@ func TestPushCmdDepthGreaterThanOne(t *testing.T) {
 func TestPushMirror(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
 	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	dbs := ts.GetDB(repo)

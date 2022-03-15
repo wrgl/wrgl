@@ -1,26 +1,44 @@
 package server
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+	wrgldutils "github.com/wrgl/wrgl/wrgld/pkg/utils"
+)
 
 type ReceivePackSessionMap struct {
-	m map[string]*ReceivePackSession
+	m   *wrgldutils.TTLMap
+	ttl time.Duration
 }
 
-func NewReceivePackSessionMap() *ReceivePackSessionMap {
-	return &ReceivePackSessionMap{
-		m: map[string]*ReceivePackSession{},
+func NewReceivePackSessionMap(idle, ttl time.Duration) *ReceivePackSessionMap {
+	if ttl == 0 {
+		ttl = defaultSessionTTL
 	}
+	m := &ReceivePackSessionMap{
+		m:   wrgldutils.NewTTLMap(idle),
+		ttl: ttl,
+	}
+	m.m.StartCleanUpRoutine()
+	return m
 }
 
 func (m *ReceivePackSessionMap) Set(sid uuid.UUID, ses *ReceivePackSession) {
-	m.m[sid.String()] = ses
+	m.m.Add(sid.String(), ses, m.ttl)
 }
 
 func (m *ReceivePackSessionMap) Get(sid uuid.UUID) (ses *ReceivePackSession, ok bool) {
-	ses, ok = m.m[sid.String()]
-	return
+	if v := m.m.Get(sid.String()); v != nil {
+		return v.(*ReceivePackSession), true
+	}
+	return nil, false
 }
 
 func (m *ReceivePackSessionMap) Delete(sid uuid.UUID) {
-	delete(m.m, sid.String())
+	m.m.Pop(sid.String())
+}
+
+func (m *ReceivePackSessionMap) Stop() {
+	m.m.Stop()
 }
