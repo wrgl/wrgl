@@ -29,7 +29,7 @@ func rootCmd() *cobra.Command {
 	return cmd
 }
 
-func createCSVFile(t *testing.T, content []string) (filePath string) {
+func createCSVFile(t *testing.T, content []string) (header []string, filePath string) {
 	t.Helper()
 	file, err := testutils.TempFile("", "test_commit_*.csv")
 	require.NoError(t, err)
@@ -38,7 +38,7 @@ func createCSVFile(t *testing.T, content []string) (filePath string) {
 		_, err := fmt.Fprintln(file, line)
 		require.NoError(t, err)
 	}
-	return file.Name()
+	return strings.Split(content[0], ","), file.Name()
 }
 
 func commitFile(t *testing.T, branchName, filePath, primaryKey string, extraArgs ...string) {
@@ -76,7 +76,7 @@ func TestDiffCmd(t *testing.T) {
 	_, cleanup := createRepoDir(t)
 	defer cleanup()
 
-	fp1 := createCSVFile(t, []string{
+	_, fp1 := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -85,7 +85,7 @@ func TestDiffCmd(t *testing.T) {
 	defer os.Remove(fp1)
 	commitFile(t, "my-branch", fp1, "a")
 
-	fp2 := createCSVFile(t, []string{
+	_, fp2 := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,e",
 		"2,a,s",
@@ -124,7 +124,7 @@ func TestDiffCmd(t *testing.T) {
 }
 
 func TestDiffCmdNoRepoDir(t *testing.T) {
-	fp1 := createCSVFile(t, []string{
+	_, fp1 := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -132,7 +132,7 @@ func TestDiffCmdNoRepoDir(t *testing.T) {
 	})
 	defer os.Remove(fp1)
 
-	fp2 := createCSVFile(t, []string{
+	_, fp2 := createCSVFile(t, []string{
 		"a,c,b",
 		"1,e,q",
 		"2,s,a",
@@ -163,7 +163,7 @@ func TestDiffCmdBranchFile(t *testing.T) {
 	_, cleanup := createRepoDir(t)
 	defer cleanup()
 
-	fp1 := createCSVFile(t, []string{
+	_, fp1 := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -196,7 +196,7 @@ func TestDiffCmdAll(t *testing.T) {
 	_, cleanup := createRepoDir(t)
 	defer cleanup()
 
-	fp1 := createCSVFile(t, []string{
+	_, fp1 := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -211,7 +211,7 @@ func TestDiffCmdAll(t *testing.T) {
 		"4,y,u",
 	})
 
-	fp2 := createCSVFile(t, []string{
+	_, fp2 := createCSVFile(t, []string{
 		"a,d,e",
 		"1,e,r",
 		"2,d,f",
@@ -220,7 +220,7 @@ func TestDiffCmdAll(t *testing.T) {
 	defer os.Remove(fp2)
 	commitFile(t, "branch-2", fp2, "a", "--set-file", "--set-primary-key")
 
-	fp3 := createCSVFile(t, []string{
+	_, fp3 := createCSVFile(t, []string{
 		"a,f,g",
 		"1,t,y",
 		"2,g,h",
@@ -233,7 +233,7 @@ func TestDiffCmdAll(t *testing.T) {
 	cmd.SetArgs([]string{"config", "set", "branch.branch-0.file", fp3})
 	require.NoError(t, cmd.Execute())
 
-	fp4 := createCSVFile(t, []string{
+	_, fp4 := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -265,7 +265,7 @@ func TestDiffCmdAll(t *testing.T) {
 	assert.Equal(t, []string{
 		"Branch \"branch-0\" not found, skipping.",
 		"File \"non-existent.csv\" does not exist, skipping branch \"branch-5\".",
-		"branch-1 rows: +1/-1/2 modified",
+		"branch-1 rows: +1/-1/m2",
 		"branch-4 columns: +1/-1; primary key: a->a,b",
 	}, lines)
 }

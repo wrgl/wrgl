@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
@@ -23,6 +24,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
 func newCommitCmd() *cobra.Command {
@@ -53,6 +55,10 @@ func newCommitCmd() *cobra.Command {
 			{
 				Comment: "commit all branches that have branch.file configured",
 				Line:    "wrgl commit --all \"mass commit\"",
+			},
+			{
+				Comment: "commit all branches using a transaction id (run 'wrgl transaction -h' to learn more about transaction)",
+				Line:    "wrgl commit --all --txid a1dbfcc4-f6da-454c-a783-f1b70d347baf \"mass commit with transaction\"",
 			},
 		}),
 		Args: cobra.MaximumNArgs(3),
@@ -106,13 +112,21 @@ func newCommitCmd() *cobra.Command {
 			defer db.Close()
 			rs := rd.OpenRefStore()
 
+			tid, err := parseTxidFlag(cmd)
+			if err != nil {
+				return err
+			}
+			if tid != nil {
+				cmd.Printf("With transaction %s\n", tid.String())
+			}
+
 			if all {
-				return commitAllBranches(cmd, db, rs, c, message, numWorkers, memLimit, false)
+				return commitAllBranches(cmd, db, rs, c, message, numWorkers, memLimit, false, tid)
 			}
 
 			var sum []byte
 			if commitFromBranchFile {
-				sum, err = commitIfBranchFileHasChanged(cmd, db, rs, c, branchName, csvFilePath, primaryKey, message, numWorkers, memLimit, false)
+				sum, err = commitIfBranchFileHasChanged(cmd, db, rs, c, branchName, csvFilePath, primaryKey, message, numWorkers, memLimit, false, tid)
 				if err != nil {
 					return err
 				}
@@ -121,7 +135,7 @@ func newCommitCmd() *cobra.Command {
 					return nil
 				}
 			} else {
-				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, c, debugFile, false)
+				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, c, debugFile, false, tid)
 				if err != nil {
 					return err
 				}
@@ -137,7 +151,23 @@ func newCommitCmd() *cobra.Command {
 	cmd.Flags().Bool("set-file", false, "set branch.file to CSV_FILE_PATH. If branch.file is set then you don't need to specify CSV_FILE_PATH in subsequent commits to BRANCH.")
 	cmd.Flags().Bool("set-primary-key", false, "set branch.primaryKey to PRIMARY_KEY. If branch.primaryKey is set then you don't need to specify PRIMARY_KEY in subsequent commits to BRANCH.")
 	cmd.Flags().Bool("all", false, "commit all branches that have branch.file configured.")
+	cmd.Flags().String("txid", "", "commit using specified transaction id")
 	return cmd
+}
+
+func parseTxidFlag(cmd *cobra.Command) (tid *uuid.UUID, err error) {
+	txid, err := cmd.Flags().GetString("txid")
+	if err != nil {
+		return nil, err
+	}
+	if txid != "" {
+		tid = &uuid.UUID{}
+		*tid, err = uuid.Parse(txid)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing txid: %v", err)
+		}
+	}
+	return tid, nil
 }
 
 func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) error {
@@ -152,8 +182,8 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) error {
 }
 
 func commit(
-	cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, message, branchName string,
-	primaryKey []string, numWorkers int, memLimit uint64, c *conf.Config, debugFile io.Writer, quiet bool,
+	cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, message, branchName string, primaryKey []string,
+	numWorkers int, memLimit uint64, c *conf.Config, debugFile io.Writer, quiet bool, tid *uuid.UUID,
 ) ([]byte, error) {
 	if !ref.HeadPattern.MatchString(branchName) {
 		return nil, fmt.Errorf("invalid branch name, must consist of only alphanumeric letters, hyphen and underscore")
@@ -208,8 +238,7 @@ func commit(
 	if err != nil {
 		return nil, err
 	}
-	err = ref.CommitHead(rs, branchName, commitSum, commit)
-	if err != nil {
+	if err = saveHead(rs, branchName, commitSum, commit, tid); err != nil {
 		return nil, err
 	}
 	return commitSum, nil
@@ -220,7 +249,7 @@ func commitTempBranch(
 	primaryKey []string, numWorkers int, memLimit uint64, quiet bool,
 ) (sum []byte, err error) {
 	ref.DeleteHead(rs, tmpBranch)
-	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, numWorkers, memLimit, c, nil, quiet)
+	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, numWorkers, memLimit, c, nil, quiet, nil)
 }
 
 func ensureTempCommit(
@@ -254,7 +283,7 @@ func ensureTempCommit(
 	return sum, nil
 }
 
-func commitWithTable(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, branch string, tableSum []byte, message string) ([]byte, error) {
+func commitWithTable(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, branch string, tableSum []byte, message string, tid *uuid.UUID) ([]byte, error) {
 	parent, _ := ref.GetHead(rs, branch)
 	commit := &objects.Commit{
 		Table:       tableSum,
@@ -275,16 +304,22 @@ func commitWithTable(cmd *cobra.Command, c *conf.Config, db objects.Store, rs re
 	if err != nil {
 		return nil, err
 	}
-	err = ref.CommitHead(rs, branch, commitSum, commit)
-	if err != nil {
+	if err = saveHead(rs, branch, commitSum, commit, tid); err != nil {
 		return nil, err
 	}
 	return commitSum, nil
 }
 
+func saveHead(rs ref.Store, branch string, commitSum []byte, commit *objects.Commit, tid *uuid.UUID) error {
+	if tid != nil {
+		return transaction.Add(rs, *tid, branch, commitSum)
+	}
+	return ref.CommitHead(rs, branch, commitSum, commit)
+}
+
 func commitIfBranchFileHasChanged(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string,
-	primaryKey []string, message string, numWorkers int, memLimit uint64, quiet bool,
+	primaryKey []string, message string, numWorkers int, memLimit uint64, quiet bool, tid *uuid.UUID,
 ) ([]byte, error) {
 	tmpSum, err := ensureTempCommit(cmd, db, rs, c, branch, csvFilePath, primaryKey, numWorkers, memLimit, quiet)
 	if err != nil {
@@ -304,11 +339,11 @@ func commitIfBranchFileHasChanged(
 			return nil, nil
 		}
 	}
-	return commitWithTable(cmd, c, db, rs, branch, tmpCom.Table, message)
+	return commitWithTable(cmd, c, db, rs, branch, tmpCom.Table, message, tid)
 }
 
 func commitAllBranches(
-	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, message string, numWorkers int, memLimit uint64, quiet bool,
+	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, message string, numWorkers int, memLimit uint64, quiet bool, tid *uuid.UUID,
 ) error {
 	for name, branch := range c.Branch {
 		if branch.File == "" {
@@ -318,7 +353,7 @@ func commitAllBranches(
 			cmd.Printf("File %q does not exist, skipping branch %q.\n", branch.File, name)
 			continue
 		}
-		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit, quiet)
+		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit, quiet, tid)
 		if err != nil {
 			return err
 		}

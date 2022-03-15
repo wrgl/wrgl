@@ -48,7 +48,7 @@ func TestMergeCmdCommitCSV(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
 	require.NoError(t, db.Close())
 
-	fp := createCSVFile(t, []string{
+	_, fp := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,e",
 		"2,a,d",
@@ -113,7 +113,7 @@ func TestMergeCmdCommitCSVCustomMessage(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
 	require.NoError(t, db.Close())
 
-	fp := createCSVFile(t, []string{
+	_, fp := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,e",
 		"2,a,d",

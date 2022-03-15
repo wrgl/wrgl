@@ -7,17 +7,19 @@ import (
 	"bytes"
 	"sort"
 
+	"github.com/google/uuid"
 	"github.com/klauspost/compress/s2"
 	"github.com/pckhoi/meow"
 )
 
 var (
-	blkPrefix    = []byte("blk/")
-	tblPrefix    = []byte("tbl/")
-	blkIdxPrefix = []byte("blkidx/")
-	tblIdxPrefix = []byte("tblidx/")
-	comPrefix    = []byte("com/")
-	tblSumPrefix = []byte("tblsum/")
+	blkPrefix         = []byte("blk/")
+	tblPrefix         = []byte("tbl/")
+	blkIdxPrefix      = []byte("blkidx/")
+	tblIdxPrefix      = []byte("tblidx/")
+	comPrefix         = []byte("com/")
+	tblSumPrefix      = []byte("tblsum/")
+	transactionPrefix = []byte("transaction/")
 )
 
 func blockKey(sum []byte) []byte {
@@ -42,6 +44,10 @@ func commitKey(sum []byte) []byte {
 
 func tableProfileKey(sum []byte) []byte {
 	return append(tblSumPrefix, sum...)
+}
+
+func transactionKey(id uuid.UUID) []byte {
+	return append(transactionPrefix, id[:]...)
 }
 
 func saveObj(s Store, k, v []byte) (err error) {
@@ -89,6 +95,14 @@ func SaveTableIndex(s Store, sum, content []byte) (err error) {
 
 func SaveTableProfile(s Store, sum, content []byte) (err error) {
 	return saveObj(s, tableProfileKey(sum), content)
+}
+
+func SaveTransaction(s Store, id uuid.UUID, tx *Transaction) (err error) {
+	buf := bytes.NewBuffer(nil)
+	if _, err = tx.WriteTo(buf); err != nil {
+		return err
+	}
+	return saveObj(s, transactionKey(id), buf.Bytes())
 }
 
 func SaveCommit(s Store, content []byte) (sum []byte, err error) {
@@ -172,6 +186,15 @@ func GetCommit(s Store, sum []byte) (*Commit, error) {
 	return com, err
 }
 
+func GetTransaction(s Store, id uuid.UUID) (*Transaction, error) {
+	b, err := s.Get(transactionKey(id))
+	if err != nil {
+		return nil, err
+	}
+	_, tx, err := ReadTransactionFrom(bytes.NewReader(b))
+	return tx, err
+}
+
 func DeleteBlock(s Store, sum []byte) error {
 	return s.Delete(blockKey(sum))
 }
@@ -196,6 +219,10 @@ func DeleteCommit(s Store, sum []byte) error {
 	return s.Delete(commitKey(sum))
 }
 
+func DeleteTransaction(s Store, id uuid.UUID) error {
+	return s.Delete(transactionKey(id))
+}
+
 func BlockExist(s Store, sum []byte) bool {
 	return s.Exist(blockKey(sum))
 }
@@ -214,6 +241,10 @@ func TableIndexExist(s Store, sum []byte) bool {
 
 func CommitExist(s Store, sum []byte) bool {
 	return s.Exist(commitKey(sum))
+}
+
+func TransactionExist(s Store, id uuid.UUID) bool {
+	return s.Exist(transactionKey(id))
 }
 
 func getAllKeys(s Store, prefix []byte) ([][]byte, error) {
@@ -254,6 +285,10 @@ func GetAllTableProfileKeys(s Store) ([][]byte, error) {
 
 func GetAllCommitKeys(s Store) ([][]byte, error) {
 	return getAllKeys(s, comPrefix)
+}
+
+func GetAllTransactionKeys(s Store) ([][]byte, error) {
+	return getAllKeys(s, transactionPrefix)
 }
 
 func DeleteAllCommit(s Store) error {

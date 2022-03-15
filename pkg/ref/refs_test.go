@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
@@ -313,4 +314,26 @@ func TestListAllRefs(t *testing.T) {
 		"heads/" + head: sum1,
 		"tags/" + tag:   sum2,
 	}, m)
+}
+
+func TestTransactionRef(t *testing.T) {
+	s := refmock.NewStore()
+	id := uuid.New()
+	refs := map[string][]byte{
+		"branch-1": testutils.SecureRandomBytes(16),
+		"branch-2": testutils.SecureRandomBytes(16),
+	}
+	for branch, sum := range refs {
+		require.NoError(t, ref.SaveTransactionRef(s, id, branch, sum))
+	}
+
+	m, err := ref.ListTransactionRefs(s, id)
+	require.NoError(t, err)
+	assert.Equal(t, refs, m)
+
+	require.NoError(t, ref.DeleteTransactionRefs(s, id))
+
+	m, err = ref.ListTransactionRefs(s, id)
+	require.NoError(t, err)
+	assert.Len(t, m, 0)
 }

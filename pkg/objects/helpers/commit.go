@@ -34,7 +34,13 @@ func AssertCommitEqual(t *testing.T, a, b *objects.Commit) {
 	require.Equal(t, a.Message, b.Message, "message not equal")
 	require.Equal(t, a.Parents, b.Parents, "parents not equal")
 	require.Equal(t, a.Time.Unix(), b.Time.Unix(), "time not equal")
-	require.Equal(t, a.Time.Format("-0700"), b.Time.Format("-0700"))
+	require.Equal(t, a.Time.Format("-0700"), b.Time.Format("-0700"), "time not equal")
+}
+
+func AssertTransactionEqual(t *testing.T, a, b *objects.Transaction) {
+	t.Helper()
+	require.Equal(t, a.Begin.Unix(), b.Begin.Unix(), "begin not equal")
+	require.Equal(t, a.Begin.Format("-0700"), b.Begin.Format("-0700"), "begin not equal")
 }
 
 func AssertCommitsEqual(t *testing.T, sla, slb []*objects.Commit, ignoreOrder bool) {

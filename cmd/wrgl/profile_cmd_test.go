@@ -18,7 +18,7 @@ func TestProfileCmd(t *testing.T) {
 	defer cleanup()
 
 	// create first commit
-	fp := createCSVFile(t, []string{
+	_, fp := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -57,7 +57,7 @@ func TestProfileCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	// create second commit
-	fp = createCSVFile(t, []string{
+	_, fp = createCSVFile(t, []string{
 		"a,b,c",
 		"1,w,w",
 		"2,a,f",

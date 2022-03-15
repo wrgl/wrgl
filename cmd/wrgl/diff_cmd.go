@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/google/uuid"
 	"github.com/mitchellh/colorstring"
 	"github.com/rivo/tview"
 	"github.com/schollz/progressbar/v3"
@@ -34,13 +35,14 @@ import (
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/transaction"
 	"github.com/wrgl/wrgl/pkg/widgets"
 	widgetsprof "github.com/wrgl/wrgl/pkg/widgets/prof"
 )
 
 func newDiffCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "diff { COMMIT | COMMIT_OR_FILE COMMIT_OR_FILE | BRANCH --branch-file | --all }",
+		Use:   "diff { COMMIT | COMMIT_OR_FILE COMMIT_OR_FILE | BRANCH --branch-file | --all | --txid TRANSACTION_ID }",
 		Short: "Show changes between two commits",
 		Long:  "Show changes between two commits with an interactive diff table. A commit can be specified using shorten sum, full sum, or a reference name. If only one commit is specified, it will be compared with a parent commit. It is also possible to specify a local CSV file instead of a commit, in which case both arguments must be given and the flag --primary-key should also be set.",
 		Example: strings.Join([]string{
@@ -67,6 +69,9 @@ func newDiffCmd() *cobra.Command {
 			``,
 			`  # show diff summary for branches that have branch.file configured`,
 			`  wrgl diff --all`,
+			``,
+			`  # show diff summary for all changes made with a transaction (run 'wrgl transaction -h' to learn more about transaction)`,
+			`  wrgl diff --txid a1dbfcc4-f6da-454c-a783-f1b70d347baf`,
 		}, "\n"),
 		Args: cobra.RangeArgs(0, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -104,6 +109,10 @@ func newDiffCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			tid, err := parseTxidFlag(cmd)
+			if err != nil {
+				return err
+			}
 			memStore := objmock.NewStore()
 			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
 			c, err := s.Open()
@@ -111,8 +120,12 @@ func newDiffCmd() *cobra.Command {
 				return err
 			}
 
+			if tid != nil {
+				return diffTransaction(cmd, c, db, rs, debugFile, *tid)
+			}
+
 			if all {
-				return diffAllBranches(cmd, c, db, rs, pk, args, branchFile, debugFile)
+				return diffAllBranches(cmd, c, db, rs, pk, args, debugFile)
 			}
 
 			if noGUI {
@@ -125,6 +138,7 @@ func newDiffCmd() *cobra.Command {
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key (only applicable if diff target is a file)")
 	cmd.Flags().Bool("branch-file", false, "if only one argument is given and it is a branch name, compare against branch.file (if it is configured with wrgl commit --set-file)")
 	cmd.Flags().Bool("all", false, "show diff summary for all branches that have branch.file configured")
+	cmd.Flags().String("txid", "", "show diff summary for all changes with specified transaction id")
 	return cmd
 }
 
@@ -677,7 +691,7 @@ func outputDiffSummaryToTerminal(
 				outputs = append(outputs, fmt.Sprintf("[red]-%d[reset]", nRem))
 			}
 			if nMod > 0 {
-				outputs = append(outputs, fmt.Sprintf("[yellow]%d modified", nMod))
+				outputs = append(outputs, fmt.Sprintf("[yellow]m%d[reset]", nMod))
 			}
 			colorstring.Fprintf(sb, strings.Join(outputs, "/"))
 		}
@@ -743,44 +757,25 @@ func runDiff(
 	return nil
 }
 
-func diffAllBranches(
-	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store,
-	pk []string, args []string, branchFile bool, debugFile io.Writer,
-) error {
+type diffArgs struct {
+	Branch  string
+	PK      []string
+	Commits []string
+}
+
+func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, debugFile io.Writer, dargs []diffArgs, branchFile, quiet bool) (err error) {
 	var maxLen int
-	type namedBranch struct {
-		name   string
-		branch *conf.Branch
+	for _, darg := range dargs {
+		if len(darg.Branch) > maxLen {
+			maxLen = len(darg.Branch)
+		}
 	}
-	branches := []namedBranch{}
-	for name, branch := range c.Branch {
-		if branch.File == "" {
-			continue
-		}
-		if _, err := os.Stat(branch.File); os.IsNotExist(err) {
-			cmd.Printf("File %q does not exist, skipping branch %q.\n", branch.File, name)
-			continue
-		}
-		if _, err := ref.GetHead(rs, name); err == ref.ErrKeyNotFound {
-			cmd.Printf("Branch %q not found, skipping.\n", name)
-			continue
-		} else if err != nil {
-			return err
-		}
-		if len(name) > maxLen {
-			maxLen = len(name)
-		}
-		branches = append(branches, namedBranch{
-			name:   name,
-			branch: branch,
-		})
-	}
-	sort.Slice(branches, func(i, j int) bool {
-		return branches[i].name < branches[j].name
+	sort.Slice(dargs, func(i, j int) bool {
+		return dargs[i].Branch < dargs[j].Branch
 	})
-	for _, nb := range branches {
+	for _, darg := range dargs {
 		var diffSum string
-		if err := runDiff(cmd, c, db, nil, rs, nb.branch.PrimaryKey, []string{"heads/" + nb.name}, true, debugFile, true,
+		if err := runDiff(cmd, c, db, nil, rs, darg.PK, darg.Commits, branchFile, debugFile, quiet,
 			func(
 				cmd *cobra.Command, db1, db2 objects.Store, name1, name2, commitHash1, commitHash2 string,
 				tbl1, tbl2 *objects.Table, diffChan <-chan *objects.Diff, pt progress.Tracker,
@@ -796,10 +791,58 @@ func diffAllBranches(
 			return err
 		}
 		if diffSum != "" {
-			n := len(nb.name)
+			n := len(darg.Branch)
 			padding := strings.Repeat(" ", maxLen-n)
-			colorstring.Fprintf(cmd.OutOrStdout(), "[bold]%s[reset]%s %s\n", nb.name, padding, diffSum)
+			colorstring.Fprintf(cmd.OutOrStdout(), "[bold]%s[reset]%s %s\n", darg.Branch, padding, diffSum)
 		}
 	}
 	return nil
+}
+
+func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, debugFile io.Writer, tid uuid.UUID) (err error) {
+	m, err := transaction.Diff(rs, tid)
+	if err != nil {
+		return
+	}
+	dargs := []diffArgs{}
+	cmd.Printf("Changes from transaction %s\n", tid.String())
+	for name, sums := range m {
+		if sums[1] == nil {
+			cmd.Printf("Branch %q didn't previously exist, skipping.\n", name)
+			continue
+		}
+		dargs = append(dargs, diffArgs{
+			Branch:  name,
+			Commits: []string{hex.EncodeToString(sums[0]), hex.EncodeToString(sums[1])},
+		})
+	}
+	return diffMultiple(cmd, c, db, rs, debugFile, dargs, false, true)
+}
+
+func diffAllBranches(
+	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store,
+	pk []string, args []string, debugFile io.Writer,
+) error {
+	dargs := []diffArgs{}
+	for name, branch := range c.Branch {
+		if branch.File == "" {
+			continue
+		}
+		if _, err := os.Stat(branch.File); os.IsNotExist(err) {
+			cmd.Printf("File %q does not exist, skipping branch %q.\n", branch.File, name)
+			continue
+		}
+		if _, err := ref.GetHead(rs, name); err == ref.ErrKeyNotFound {
+			cmd.Printf("Branch %q not found, skipping.\n", name)
+			continue
+		} else if err != nil {
+			return err
+		}
+		dargs = append(dargs, diffArgs{
+			Branch:  name,
+			PK:      branch.PrimaryKey,
+			Commits: []string{"heads/" + name},
+		})
+	}
+	return diffMultiple(cmd, c, db, rs, debugFile, dargs, true, true)
 }

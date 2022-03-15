@@ -25,7 +25,7 @@ func TestCommitCmd(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
 
-	fp := createCSVFile(t, []string{
+	_, fp := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -72,7 +72,7 @@ func TestCommitFromStdin(t *testing.T) {
 	_, cleanup := createRepoDir(t)
 	defer cleanup()
 
-	fp := createCSVFile(t, []string{
+	_, fp := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -133,7 +133,7 @@ func TestCommitSetFile(t *testing.T) {
 	rd, cleanup := createRepoDir(t)
 	defer cleanup()
 
-	fp := createCSVFile(t, []string{
+	_, fp := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -204,7 +204,7 @@ func TestCommitCmdAll(t *testing.T) {
 	defer cleanup()
 	rs := rd.OpenRefStore()
 
-	fp1 := createCSVFile(t, []string{
+	_, fp1 := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
@@ -215,7 +215,7 @@ func TestCommitCmdAll(t *testing.T) {
 	sum1, err := ref.GetHead(rs, "branch-1")
 	require.NoError(t, err)
 
-	fp2 := createCSVFile(t, []string{
+	_, fp2 := createCSVFile(t, []string{
 		"a,d,e",
 		"1,e,r",
 		"2,d,f",
@@ -226,7 +226,7 @@ func TestCommitCmdAll(t *testing.T) {
 	sum2, err := ref.GetHead(rs, "branch-2")
 	require.NoError(t, err)
 
-	fp3 := createCSVFile(t, []string{
+	_, fp3 := createCSVFile(t, []string{
 		"a,f,g",
 		"1,t,y",
 		"2,g,h",

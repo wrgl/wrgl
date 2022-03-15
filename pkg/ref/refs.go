@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
@@ -20,7 +21,7 @@ var (
 	transactionRefPrefix = "transaction/"
 )
 
-func headRef(name string) string {
+func HeadRef(name string) string {
 	return headPrefix + name
 }
 
@@ -28,7 +29,7 @@ func tagRef(name string) string {
 	return tagPrefix + name
 }
 
-func transactionRef(tid, branch string) string {
+func TransactionRef(tid, branch string) string {
 	return fmt.Sprintf("%s%s/%s", transactionRefPrefix, tid, branch)
 }
 
@@ -63,7 +64,7 @@ func CommitHead(s Store, name string, sum []byte, commit *objects.Commit) error 
 	} else {
 		message = commit.Message[:i]
 	}
-	return SaveRef(s, headRef(name), sum, commit.AuthorName, commit.AuthorEmail, "commit", message)
+	return SaveRef(s, HeadRef(name), sum, commit.AuthorName, commit.AuthorEmail, "commit", message)
 }
 
 func CommitMerge(s Store, branch string, sum []byte, commit *objects.Commit) error {
@@ -71,7 +72,7 @@ func CommitMerge(s Store, branch string, sum []byte, commit *objects.Commit) err
 	for _, parent := range commit.Parents {
 		parents = append(parents, hex.EncodeToString(parent)[:7])
 	}
-	return SaveRef(s, headRef(branch), sum, commit.AuthorName, commit.AuthorEmail, "merge", fmt.Sprintf(
+	return SaveRef(s, HeadRef(branch), sum, commit.AuthorName, commit.AuthorEmail, "merge", fmt.Sprintf(
 		"merge %s", strings.Join(parents, ", "),
 	))
 }
@@ -84,8 +85,8 @@ func SaveRemoteRef(s Store, remote, name string, commit []byte, authorName, auth
 	return SaveRef(s, RemoteRef(remote, name), commit, authorName, authorEmail, action, message)
 }
 
-func SaveTransactionRef(s Store, tid, branch string, sum []byte) error {
-	return s.Set(transactionRef(tid, branch), sum)
+func SaveTransactionRef(s Store, tid uuid.UUID, branch string, sum []byte) error {
+	return s.Set(TransactionRef(tid.String(), branch), sum)
 }
 
 func GetRef(s Store, name string) ([]byte, error) {
@@ -93,7 +94,7 @@ func GetRef(s Store, name string) ([]byte, error) {
 }
 
 func GetHead(s Store, name string) ([]byte, error) {
-	return s.Get(headRef(name))
+	return s.Get(HeadRef(name))
 }
 
 func GetTag(s Store, name string) ([]byte, error) {
@@ -116,6 +117,10 @@ func listRefs(s Store, prefix string) (map[string][]byte, error) {
 		result[name] = v
 	}
 	return result, nil
+}
+
+func ListTransactionRefs(s Store, id uuid.UUID) (map[string][]byte, error) {
+	return listRefs(s, TransactionRef(id.String(), ""))
 }
 
 func ListHeads(s Store) (map[string][]byte, error) {
@@ -165,6 +170,20 @@ func DeleteRemoteRef(s Store, remote, name string) error {
 
 func DeleteAllRemoteRefs(s Store, remote string) error {
 	keys, err := s.FilterKey(RemoteRef(remote, ""))
+	if err != nil {
+		return err
+	}
+	for _, b := range keys {
+		err = s.Delete(b)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func DeleteTransactionRefs(s Store, id uuid.UUID) error {
+	keys, err := s.FilterKey(TransactionRef(id.String(), ""))
 	if err != nil {
 		return err
 	}

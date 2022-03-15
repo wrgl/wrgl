@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +35,6 @@ func TestFloatListEncoder(t *testing.T) {
 	// test Encode & Decode
 	for _, sl := range slices {
 		b := e.Encode(sl)
-		t.Log(spew.Sdump(b))
 		assert.Equal(t, sl, d.Decode(b))
 	}
 

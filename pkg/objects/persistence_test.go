@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"sort"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/pckhoi/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -214,4 +216,36 @@ func TestSaveCommit(t *testing.T) {
 	assert.True(t, objects.CommitExist(s, sum2))
 	require.NoError(t, objects.DeleteAllCommit(s))
 	assert.False(t, objects.CommitExist(s, sum2))
+}
+
+func TestSaveTransaction(t *testing.T) {
+	s := objmock.NewStore()
+	id1 := uuid.New()
+	tx1 := &objects.Transaction{
+		Begin: time.Now(),
+	}
+	id2 := uuid.New()
+	tx2 := &objects.Transaction{
+		Begin: time.Now().Add(-1 * time.Hour),
+	}
+
+	require.NoError(t, objects.SaveTransaction(s, id1, tx1))
+	require.NoError(t, objects.SaveTransaction(s, id2, tx2))
+
+	tx, err := objects.GetTransaction(s, id1)
+	require.NoError(t, err)
+	objhelpers.AssertTransactionEqual(t, tx1, tx)
+	_, err = objects.GetTransaction(s, uuid.New())
+	assert.Equal(t, objects.ErrKeyNotFound, err)
+
+	keys, err := objects.GetAllTransactionKeys(s)
+	require.NoError(t, err)
+	sort.Slice(keys, func(i, j int) bool { return bytes.Compare(keys[i], keys[j]) == -1 })
+	ids := [][]byte{id1[:], id2[:]}
+	sort.Slice(ids, func(i, j int) bool { return bytes.Compare(ids[i], ids[j]) == -1 })
+	assert.Equal(t, ids, keys)
+
+	require.NoError(t, objects.DeleteTransaction(s, id1))
+	assert.False(t, objects.TransactionExist(s, id1))
+	assert.True(t, objects.TransactionExist(s, id2))
 }
