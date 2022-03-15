@@ -38,12 +38,20 @@ jobs:
         run: make
       - id: get_version
         uses: battila7/get-version-action@v2
-      - name: Put version number in install script
+      - name: Put version number in wrgl installer
         uses: bluwy/substitute-string-action@v1
         id: sub
         with:
           _input-file: "./.github/workflows/template/install.sh"
           _output-file: "./build/install.sh"
+          _format-key: "%%key%%"
+          version: "${{ steps.get_version.outputs.version }}"
+      - name: Put version number in wrgld installer
+        uses: bluwy/substitute-string-action@v1
+        id: sub
+        with:
+          _input-file: "./.github/workflows/template/install_wrgld.sh"
+          _output-file: "./build/install_wrgld.sh"
           _format-key: "%%key%%"
           version: "${{ steps.get_version.outputs.version }}"
       - uses: "marvinpinto/action-automatic-releases@latest"
@@ -53,3 +61,4 @@ jobs:
           files: |
             build/*.tar.gz
             build/install.sh
+            build/install_wrgld.sh

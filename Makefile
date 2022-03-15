@@ -9,20 +9,21 @@ MD5_DIR := $(BUILD_DIR)/md5
 OS_ARCHS := linux-amd64 darwin-amd64 darwin-arm64
 PROGRAMS := wrgl wrgld
 BINARIES := $(foreach prog,$(PROGRAMS),$(foreach osarch,$(OS_ARCHS),$(BUILD_DIR)/$(prog)-$(osarch)/bin/$(prog)))
-TAR_FILES := $(foreach osarch,$(OS_ARCHS),$(BUILD_DIR)/wrgl-$(osarch).tar.gz)
-IMAGES := $(foreach prog,$(PROGRAMS),$(patsubst %,$(BUILD_DIR)/%.image,$(prog)))
-WRGLD_STATIC_ASSETS := $(wildcard cmd/wrgld/auth/oauth2/static/*) $(wildcard cmd/wrgld/auth/oauth2/templates/*)
+WRGL_TAR_FILES := $(foreach osarch,$(OS_ARCHS),$(BUILD_DIR)/wrgl-$(osarch).tar.gz)
+WRGLD_TAR_FILES := $(foreach osarch,$(OS_ARCHS),$(BUILD_DIR)/wrgld-$(osarch).tar.gz)
+IMAGES := $(BUILD_DIR)/wrgld.image
+WRGLD_STATIC_ASSETS := $(wildcard wrgld/pkg/auth/oauth2/static/*) $(wildcard wrgld/pkg/auth/oauth2/templates/*)
 
 .PHONY: all clean images
-all: $(TAR_FILES)
+all: $(WRGL_TAR_FILES) $(WRGLD_TAR_FILES)
 images: $(IMAGES)
 clean:
 	rm -rf $(BUILD_DIR)
 
 define binary_rule =
-echo "\$$(BUILD_DIR)/wrgl-$(3)-$(2)/bin/$(1): \$$(MD5_DIR)/go.sum.md5 \$$($(1)_SOURCES)" >> $(4) && \
+echo "\$$(BUILD_DIR)/$(1)-$(3)-$(2)/bin/$(1): \$$(MD5_DIR)/go.sum.md5 \$$($(1)_SOURCES)" >> $(4) && \
 echo -e "\t@-mkdir -p \$$(dir \$$@) 2>/dev/null" >> $(4) && \
-echo -e "\tcp VERSION cmd/$(1)/VERSION" >> $(4) && \
+echo -e '\tcp VERSION $(if $(findstring wrgld,$(1)),$(1)/cmd,cmd/$(1))/VERSION' >> $(4) && \
 echo -e "\tCGO_ENABLED=0 GOARCH=$(2) GOOS=$(3) go build -a -o \$$@ github.com/wrgl/wrgl/$(1)" >> $(4) && \
 echo "" >> $(4)
 
@@ -41,18 +42,21 @@ $(BUILD_DIR)/$(1).d: | $(BUILD_DIR)
 endef
 
 define wrgld_bin_rule =
-$(BUILD_DIR)/wrgl-$(1)/bin/wrgld: $$(patsubst %,$$(MD5_DIR)/%.md5,$$(WRGLD_STATIC_ASSETS))
+$(BUILD_DIR)/wrgld-$(1)/bin/wrgld: $$(patsubst %,$$(MD5_DIR)/%.md5,$$(WRGLD_STATIC_ASSETS))
 endef
 
 define license_rule =
 $(BUILD_DIR)/wrgl-$(1)/LICENSE: LICENSE
 	cp $$< $$@
+
+$(BUILD_DIR)/wrgld-$(1)/LICENSE: wrgld/LICENSE
+	cp $$< $$@
 endef
 
 define tar_rule =
-$(BUILD_DIR)/wrgl-$(1).tar.gz: $$(foreach prog,$(PROGRAMS),$(BUILD_DIR)/wrgl-$(1)/bin/$$(prog)) $(BUILD_DIR)/wrgl-$(1)/LICENSE
+$(BUILD_DIR)/$(1)-$(2).tar.gz: $(BUILD_DIR)/$(1)-$(2)/bin/$(1) $(BUILD_DIR)/$(1)-$(2)/LICENSE
 	cd $(BUILD_DIR) && \
-	tar -czvf $$(notdir $$@) wrgl-$(1)
+	tar -czvf $$(notdir $$@) $(1)-$(2)
 endef
 
 # calculate md5
@@ -66,7 +70,7 @@ $(foreach osarch,$(OS_ARCHS),$(eval $(call wrgld_bin_rule,$(osarch))))
 
 $(foreach osarch,$(OS_ARCHS),$(eval $(call license_rule,$(osarch))))
 
-$(foreach osarch,$(OS_ARCHS),$(eval $(call tar_rule,$(osarch))))
+$(foreach prog,$(PROGRAMS),$(foreach osarch,$(OS_ARCHS),$(eval $(call tar_rule,$(prog),$(osarch)))))
 
 $(BUILD_DIR)/%.image: %.Dockerfile $(BUILD_DIR)/wrgl-linux-amd64/bin/% $(BUILD_DIR)/wrgl-linux-amd64/LICENSE VERSION
 	$(DOCKER) build -t $*:latest -f $*.Dockerfile $(BUILD_DIR)/wrgl-linux-amd64
