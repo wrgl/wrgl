@@ -33,9 +33,7 @@ func TestAuthSetRoleCmd(t *testing.T) {
 	cmd.SetArgs([]string{"auth", "list-scope", email1})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		auth.ScopeRepoRead,
-		auth.ScopeRepoReadConfig,
 		auth.ScopeRepoWrite,
-		auth.ScopeRepoWriteConfig,
 		"",
 	}, "\n"))
 
@@ -44,16 +42,6 @@ func TestAuthSetRoleCmd(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"auth", "list-scope", email1})
-	assertCmdOutput(t, cmd, strings.Join([]string{
-		auth.ScopeRepoRead,
-		"",
-	}, "\n"))
-
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"auth", "set-role", "anyone", "viewer"})
-	require.NoError(t, cmd.Execute())
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"auth", "list-scope", "anyone"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		auth.ScopeRepoRead,
 		"",

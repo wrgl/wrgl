@@ -29,11 +29,7 @@ func removescopeCmd() *cobra.Command {
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "remove write scopes for a user",
-				Line:    fmt.Sprintf("wrgl auth remove-scope john.doe@domain.com %s %s", auth.ScopeRepoWrite, auth.ScopeRepoWriteConfig),
-			},
-			{
-				Comment: "remove public access",
-				Line:    fmt.Sprintf("wrgl auth remove-scope %s %s", auth.Anyone, auth.ScopeRepoRead),
+				Line:    fmt.Sprintf("wrgl auth remove-scope john.doe@domain.com %s", auth.ScopeRepoWrite),
 			},
 		}),
 		Args: cobra.MinimumNArgs(2),
@@ -46,15 +42,13 @@ func removescopeCmd() *cobra.Command {
 			}
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
-			if args[0] != auth.Anyone {
-				authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
-				if err != nil {
-					return err
-				}
-				defer authnS.Close()
-				if !authnS.Exist(args[0]) {
-					return UserNotFoundErr(args[0])
-				}
+			authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
+			if err != nil {
+				return err
+			}
+			defer authnS.Close()
+			if !authnS.Exist(args[0]) {
+				return UserNotFoundErr(args[0])
 			}
 			authzS, err := authfs.NewAuthzStore(rd)
 			if err != nil {

@@ -18,10 +18,8 @@ import (
 )
 
 var validScopes = map[string]string{
-	auth.ScopeRepoRead:        "covers view-only actions such as fetch, diff, etc...",
-	auth.ScopeRepoReadConfig:  "covers read config action",
-	auth.ScopeRepoWrite:       "covers write actions such as push, commit, etc...",
-	auth.ScopeRepoWriteConfig: "covers write config action",
+	auth.ScopeRepoRead:  "covers view-only actions such as fetch, diff, etc...",
+	auth.ScopeRepoWrite: "covers write actions such as push, commit, etc...",
 }
 
 func maxScopeLength() int {
@@ -52,9 +50,6 @@ func allScopesString(indent int, withDesc bool) string {
 }
 
 func ensureUserExist(rd *local.RepoDir, c *conf.Config, email string) error {
-	if email == auth.Anyone {
-		return nil
-	}
 	authnS, err := authfs.NewAuthnStore(rd, c.TokenDuration())
 	if err != nil {
 		return err
@@ -68,7 +63,7 @@ func ensureUserExist(rd *local.RepoDir, c *conf.Config, email string) error {
 
 func addscopeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   fmt.Sprintf("add-scope { EMAIL | %s } SCOPE...", auth.Anyone),
+		Use:   fmt.Sprintf("add-scope EMAIL SCOPE..."),
 		Short: "Add one or more scopes for a user.",
 		Long:  "Add one or more scopes for a user. Scopes represent what actions are allowed via the Wrgld HTTP API for a users. Valid scopes are:\n" + allScopesString(2, true),
 		Example: utils.CombineExamples([]utils.Example{
@@ -79,10 +74,6 @@ func addscopeCmd() *cobra.Command {
 			{
 				Comment: "authorize a user to do everything",
 				Line:    "wrgl auth add-scope user@email.com --all",
-			},
-			{
-				Comment: "allow everyone to fetch data (make this repo public)",
-				Line:    fmt.Sprintf("wrgl auth add-scope %s %s", auth.Anyone, auth.ScopeRepoRead),
 			},
 		}),
 		Args: cobra.ArbitraryArgs,
@@ -111,9 +102,7 @@ func addscopeCmd() *cobra.Command {
 			if all {
 				scopes = []string{
 					auth.ScopeRepoRead,
-					auth.ScopeRepoReadConfig,
 					auth.ScopeRepoWrite,
-					auth.ScopeRepoWriteConfig,
 				}
 			} else {
 				for _, scope := range args[1:] {

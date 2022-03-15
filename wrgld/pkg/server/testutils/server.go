@@ -164,7 +164,7 @@ func (s *Server) Authorize(t *testing.T, email, name string, scopes ...string) (
 }
 
 func (s *Server) AdminToken(t *testing.T) (signedToken string) {
-	return s.Authorize(t, Email, Name, auth.ScopeRepoRead, auth.ScopeRepoReadConfig, auth.ScopeRepoWrite, auth.ScopeRepoWriteConfig)
+	return s.Authorize(t, Email, Name, auth.ScopeRepoRead, auth.ScopeRepoWrite)
 }
 
 func (s *Server) NewRemote(t *testing.T, pathPrefix string, pathPrefixRegexp *regexp.Regexp) (repo string, url string, m *RequestCaptureMiddleware, cleanup func()) {

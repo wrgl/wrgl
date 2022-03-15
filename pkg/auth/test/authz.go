@@ -5,8 +5,6 @@ package authtest
 
 import (
 	"net/http"
-
-	"github.com/wrgl/wrgl/pkg/auth"
 )
 
 type AuthzStore struct {
@@ -40,13 +38,6 @@ func (s *AuthzStore) RemovePolicy(email, scope string) error {
 
 func (s *AuthzStore) Authorized(r *http.Request, email, scope string) (bool, error) {
 	if sl, ok := s.m[email]; ok {
-		for _, v := range sl {
-			if v == scope {
-				return true, nil
-			}
-		}
-	}
-	if sl, ok := s.m[auth.Anyone]; ok {
 		for _, v := range sl {
 			if v == scope {
 				return true, nil

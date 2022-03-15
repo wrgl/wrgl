@@ -73,10 +73,6 @@ func TestAuthzStore(t *testing.T) {
 	ok, err = s.Authorized(r, email1, auth.ScopeRepoRead)
 	require.NoError(t, err)
 	assert.False(t, ok)
-	require.NoError(t, s.AddPolicy(auth.Anyone, auth.ScopeRepoRead))
-	ok, err = s.Authorized(r, email1, auth.ScopeRepoRead)
-	require.NoError(t, err)
-	assert.True(t, ok)
 }
 
 func TestAuthzStoreWatchFile(t *testing.T) {

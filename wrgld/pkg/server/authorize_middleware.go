@@ -19,7 +19,6 @@ type routeScope struct {
 var routeScopes []routeScope
 
 var (
-	patConfig        *regexp.Regexp
 	patRefs          *regexp.Regexp
 	patHead          *regexp.Regexp
 	patRefsHead      *regexp.Regexp
@@ -44,7 +43,6 @@ var (
 )
 
 func init() {
-	patConfig = regexp.MustCompile(`^/config/`)
 	patRefs = regexp.MustCompile(`^/refs/`)
 	patHead = regexp.MustCompile(`^heads/[-_0-9a-zA-Z]+/`)
 	patRefsHead = regexp.MustCompile(`^/refs/heads/[-_0-9a-zA-Z]+/`)
@@ -67,16 +65,6 @@ func init() {
 	patTableProfile = regexp.MustCompile(`^/tables/[0-9a-f]{32}/profile/`)
 	patObjects = regexp.MustCompile(`^/objects/`)
 	routeScopes = []routeScope{
-		{
-			Pat:    patConfig,
-			Method: http.MethodGet,
-			Scope:  auth.ScopeRepoReadConfig,
-		},
-		{
-			Pat:    patConfig,
-			Method: http.MethodPut,
-			Scope:  auth.ScopeRepoWriteConfig,
-		},
 		{
 			Pat:    patRefsHead,
 			Method: http.MethodGet,

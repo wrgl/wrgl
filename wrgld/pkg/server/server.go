@@ -85,19 +85,6 @@ func NewServer(
 	s.router = router.NewRouter(rootPath, &router.Routes{
 		Subs: []*router.Routes{
 			{
-				Pat: patConfig,
-				Subs: []*router.Routes{
-					{
-						Method:      http.MethodGet,
-						HandlerFunc: s.handleGetConfig,
-					},
-					{
-						Method:      http.MethodPut,
-						HandlerFunc: s.handlePutConfig,
-					},
-				},
-			},
-			{
 				Pat: patRefs,
 				Subs: []*router.Routes{
 					{

@@ -18,9 +18,7 @@ import (
 var roles = map[string][]string{
 	"editor": {
 		auth.ScopeRepoWrite,
-		auth.ScopeRepoWriteConfig,
 		auth.ScopeRepoRead,
-		auth.ScopeRepoReadConfig,
 	},
 	"viewer": {
 		auth.ScopeRepoRead,
@@ -47,7 +45,7 @@ func rolesString() string {
 
 func setroleCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   fmt.Sprintf("set-role { EMAIL | %s } ROLE", auth.Anyone),
+		Use:   fmt.Sprintf("set-role EMAIL ROLE"),
 		Short: "Assign scopes associated with a role to a user.",
 		Long: fmt.Sprintf(
 			"Assign scopes associated with a role to a user. Previously assigned scopes that are not included in ROLE are removed. Valid roles and their associated scopes are:\n%s",
@@ -61,10 +59,6 @@ func setroleCmd() *cobra.Command {
 			{
 				Comment: "Give role editor to a user",
 				Line:    "wrgl auth set-role user@mail.com editor",
-			},
-			{
-				Comment: "Give role viewer to anonymous users",
-				Line:    fmt.Sprintf("wrgl auth set-role %s viewer", auth.Anyone),
 			},
 		}),
 		Args: cobra.ExactArgs(2),

@@ -63,9 +63,7 @@ func TestAuthAddScopeCmd(t *testing.T) {
 	cmd.SetArgs([]string{"auth", "list-scope", email1})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		auth.ScopeRepoRead,
-		auth.ScopeRepoReadConfig,
 		auth.ScopeRepoWrite,
-		auth.ScopeRepoWriteConfig,
 		"",
 	}, "\n"))
 
@@ -85,26 +83,6 @@ func TestAuthAddScopeCmd(t *testing.T) {
 	cmd.SetArgs([]string{"auth", "list-scope", email1})
 	assertCmdOutput(t, cmd, strings.Join([]string{
 		auth.ScopeRepoRead,
-		auth.ScopeRepoReadConfig,
-		auth.ScopeRepoWriteConfig,
-		"",
-	}, "\n"))
-
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"auth", "add-scope", auth.Anyone, auth.ScopeRepoRead})
-	require.NoError(t, cmd.Execute())
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"auth", "list-scope", auth.Anyone})
-	assertCmdOutput(t, cmd, strings.Join([]string{
-		auth.ScopeRepoRead,
-		"",
-	}, "\n"))
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"auth", "remove-scope", auth.Anyone, auth.ScopeRepoRead})
-	require.NoError(t, cmd.Execute())
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"auth", "list-scope", auth.Anyone})
-	assertCmdOutput(t, cmd, strings.Join([]string{
 		"",
 	}, "\n"))
 }
