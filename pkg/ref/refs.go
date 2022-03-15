@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright © 2021 Wrangle Ltd
+// Copyright © 2022 Wrangle Ltd
 
 package ref
 
@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	headPrefix      = "heads/"
-	tagPrefix       = "tags/"
-	remoteRefPrefix = "remotes/"
+	headPrefix           = "heads/"
+	tagPrefix            = "tags/"
+	remoteRefPrefix      = "remotes/"
+	transactionRefPrefix = "transaction/"
 )
 
 func headRef(name string) string {
@@ -25,6 +26,10 @@ func headRef(name string) string {
 
 func tagRef(name string) string {
 	return tagPrefix + name
+}
+
+func transactionRef(tid, branch string) string {
+	return fmt.Sprintf("%s%s/%s", transactionRefPrefix, tid, branch)
 }
 
 func RemoteRef(remote, name string) string {
@@ -77,6 +82,10 @@ func SaveTag(s Store, name string, sum []byte) error {
 
 func SaveRemoteRef(s Store, remote, name string, commit []byte, authorName, authorEmail, action, message string) error {
 	return SaveRef(s, RemoteRef(remote, name), commit, authorName, authorEmail, action, message)
+}
+
+func SaveTransactionRef(s Store, tid, branch string, sum []byte) error {
+	return s.Set(transactionRef(tid, branch), sum)
 }
 
 func GetRef(s Store, name string) ([]byte, error) {
