@@ -182,6 +182,6 @@ func (s *testSuite) TestGetBlocksHandler(t *testing.T) {
 // 	w := csv.NewWriter(buf)
 // 	require.NoError(t, w.WriteAll(testutils.BuildRawCSV(4, 4)))
 // 	w.Flush()
-// 	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), nil, opt)
+// 	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), nil, nil, opt)
 // 	assertHTTPError(t, err, http.StatusUnauthorized, "unauthorized")
 // }

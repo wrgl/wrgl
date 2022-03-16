@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
@@ -28,19 +29,19 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
 
 	// missing branch
-	_, err := cli.Commit("", "", "", nil, nil)
+	_, err := cli.Commit("", "", "", nil, nil, nil)
 	assertHTTPError(t, err, http.StatusBadRequest, "missing branch name")
 
 	// invalid branch
-	_, err = cli.Commit("123 kjl", "", "", nil, nil)
+	_, err = cli.Commit("123 kjl", "", "", nil, nil, nil)
 	assertHTTPError(t, err, http.StatusBadRequest, "invalid branch name")
 
 	// missing message
-	_, err = cli.Commit("alpha", "", "", nil, nil)
+	_, err = cli.Commit("alpha", "", "", nil, nil, nil)
 	assertHTTPError(t, err, http.StatusBadRequest, "missing message")
 
 	// missing file
-	_, err = cli.Commit("alpha", "initial commit", "", nil, nil)
+	_, err = cli.Commit("alpha", "initial commit", "", nil, nil, nil)
 	assertHTTPError(t, err, http.StatusBadRequest, "missing file")
 
 	// invalid CSV
@@ -52,7 +53,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 		{"2", "a", "s"},
 	}))
 	w.Flush()
-	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
+	_, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"}, nil)
 	assertCSVError(t, err, "wrong number of fields", &payload.CSVLocation{
 		StartLine: 2,
 		Line:      2,
@@ -69,7 +70,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 		{"3", "z", "x"},
 	}))
 	w.Flush()
-	cr, err := cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
+	cr, err := cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"}, nil)
 	require.NoError(t, err)
 	assert.NotEmpty(t, cr.Sum)
 	assert.NotEmpty(t, cr.Table)
@@ -100,7 +101,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	assert.Equal(t, (*cr.Sum)[:], sum)
 
 	// commit 2 pk
-	cr, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a", "b"})
+	cr, err = cli.Commit("alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a", "b"}, nil)
 	require.NoError(t, err)
 	tbl, err = objects.GetTable(db, cr.Table[:])
 	require.NoError(t, err)
@@ -115,7 +116,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Abcd", "qwer")
 		cr, err = cli.Commit(
-			"alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"},
+			"alpha", "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"}, nil,
 			apiclient.WithRequestHeader(header),
 		)
 		require.NoError(t, err)
@@ -130,7 +131,7 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 	var com = &objects.Commit{}
 	head := testutils.BrokenRandomLowerAlphaString(6)
 	var comSum = make([]byte, 16)
-	s.postCommit = func(r *http.Request, commit *objects.Commit, sum []byte, branch string) {
+	s.postCommit = func(r *http.Request, commit *objects.Commit, sum []byte, branch string, tid *uuid.UUID) {
 		if branch == head {
 			*com = *commit
 			copy(comSum, sum)
@@ -152,7 +153,7 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 		{"3", "z", "x"},
 	}))
 	w.Flush()
-	cr, err := cli.Commit(head, "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"})
+	cr, err := cli.Commit(head, "initial commit", "file.csv", bytes.NewReader(buf.Bytes()), []string{"a"}, nil)
 	require.NoError(t, err)
 	t.Logf("cr.Sum %x", *cr.Sum)
 	testutils.Retry(t, 100*time.Millisecond, 10,
@@ -183,7 +184,7 @@ func (s *testSuite) TestCommitGzip(t *testing.T) {
 	w.Flush()
 	require.NoError(t, gw.Flush())
 	require.NoError(t, gw.Close())
-	cr, err := cli.Commit("alpha", "initial commit", "file.csv.gz", bytes.NewReader(buf.Bytes()), []string{"a"})
+	cr, err := cli.Commit("alpha", "initial commit", "file.csv.gz", bytes.NewReader(buf.Bytes()), []string{"a"}, nil)
 	require.NoError(t, err)
 	assert.NotEmpty(t, cr.Sum)
 	assert.NotEmpty(t, cr.Table)

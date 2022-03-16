@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2022 Wrangle Ltd
+
 package transaction
 
 import (
@@ -9,10 +12,10 @@ import (
 	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
-func finishCmd() *cobra.Command {
+func commitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "finish TRANSACTION_ID",
-		Short: "Finish a transaction.",
+		Use:   "commit TRANSACTION_ID",
+		Short: "Commit a transaction.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := utils.GetRepoDir(cmd)

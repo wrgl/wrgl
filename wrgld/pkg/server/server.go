@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -39,7 +40,7 @@ type UPSessionStoreGetter func(r *http.Request) UploadPackSessionStore
 
 type RPSessionStoreGetter func(r *http.Request) ReceivePackSessionStore
 
-type PostCommitHook func(r *http.Request, commit *objects.Commit, sum []byte, branch string)
+type PostCommitHook func(r *http.Request, commit *objects.Commit, sum []byte, branch string, tid *uuid.UUID)
 
 type Server struct {
 	RootPath     *regexp.Regexp
@@ -84,6 +85,25 @@ func NewServer(
 	}
 	s.router = router.NewRouter(rootPath, &router.Routes{
 		Subs: []*router.Routes{
+			{
+				Pat: patTransactions,
+				Subs: []*router.Routes{
+					{
+						Method:      http.MethodPost,
+						HandlerFunc: s.handleCreateTransaction,
+					},
+					{
+						Method:      http.MethodGet,
+						Pat:         patUUID,
+						HandlerFunc: s.handleGetTransaction,
+					},
+					{
+						Method:      http.MethodPost,
+						Pat:         patUUID,
+						HandlerFunc: s.handleUpdateTransaction,
+					},
+				},
+			},
 			{
 				Pat: patRefs,
 				Subs: []*router.Routes{

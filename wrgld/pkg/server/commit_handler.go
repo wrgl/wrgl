@@ -8,12 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/klauspost/compress/gzip"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/sorter"
+	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
@@ -66,8 +68,22 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	if sl := r.MultipartForm.Value["primaryKey"]; len(sl) > 0 && len(sl[0]) > 0 {
 		primaryKey = strings.Split(sl[0], ",")
 	}
-
 	db := s.getDB(r)
+
+	var tid *uuid.UUID
+	if s := r.PostFormValue("txid"); s != "" {
+		tid = &uuid.UUID{}
+		*tid, err = uuid.Parse(s)
+		if err != nil {
+			SendError(rw, http.StatusBadRequest, "invalid txid")
+			return
+		}
+		if !objects.TransactionExist(db, *tid) {
+			SendError(rw, http.StatusNotFound, "transaction not found")
+			return
+		}
+	}
+
 	var opts = []ingest.InserterOption{}
 	if s.debugOut != nil {
 		opts = append(opts, ingest.WithDebugOutput(s.debugOut))
@@ -107,12 +123,15 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	err = ref.CommitHead(rs, branch, commitSum, commit)
-	if err != nil {
+	if tid != nil {
+		if err = transaction.Add(rs, *tid, branch, commitSum); err != nil {
+			panic(err)
+		}
+	} else if err = ref.CommitHead(rs, branch, commitSum, commit); err != nil {
 		panic(err)
 	}
 	if s.postCommit != nil {
-		s.postCommit(r, commit, commitSum, branch)
+		s.postCommit(r, commit, commitSum, branch, tid)
 	}
 	resp := &payload.CommitResponse{
 		Sum:   &payload.Hex{},

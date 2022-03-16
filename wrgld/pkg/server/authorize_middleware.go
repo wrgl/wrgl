@@ -40,6 +40,9 @@ var (
 	patCommitProfile *regexp.Regexp
 	patTableProfile  *regexp.Regexp
 	patObjects       *regexp.Regexp
+	patTransactions  *regexp.Regexp
+	patTransaction   *regexp.Regexp
+	patUUID          *regexp.Regexp
 )
 
 func init() {
@@ -64,6 +67,9 @@ func init() {
 	patCommitProfile = regexp.MustCompile(`^/commits/[0-9a-f]{32}/profile/`)
 	patTableProfile = regexp.MustCompile(`^/tables/[0-9a-f]{32}/profile/`)
 	patObjects = regexp.MustCompile(`^/objects/`)
+	patTransactions = regexp.MustCompile(`^/transactions/`)
+	patTransaction = regexp.MustCompile(`^/transactions/[0-9a-f-]+/`)
+	patUUID = regexp.MustCompile(`^[0-9a-f-]+/`)
 	routeScopes = []routeScope{
 		{
 			Pat:    patRefsHead,
@@ -144,6 +150,21 @@ func init() {
 			Pat:    patDiff,
 			Method: http.MethodGet,
 			Scope:  auth.ScopeRepoRead,
+		},
+		{
+			Pat:    patTransactions,
+			Method: http.MethodPost,
+			Scope:  auth.ScopeRepoWrite,
+		},
+		{
+			Pat:    patTransaction,
+			Method: http.MethodGet,
+			Scope:  auth.ScopeRepoRead,
+		},
+		{
+			Pat:    patTransaction,
+			Method: http.MethodPost,
+			Scope:  auth.ScopeRepoWrite,
 		},
 	}
 }

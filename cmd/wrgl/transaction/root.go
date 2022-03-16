@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2022 Wrangle Ltd
+
 package transaction
 
 import "github.com/spf13/cobra"
@@ -13,7 +16,7 @@ func RootCmd() *cobra.Command {
 		},
 	}
 	cmd.AddCommand(startCmd())
-	cmd.AddCommand(finishCmd())
+	cmd.AddCommand(commitCmd())
 	cmd.AddCommand(discardCmd())
 	return cmd
 }

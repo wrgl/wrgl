@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
@@ -17,14 +18,14 @@ import (
 
 type testSuite struct {
 	s          *server_testutils.Server
-	postCommit func(r *http.Request, commit *objects.Commit, sum []byte, branch string)
+	postCommit func(r *http.Request, commit *objects.Commit, sum []byte, branch string, tid *uuid.UUID)
 }
 
 func newSuite(t *testing.T) *testSuite {
 	ts := &testSuite{}
-	ts.s = server_testutils.NewServer(t, nil, server.WithPostCommitCallback(func(r *http.Request, commit *objects.Commit, sum []byte, branch string) {
+	ts.s = server_testutils.NewServer(t, nil, server.WithPostCommitCallback(func(r *http.Request, commit *objects.Commit, sum []byte, branch string, tid *uuid.UUID) {
 		if ts.postCommit != nil {
-			ts.postCommit(r, commit, sum, branch)
+			ts.postCommit(r, commit, sum, branch, tid)
 		}
 	}))
 	return ts

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2022 Wrangle Ltd
+
 package wrgl
 
 import (
@@ -127,7 +130,7 @@ func TestTransactionCmd(t *testing.T) {
 	}
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"transaction", "finish", txid})
+	cmd.SetArgs([]string{"transaction", "commit", txid})
 	require.NoError(t, cmd.Execute())
 
 	sums := getRefs(t, rs,

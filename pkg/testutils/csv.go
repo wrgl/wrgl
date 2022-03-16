@@ -6,6 +6,7 @@ package testutils
 import (
 	"bytes"
 	"encoding/csv"
+	"io"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -38,6 +39,16 @@ func ModifiedCSV(orig [][]string, mPercent int) [][]string {
 		res = append(res, row)
 	}
 	return res
+}
+
+func RawCSVBytesReader(r [][]string) io.Reader {
+	buf := bytes.NewBuffer(nil)
+	w := csv.NewWriter(buf)
+	w.WriteAll(r)
+	w.Flush()
+	b := make([]byte, buf.Len())
+	copy(b, buf.Bytes())
+	return bytes.NewReader(b)
 }
 
 func RawCSVReader(r [][]string) *csv.Reader {

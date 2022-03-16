@@ -17,9 +17,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/api/payload"
-	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"golang.org/x/net/publicsuffix"
@@ -108,6 +108,18 @@ func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
+func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {
+	defer resp.Body.Close()
+	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
+		return fmt.Errorf("unrecognized content type: %q", ct)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	return json.Unmarshal(b, obj)
+}
+
 func (c *Client) Request(method, path string, body io.Reader, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {
 	req, err := http.NewRequest(method, c.origin+path, body)
 	if err != nil {
@@ -183,53 +195,13 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 	return resp, nil
 }
 
-func (c *Client) GetConfig(opts ...RequestOption) (cfg *conf.Config, err error) {
-	resp, err := c.Request(http.MethodGet, "/config/", nil, nil, opts...)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	cfg = &conf.Config{}
-	err = json.Unmarshal(b, cfg)
-	if err != nil {
-		return nil, err
-	}
-	return
-}
-
-func (c *Client) PutConfig(cfg *conf.Config, opts ...RequestOption) (resp *http.Response, err error) {
-	b, err := json.Marshal(cfg)
-	if err != nil {
-		return
-	}
-	return c.Request(http.MethodPut, "/config/", bytes.NewReader(b), map[string]string{
-		"Content-Type": CTJSON,
-	}, opts...)
-}
-
 func (c *Client) GetHead(branch string, opts ...RequestOption) (com *payload.Commit, err error) {
 	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/refs/heads/%s/", branch), nil, nil, opts...)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
 	com = &payload.Commit{}
-	err = json.Unmarshal(b, com)
-	if err != nil {
+	if err = parseJSONPayload(resp, com); err != nil {
 		return nil, err
 	}
 	return
@@ -240,17 +212,8 @@ func (c *Client) GetCommitProfile(sum []byte, opts ...RequestOption) (tblProf *o
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
 	tblProf = &objects.TableProfile{}
-	err = json.Unmarshal(b, tblProf)
-	if err != nil {
+	if err = parseJSONPayload(resp, tblProf); err != nil {
 		return nil, err
 	}
 	return
@@ -261,17 +224,8 @@ func (c *Client) GetTableProfile(sum []byte, opts ...RequestOption) (tblProf *ob
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
 	tblProf = &objects.TableProfile{}
-	err = json.Unmarshal(b, tblProf)
-	if err != nil {
+	if err = parseJSONPayload(resp, tblProf); err != nil {
 		return nil, err
 	}
 	return
@@ -285,17 +239,8 @@ func (c *Client) GetCommits(head string, maxDepth int, opts ...RequestOption) (g
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
 	gcr = &payload.GetCommitsResponse{}
-	err = json.Unmarshal(b, gcr)
-	if err != nil {
+	if err = parseJSONPayload(resp, gcr); err != nil {
 		return nil, err
 	}
 	return
@@ -306,18 +251,9 @@ func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
 	rr := &payload.GetRefsResponse{}
-	err = json.Unmarshal(b, rr)
-	if err != nil {
-		return
+	if err = parseJSONPayload(resp, rr); err != nil {
+		return nil, err
 	}
 	m = map[string][]byte{}
 	for k, v := range rr.Refs {
@@ -326,12 +262,16 @@ func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error)
 	return
 }
 
-func (c *Client) Commit(branch, message, fileName string, file io.Reader, primaryKey []string, opts ...RequestOption) (cr *payload.CommitResponse, err error) {
-	resp, err := c.PostMultipartForm(api.PathCommit, map[string][]string{
+func (c *Client) Commit(branch, message, fileName string, file io.Reader, primaryKey []string, tid *uuid.UUID, opts ...RequestOption) (cr *payload.CommitResponse, err error) {
+	value := map[string][]string{
 		"branch":     {branch},
 		"message":    {message},
 		"primaryKey": {strings.Join(primaryKey, ",")},
-	}, map[string]formFile{
+	}
+	if tid != nil {
+		value["txid"] = []string{tid.String()}
+	}
+	resp, err := c.PostMultipartForm(api.PathCommit, value, map[string]formFile{
 		"file": {
 			FileName: fileName,
 			Content:  file,
@@ -340,16 +280,8 @@ func (c *Client) Commit(branch, message, fileName string, file io.Reader, primar
 	if err != nil {
 		return nil, err
 	}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
 	cr = &payload.CommitResponse{}
-	err = json.Unmarshal(b, cr)
-	if err != nil {
+	if err = parseJSONPayload(resp, cr); err != nil {
 		return nil, err
 	}
 	return cr, nil
@@ -360,17 +292,8 @@ func (c *Client) Diff(sum1, sum2 []byte, opts ...RequestOption) (dr *payload.Dif
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
 	dr = &payload.DiffResponse{}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(b, dr)
-	if err != nil {
+	if err = parseJSONPayload(resp, dr); err != nil {
 		return nil, err
 	}
 	return dr, nil
@@ -457,16 +380,8 @@ func (c *Client) GetCommit(sum []byte, opts ...RequestOption) (cr *payload.Commi
 	if err != nil {
 		return
 	}
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
 	cr = &payload.Commit{}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(b, cr)
-	if err != nil {
+	if err = parseJSONPayload(resp, cr); err != nil {
 		return nil, err
 	}
 	return cr, nil
@@ -477,16 +392,8 @@ func (c *Client) GetTable(sum []byte, opts ...RequestOption) (tr *payload.GetTab
 	if err != nil {
 		return
 	}
-	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
-		return nil, fmt.Errorf("unrecognized content type: %q", ct)
-	}
 	tr = &payload.GetTableResponse{}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(b, tr)
-	if err != nil {
+	if err = parseJSONPayload(resp, tr); err != nil {
 		return nil, err
 	}
 	return tr, nil
@@ -543,6 +450,52 @@ func (c *Client) GetObjects(tables [][]byte, opts ...RequestOption) (pr *packfil
 		return nil, fmt.Errorf("unrecognized content type: %q", ct)
 	}
 	return packfile.NewPackfileReader(resp.Body)
+}
+
+func (c *Client) CreateTransaction(opts ...RequestOption) (ctr *payload.CreateTransactionResponse, err error) {
+	resp, err := c.Request(http.MethodPost, "/transactions/", nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	ctr = &payload.CreateTransactionResponse{}
+	if err = parseJSONPayload(resp, ctr); err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (c *Client) GetTransaction(id uuid.UUID, opts ...RequestOption) (gtr *payload.GetTransactionResponse, err error) {
+	resp, err := c.Request(http.MethodGet, fmt.Sprintf("/transactions/%s/", id), nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	gtr = &payload.GetTransactionResponse{}
+	if err = parseJSONPayload(resp, gtr); err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (c *Client) updateTransaction(id uuid.UUID, req *payload.UpdateTransactionRequest, opts ...RequestOption) (resp *http.Response, err error) {
+	b, err := json.Marshal(req)
+	if err != nil {
+		return
+	}
+	return c.Request(http.MethodPost, fmt.Sprintf("/transactions/%s/", id.String()), bytes.NewReader(b), map[string]string{
+		"Content-Type": api.CTJSON,
+	}, opts...)
+}
+
+func (c *Client) DiscardTransaction(id uuid.UUID, opts ...RequestOption) (resp *http.Response, err error) {
+	return c.updateTransaction(id, &payload.UpdateTransactionRequest{
+		Discard: true,
+	}, opts...)
+}
+
+func (c *Client) CommitTransaction(id uuid.UUID, opts ...RequestOption) (resp *http.Response, err error) {
+	return c.updateTransaction(id, &payload.UpdateTransactionRequest{
+		Commit: true,
+	}, opts...)
 }
 
 func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, depth int, opts ...RequestOption) (acks [][]byte, pr *packfile.PackfileReader, err error) {
