@@ -39,17 +39,21 @@ func getRefs(t *testing.T, rs ref.Store, refs ...string) (sums map[string][]byte
 	return
 }
 
-func TestTransactionCmd(t *testing.T) {
-	rd, cleanup := createRepoDir(t)
-	defer cleanup()
-	rs := rd.OpenRefStore()
-
+func startTransaction(t *testing.T) string {
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"transaction", "start"})
 	buf := bytes.NewBuffer(nil)
 	cmd.SetOut(buf)
 	require.NoError(t, cmd.Execute())
-	txid := strings.TrimSpace(buf.String())
+	return strings.TrimSpace(buf.String())
+}
+
+func TestTransactionCmd(t *testing.T) {
+	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+	rs := rd.OpenRefStore()
+
+	txid := startTransaction(t)
 
 	_, fp := createCSVFile(t, []string{
 		"a,f,g",
@@ -66,7 +70,7 @@ func TestTransactionCmd(t *testing.T) {
 		"3,b,v",
 	})
 	defer os.Remove(fp)
-	cmd = rootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"commit", "alpha", fp, "second commit", "-p", "a", "-n", "1", "--txid", txid})
 	require.NoError(t, cmd.Execute())
 	db, err := rd.OpenObjectsStore()
@@ -115,7 +119,7 @@ func TestTransactionCmd(t *testing.T) {
 	require.Len(t, txSums, 4)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"diff", "--txid", txid})
-	buf.Reset()
+	buf := bytes.NewBuffer(nil)
 	cmd.SetOut(buf)
 	require.NoError(t, cmd.Execute())
 	outStr := removeColor(buf.String())
@@ -164,16 +168,11 @@ func TestTransactionDiscardCmd(t *testing.T) {
 	defer cleanup()
 	rs := rd.OpenRefStore()
 
-	cmd := rootCmd()
-	cmd.SetArgs([]string{"transaction", "start"})
-	buf := bytes.NewBuffer(nil)
-	cmd.SetOut(buf)
-	require.NoError(t, cmd.Execute())
-	txid := strings.TrimSpace(buf.String())
+	txid := startTransaction(t)
 
 	header, fp := createRandomCSVFile(t)
 	defer os.Remove(fp)
-	cmd = rootCmd()
+	cmd := rootCmd()
 	cmd.SetArgs([]string{"commit", "alpha", fp, "initial commit", "-n", "1", "--txid", txid, "-p", header[0]})
 	require.NoError(t, cmd.Execute())
 

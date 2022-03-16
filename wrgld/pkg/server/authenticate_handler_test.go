@@ -92,6 +92,10 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	assert.Error(t, err)
 	_, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
+	_, err = cli.GarbageCollect()
+	assert.Error(t, err)
+	_, err = cli.GarbageCollect(apiclient.WithRequestAuthorization(tok))
+	assert.Error(t, err)
 
 	// only read actions come through
 	readTok := s.s.Authorize(t, email, name, auth.ScopeRepoRead)
@@ -134,7 +138,7 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	require.NoError(t, err)
 	_, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithRequestAuthorization(readTok))
 	assert.Error(t, err)
-	_, err = cli.CreateTransaction(apiclient.WithRequestAuthorization(readTok))
+	_, err = cli.GarbageCollect(apiclient.WithRequestAuthorization(readTok))
 	assert.Error(t, err)
 
 	// now write actions come through as well
@@ -145,6 +149,8 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	resp, err = cli.PostUpdatesToReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, apiclient.WithRequestAuthorization(writeTok))
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	_, err = cli.GarbageCollect(apiclient.WithRequestAuthorization(writeTok))
+	require.NoError(t, err)
 
 	// test scopes on transaction handlers
 	_, err = cli.CreateTransaction()

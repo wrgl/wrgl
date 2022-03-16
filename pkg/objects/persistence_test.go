@@ -240,9 +240,9 @@ func TestSaveTransaction(t *testing.T) {
 
 	keys, err := objects.GetAllTransactionKeys(s)
 	require.NoError(t, err)
-	sort.Slice(keys, func(i, j int) bool { return bytes.Compare(keys[i], keys[j]) == -1 })
-	ids := [][]byte{id1[:], id2[:]}
-	sort.Slice(ids, func(i, j int) bool { return bytes.Compare(ids[i], ids[j]) == -1 })
+	sort.Slice(keys, func(i, j int) bool { return bytes.Compare(keys[i][:], keys[j][:]) == -1 })
+	ids := []uuid.UUID{id1, id2}
+	sort.Slice(ids, func(i, j int) bool { return bytes.Compare(ids[i][:], ids[j][:]) == -1 })
 	assert.Equal(t, ids, keys)
 
 	require.NoError(t, objects.DeleteTransaction(s, id1))

@@ -105,6 +105,11 @@ func NewServer(
 				},
 			},
 			{
+				Pat:         patGC,
+				Method:      http.MethodPost,
+				HandlerFunc: s.handleGC,
+			},
+			{
 				Pat: patRefs,
 				Subs: []*router.Routes{
 					{

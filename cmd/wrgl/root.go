@@ -104,6 +104,7 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(auth.RootCmd())
 	rootCmd.AddCommand(hub.RootCmd())
 	rootCmd.AddCommand(transaction.RootCmd())
+	rootCmd.AddCommand(gcCmd())
 	return rootCmd
 }
 

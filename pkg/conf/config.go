@@ -9,6 +9,10 @@ import (
 	"github.com/wrgl/wrgl/pkg/slice"
 )
 
+const (
+	DefaultTransactionTTL Duration = Duration(time.Hour * 24 * 30)
+)
+
 type User struct {
 	// Email is the current user's email. Just like
 	// with Git, most operations that alter data record the user's
@@ -147,6 +151,10 @@ type Config struct {
 	Auth    *Auth              `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Pack    *Pack              `yaml:"pack,omitempty" json:"pack,omitempty"`
 	Merge   *Merge             `yaml:"merge,omitempty" json:"merge,omitempty"`
+
+	// TransactionTTL is the maximum amount of time a transaction can exist before
+	// being garbage-collected. Defaults to 30 days
+	TransactionTTL Duration `yaml:"transactionTTL,omitempty" json:"transactionTTL,omitempty"`
 }
 
 func (c *Config) TokenDuration() time.Duration {
@@ -161,6 +169,13 @@ func (c *Config) MaxPackFileSize() uint64 {
 		return c.Pack.MaxFileSize
 	}
 	return 0
+}
+
+func (c *Config) GetTransactionTTL() time.Duration {
+	if c.TransactionTTL != 0 {
+		return time.Duration(c.TransactionTTL)
+	}
+	return time.Duration(DefaultTransactionTTL)
 }
 
 func (c *Config) IsBranchPrimaryKeyEqual(branchName string, primaryKey []string) bool {

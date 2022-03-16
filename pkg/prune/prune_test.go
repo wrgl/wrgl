@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright © 2022 Wrangle Ltd
 
-package wrgl
+package prune
 
 import (
 	"fmt"
@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
 	"github.com/wrgl/wrgl/pkg/ref"
+	refmock "github.com/wrgl/wrgl/pkg/ref/mock"
 )
 
 func assertCommitsCount(t *testing.T, db objects.Store, num int) {
@@ -72,12 +74,25 @@ func assertSetEqual(t *testing.T, sl1, sl2 [][]byte) {
 	assert.Equal(t, sl1, sl2)
 }
 
-func TestPruneCmdSmallCommits(t *testing.T) {
-	rd, cleanUp := createRepoDir(t)
-	defer cleanUp()
-	db, err := rd.OpenObjectsStore()
+func TestFindAllCommitsToRemove(t *testing.T) {
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
+	sum2, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
+	sum3, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
+	sum4, _ := factory.CommitHead(t, db, rs, "branch-2", nil, nil)
+	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
+	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum2, "test", "test@domain.com", "test", "test pruning"))
+
+	commitsToRemove, survivingCommits, err := findCommitsToRemove(db, rs, func() {})
 	require.NoError(t, err)
-	rs := rd.OpenRefStore()
+	assertSetEqual(t, [][]byte{sum1, sum2}, survivingCommits)
+	assertSetEqual(t, [][]byte{sum3, sum4}, commitsToRemove)
+}
+
+func TestPruneSmallCommits(t *testing.T) {
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
 	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
@@ -116,15 +131,9 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	assertBlockIndicesCount(t, db, 4)
 	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
 	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning"))
-	require.NoError(t, db.Close())
 
-	cmd := rootCmd()
-	cmd.SetArgs([]string{"prune"})
-	require.NoError(t, cmd.Execute())
+	require.NoError(t, Prune(db, rs, nil))
 
-	db, err = rd.OpenObjectsStore()
-	require.NoError(t, err)
-	defer db.Close()
 	assertCommitsCount(t, db, 2)
 	assertTablesCount(t, db, 2)
 	assertTableIndicesCount(t, db, 2)

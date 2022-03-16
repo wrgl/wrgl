@@ -498,6 +498,10 @@ func (c *Client) CommitTransaction(id uuid.UUID, opts ...RequestOption) (resp *h
 	}, opts...)
 }
 
+func (c *Client) GarbageCollect(opts ...RequestOption) (resp *http.Response, err error) {
+	return c.Request(http.MethodPost, "/gc/", nil, nil, opts...)
+}
+
 func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, depth int, opts ...RequestOption) (acks [][]byte, pr *packfile.PackfileReader, err error) {
 	resp, err := c.sendUploadPackRequest(wants, haves, done, depth, opts...)
 	if err != nil {

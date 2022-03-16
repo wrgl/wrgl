@@ -43,6 +43,7 @@ var (
 	patTransactions  *regexp.Regexp
 	patTransaction   *regexp.Regexp
 	patUUID          *regexp.Regexp
+	patGC            *regexp.Regexp
 )
 
 func init() {
@@ -70,6 +71,7 @@ func init() {
 	patTransactions = regexp.MustCompile(`^/transactions/`)
 	patTransaction = regexp.MustCompile(`^/transactions/[0-9a-f-]+/`)
 	patUUID = regexp.MustCompile(`^[0-9a-f-]+/`)
+	patGC = regexp.MustCompile(`^/gc/`)
 	routeScopes = []routeScope{
 		{
 			Pat:    patRefsHead,
@@ -163,6 +165,11 @@ func init() {
 		},
 		{
 			Pat:    patTransaction,
+			Method: http.MethodPost,
+			Scope:  auth.ScopeRepoWrite,
+		},
+		{
+			Pat:    patGC,
 			Method: http.MethodPost,
 			Scope:  auth.ScopeRepoWrite,
 		},

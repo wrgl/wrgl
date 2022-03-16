@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2022 Wrangle Ltd
+
 package transaction
 
 import (
@@ -5,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -31,7 +35,6 @@ func Diff(rs ref.Store, id uuid.UUID) (map[string][2][]byte, error) {
 	}
 	result := map[string][2][]byte{}
 	for branch, sum := range m {
-		result[branch] = [2][]byte{sum, nil}
 		oldSum, err := ref.GetHead(rs, branch)
 		if err == nil {
 			result[branch] = [2][]byte{sum, oldSum}
@@ -80,4 +83,30 @@ func Discard(db objects.Store, rs ref.Store, id uuid.UUID) (err error) {
 		return
 	}
 	return objects.DeleteTransaction(db, id)
+}
+
+func GarbageCollect(db objects.Store, rs ref.Store, ttl time.Duration, pbar *progressbar.ProgressBar) (err error) {
+	if pbar != nil {
+		defer pbar.Finish()
+	}
+	ids, err := objects.GetAllTransactionKeys(db)
+	if err != nil {
+		return err
+	}
+	cutOffTime := time.Now().Add(-ttl)
+	for _, id := range ids {
+		tx, err := objects.GetTransaction(db, id)
+		if err != nil {
+			return err
+		}
+		if tx.Begin.Before(cutOffTime) {
+			if err = Discard(db, rs, id); err != nil {
+				return err
+			}
+			if pbar != nil {
+				pbar.Add(1)
+			}
+		}
+	}
+	return nil
 }

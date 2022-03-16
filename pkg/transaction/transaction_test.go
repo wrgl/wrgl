@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2022 Wrangle Ltd
+
 package transaction
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,4 +75,23 @@ func TestTransaction(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, refs, 0)
 	assert.False(t, objects.TransactionExist(db, id))
+}
+
+func TestGarbageCollect(t *testing.T) {
+	db := objmock.NewStore()
+	rs := refmock.NewStore()
+
+	id1, err := New(db)
+	require.NoError(t, err)
+	id2, err := New(db)
+	require.NoError(t, err)
+
+	time.Sleep(time.Second)
+	id3, err := New(db)
+	require.NoError(t, err)
+	require.NoError(t, GarbageCollect(db, rs, time.Second, nil))
+
+	assert.False(t, objects.TransactionExist(db, id1))
+	assert.False(t, objects.TransactionExist(db, id2))
+	assert.True(t, objects.TransactionExist(db, id3))
 }

@@ -287,8 +287,19 @@ func GetAllCommitKeys(s Store) ([][]byte, error) {
 	return getAllKeys(s, comPrefix)
 }
 
-func GetAllTransactionKeys(s Store) ([][]byte, error) {
-	return getAllKeys(s, transactionPrefix)
+func GetAllTransactionKeys(s Store) (ids []uuid.UUID, err error) {
+	keys, err := getAllKeys(s, transactionPrefix)
+	if err != nil {
+		return nil, err
+	}
+	ids = make([]uuid.UUID, len(keys))
+	for i, k := range keys {
+		ids[i], err = uuid.FromBytes(k)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ids, nil
 }
 
 func DeleteAllCommit(s Store) error {
