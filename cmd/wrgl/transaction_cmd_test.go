@@ -143,15 +143,22 @@ func TestTransactionCmd(t *testing.T) {
 		ref.HeadRef("gamma"),
 		ref.HeadRef("delta"),
 	)
-	assert.Equal(t, txSums[ref.TransactionRef(txid, "beta")], sums[ref.HeadRef("beta")])
-	assert.Equal(t, txSums[ref.TransactionRef(txid, "gamma")], sums[ref.HeadRef("gamma")])
-	assert.Equal(t, txSums[ref.TransactionRef(txid, "delta")], sums[ref.HeadRef("delta")])
-	assert.Equal(t, txSums[ref.TransactionRef(txid, "alpha")], sums[ref.HeadRef("alpha")])
 	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
-	alphaCom, err = objects.GetCommit(db, sums[ref.HeadRef("alpha")])
-	assert.Equal(t, [][]byte{alphaSum}, alphaCom.Parents)
-	require.NoError(t, err)
+	for _, branch := range []string{"alpha", "beta", "gamma", "delta"} {
+		txCom, err := objects.GetCommit(db, txSums[ref.TransactionRef(txid, branch)])
+		require.NoError(t, err)
+		com, err := objects.GetCommit(db, sums[ref.HeadRef(branch)])
+		require.NoError(t, err)
+		assert.NotEqual(t, txCom.Sum, com.Sum)
+		assert.Equal(t, fmt.Sprintf("[tx/%s] %s", txid, txCom.Message), com.Message)
+		assert.Equal(t, txCom.Table, com.Table)
+		if branch == "alpha" {
+			assert.Equal(t, [][]byte{alphaSum}, com.Parents)
+		} else {
+			assert.Empty(t, com.Parents)
+		}
+	}
 	require.NoError(t, db.Close())
 
 	txSums = getRefs(t, rs,

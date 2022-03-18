@@ -19,7 +19,7 @@ var (
 	tblIdxPrefix      = []byte("tblidx/")
 	comPrefix         = []byte("com/")
 	tblSumPrefix      = []byte("tblsum/")
-	transactionPrefix = []byte("transaction/")
+	transactionPrefix = []byte("tx/")
 )
 
 func blockKey(sum []byte) []byte {

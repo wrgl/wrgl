@@ -137,7 +137,12 @@ func EncodeTime(t time.Time) []byte {
 }
 
 func WriteTime(w io.Writer, buf encoding.Bufferer, t time.Time) (n int64, err error) {
-	m, err := w.Write(EncodeTime(t))
+	var m int
+	if t.IsZero() {
+		m, err = w.Write(make([]byte, 16))
+	} else {
+		m, err = w.Write(EncodeTime(t))
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -158,14 +163,27 @@ func DecodeTime(s string) (t time.Time, err error) {
 	return
 }
 
+func allZeroBytes(b []byte) bool {
+	for _, v := range b {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func ReadTime(p *encoding.Parser, t *time.Time) (n int64, err error) {
 	b, err := p.NextBytes(16)
 	if err != nil {
 		return 0, err
 	}
-	*t, err = DecodeTime(string(b))
-	if err != nil {
-		return
+	if !allZeroBytes(b) {
+		*t, err = DecodeTime(string(b))
+		if err != nil {
+			return
+		}
+	} else {
+		*t = time.Time{}
 	}
 	return 16, nil
 }

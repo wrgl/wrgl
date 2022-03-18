@@ -108,6 +108,7 @@ func TestWriteTime(t *testing.T) {
 	for _, v := range []time.Time{
 		time.Now().In(time.FixedZone("", 0)),
 		time.Now().In(time.FixedZone("", 8)),
+		{},
 	} {
 		buf.Reset()
 		n, err := WriteTime(buf, b, v)

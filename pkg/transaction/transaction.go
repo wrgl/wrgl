@@ -5,6 +5,7 @@ package transaction
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +17,8 @@ import (
 func New(db objects.Store) (id uuid.UUID, err error) {
 	id = uuid.New()
 	tx := &objects.Transaction{
-		Begin: time.Now(),
+		Status: objects.TSInProgress,
+		Begin:  time.Now(),
 	}
 	if err = objects.SaveTransaction(db, id, tx); err != nil {
 		return
@@ -46,6 +48,10 @@ func Diff(rs ref.Store, id uuid.UUID) (map[string][2][]byte, error) {
 }
 
 func Commit(db objects.Store, rs ref.Store, id uuid.UUID) (err error) {
+	tx, err := objects.GetTransaction(db, id)
+	if err != nil {
+		return err
+	}
 	m, err := ref.ListTransactionRefs(rs, id)
 	if err != nil {
 		return err
@@ -62,6 +68,7 @@ func Commit(db objects.Store, rs ref.Store, id uuid.UUID) (err error) {
 		} else {
 			com.Parents = nil
 		}
+		com.Message = fmt.Sprintf("[tx/%s] %s", id, com.Message)
 		buf.Reset()
 		_, err = com.WriteTo(buf)
 		if err != nil {
@@ -75,7 +82,9 @@ func Commit(db objects.Store, rs ref.Store, id uuid.UUID) (err error) {
 			return err
 		}
 	}
-	return nil
+	tx.End = time.Now()
+	tx.Status = objects.TSCommitted
+	return objects.SaveTransaction(db, id, tx)
 }
 
 func Discard(db objects.Store, rs ref.Store, id uuid.UUID) (err error) {

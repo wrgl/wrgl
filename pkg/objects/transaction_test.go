@@ -16,13 +16,24 @@ import (
 
 func TestWriteTransaction(t *testing.T) {
 	tx := &objects.Transaction{
-		Begin: time.Now(),
+		Status: objects.TSInProgress,
+		Begin:  time.Now().Add(-time.Hour),
 	}
 	buf := bytes.NewBufferString("")
 	n, err := tx.WriteTo(buf)
 	require.NoError(t, err)
 	assert.Len(t, buf.Bytes(), int(n))
 	n, tx2, err := objects.ReadTransactionFrom(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+	assert.Len(t, buf.Bytes(), int(n))
+	objhelpers.AssertTransactionEqual(t, tx, tx2)
+
+	tx.Status = objects.TSCommitted
+	tx.End = time.Now()
+	buf.Reset()
+	n, err = tx.WriteTo(buf)
+	assert.Len(t, buf.Bytes(), int(n))
+	n, tx2, err = objects.ReadTransactionFrom(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
 	assert.Len(t, buf.Bytes(), int(n))
 	objhelpers.AssertTransactionEqual(t, tx, tx2)
