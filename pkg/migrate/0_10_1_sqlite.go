@@ -231,13 +231,14 @@ func init() {
 				if err != nil {
 					return err
 				}
+				defer refStmt.Close()
 				reflogStmt, err := tx.Prepare(`INSERT INTO reflogs(
 					ref, ordinal, oldoid, newoid, authorname, authoremail, time, action, message
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 				if err != nil {
 					return err
 				}
-				defer refStmt.Close()
+				defer reflogStmt.Close()
 				if err = eachRef(dir, func(key string, sum []byte) error {
 					if _, err = refStmt.Exec(key, sum); err != nil {
 						return err

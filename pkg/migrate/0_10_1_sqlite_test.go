@@ -16,6 +16,16 @@ import (
 
 func TestMigration(t *testing.T) {
 	dir := t.TempDir()
+
+	// it does not error out on an empty dir
+	for _, m := range migrations {
+		if m.SemVer.String() == "0.10.1" {
+			require.NoError(t, m.Migrate(dir))
+			break
+		}
+	}
+
+	dir = t.TempDir()
 	rs := reffs.NewStore(filepath.Join(dir, "files"))
 
 	var sums [][]byte

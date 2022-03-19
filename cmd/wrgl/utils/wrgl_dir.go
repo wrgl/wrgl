@@ -40,6 +40,10 @@ func GetRepoDir(cmd *cobra.Command) *local.RepoDir {
 		cmd.PrintErrln(err)
 		os.Exit(1)
 	}
-	rd := local.NewRepoDir(wrglDir, badgerLog)
+	rd, err := local.NewRepoDir(wrglDir, badgerLog)
+	if err != nil {
+		cmd.PrintErrln(err)
+		os.Exit(1)
+	}
 	return rd
 }

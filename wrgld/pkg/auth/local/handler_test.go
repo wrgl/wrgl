@@ -76,7 +76,8 @@ func assertJSONResponse(t *testing.T, handler http.Handler, r *http.Request, pay
 }
 
 func TestHandler(t *testing.T) {
-	rd := local.NewRepoDir(t.TempDir(), "")
+	rd, err := local.NewRepoDir(t.TempDir(), "")
+	require.NoError(t, err)
 	defer rd.Close()
 	authzS, err := authfs.NewAuthzStore(rd)
 	require.NoError(t, err)

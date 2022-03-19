@@ -2,7 +2,6 @@ package refsql
 
 import (
 	"database/sql"
-	"fmt"
 
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/sqlutil"
@@ -40,7 +39,6 @@ func (s *Store) SetWithLog(key string, sum []byte, rl *ref.Reflog) error {
 		if err := row.Scan(&oldSum); err != nil {
 			oldSum = nil
 		}
-		fmt.Printf("oldSum: %x\n", oldSum)
 		if _, err := tx.Exec(
 			`INSERT INTO refs (name, sum) VALUES (?, ?) ON CONFLICT (name) DO UPDATE SET sum=excluded.sum`,
 			key, sum,

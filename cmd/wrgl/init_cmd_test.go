@@ -22,7 +22,6 @@ func TestInitCmd(t *testing.T) {
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"init"})
 	require.NoError(t, cmd.Execute())
-	assert.DirExists(t, filepath.Join(wrglDir, "files"))
 	assert.DirExists(t, filepath.Join(wrglDir, "kv"))
 }
 
@@ -34,6 +33,5 @@ func TestInitCmdDirExists(t *testing.T) {
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"init", "--wrgl-dir", dir})
 	require.NoError(t, cmd.Execute())
-	assert.DirExists(t, filepath.Join(dir, "files"))
 	assert.DirExists(t, filepath.Join(dir, "kv"))
 }

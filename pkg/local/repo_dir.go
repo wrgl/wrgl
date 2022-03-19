@@ -4,29 +4,43 @@
 package local
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/dgraph-io/badger/v3"
 	"github.com/fsnotify/fsnotify"
+	"github.com/wrgl/wrgl/pkg/migrate"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objbadger "github.com/wrgl/wrgl/pkg/objects/badger"
 	"github.com/wrgl/wrgl/pkg/ref"
-	reffs "github.com/wrgl/wrgl/pkg/ref/fs"
+	refsql "github.com/wrgl/wrgl/pkg/ref/sql"
 )
 
 type RepoDir struct {
 	FullPath  string
 	badgerLog string
 	watcher   *fsnotify.Watcher
+	db        *sql.DB
 }
 
-func NewRepoDir(wrglDir string, badgerLog string) *RepoDir {
-	return &RepoDir{
+func NewRepoDir(wrglDir string, badgerLog string) (*RepoDir, error) {
+	rd := &RepoDir{
 		FullPath:  wrglDir,
 		badgerLog: strings.ToLower(badgerLog),
 	}
+	_, err := os.Stat(wrglDir)
+	if err == nil {
+		if err = migrate.Migrate(wrglDir); err != nil {
+			return nil, err
+		}
+	}
+	rd.db, err = sql.Open("sqlite3", filepath.Join(wrglDir, "sqlite.db"))
+	if err != nil {
+		return nil, err
+	}
+	return rd, nil
 }
 
 // Watcher returns a watcher that watch the repository directory
@@ -42,10 +56,6 @@ func (d *RepoDir) Watcher() (*fsnotify.Watcher, error) {
 		d.watcher = watcher
 	}
 	return d.watcher, nil
-}
-
-func (d *RepoDir) FilesPath() string {
-	return filepath.Join(d.FullPath, "files")
 }
 
 func (d *RepoDir) KVPath() string {
@@ -83,7 +93,7 @@ func (d *RepoDir) OpenObjectsTransaction() (*objbadger.Txn, error) {
 }
 
 func (d *RepoDir) OpenRefStore() ref.Store {
-	return reffs.NewStore(d.FilesPath())
+	return refsql.NewStore(d.db)
 }
 
 func (d *RepoDir) Init() error {
@@ -92,18 +102,16 @@ func (d *RepoDir) Init() error {
 			return err
 		}
 	}
-	if err := os.Mkdir(d.FilesPath(), 0755); err != nil {
+	if err := os.Mkdir(d.KVPath(), 0755); err != nil {
 		return err
 	}
-	return os.Mkdir(d.KVPath(), 0755)
+	return migrate.Migrate(d.FullPath)
 }
 
 func (d *RepoDir) Exist() bool {
-	for _, s := range []string{d.FullPath, d.FilesPath(), d.KVPath()} {
-		_, err := os.Stat(s)
-		if err != nil {
-			return false
-		}
+	_, err := os.Stat(d.KVPath())
+	if err != nil {
+		return false
 	}
 	return true
 }
@@ -148,5 +156,5 @@ func (d *RepoDir) Close() error {
 	if d.watcher != nil {
 		return d.watcher.Close()
 	}
-	return nil
+	return d.db.Close()
 }
