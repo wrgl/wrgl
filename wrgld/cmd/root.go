@@ -65,7 +65,10 @@ func RootCmd() *cobra.Command {
 			proxy := viper.GetString("proxy")
 			init := viper.GetBool("init")
 			configFrom := viper.GetString("init-config-from")
-			rd := local.NewRepoDir(dir, badgerLog)
+			rd, err := local.NewRepoDir(dir, badgerLog)
+			if err != nil {
+				return err
+			}
 			defer rd.Close()
 			if init && !rd.Exist() {
 				cmd.Printf("initializing repo at %q\n", dir)

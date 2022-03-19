@@ -22,7 +22,8 @@ func TestAuthzStore(t *testing.T) {
 	dir, err := testutils.TempDir("", "test_flatdb")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
-	rd := local.NewRepoDir(dir, "")
+	rd, err := local.NewRepoDir(dir, "")
+	require.NoError(t, err)
 	defer rd.Close()
 
 	s, err := NewAuthzStore(rd)
@@ -79,7 +80,8 @@ func TestAuthzStoreWatchFile(t *testing.T) {
 	dir, err := testutils.TempDir("", "test_flatdb")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
-	rd := local.NewRepoDir(dir, "")
+	rd, err := local.NewRepoDir(dir, "")
+	require.NoError(t, err)
 	defer rd.Close()
 
 	s, err := NewAuthzStore(rd)

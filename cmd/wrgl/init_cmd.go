@@ -43,7 +43,10 @@ func newInitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rd := local.NewRepoDir(dir, badgerLog)
+			rd, err := local.NewRepoDir(dir, badgerLog)
+			if err != nil {
+				return err
+			}
 			defer rd.Close()
 			err = rd.Init()
 			if err != nil {

@@ -34,6 +34,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/fatih/color v1.13.0
+	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 )

@@ -20,7 +20,8 @@ func TestRepoDirInit(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 	wrglDir := filepath.Join(dir, ".wrgl")
-	rd := NewRepoDir(wrglDir, "")
+	rd, err := NewRepoDir(wrglDir, "")
+	require.NoError(t, err)
 	assert.Equal(t, wrglDir, rd.FullPath)
 	assert.False(t, rd.Exist())
 	err = rd.Init()
@@ -33,8 +34,6 @@ func TestRepoDirInit(t *testing.T) {
 	require.NoError(t, err)
 	defer kvs.Close()
 
-	_, err = os.Stat(rd.FilesPath())
-	require.NoError(t, err)
 	rs := rd.OpenRefStore()
 	require.NoError(t, rs.Set("heads/my-branch", []byte("abc123")))
 	v, err := rs.Get("heads/my-branch")
@@ -95,7 +94,8 @@ func TestRepoDirWatcher(t *testing.T) {
 	dir, err := testutils.TempDir("", "test_repo_dir")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
-	rd := NewRepoDir(dir, "")
+	rd, err := NewRepoDir(dir, "")
+	require.NoError(t, err)
 	defer rd.Close()
 
 	w, err := rd.Watcher()
