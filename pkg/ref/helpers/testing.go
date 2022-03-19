@@ -5,6 +5,7 @@ package refhelpers
 
 import (
 	"bytes"
+	"io"
 	"testing"
 	"time"
 
@@ -70,4 +71,18 @@ func AssertReflogEqual(t *testing.T, a, b *ref.Reflog) {
 	if !a.Time.IsZero() {
 		assert.Equal(t, objline.EncodeTime(a.Time), objline.EncodeTime(b.Time), "Time not equal")
 	}
+}
+
+func AssertReflogReaderContains(t *testing.T, rs ref.Store, name string, logs ...*ref.Reflog) {
+	t.Helper()
+	reader, err := rs.LogReader(name)
+	require.NoError(t, err)
+	defer reader.Close()
+	for _, l := range logs {
+		v, err := reader.Read()
+		require.NoError(t, err)
+		AssertReflogEqual(t, l, v)
+	}
+	_, err = reader.Read()
+	assert.Equal(t, io.EOF, err)
 }

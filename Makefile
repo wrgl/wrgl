@@ -24,7 +24,7 @@ define binary_rule =
 echo "\$$(BUILD_DIR)/$(1)-$(3)-$(2)/bin/$(1): \$$(MD5_DIR)/go.sum.md5 \$$($(1)_SOURCES)" >> $(4) && \
 echo -e "\t@-mkdir -p \$$(dir \$$@) 2>/dev/null" >> $(4) && \
 echo -e '\tcp VERSION $(if $(findstring wrgld,$(1)),$(1)/cmd,cmd/$(1))/VERSION' >> $(4) && \
-echo -e "\tCGO_ENABLED=0 GOARCH=$(2) GOOS=$(3) go build -a -o \$$@ github.com/wrgl/wrgl/$(1)" >> $(4) && \
+echo -e "\tCGO_ENABLED=1 GOARCH=$(2) GOOS=$(3) go build -a -o \$$@ github.com/wrgl/wrgl/$(1)" >> $(4) && \
 echo "" >> $(4)
 
 endef
