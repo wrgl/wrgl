@@ -20,25 +20,26 @@ import (
 
 func TestTransaction(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
-	id, err := New(db)
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
+	id, err := rs.NewTransaction()
 	require.NoError(t, err)
 
 	sum1, com1 := factory.CommitRandom(t, db, nil)
-	require.NoError(t, Add(rs, id, "alpha", sum1))
+	require.NoError(t, ref.SaveTransactionRef(rs, *id, "alpha", sum1))
 
 	sum2, _ := factory.CommitHead(t, db, rs, "beta", nil, nil)
 	sum3, com3 := factory.CommitRandom(t, db, nil)
-	require.NoError(t, Add(rs, id, "beta", sum3))
+	require.NoError(t, ref.SaveTransactionRef(rs, *id, "beta", sum3))
 
-	m, err := Diff(rs, id)
+	m, err := Diff(rs, *id)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][2][]byte{
 		"alpha": {sum1, nil},
 		"beta":  {sum3, sum2},
 	}, m)
 
-	require.NoError(t, Commit(db, rs, id))
+	require.NoError(t, Commit(db, rs, *id))
 
 	sum, err := ref.GetHead(rs, "alpha")
 	require.NoError(t, err)
@@ -48,11 +49,13 @@ func TestTransaction(t *testing.T) {
 		AuthorName:  com1.AuthorName,
 		AuthorEmail: com1.AuthorEmail,
 		Action:      "commit",
-		Message:     fmt.Sprintf("[tx/%s] %s", id, com1.Message),
+		Message:     com1.Message,
+		Txid:        id,
 	})
 	com, err := objects.GetCommit(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, com1.Table, com.Table)
+	assert.Equal(t, fmt.Sprintf("commit [tx/%s]\n%s", id, com1.Message), com.Message)
 
 	sum, err = ref.GetHead(rs, "beta")
 	require.NoError(t, err)
@@ -63,50 +66,100 @@ func TestTransaction(t *testing.T) {
 		AuthorName:  com3.AuthorName,
 		AuthorEmail: com3.AuthorEmail,
 		Action:      "commit",
-		Message:     fmt.Sprintf("[tx/%s] %s", id, com3.Message),
+		Message:     com3.Message,
+		Txid:        id,
 	})
 	com, err = objects.GetCommit(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, com3.Table, com.Table)
 	assert.Equal(t, [][]byte{sum2}, com.Parents)
+	assert.Equal(t, fmt.Sprintf("commit [tx/%s]\n%s", id, com3.Message), com.Message)
 
-	tx, err := objects.GetTransaction(db, id)
+	tx, err := rs.GetTransaction(*id)
 	require.NoError(t, err)
 	assert.NotEmpty(t, tx.End)
-	assert.Equal(t, objects.TSCommitted, tx.Status)
+	assert.Equal(t, ref.TSCommitted, tx.Status)
+
+	// test reapply
+	sum4, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
+	require.NoError(t, Reapply(db, rs, *id, func(branch string, sum []byte, message string) {
+		switch branch {
+		case "alpha":
+			assert.NotEmpty(t, sum)
+			assert.Equal(t, fmt.Sprintf("reapply [tx/%s]\ncommit [tx/%s]\n%s", *id, *id, com1.Message), message)
+		case "beta":
+			assert.Nil(t, sum)
+			assert.Empty(t, message)
+		default:
+			t.Errorf("unexepected branch %q", branch)
+		}
+	}))
+	sum, err = ref.GetHead(rs, "alpha")
+	require.NoError(t, err)
+	com, err = objects.GetCommit(db, sum)
+	require.NoError(t, err)
+	assert.Equal(t, com1.Table, com.Table)
+	assert.Equal(t, [][]byte{sum4}, com.Parents)
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/alpha", &ref.Reflog{
+		OldOID:      sum4,
+		NewOID:      sum,
+		AuthorName:  com1.AuthorName,
+		AuthorEmail: com1.AuthorEmail,
+		Action:      "reapply",
+		Message:     fmt.Sprintf("transaction %s", *id),
+	})
+	sum, err = ref.GetHead(rs, "beta")
+	require.NoError(t, err)
+	assert.NotEqual(t, sum3, sum)
+	refhelpers.AssertLatestReflogEqual(t, rs, "heads/beta", &ref.Reflog{
+		NewOID:      sum,
+		OldOID:      sum2,
+		AuthorName:  com3.AuthorName,
+		AuthorEmail: com3.AuthorEmail,
+		Action:      "commit",
+		Message:     com3.Message,
+		Txid:        id,
+	})
+
 }
 
 func TestDiscard(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
-	id, err := New(db)
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
+	id, err := rs.NewTransaction()
 	require.NoError(t, err)
 
 	sum1, _ := factory.CommitRandom(t, db, nil)
-	require.NoError(t, Add(rs, id, "alpha", sum1))
+	require.NoError(t, ref.SaveTransactionRef(rs, *id, "alpha", sum1))
 
-	require.NoError(t, Discard(db, rs, id))
-	refs, err := ref.ListTransactionRefs(rs, id)
+	require.NoError(t, Discard(rs, *id))
+	refs, err := ref.ListTransactionRefs(rs, *id)
 	require.NoError(t, err)
 	assert.Len(t, refs, 0)
-	assert.False(t, objects.TransactionExist(db, id))
+	_, err = rs.GetTransaction(*id)
+	assert.Error(t, err)
 }
 
 func TestGarbageCollect(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 
-	id1, err := New(db)
+	id1, err := rs.NewTransaction()
 	require.NoError(t, err)
-	id2, err := New(db)
+	id2, err := rs.NewTransaction()
 	require.NoError(t, err)
 
 	time.Sleep(time.Second)
-	id3, err := New(db)
+	id3, err := rs.NewTransaction()
 	require.NoError(t, err)
 	require.NoError(t, GarbageCollect(db, rs, time.Second, nil))
 
-	assert.False(t, objects.TransactionExist(db, id1))
-	assert.False(t, objects.TransactionExist(db, id2))
-	assert.True(t, objects.TransactionExist(db, id3))
+	_, err = rs.GetTransaction(*id1)
+	assert.Error(t, err)
+	_, err = rs.GetTransaction(*id2)
+	assert.Error(t, err)
+	_, err = rs.GetTransaction(*id3)
+	require.NoError(t, err)
 }

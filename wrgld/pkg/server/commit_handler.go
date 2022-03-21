@@ -15,7 +15,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/sorter"
-	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
@@ -69,6 +68,7 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		primaryKey = strings.Split(sl[0], ",")
 	}
 	db := s.getDB(r)
+	rs := s.getRS(r)
 
 	var tid *uuid.UUID
 	if s := r.PostFormValue("txid"); s != "" {
@@ -78,7 +78,7 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 			SendError(rw, http.StatusBadRequest, "invalid txid")
 			return
 		}
-		if !objects.TransactionExist(db, *tid) {
+		if _, err := rs.GetTransaction(*tid); err != nil {
 			SendError(rw, http.StatusNotFound, "transaction not found")
 			return
 		}
@@ -109,7 +109,6 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		AuthorEmail: email,
 		AuthorName:  name,
 	}
-	rs := s.getRS(r)
 	parent, _ := ref.GetHead(rs, branch)
 	if parent != nil {
 		commit.Parents = [][]byte{parent}
@@ -124,10 +123,10 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	if tid != nil {
-		if err = transaction.Add(rs, *tid, branch, commitSum); err != nil {
+		if err = ref.SaveTransactionRef(rs, *tid, branch, commitSum); err != nil {
 			panic(err)
 		}
-	} else if err = ref.CommitHead(rs, branch, commitSum, commit); err != nil {
+	} else if err = ref.CommitHead(rs, branch, commitSum, commit, nil); err != nil {
 		panic(err)
 	}
 	if s.postCommit != nil {

@@ -45,7 +45,7 @@ func TestMergeCmdCommitCSV(t *testing.T) {
 		"2,a,s",
 		"3,z,x",
 	}, []uint32{0}, [][]byte{base})
-	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2, nil))
 	require.NoError(t, db.Close())
 
 	_, fp := createCSVFile(t, []string{
@@ -110,7 +110,7 @@ func TestMergeCmdCommitCSVCustomMessage(t *testing.T) {
 		"2,a,s",
 		"3,z,x",
 	}, []uint32{0}, [][]byte{base})
-	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2, nil))
 	require.NoError(t, db.Close())
 
 	_, fp := createCSVFile(t, []string{
@@ -173,7 +173,7 @@ func TestMergeCmdNoGUI(t *testing.T) {
 		"1,q,w",
 		"3,z,x",
 	}, []uint32{0}, [][]byte{base})
-	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2, nil))
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
@@ -248,7 +248,7 @@ func TestMergeCmdAutoResolve(t *testing.T) {
 		"2,a,s,k",
 		"3,z,x,l",
 	}, []uint32{0}, [][]byte{base})
-	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum2, com2, nil))
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
@@ -308,8 +308,8 @@ func TestMergeCmdFastForward(t *testing.T) {
 	rs := rd.OpenRefStore()
 	base, baseCom := factory.CommitRandom(t, db, nil)
 	sum1, com1 := factory.CommitRandom(t, db, [][]byte{base})
-	require.NoError(t, ref.CommitHead(rs, "branch-1", base, baseCom))
-	require.NoError(t, ref.CommitHead(rs, "branch-2", sum1, com1))
+	require.NoError(t, ref.CommitHead(rs, "branch-1", base, baseCom, nil))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum1, com1, nil))
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
@@ -346,8 +346,8 @@ func TestMergeCmdNoFF(t *testing.T) {
 	rs := rd.OpenRefStore()
 	base, baseCom := factory.CommitRandom(t, db, nil)
 	sum1, com1 := factory.CommitRandom(t, db, [][]byte{base})
-	require.NoError(t, ref.CommitHead(rs, "branch-1", base, baseCom))
-	require.NoError(t, ref.CommitHead(rs, "branch-2", sum1, com1))
+	require.NoError(t, ref.CommitHead(rs, "branch-1", base, baseCom, nil))
+	require.NoError(t, ref.CommitHead(rs, "branch-2", sum1, com1, nil))
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()

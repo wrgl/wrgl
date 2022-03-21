@@ -51,7 +51,7 @@ func (s *testSuite) TestGetCommits(t *testing.T) {
 	sum5, com5 := factory.CommitRandom(t, db, [][]byte{sum3})
 	sum6, com6 := factory.CommitRandom(t, db, [][]byte{sum4})
 	sum7, com7 := factory.CommitRandom(t, db, [][]byte{sum5, sum6})
-	require.NoError(t, ref.CommitHead(rs, "main", sum7, com7))
+	require.NoError(t, ref.CommitHead(rs, "main", sum7, com7, nil))
 
 	_, err := cli.GetCommits("heads/beta", 0)
 	assert.Error(t, err)

@@ -63,7 +63,7 @@ func newResetCmd() *cobra.Command {
 				}
 				return fmt.Errorf("cannot reset branch to a shallow commit: table %x is missing", com.Table)
 			}
-			return ref.SaveRef(rs, "heads/"+branch, hash, c.User.Name, c.User.Email, "reset", "to commit "+hex.EncodeToString(hash))
+			return ref.SaveRef(rs, "heads/"+branch, hash, c.User.Name, c.User.Email, "reset", "to commit "+hex.EncodeToString(hash), nil)
 		},
 	}
 	return cmd

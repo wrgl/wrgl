@@ -22,14 +22,15 @@ import (
 
 func TestClosedSetsFinder(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, c1 := factory.CommitRandom(t, db, nil)
 	sum2, c2 := factory.CommitRandom(t, db, nil)
 	sum3, c3 := factory.CommitRandom(t, db, [][]byte{sum1})
 	sum4, c4 := factory.CommitRandom(t, db, [][]byte{sum2})
 	sum5, c5 := factory.CommitRandom(t, db, [][]byte{sum3})
 	sum6, c6 := factory.CommitRandom(t, db, [][]byte{sum4})
-	require.NoError(t, ref.CommitHead(rs, "main", sum5, c5))
+	require.NoError(t, ref.CommitHead(rs, "main", sum5, c5, nil))
 	require.NoError(t, ref.SaveTag(rs, "v1", sum6))
 
 	// send everything if haves are empty
@@ -65,7 +66,8 @@ func TestClosedSetsFinder(t *testing.T) {
 
 func TestClosedSetsFinderACKs(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, _ := factory.CommitRandom(t, db, nil)
 	sum2, _ := factory.CommitRandom(t, db, nil)
 	sum3, _ := factory.CommitRandom(t, db, nil)
@@ -75,9 +77,9 @@ func TestClosedSetsFinderACKs(t *testing.T) {
 	sum7, c7 := factory.CommitRandom(t, db, [][]byte{sum5})
 	sum8, c8 := factory.CommitRandom(t, db, nil)
 	sum9, c9 := factory.CommitRandom(t, db, [][]byte{sum8})
-	require.NoError(t, ref.CommitHead(rs, "alpha", sum6, c6))
+	require.NoError(t, ref.CommitHead(rs, "alpha", sum6, c6, nil))
 	require.NoError(t, ref.SaveTag(rs, "v1", sum7))
-	require.NoError(t, ref.CommitHead(rs, "beta", sum9, c9))
+	require.NoError(t, ref.CommitHead(rs, "beta", sum9, c9, nil))
 
 	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
 	acks, err := finder.Process([][]byte{sum6, sum7, sum9}, [][]byte{sum1}, false)
@@ -106,10 +108,11 @@ func TestClosedSetsFinderACKs(t *testing.T) {
 
 func TestClosedSetsFinderUnrecognizedWants(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, _ := factory.CommitRandom(t, db, nil)
 	sum2, c2 := factory.CommitRandom(t, db, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2, nil))
 	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
 
 	sum3, _ := refhelpers.SaveTestCommit(t, db, [][]byte{sum2})
@@ -123,14 +126,15 @@ func TestClosedSetsFinderUnrecognizedWants(t *testing.T) {
 
 func TestClosedSetsFinderDepth(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, c1 := factory.CommitRandom(t, db, nil)
 	sum2, c2 := factory.CommitRandom(t, db, [][]byte{sum1})
 	sum3, c3 := factory.CommitRandom(t, db, [][]byte{sum2})
 	sum4, c4 := factory.CommitRandom(t, db, [][]byte{sum3})
 	sum5, c5 := factory.CommitRandom(t, db, nil)
 	sum6, c6 := factory.CommitRandom(t, db, [][]byte{sum4, sum5})
-	require.NoError(t, ref.CommitHead(rs, "main", sum6, c6))
+	require.NoError(t, ref.CommitHead(rs, "main", sum6, c6, nil))
 
 	finder := apiutils.NewClosedSetsFinder(db, rs, 2)
 	acks, err := finder.Process([][]byte{sum4}, nil, true)

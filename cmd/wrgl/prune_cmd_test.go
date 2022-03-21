@@ -115,7 +115,7 @@ func TestPruneCmdSmallCommits(t *testing.T) {
 	assertBlocksCount(t, db, 4)
 	assertBlockIndicesCount(t, db, 4)
 	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
-	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning"))
+	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning", nil))
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()

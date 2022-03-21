@@ -18,7 +18,8 @@ import (
 
 func TestFindRemoteThatMightHaveCommit(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 
 	f, err := NewRemoteFinder(db, rs)
 	require.NoError(t, err)
@@ -32,7 +33,7 @@ func TestFindRemoteThatMightHaveCommit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, remote)
 
-	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
+	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1, nil))
 	f, err = NewRemoteFinder(db, rs)
 	require.NoError(t, err)
 	remote, err = f.FindRemoteFor(sum1)
@@ -58,7 +59,8 @@ func TestFindRemoteThatMightHaveCommit(t *testing.T) {
 
 func TestGetTable(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 
 	_, c1 := factory.CommitRandom(t, db, nil)
 	tbl, err := GetTable(db, rs, c1)

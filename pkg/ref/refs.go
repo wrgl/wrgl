@@ -38,10 +38,10 @@ func RemoteRef(remote, name string) string {
 }
 
 func SaveFetchRef(s Store, name string, commit []byte, authorName, authorEmail, remote, message string) error {
-	return SaveRef(s, name, commit, authorName, authorEmail, "fetch", fmt.Sprintf("[from %s] %s", remote, message))
+	return SaveRef(s, name, commit, authorName, authorEmail, "fetch", fmt.Sprintf("[from %s] %s", remote, message), nil)
 }
 
-func SaveRef(s Store, name string, commit []byte, authorName, authorEmail, action, message string) error {
+func SaveRef(s Store, name string, commit []byte, authorName, authorEmail, action, message string, txid *uuid.UUID) error {
 	reflog := &Reflog{
 		AuthorName:  authorName,
 		AuthorEmail: authorEmail,
@@ -49,6 +49,7 @@ func SaveRef(s Store, name string, commit []byte, authorName, authorEmail, actio
 		Message:     message,
 		Time:        time.Now(),
 		NewOID:      commit,
+		Txid:        txid,
 	}
 	if b, err := s.Get(name); err == nil {
 		reflog.OldOID = b
@@ -56,15 +57,16 @@ func SaveRef(s Store, name string, commit []byte, authorName, authorEmail, actio
 	return s.SetWithLog(name, commit, reflog)
 }
 
-func CommitHead(s Store, name string, sum []byte, commit *objects.Commit) error {
-	i := bytes.IndexByte([]byte(commit.Message), '\n')
-	var message string
+func FirstLine(s string) string {
+	i := bytes.IndexByte([]byte(s), '\n')
 	if i == -1 {
-		message = commit.Message
-	} else {
-		message = commit.Message[:i]
+		return s
 	}
-	return SaveRef(s, HeadRef(name), sum, commit.AuthorName, commit.AuthorEmail, "commit", message)
+	return s[:i]
+}
+
+func CommitHead(s Store, name string, sum []byte, commit *objects.Commit, txid *uuid.UUID) error {
+	return SaveRef(s, HeadRef(name), sum, commit.AuthorName, commit.AuthorEmail, "commit", FirstLine(commit.Message), txid)
 }
 
 func CommitMerge(s Store, branch string, sum []byte, commit *objects.Commit) error {
@@ -74,7 +76,7 @@ func CommitMerge(s Store, branch string, sum []byte, commit *objects.Commit) err
 	}
 	return SaveRef(s, HeadRef(branch), sum, commit.AuthorName, commit.AuthorEmail, "merge", fmt.Sprintf(
 		"merge %s", strings.Join(parents, ", "),
-	))
+	), nil)
 }
 
 func SaveTag(s Store, name string, sum []byte) error {
@@ -82,7 +84,7 @@ func SaveTag(s Store, name string, sum []byte) error {
 }
 
 func SaveRemoteRef(s Store, remote, name string, commit []byte, authorName, authorEmail, action, message string) error {
-	return SaveRef(s, RemoteRef(remote, name), commit, authorName, authorEmail, action, message)
+	return SaveRef(s, RemoteRef(remote, name), commit, authorName, authorEmail, action, message, nil)
 }
 
 func SaveTransactionRef(s Store, tid uuid.UUID, branch string, sum []byte) error {

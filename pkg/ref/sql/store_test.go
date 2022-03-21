@@ -2,9 +2,12 @@ package refsql
 
 import (
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,25 +23,7 @@ func testSqliteDB(t *testing.T) (*sql.DB, func()) {
 	db, err := sql.Open("sqlite3", filepath.Join(dir, "sqlite.db"))
 	require.NoError(t, err)
 	require.NoError(t, sqlutil.RunInTx(db, func(tx *sql.Tx) error {
-		for _, stmt := range []string{
-			`CREATE TABLE refs (
-				name TEXT NOT NULL PRIMARY KEY,
-				sum  BLOB NOT NULL
-			)`,
-			`CREATE TABLE reflogs (
-				ref         TEXT NOT NULL,
-				ordinal     INTEGER NOT NULL,
-				oldoid      BLOB,
-				newoid      BLOB NOT NULL,
-				authorname  TEXT NOT NULL DEFAULT '',
-				authoremail TEXT NOT NULL DEFAULT '',
-				time        DATETIME NOT NULL,
-				action      TEXT NOT NULL DEFAULT '',
-				message     TEXT NOT NULL DEFAULT '',
-				PRIMARY KEY (ref, ordinal),
-				FOREIGN KEY (ref) REFERENCES refs(name)
-			)`,
-		} {
+		for _, stmt := range CreateTableStmts {
 			if _, err := tx.Exec(stmt); err != nil {
 				return err
 			}
@@ -90,7 +75,8 @@ func TestStore(t *testing.T) {
 	_, err = s.Get("heads/beta")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
 	refhelpers.AssertReflogReaderContains(t, s, "heads/beta-2", rl2, rl1)
-	refhelpers.AssertReflogReaderContains(t, s, "heads/beta")
+	_, err = s.LogReader("heads/beta")
+	assert.Error(t, err)
 
 	keys, err := s.FilterKey("heads/")
 	require.NoError(t, err)
@@ -122,5 +108,118 @@ func TestStore(t *testing.T) {
 	require.NoError(t, s.Delete("heads/beta-1"))
 	_, err = s.Get("heads/beta-1")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
-	refhelpers.AssertReflogReaderContains(t, s, "heads/beta-1")
+	_, err = s.LogReader("heads/beta-1")
+	assert.Error(t, err)
+}
+
+func TestCreateTransaction(t *testing.T) {
+	db, cleanup := testSqliteDB(t)
+	defer cleanup()
+	s := NewStore(db)
+
+	txid, err := s.NewTransaction()
+	require.NoError(t, err)
+
+	tx, err := s.GetTransaction(*txid)
+	require.NoError(t, err)
+	assert.Equal(t, tx.ID, *txid)
+	assert.NotEmpty(t, tx.Begin)
+	assert.Equal(t, ref.TSInProgress, tx.Status)
+	assert.Empty(t, tx.End)
+
+	tx.End = time.Now()
+	tx.Status = ref.TSCommitted
+	require.NoError(t, s.UpdateTransaction(tx))
+	tx2, err := s.GetTransaction(*txid)
+	require.NoError(t, err)
+	refhelpers.AssertTransactionEqual(t, tx, tx2)
+
+	txid2, err := s.NewTransaction()
+	require.NoError(t, err)
+	require.NoError(t, s.DeleteTransaction(*txid2))
+
+	txid3, err := s.NewTransaction()
+	require.NoError(t, err)
+	txid4, err := s.NewTransaction()
+	require.NoError(t, err)
+
+	time.Sleep(time.Second)
+	txid5, err := s.NewTransaction()
+	require.NoError(t, err)
+	ids, err := s.GCTransactions(time.Second)
+	require.NoError(t, err)
+	assert.Equal(t, []uuid.UUID{*txid3, *txid4}, ids)
+	_, err = s.GetTransaction(*txid3)
+	assert.Error(t, err)
+	_, err = s.GetTransaction(*txid4)
+	assert.Error(t, err)
+	_, err = s.GetTransaction(*txid5)
+	require.NoError(t, err)
+
+	assert.Equal(t, fmt.Errorf("cannot discard committed transaction"), s.DeleteTransaction(*txid))
+}
+
+func TestTransactionLog(t *testing.T) {
+	db, cleanup := testSqliteDB(t)
+	defer cleanup()
+	s := NewStore(db)
+
+	txid, err := s.NewTransaction()
+	require.NoError(t, err)
+
+	rl1 := refhelpers.RandomReflog()
+	rl1.OldOID = nil
+	require.NoError(t, s.SetWithLog("heads/alpha", rl1.NewOID, rl1))
+
+	rl2 := refhelpers.RandomReflog()
+	rl2.OldOID = rl1.NewOID
+	rl2.Txid = txid
+	require.NoError(t, s.SetWithLog("heads/alpha", rl2.NewOID, rl2))
+
+	refhelpers.AssertLatestReflogEqual(t, s, "heads/alpha", rl2)
+
+	rl3 := refhelpers.RandomReflog()
+	rl3.OldOID = nil
+	rl3.Txid = txid
+	require.NoError(t, s.SetWithLog("heads/beta", rl3.NewOID, rl3))
+
+	m, err := s.GetTransactionLogs(*txid)
+	require.NoError(t, err)
+	assert.Len(t, m, 2)
+	refhelpers.AssertReflogEqual(t, rl2, m["heads/alpha"])
+	refhelpers.AssertReflogEqual(t, rl3, m["heads/beta"])
+}
+
+func TestListTransactions(t *testing.T) {
+	db, cleanup := testSqliteDB(t)
+	defer cleanup()
+	s := NewStore(db)
+
+	txids := []*uuid.UUID{}
+	for i := 0; i < 4; i++ {
+		txid, err := s.NewTransaction()
+		require.NoError(t, err)
+		txids = append(txids, txid)
+	}
+
+	txs := make([]*ref.Transaction, len(txids))
+	for i, txid := range txids {
+		tx, err := s.GetTransaction(*txid)
+		require.NoError(t, err)
+		txs[i] = tx
+	}
+
+	txs[0].Status = ref.TSCommitted
+	txs[0].End = time.Now()
+	require.NoError(t, s.UpdateTransaction(txs[0]))
+
+	sl, err := s.ListTransactions(0, 10)
+	require.NoError(t, err)
+	refhelpers.AssertTransactionSliceEqual(t, []*ref.Transaction{
+		txs[3], txs[2], txs[1], txs[0],
+	}, sl)
+
+	sl, err = s.ListTransactions(1, 2)
+	require.NoError(t, err)
+	refhelpers.AssertTransactionSliceEqual(t, []*ref.Transaction{txs[2], txs[1]}, sl)
 }

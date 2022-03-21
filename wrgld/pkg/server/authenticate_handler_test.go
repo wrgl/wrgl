@@ -29,7 +29,7 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	rs := srv.GetRS(repo)
 	sum1, _ := factory.CommitRandom(t, db, nil)
 	sum2, com := factory.CommitRandom(t, db, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rs, "main", sum2, com))
+	require.NoError(t, ref.CommitHead(rs, "main", sum2, com, nil))
 	email := "user@test.com"
 	name := "John Doe"
 

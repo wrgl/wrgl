@@ -207,7 +207,7 @@ func runMerge(
 			}
 			return createMergeCommit(cmd, db, rs, commitNames, com.Table, commits, message, c)
 		}
-		err = ref.SaveRef(rs, name, nonAncestralCommits[0], c.User.Name, c.User.Email, "merge", "fast-forward")
+		err = ref.SaveRef(rs, name, nonAncestralCommits[0], c.User.Name, c.User.Email, "merge", "fast-forward", nil)
 		if err != nil {
 			return err
 		}

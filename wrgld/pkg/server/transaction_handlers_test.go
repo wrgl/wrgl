@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
@@ -60,8 +61,10 @@ func (s *testSuite) TestTransaction(t *testing.T) {
 	resp, err = cli.CommitTransaction(tid)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	_, err = cli.GetTransaction(tid)
-	assert.Error(t, err)
+	gtr, err = cli.GetTransaction(tid)
+	require.NoError(t, err)
+	assert.Equal(t, string(ref.TSCommitted), gtr.Status)
+	assert.NotEmpty(t, gtr.End)
 
 	com1, err := cli.GetHead("alpha")
 	require.NoError(t, err)

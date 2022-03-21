@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/encoding/objline"
 )
 
@@ -24,6 +25,7 @@ type Reflog struct {
 	Time        time.Time
 	Action      string
 	Message     string
+	Txid        *uuid.UUID
 }
 
 func (rec *Reflog) WriteTo(w io.Writer) (total int64, err error) {

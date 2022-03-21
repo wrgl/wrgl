@@ -43,17 +43,18 @@ func (s *testSuite) TestReceivePackHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	factory.CopyCommitsToNewStore(t, db, dbc, [][]byte{sum1, sum2, sum7})
 	sum4, c4 := factory.CommitRandom(t, dbc, [][]byte{sum1})
 	sum5, c5 := factory.CommitRandom(t, dbc, nil)
 	sum9, _ := factory.CommitRandom(t, dbc, nil)
 	sum6, c6 := factory.CommitRandom(t, dbc, [][]byte{sum9})
 	sum8, c8 := factory.CommitRandom(t, dbc, nil)
-	require.NoError(t, ref.CommitHead(rsc, "alpha", sum4, c4))
-	require.NoError(t, ref.CommitHead(rsc, "gamma", sum5, c5))
-	require.NoError(t, ref.CommitHead(rsc, "delta", sum6, c6))
-	require.NoError(t, ref.CommitHead(rsc, "theta", sum8, c8))
+	require.NoError(t, ref.CommitHead(rsc, "alpha", sum4, c4, nil))
+	require.NoError(t, ref.CommitHead(rsc, "gamma", sum5, c5, nil))
+	require.NoError(t, ref.CommitHead(rsc, "delta", sum6, c6, nil))
+	require.NoError(t, ref.CommitHead(rsc, "theta", sum8, c8, nil))
 
 	updates := map[string]*payload.Update{
 		"refs/heads/alpha": {OldSum: payload.BytesToHex(sum1), Sum: payload.BytesToHex(sum4)}, // fast-forward
@@ -124,9 +125,10 @@ func (s *testSuite) TestReceivePackHandlerNoDeletesNoFastForwards(t *testing.T) 
 	require.NoError(t, err)
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum3, c3 := factory.CommitRandom(t, dbc, nil)
-	require.NoError(t, ref.CommitHead(rsc, "alpha", sum3, c3))
+	require.NoError(t, ref.CommitHead(rsc, "alpha", sum3, c3, nil))
 
 	updates := map[string]*payload.Update{
 		"refs/heads/alpha": {OldSum: payload.BytesToHex(sum1), Sum: payload.BytesToHex(sum3)},
@@ -150,10 +152,11 @@ func (s *testSuite) TestReceivePackHandlerMultiplePackfiles(t *testing.T) {
 	require.NoError(t, err)
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, _ := factory.CommitRandomN(t, dbc, 5, 1000, nil)
 	sum2, c2 := factory.CommitRandomN(t, dbc, 5, 1000, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rsc, "alpha", sum2, c2))
+	require.NoError(t, ref.CommitHead(rsc, "alpha", sum2, c2, nil))
 
 	updates := map[string]*payload.Update{
 		"refs/heads/alpha": {Sum: payload.BytesToHex(sum2)},
@@ -175,9 +178,10 @@ func (s *testSuite) TestReceivePackHandlerCustomHeader(t *testing.T) {
 	require.NoError(t, err)
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, c1 := factory.CommitRandomN(t, dbc, 3, 4, nil)
-	require.NoError(t, ref.CommitHead(rsc, "alpha", sum1, c1))
+	require.NoError(t, ref.CommitHead(rsc, "alpha", sum1, c1, nil))
 
 	updates := map[string]*payload.Update{
 		"refs/heads/alpha": {Sum: payload.BytesToHex(sum1)},
@@ -201,10 +205,11 @@ func (s *testSuite) TestReceivePackRejectsShallowCommits(t *testing.T) {
 	require.NoError(t, err)
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, c1 := refhelpers.SaveTestCommit(t, dbc, nil)
 	sum2, c2 := factory.CommitRandomN(t, dbc, 3, 4, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rsc, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rsc, "main", sum2, c2, nil))
 	_, err = apiclient.NewReceivePackSession(dbc, rsc, cli, map[string]*payload.Update{"refs/heads/main": {Sum: payload.BytesToHex(sum2)}}, remoteRefs, 0, nil)
 	assert.Equal(t, apiclient.NewShallowCommitError(sum1, c1.Table), err)
 }

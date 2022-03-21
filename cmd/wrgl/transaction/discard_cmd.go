@@ -20,17 +20,12 @@ func discardCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
-			db, err := rd.OpenObjectsStore()
-			if err != nil {
-				return err
-			}
-			defer db.Close()
 			rs := rd.OpenRefStore()
 			id, err := uuid.Parse(args[0])
 			if err != nil {
 				return fmt.Errorf("error parsing transaction id: %v", err)
 			}
-			if err = transaction.Discard(db, rs, id); err != nil {
+			if err = transaction.Discard(rs, id); err != nil {
 				return fmt.Errorf("error discarding transaction: %v", err)
 			}
 			return nil

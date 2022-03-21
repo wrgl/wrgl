@@ -14,6 +14,7 @@ import (
 func TestGCCmd(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
+	rs := rd.OpenRefStore()
 	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	sum, _ := factory.CommitRandom(t, db, nil)
@@ -35,6 +36,7 @@ func TestGCCmd(t *testing.T) {
 	assert.False(t, objects.CommitExist(db, sum))
 	tid, err := uuid.Parse(txid)
 	require.NoError(t, err)
-	assert.False(t, objects.TransactionExist(db, tid))
+	_, err = rs.GetTransaction(tid)
+	assert.Error(t, err)
 	require.NoError(t, db.Close())
 }

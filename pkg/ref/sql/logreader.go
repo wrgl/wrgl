@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"io"
 
+	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -18,13 +19,17 @@ func (l *ReflogReader) Read() (*ref.Reflog, error) {
 		return nil, io.EOF
 	}
 	row := l.db.QueryRow(
-		`SELECT oldoid, newoid, authorname, authoremail, time, action, message
+		`SELECT oldoid, newoid, authorname, authoremail, time, action, message, txid
 		FROM reflogs WHERE ref = ? AND ordinal = ?`,
 		l.ref, l.ordinal,
 	)
 	rl := &ref.Reflog{}
-	if err := row.Scan(&rl.OldOID, &rl.NewOID, &rl.AuthorName, &rl.AuthorEmail, &rl.Time, &rl.Action, &rl.Message); err != nil {
+	var txid *uuid.UUID
+	if err := row.Scan(&rl.OldOID, &rl.NewOID, &rl.AuthorName, &rl.AuthorEmail, &rl.Time, &rl.Action, &rl.Message, &txid); err != nil {
 		return nil, err
+	}
+	if txid != nil {
+		rl.Txid = txid
 	}
 	l.ordinal -= 1
 	return rl, nil

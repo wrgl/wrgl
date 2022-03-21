@@ -88,8 +88,8 @@ func TestFetchCmd(t *testing.T) {
 	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
 	sum3, c3 := factory.CommitRandom(t, dbs, nil)
 	sum4, c4 := factory.CommitRandom(t, dbs, [][]byte{sum3})
-	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
-	require.NoError(t, ref.CommitHead(rss, "tickets", sum4, c4))
+	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2, nil))
+	require.NoError(t, ref.CommitHead(rss, "tickets", sum4, c4, nil))
 	require.NoError(t, ref.SaveTag(rss, "2020", sum1))
 
 	rd, cleanUp := createRepoDir(t)
@@ -98,8 +98,8 @@ func TestFetchCmd(t *testing.T) {
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
 	factory.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum3})
-	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
-	require.NoError(t, ref.CommitHead(rs, "tickets", sum3, c3))
+	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1, nil))
+	require.NoError(t, ref.CommitHead(rs, "tickets", sum3, c3, nil))
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
@@ -169,21 +169,21 @@ func TestFetchCmdAllRepos(t *testing.T) {
 	db1 := ts.GetDB(repo)
 	rs1 := ts.GetRS(repo)
 	sum1, c1 := factory.CommitRandom(t, db1, nil)
-	require.NoError(t, ref.CommitHead(rs1, "main", sum1, c1))
+	require.NoError(t, ref.CommitHead(rs1, "main", sum1, c1, nil))
 
 	repo, url2, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db2 := ts.GetDB(repo)
 	rs2 := ts.GetRS(repo)
 	sum2, c2 := factory.CommitRandom(t, db2, nil)
-	require.NoError(t, ref.CommitHead(rs2, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rs2, "main", sum2, c2, nil))
 
 	repo, url3, _, cleanup := ts.NewRemote(t, "", nil)
 	defer cleanup()
 	db3 := ts.GetDB(repo)
 	rs3 := ts.GetRS(repo)
 	sum3, c3 := factory.CommitRandom(t, db3, nil)
-	require.NoError(t, ref.CommitHead(rs3, "main", sum3, c3))
+	require.NoError(t, ref.CommitHead(rs3, "main", sum3, c3, nil))
 
 	rd, cleanUp := createRepoDir(t)
 	rs := rd.OpenRefStore()
@@ -242,7 +242,7 @@ func TestFetchCmdCustomRefSpec(t *testing.T) {
 	db1 := ts.GetDB(repo)
 	rs1 := ts.GetRS(repo)
 	sum1, _ := factory.CommitRandom(t, db1, nil)
-	require.NoError(t, ref.SaveRef(rs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom"))
+	require.NoError(t, ref.SaveRef(rs1, "custom/abc", sum1, "test", "test@domain.com", "test", "test fetch custom", nil))
 
 	rd, cleanUp := createRepoDir(t)
 	rs := rd.OpenRefStore()
@@ -371,7 +371,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	db1 := ts.GetDB(repo)
 	rs1 := ts.GetRS(repo)
 	sum1, c1 := factory.CommitRandom(t, db1, nil)
-	require.NoError(t, ref.CommitHead(rs1, "abc", sum1, c1))
+	require.NoError(t, ref.CommitHead(rs1, "abc", sum1, c1, nil))
 
 	rd, cleanUp := createRepoDir(t)
 	db, err := rd.OpenObjectsStore()
@@ -379,7 +379,7 @@ func TestFetchCmdForceUpdate(t *testing.T) {
 	defer cleanUp()
 	rs := rd.OpenRefStore()
 	sum2, c2 := factory.CommitRandom(t, db, nil)
-	require.NoError(t, ref.CommitHead(rs, "abc", sum2, c2))
+	require.NoError(t, ref.CommitHead(rs, "abc", sum2, c2, nil))
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
@@ -431,7 +431,7 @@ func TestFetchCmdDepth(t *testing.T) {
 	rss := ts.GetRS(repo)
 	sum1, c1 := factory.CommitRandom(t, dbs, nil)
 	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2, nil))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()

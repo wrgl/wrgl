@@ -28,12 +28,12 @@ func TestPullCmd(t *testing.T) {
 	rss := ts.GetRS(repo)
 	sum1, _ := factory.CommitRandom(t, dbs, nil)
 	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rss, "main", sum2, c2, nil))
 	sum4, c4 := factory.CommitRandom(t, dbs, nil)
 	sum5, c5 := factory.CommitRandom(t, dbs, [][]byte{sum4})
-	require.NoError(t, ref.CommitHead(rss, "beta", sum5, c5))
+	require.NoError(t, ref.CommitHead(rss, "beta", sum5, c5, nil))
 	sum6, c6 := factory.CommitRandom(t, dbs, nil)
-	require.NoError(t, ref.CommitHead(rss, "gamma", sum6, c6))
+	require.NoError(t, ref.CommitHead(rss, "gamma", sum6, c6, nil))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -41,7 +41,7 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, err)
 	rs := rd.OpenRefStore()
 	factory.CopyCommitsToNewStore(t, dbs, db, [][]byte{sum1, sum4})
-	require.NoError(t, ref.CommitHead(rs, "beta", sum4, c4))
+	require.NoError(t, ref.CommitHead(rs, "beta", sum4, c4, nil))
 	require.NoError(t, db.Close())
 
 	cmd := rootCmd()
@@ -66,7 +66,7 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	sum3, c3 := factory.CommitRandom(t, dbs, [][]byte{sum2})
-	require.NoError(t, ref.CommitHead(rss, "main", sum3, c3))
+	require.NoError(t, ref.CommitHead(rss, "main", sum3, c3, nil))
 
 	// pull with upstream already set
 	cmd = rootCmd()
@@ -120,7 +120,7 @@ func TestPullCmd(t *testing.T) {
 
 	// pull from public repo as an anynomous user
 	sum7, c7 := factory.CommitRandom(t, dbs, [][]byte{sum3})
-	require.NoError(t, ref.CommitHead(rss, "main", sum7, c7))
+	require.NoError(t, ref.CommitHead(rss, "main", sum7, c7, nil))
 	unauthenticate(t, url)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"pull", "main"})

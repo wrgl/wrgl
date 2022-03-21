@@ -105,6 +105,7 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(hub.RootCmd())
 	rootCmd.AddCommand(transaction.RootCmd())
 	rootCmd.AddCommand(gcCmd())
+	rootCmd.AddCommand(reapplyCmd())
 	return rootCmd
 }
 

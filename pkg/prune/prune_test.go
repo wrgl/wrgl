@@ -76,13 +76,14 @@ func assertSetEqual(t *testing.T, sl1, sl2 [][]byte) {
 
 func TestFindAllCommitsToRemove(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
 	sum2, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
 	sum3, _ := factory.CommitHead(t, db, rs, "branch-1", nil, nil)
 	sum4, _ := factory.CommitHead(t, db, rs, "branch-2", nil, nil)
 	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
-	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum2, "test", "test@domain.com", "test", "test pruning"))
+	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum2, "test", "test@domain.com", "test", "test pruning", nil))
 
 	commitsToRemove, survivingCommits, err := findCommitsToRemove(db, rs, func() {})
 	require.NoError(t, err)
@@ -92,7 +93,8 @@ func TestFindAllCommitsToRemove(t *testing.T) {
 
 func TestPruneSmallCommits(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, _ := factory.CommitHead(t, db, rs, "branch-1", []string{
 		"a,b,c",
 		"1,q,w",
@@ -130,7 +132,7 @@ func TestPruneSmallCommits(t *testing.T) {
 	assertBlocksCount(t, db, 4)
 	assertBlockIndicesCount(t, db, 4)
 	require.NoError(t, ref.DeleteHead(rs, "branch-2"))
-	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning"))
+	require.NoError(t, ref.SaveRef(rs, "heads/branch-1", sum1, "test", "test@domain.com", "test", "test pruning", nil))
 
 	require.NoError(t, Prune(db, rs, nil))
 

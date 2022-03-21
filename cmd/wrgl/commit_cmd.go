@@ -24,7 +24,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/sorter"
-	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
 func newCommitCmd() *cobra.Command {
@@ -312,9 +311,9 @@ func commitWithTable(cmd *cobra.Command, c *conf.Config, db objects.Store, rs re
 
 func saveHead(rs ref.Store, branch string, commitSum []byte, commit *objects.Commit, tid *uuid.UUID) error {
 	if tid != nil {
-		return transaction.Add(rs, *tid, branch, commitSum)
+		return ref.SaveTransactionRef(rs, *tid, branch, commitSum)
 	}
-	return ref.CommitHead(rs, branch, commitSum, commit)
+	return ref.CommitHead(rs, branch, commitSum, commit, nil)
 }
 
 func commitIfBranchFileHasChanged(

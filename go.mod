@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/casbin/casbin/v2 v2.36.1
-	github.com/davecgh/go-spew v1.1.1
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2103.1
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/gdamore/tcell/v2 v2.3.9

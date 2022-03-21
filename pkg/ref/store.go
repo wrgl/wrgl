@@ -3,7 +3,12 @@
 
 package ref
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type ReflogReader interface {
 	Read() (*Reflog, error)
@@ -20,6 +25,14 @@ type Store interface {
 	Rename(oldKey, newKey string) (err error)
 	Copy(srcKey, dstKey string) (err error)
 	LogReader(key string) (ReflogReader, error)
+
+	NewTransaction() (*uuid.UUID, error)
+	GetTransaction(id uuid.UUID) (*Transaction, error)
+	UpdateTransaction(tx *Transaction) error
+	DeleteTransaction(id uuid.UUID) error
+	GCTransactions(txTTL time.Duration) (ids []uuid.UUID, err error)
+	GetTransactionLogs(txid uuid.UUID) (logs map[string]*Reflog, err error)
+	ListTransactions(offset, limit int) (txs []*Transaction, err error)
 }
 
 var ErrKeyNotFound = fmt.Errorf("key not found")

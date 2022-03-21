@@ -8,13 +8,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/api/payload"
-	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
 var transactionURIPat = regexp.MustCompile(`/transactions/([0-9a-f-]+)/`)
 
-func extractTransactionID(rw http.ResponseWriter, r *http.Request, db objects.Store) (*uuid.UUID, *objects.Transaction, bool) {
+func extractTransactionID(rw http.ResponseWriter, r *http.Request, rs ref.Store) (*uuid.UUID, *ref.Transaction, bool) {
 	m := transactionURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
 		SendHTTPError(rw, http.StatusNotFound)
@@ -25,7 +25,7 @@ func extractTransactionID(rw http.ResponseWriter, r *http.Request, db objects.St
 		SendError(rw, http.StatusBadRequest, "invalid transaction id")
 		return nil, nil, false
 	}
-	tx, err := objects.GetTransaction(db, tid)
+	tx, err := rs.GetTransaction(tid)
 	if err != nil {
 		SendError(rw, http.StatusNotFound, "transaction not found")
 		return nil, nil, false
@@ -34,18 +34,19 @@ func extractTransactionID(rw http.ResponseWriter, r *http.Request, db objects.St
 }
 
 func (s *Server) handleGetTransaction(rw http.ResponseWriter, r *http.Request) {
-	db := s.getDB(r)
-	tid, tx, ok := extractTransactionID(rw, r, db)
+	rs := s.getRS(r)
+	tid, tx, ok := extractTransactionID(rw, r, rs)
 	if !ok {
 		return
 	}
-	rs := s.getRS(r)
 	refs, err := transaction.Diff(rs, *tid)
 	if err != nil {
 		panic(err)
 	}
 	resp := &payload.GetTransactionResponse{
-		Begin: tx.Begin,
+		Begin:  tx.Begin,
+		Status: string(tx.Status),
+		End:    tx.End,
 	}
 	for branch, sums := range refs {
 		if sums[1] != nil {

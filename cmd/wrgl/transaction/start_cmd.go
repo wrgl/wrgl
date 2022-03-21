@@ -6,7 +6,6 @@ package transaction
 import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
-	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
 func startCmd() *cobra.Command {
@@ -22,7 +21,8 @@ func startCmd() *cobra.Command {
 				return err
 			}
 			defer db.Close()
-			id, err := transaction.New(db)
+			rs := rd.OpenRefStore()
+			id, err := rs.NewTransaction()
 			if err != nil {
 				return err
 			}

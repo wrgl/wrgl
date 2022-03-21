@@ -68,6 +68,7 @@ func AssertReflogEqual(t *testing.T, a, b *ref.Reflog) {
 	assert.Equal(t, a.AuthorEmail, b.AuthorEmail, "AuthorEmail not equal")
 	assert.Equal(t, a.Action, b.Action, "Action not equal")
 	assert.Equal(t, a.Message, b.Message, "Message not equal")
+	assert.Equal(t, a.Txid, b.Txid, "Txid not equal")
 	if !a.Time.IsZero() {
 		assert.Equal(t, objline.EncodeTime(a.Time), objline.EncodeTime(b.Time), "Time not equal")
 	}
@@ -85,4 +86,22 @@ func AssertReflogReaderContains(t *testing.T, rs ref.Store, name string, logs ..
 	}
 	_, err = reader.Read()
 	assert.Equal(t, io.EOF, err)
+}
+
+func AssertTransactionEqual(t *testing.T, a, b *ref.Transaction) {
+	t.Helper()
+	require.Equal(t, a.ID, b.ID, "id not equal")
+	require.Equal(t, a.Status, b.Status, "status not equal")
+	require.Equal(t, a.Begin.Unix(), b.Begin.Unix(), "begin not equal")
+	require.Equal(t, a.Begin.Format("-0700"), b.Begin.Format("-0700"), "begin not equal")
+	require.Equal(t, a.End.Unix(), b.End.Unix(), "end not equal")
+	require.Equal(t, a.End.Format("-0700"), b.End.Format("-0700"), "end not equal")
+}
+
+func AssertTransactionSliceEqual(t *testing.T, a, b []*ref.Transaction) {
+	t.Helper()
+	require.Len(t, a, len(b))
+	for i, v := range a {
+		AssertTransactionEqual(t, v, b[i])
+	}
 }

@@ -209,7 +209,7 @@ func createBranch(cmd *cobra.Command, u *conf.User, db objects.Store, rs ref.Sto
 		return fmt.Errorf(`commit "%s" not found`, args[1])
 	}
 	name = strings.TrimPrefix(name, "heads/")
-	err = ref.SaveRef(rs, "heads/"+args[0], hash, u.Name, u.Email, "branch", "created from "+name)
+	err = ref.SaveRef(rs, "heads/"+args[0], hash, u.Name, u.Email, "branch", "created from "+name, nil)
 	if err != nil {
 		return err
 	}

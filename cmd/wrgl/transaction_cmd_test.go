@@ -106,10 +106,6 @@ func TestTransactionCmd(t *testing.T) {
 	cmd.SetArgs([]string{"commit", "--all", "initial commit", "-n", "1", "--txid", txid})
 	require.NoError(t, cmd.Execute())
 
-	m, _ := rs.Filter("")
-	for k, sum := range m {
-		t.Logf("ref %s: %x", k, sum)
-	}
 	txSums := getRefs(t, rs,
 		ref.TransactionRef(txid, "alpha"),
 		ref.TransactionRef(txid, "beta"),
@@ -151,7 +147,7 @@ func TestTransactionCmd(t *testing.T) {
 		com, err := objects.GetCommit(db, sums[ref.HeadRef(branch)])
 		require.NoError(t, err)
 		assert.NotEqual(t, txCom.Sum, com.Sum)
-		assert.Equal(t, fmt.Sprintf("[tx/%s] %s", txid, txCom.Message), com.Message)
+		assert.Equal(t, fmt.Sprintf("commit [tx/%s]\n%s", txid, txCom.Message), com.Message)
 		assert.Equal(t, txCom.Table, com.Table)
 		if branch == "alpha" {
 			assert.Equal(t, [][]byte{alphaSum}, com.Parents)
@@ -160,14 +156,6 @@ func TestTransactionCmd(t *testing.T) {
 		}
 	}
 	require.NoError(t, db.Close())
-
-	txSums = getRefs(t, rs,
-		ref.TransactionRef(txid, "alpha"),
-		ref.TransactionRef(txid, "beta"),
-		ref.TransactionRef(txid, "gamma"),
-		ref.TransactionRef(txid, "delta"),
-	)
-	assert.Len(t, txSums, 0)
 }
 
 func TestTransactionDiscardCmd(t *testing.T) {

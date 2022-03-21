@@ -17,15 +17,16 @@ import (
 
 func TestTraveller(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 
 	_, err := ref.NewTraveller(db, rs, "non-existent")
 	assert.Equal(t, ref.ErrKeyNotFound, err)
 
 	sum1, c1 := factory.CommitRandom(t, db, nil)
-	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
+	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1, nil))
 	sum2, c2 := factory.CommitRandom(t, db, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2, nil))
 	sum3, _ := factory.CommitRandom(t, db, nil)
 	sum4, c4 := factory.CommitRandom(t, db, [][]byte{sum2, sum3})
 	require.NoError(t, ref.CommitMerge(rs, "main", sum4, c4))
@@ -75,7 +76,7 @@ func TestTraveller(t *testing.T) {
 
 	sum7, _ := factory.CommitRandom(t, db, nil)
 	sum7, c7 := factory.CommitRandom(t, db, [][]byte{sum7})
-	require.NoError(t, ref.SaveRef(rs, "heads/gamma", sum7, "John Doe", "john@doe.com", "branch", "create new"))
+	require.NoError(t, ref.SaveRef(rs, "heads/gamma", sum7, "John Doe", "john@doe.com", "branch", "create new", nil))
 
 	tr, err = ref.NewTraveller(db, rs, "heads/gamma")
 	require.NoError(t, err)

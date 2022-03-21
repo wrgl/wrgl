@@ -19,7 +19,7 @@ func (s *testSuite) TestGetRefsHandler(t *testing.T) {
 	rs := s.s.GetRS(repo)
 	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
 	head := "my-branch"
-	err := ref.CommitHead(rs, head, sum1, commit1)
+	err := ref.CommitHead(rs, head, sum1, commit1, nil)
 	require.NoError(t, err)
 	sum2, _ := refhelpers.SaveTestCommit(t, db, nil)
 	tag := "my-tag"

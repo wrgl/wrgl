@@ -60,11 +60,12 @@ func TestGetPrevCommit(t *testing.T) {
 
 func TestInterpretCommitName(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
 	sum2, commit2 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
 	branchName := "my-branch"
-	require.NoError(t, ref.CommitHead(rs, branchName, sum2, commit2))
+	require.NoError(t, ref.CommitHead(rs, branchName, sum2, commit2, nil))
 
 	for i, c := range []struct {
 		commitStr string
@@ -94,9 +95,10 @@ func TestInterpretCommitName(t *testing.T) {
 
 func TestInterpretRefName(t *testing.T) {
 	db := objmock.NewStore()
-	rs := refmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum1, c1 := refhelpers.SaveTestCommit(t, db, nil)
-	require.NoError(t, ref.CommitHead(rs, "abc", sum1, c1))
+	require.NoError(t, ref.CommitHead(rs, "abc", sum1, c1, nil))
 	sum2, c2 := refhelpers.SaveTestCommit(t, db, nil)
 	require.NoError(t, ref.SaveTag(rs, "abc", sum2))
 	sum3, c3 := refhelpers.SaveTestCommit(t, db, nil)
@@ -108,7 +110,7 @@ func TestInterpretRefName(t *testing.T) {
 	sum6, c6 := refhelpers.SaveTestCommit(t, db, nil)
 	require.NoError(t, ref.SaveRemoteRef(rs, "origin", "ghj", sum6, "test", "test@domain.com", "test", "test interpret ref"))
 	sum7, c7 := refhelpers.SaveTestCommit(t, db, nil)
-	require.NoError(t, ref.SaveRef(rs, "custom/ghj", sum7, "test", "test@domain.com", "test", "test interpret ref"))
+	require.NoError(t, ref.SaveRef(rs, "custom/ghj", sum7, "test", "test@domain.com", "test", "test interpret ref", nil))
 
 	name, sum, c, err := ref.InterpretCommitName(db, rs, "abc", false)
 	require.NoError(t, err)

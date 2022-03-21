@@ -209,6 +209,12 @@ func init() {
 						name TEXT NOT NULL PRIMARY KEY,
 						sum  BLOB NOT NULL
 					)`,
+					`CREATE TABLE transactions (
+						id     BLOB NOT NULL PRIMARY KEY,
+						status TEXT NOT NULL,
+						begin  DATETIME NOT NULL,
+						end    DATETIME
+					)`,
 					`CREATE TABLE reflogs (
 						ref         TEXT NOT NULL,
 						ordinal     INTEGER NOT NULL,
@@ -219,8 +225,10 @@ func init() {
 						time        DATETIME NOT NULL,
 						action      TEXT NOT NULL DEFAULT '',
 						message     TEXT NOT NULL DEFAULT '',
+						txid        BLOB,
 						PRIMARY KEY (ref, ordinal),
-						FOREIGN KEY (ref) REFERENCES refs(name)
+						FOREIGN KEY (ref) REFERENCES refs(name),
+						FOREIGN KEY (txid) REFERENCES transactions(id)
 					)`,
 				} {
 					if _, err := tx.Exec(stmt); err != nil {

@@ -16,6 +16,7 @@ func (s *testSuite) TestGCHandler(t *testing.T) {
 	repo, cli, _, cleanup := s.s.NewClient(t, "", nil, true)
 	defer cleanup()
 	db := s.s.GetDB(repo)
+	rs := s.s.GetRS(repo)
 
 	sum, _ := factory.CommitRandom(t, db, nil)
 	ctr, err := cli.CreateTransaction()
@@ -35,5 +36,6 @@ func (s *testSuite) TestGCHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.False(t, objects.CommitExist(db, sum))
-	assert.False(t, objects.TransactionExist(db, tid))
+	_, err = rs.GetTransaction(tid)
+	assert.Error(t, err)
 }

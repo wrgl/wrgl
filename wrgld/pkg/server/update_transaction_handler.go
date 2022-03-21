@@ -29,7 +29,8 @@ func parseJSONRequest(r *http.Request, rw http.ResponseWriter, obj interface{}) 
 
 func (s *Server) handleUpdateTransaction(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
-	tid, _, ok := extractTransactionID(rw, r, db)
+	rs := s.getRS(r)
+	tid, _, ok := extractTransactionID(rw, r, rs)
 	if !ok {
 		return
 	}
@@ -37,16 +38,12 @@ func (s *Server) handleUpdateTransaction(rw http.ResponseWriter, r *http.Request
 	if !parseJSONRequest(r, rw, req) {
 		return
 	}
-	rs := s.getRS(r)
 	if req.Commit {
 		if err := transaction.Commit(db, rs, *tid); err != nil {
 			panic(err)
 		}
-		if err := transaction.Discard(db, rs, *tid); err != nil {
-			panic(err)
-		}
 	} else if req.Discard {
-		if err := transaction.Discard(db, rs, *tid); err != nil {
+		if err := transaction.Discard(rs, *tid); err != nil {
 			panic(err)
 		}
 	} else {

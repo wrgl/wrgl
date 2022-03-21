@@ -5,10 +5,13 @@ package reffs
 
 import (
 	"container/list"
+	"fmt"
 	"io"
 	"os"
 	"path"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -201,4 +204,32 @@ func (s *Store) LogReader(key string) (ref.ReflogReader, error) {
 		return nil, ref.ErrKeyNotFound
 	}
 	return NewReflogReader(f)
+}
+
+func (s *Store) NewTransaction() (*uuid.UUID, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *Store) GetTransaction(id uuid.UUID) (*ref.Transaction, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *Store) UpdateTransaction(tx *ref.Transaction) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (s *Store) DeleteTransaction(id uuid.UUID) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (s *Store) GCTransactions(txTTL time.Duration) (ids []uuid.UUID, err error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *Store) GetTransactionLogs(txid uuid.UUID) (logs map[string]*ref.Reflog, err error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (s *Store) ListTransactions(offset, limit int) (txs []*ref.Transaction, err error) {
+	return nil, fmt.Errorf("not implemented")
 }

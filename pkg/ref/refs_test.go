@@ -19,9 +19,10 @@ import (
 )
 
 func TestSaveRef(t *testing.T) {
-	s := refmock.NewStore()
+	s, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	sum := testutils.SecureRandomBytes(16)
-	err := ref.SaveRef(s, "heads/beta", sum, "John Doe", "john@doe.com", "branch", "from main")
+	err := ref.SaveRef(s, "heads/beta", sum, "John Doe", "john@doe.com", "branch", "from main", nil)
 	require.NoError(t, err)
 	b, err := ref.GetHead(s, "beta")
 	require.NoError(t, err)
@@ -97,7 +98,8 @@ func TestSaveRef(t *testing.T) {
 }
 
 func TestCommitMerge(t *testing.T) {
-	s := refmock.NewStore()
+	s, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	db := objmock.NewStore()
 	name := "abc"
 	sum1 := testutils.SecureRandomBytes(16)
@@ -118,11 +120,12 @@ func TestCommitMerge(t *testing.T) {
 }
 
 func TestCommitHead(t *testing.T) {
-	s := refmock.NewStore()
+	s, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	db := objmock.NewStore()
 	name := "abc"
 	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
-	err := ref.CommitHead(s, name, sum1, commit1)
+	err := ref.CommitHead(s, name, sum1, commit1, nil)
 	require.NoError(t, err)
 	b, err := ref.GetHead(s, name)
 	require.NoError(t, err)
@@ -136,7 +139,7 @@ func TestCommitHead(t *testing.T) {
 	})
 
 	sum2, commit2 := refhelpers.SaveTestCommit(t, db, [][]byte{sum1})
-	err = ref.CommitHead(s, name, sum2, commit2)
+	err = ref.CommitHead(s, name, sum2, commit2, nil)
 	require.NoError(t, err)
 	b, err = ref.GetHead(s, name)
 	require.NoError(t, err)
@@ -152,7 +155,7 @@ func TestCommitHead(t *testing.T) {
 
 	name2 := "def"
 	sum3, commit3 := refhelpers.SaveTestCommit(t, db, nil)
-	err = ref.CommitHead(s, name2, sum3, commit3)
+	err = ref.CommitHead(s, name2, sum3, commit3, nil)
 	require.NoError(t, err)
 	m, err := ref.ListHeads(s)
 	require.NoError(t, err)
@@ -168,7 +171,8 @@ func TestCommitHead(t *testing.T) {
 }
 
 func TestRefTag(t *testing.T) {
-	s := refmock.NewStore()
+	s, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	name := "abc"
 	sum1 := testutils.SecureRandomBytes(16)
 	err := ref.SaveTag(s, name, sum1)
@@ -194,7 +198,8 @@ func TestRefTag(t *testing.T) {
 }
 
 func TestRemoteRef(t *testing.T) {
-	s := refmock.NewStore()
+	s, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	remote := "origin"
 	name := "abc"
 	sum := testutils.SecureRandomBytes(16)
@@ -220,7 +225,8 @@ func TestRemoteRef(t *testing.T) {
 }
 
 func TestListRemoteRefs(t *testing.T) {
-	s := refmock.NewStore()
+	s, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	remote1 := "origin"
 	remote2 := "org"
 	names := []string{"def", "qwe"}
@@ -278,11 +284,12 @@ func TestListRemoteRefs(t *testing.T) {
 }
 
 func TestListAllRefs(t *testing.T) {
-	s := refmock.NewStore()
+	s, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	db := objmock.NewStore()
 	sum1, commit1 := refhelpers.SaveTestCommit(t, db, nil)
 	head := "my-branch"
-	err := ref.CommitHead(s, head, sum1, commit1)
+	err := ref.CommitHead(s, head, sum1, commit1, nil)
 	require.NoError(t, err)
 	sum2, _ := refhelpers.SaveTestCommit(t, db, nil)
 	tag := "my-tag"
@@ -317,7 +324,8 @@ func TestListAllRefs(t *testing.T) {
 }
 
 func TestTransactionRef(t *testing.T) {
-	s := refmock.NewStore()
+	s, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	id := uuid.New()
 	refs := map[string][]byte{
 		"branch-1": testutils.SecureRandomBytes(16),

@@ -32,7 +32,7 @@ func TestShallowCommit(t *testing.T) {
 	sum1, c1 := factory.CommitRandom(t, dbs, nil)
 	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
 	sum3, c3 := factory.CommitRandom(t, dbs, [][]byte{sum2})
-	require.NoError(t, ref.CommitHead(rss, "main", sum3, c3))
+	require.NoError(t, ref.CommitHead(rss, "main", sum3, c3, nil))
 
 	rd, cleanUp := createRepoDir(t)
 	defer cleanUp()
@@ -147,7 +147,7 @@ func TestShallowCommit(t *testing.T) {
 	sum4, c4 := refhelpers.SaveTestCommit(t, db, nil)
 	sum5, c5 := factory.CommitRandom(t, db, [][]byte{sum4})
 	sum6, c6 := refhelpers.SaveTestCommit(t, db, [][]byte{sum5})
-	require.NoError(t, ref.CommitHead(rs, "alpha", sum5, c5))
+	require.NoError(t, ref.CommitHead(rs, "alpha", sum5, c5, nil))
 	require.NoError(t, db.Close())
 
 	cmd = rootCmd()

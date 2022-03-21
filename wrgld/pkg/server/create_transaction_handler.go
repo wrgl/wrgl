@@ -4,12 +4,11 @@ import (
 	"net/http"
 
 	"github.com/wrgl/wrgl/pkg/api/payload"
-	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
 func (s *Server) handleCreateTransaction(rw http.ResponseWriter, r *http.Request) {
-	db := s.getDB(r)
-	id, err := transaction.New(db)
+	rs := s.getRS(r)
+	id, err := rs.NewTransaction()
 	if err != nil {
 		panic(err)
 	}

@@ -238,7 +238,7 @@ func pullSingleRepo(
 		if err != nil {
 			return fmt.Errorf("can't get merge head ref: %v", err)
 		}
-		if err = ref.SaveRef(rs, name, sum, c.User.Name, c.User.Email, "pull", "created from "+mergeHeads[0]); err != nil {
+		if err = ref.SaveRef(rs, name, sum, c.User.Name, c.User.Email, "pull", "created from "+mergeHeads[0], nil); err != nil {
 			return err
 		}
 		cmd.Printf("[%s %s] %s\n", strings.TrimPrefix(name, "heads/"), hex.EncodeToString(sum)[:7], com.Message)

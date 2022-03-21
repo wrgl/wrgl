@@ -90,7 +90,7 @@ func (s *ReceivePackSession) saveRefs() error {
 			s.c.User.Name,
 			s.c.User.Email,
 			"receive-pack",
-			msg,
+			msg, nil,
 		)
 		if err != nil {
 			return err

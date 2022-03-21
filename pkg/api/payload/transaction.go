@@ -16,7 +16,9 @@ type TxBranch struct {
 }
 
 type GetTransactionResponse struct {
-	Begin    time.Time  `json:"time"`
+	Status   string     `json:"status"`
+	Begin    time.Time  `json:"begin"`
+	End      time.Time  `json:"end,omitempty"`
 	Branches []TxBranch `json:"branches"`
 }
 

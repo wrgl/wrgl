@@ -33,9 +33,6 @@ func commitCmd() *cobra.Command {
 			if err = transaction.Commit(db, rs, id); err != nil {
 				return fmt.Errorf("error committing transaction: %v", err)
 			}
-			if err = transaction.Discard(db, rs, id); err != nil {
-				return fmt.Errorf("error discarding transaction: %v", err)
-			}
 			return nil
 		},
 	}

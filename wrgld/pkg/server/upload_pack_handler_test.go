@@ -26,17 +26,18 @@ func (s *testSuite) TestUploadPack(t *testing.T) {
 	sum2, c2 := factory.CommitRandomN(t, db, 5, 1000, [][]byte{sum1})
 	sum3, _ := factory.CommitRandomN(t, db, 5, 1000, nil)
 	sum4, _ := factory.CommitRandomN(t, db, 5, 1000, [][]byte{sum3})
-	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2, nil))
 	require.NoError(t, ref.SaveTag(rs, "v1", sum4))
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	commits := server_testutils.FetchObjects(t, dbc, rsc, cli, [][]byte{sum2}, 0, 0)
 	assert.Equal(t, [][]byte{sum1, sum2}, commits)
 	factory.AssertCommitsPersisted(t, db, commits)
 
 	factory.CopyCommitsToNewStore(t, db, dbc, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rsc, "main", sum1, c1))
+	require.NoError(t, ref.CommitHead(rsc, "main", sum1, c1, nil))
 	_, err := apiclient.NewUploadPackSession(db, rs, cli, [][]byte{sum2}, 0, 0, nil)
 	assert.Error(t, err, "nothing wanted")
 
@@ -61,10 +62,11 @@ func (s *testSuite) TestUploadPackMultiplePackfiles(t *testing.T) {
 	}
 	sum1, _ := factory.CommitRandomN(t, db, 5, 1000, nil)
 	sum2, c2 := factory.CommitRandomN(t, db, 5, 1000, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2))
+	require.NoError(t, ref.CommitHead(rs, "main", sum2, c2, nil))
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	commits := server_testutils.FetchObjects(t, dbc, rsc, cli, [][]byte{sum2}, 0, 0)
 	assert.Equal(t, [][]byte{sum1, sum2}, commits)
 	factory.AssertCommitsPersisted(t, db, commits)
@@ -76,10 +78,11 @@ func (s *testSuite) TestUploadPackCustomHeader(t *testing.T) {
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)
 	sum1, c1 := factory.CommitRandomN(t, db, 3, 4, nil)
-	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1))
+	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1, nil))
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "asd")
 		commits := server_testutils.FetchObjects(t, dbc, rsc, cli, [][]byte{sum1}, 0, 0, apiclient.WithRequestHeader(header))
@@ -98,10 +101,11 @@ func (s *testSuite) TestUploadPackWithDepth(t *testing.T) {
 	sum2, c2 := factory.CommitRandomN(t, db, 3, 4, [][]byte{sum1})
 	sum3, c3 := factory.CommitRandomN(t, db, 3, 4, [][]byte{sum2})
 	sum4, c4 := factory.CommitRandomN(t, db, 3, 4, [][]byte{sum3})
-	require.NoError(t, ref.CommitHead(rs, "main", sum4, c4))
+	require.NoError(t, ref.CommitHead(rs, "main", sum4, c4, nil))
 
 	dbc := objmock.NewStore()
-	rsc := refmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
 	commits := server_testutils.FetchObjects(t, dbc, rsc, cli, [][]byte{sum4}, 0, 2)
 	testutils.AssertBytesEqual(t, [][]byte{sum4, sum3, sum2, sum1}, commits, true)
 	factory.AssertCommitsShallowlyPersisted(t, dbc, commits)

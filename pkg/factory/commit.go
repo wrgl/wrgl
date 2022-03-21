@@ -61,7 +61,7 @@ func CommitHead(t *testing.T, db objects.Store, rs ref.Store, branch string, row
 		parents = append(parents, commitSum)
 	}
 	sum, c := Commit(t, db, rows, pk, parents)
-	require.NoError(t, ref.CommitHead(rs, branch, sum, c))
+	require.NoError(t, ref.CommitHead(rs, branch, sum, c, nil))
 	return sum, c
 }
 

@@ -65,29 +65,39 @@ type Server struct {
 	upSessions map[string]*server.UploadPackSessionMap
 	rpSessions map[string]*server.ReceivePackSessionMap
 	s          *server.Server
+	T          *testing.T
+	cleanups   []func()
 }
 
 func (s *Server) Close() {
 	wg := sync.WaitGroup{}
-	for _, m := range s.upSessions {
+	for _, f := range s.cleanups {
 		wg.Add(1)
-		m := m
+		f := f
 		go func() {
-			m.Stop()
+			f()
 			wg.Done()
 		}()
 	}
-	for _, m := range s.rpSessions {
-		wg.Add(1)
-		m := m
-		go func() {
-			m.Stop()
-			wg.Done()
-		}()
-	}
-	for _, db := range s.db {
-		db.Close()
-	}
+	// for _, m := range s.upSessions {
+	// 	wg.Add(1)
+	// 	m := m
+	// 	go func() {
+	// 		m.Stop()
+	// 		wg.Done()
+	// 	}()
+	// }
+	// for _, m := range s.rpSessions {
+	// 	wg.Add(1)
+	// 	m := m
+	// 	go func() {
+	// 		m.Stop()
+	// 		wg.Done()
+	// 	}()
+	// }
+	// for _, db := range s.db {
+	// 	db.Close()
+	// }
 	wg.Wait()
 }
 
@@ -99,6 +109,7 @@ func NewServer(t *testing.T, rootPath *regexp.Regexp, opts ...server.ServerOptio
 		confS:      map[string]conf.Store{},
 		upSessions: map[string]*server.UploadPackSessionMap{},
 		rpSessions: map[string]*server.ReceivePackSessionMap{},
+		T:          t,
 	}
 	ts.s = server.NewServer(
 		rootPath,
@@ -135,7 +146,11 @@ func (s *Server) GetDB(repo string) objects.Store {
 	s.dbMx.Lock()
 	defer s.dbMx.Unlock()
 	if _, ok := s.db[repo]; !ok {
-		s.db[repo] = objmock.NewStore()
+		db := objmock.NewStore()
+		s.db[repo] = db
+		s.cleanups = append(s.cleanups, func() {
+			require.NoError(s.T, db.Close())
+		})
 	}
 	return s.db[repo]
 }
@@ -144,7 +159,9 @@ func (s *Server) GetRS(repo string) ref.Store {
 	s.rsMx.Lock()
 	defer s.rsMx.Unlock()
 	if _, ok := s.rs[repo]; !ok {
-		s.rs[repo] = refmock.NewStore()
+		var cleanup func()
+		s.rs[repo], cleanup = refmock.NewStore(s.T)
+		s.cleanups = append(s.cleanups, cleanup)
 	}
 	return s.rs[repo]
 }
@@ -162,7 +179,9 @@ func (s *Server) GetUpSessions(repo string) server.UploadPackSessionStore {
 	s.upMx.Lock()
 	defer s.upMx.Unlock()
 	if _, ok := s.upSessions[repo]; !ok {
-		s.upSessions[repo] = server.NewUploadPackSessionMap(100*time.Millisecond, 0)
+		ses := server.NewUploadPackSessionMap(100*time.Millisecond, 0)
+		s.upSessions[repo] = ses
+		s.cleanups = append(s.cleanups, ses.Stop)
 	}
 	return s.upSessions[repo]
 }
@@ -171,7 +190,9 @@ func (s *Server) GetRpSessions(repo string) server.ReceivePackSessionStore {
 	s.rpMx.Lock()
 	defer s.rpMx.Unlock()
 	if _, ok := s.rpSessions[repo]; !ok {
-		s.rpSessions[repo] = server.NewReceivePackSessionMap(100*time.Millisecond, 0)
+		ses := server.NewReceivePackSessionMap(100*time.Millisecond, 0)
+		s.rpSessions[repo] = ses
+		s.cleanups = append(s.cleanups, ses.Stop)
 	}
 	return s.rpSessions[repo]
 }

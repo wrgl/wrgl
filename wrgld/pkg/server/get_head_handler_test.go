@@ -21,7 +21,7 @@ func (s *testSuite) TestGetHead(t *testing.T) {
 	rs := s.s.GetRS(repo)
 	parent, _ := factory.CommitRandom(t, db, nil)
 	sum, com := factory.CommitRandom(t, db, [][]byte{parent})
-	require.NoError(t, ref.CommitHead(rs, "main", sum, com))
+	require.NoError(t, ref.CommitHead(rs, "main", sum, com, nil))
 	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
 

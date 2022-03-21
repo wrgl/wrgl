@@ -26,7 +26,7 @@ func (s *testSuite) TestCommitHandler(t *testing.T) {
 	db := s.s.GetDB(repo)
 	rs := s.s.GetRS(repo)
 	parent, parentCom := factory.CommitRandom(t, db, nil)
-	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom))
+	require.NoError(t, ref.CommitHead(rs, "alpha", parent, parentCom, nil))
 
 	// missing branch
 	_, err := cli.Commit("", "", "", nil, nil, nil)
@@ -142,7 +142,7 @@ func (s *testSuite) TestPostCommitCallback(t *testing.T) {
 	rs := s.s.GetRS(repo)
 	parent, parentCom := factory.CommitRandom(t, db, nil)
 	t.Logf("parentSum %x", parent)
-	require.NoError(t, ref.CommitHead(rs, head, parent, parentCom))
+	require.NoError(t, ref.CommitHead(rs, head, parent, parentCom, nil))
 
 	buf := bytes.NewBuffer(nil)
 	w := csv.NewWriter(buf)
