@@ -9,7 +9,7 @@ import (
 type TransactionStatus string
 
 const (
-	TSInProgress TransactionStatus = "inprogress"
+	TSInProgress TransactionStatus = "in-progress"
 	TSCommitted  TransactionStatus = "committed"
 )
 

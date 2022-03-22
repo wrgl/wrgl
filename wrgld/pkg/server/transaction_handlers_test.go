@@ -3,6 +3,7 @@ package server_test
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ func (s *testSuite) TestTransaction(t *testing.T) {
 	_, cli, _, cleanup := s.s.NewClient(t, "", nil, true)
 	defer cleanup()
 
-	ctr, err := cli.CreateTransaction()
+	ctr, err := cli.CreateTransaction(nil)
 	require.NoError(t, err)
 	tid, err := uuid.Parse(ctr.ID)
 	require.NoError(t, err)
@@ -49,7 +50,7 @@ func (s *testSuite) TestTransaction(t *testing.T) {
 	_, err = cli.GetTransaction(tid)
 	assert.Error(t, err)
 
-	ctr, err = cli.CreateTransaction()
+	ctr, err = cli.CreateTransaction(nil)
 	require.NoError(t, err)
 	tid, err = uuid.Parse(ctr.ID)
 	require.NoError(t, err)
@@ -77,4 +78,25 @@ func (s *testSuite) TestTransaction(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, com2.Parents, 0)
 	assert.Equal(t, cr5.Table, com2.Table.Sum)
+
+	// test create transaction from payload
+	req := &payload.CreateTransactionRequest{
+		ID:     uuid.New().String(),
+		Begin:  time.Now().Add(-time.Hour * 24),
+		End:    time.Now(),
+		Status: string(ref.TSCommitted),
+	}
+	ctr, err = cli.CreateTransaction(req)
+	require.NoError(t, err)
+	assert.Equal(t, req.ID, ctr.ID)
+	id := uuid.Must(uuid.Parse(ctr.ID))
+	tx, err := cli.GetTransaction(id)
+	require.NoError(t, err)
+	testutils.AssertTimeEqual(t, req.Begin, tx.Begin)
+	testutils.AssertTimeEqual(t, req.End, tx.End)
+	assert.Equal(t, req.Status, tx.Status)
+	assert.Len(t, tx.Branches, 0)
+
+	_, err = cli.CreateTransaction(req)
+	assert.Error(t, err)
 }

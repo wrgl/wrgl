@@ -198,21 +198,32 @@ func (s *Store) LogReader(key string) (ref.ReflogReader, error) {
 	return &ReflogReader{db: s.db, ref: key, ordinal: c}, nil
 }
 
-func (s *Store) NewTransaction() (*uuid.UUID, error) {
-	id := uuid.New()
-	tx := &ref.Transaction{
-		ID:     id,
-		Status: ref.TSInProgress,
-		Begin:  time.Now(),
+func (s *Store) NewTransaction(tx *ref.Transaction) (*uuid.UUID, error) {
+	if tx == nil {
+		id := uuid.New()
+		tx = &ref.Transaction{
+			ID:     id,
+			Status: ref.TSInProgress,
+			Begin:  time.Now(),
+		}
 	}
-	_, err := s.db.Exec(
-		`INSERT INTO transactions (id, status, begin) VALUES (?, ?, ?)`,
-		tx.ID[:], tx.Status, tx.Begin,
-	)
+	var err error
+	if tx.End.IsZero() {
+		_, err = s.db.Exec(
+			`INSERT INTO transactions (id, status, begin) VALUES (?, ?, ?)`,
+			tx.ID[:], tx.Status, tx.Begin,
+		)
+
+	} else {
+		_, err = s.db.Exec(
+			`INSERT INTO transactions (id, status, begin, end) VALUES (?, ?, ?, ?)`,
+			tx.ID[:], tx.Status, tx.Begin, tx.End,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
-	return &id, nil
+	return &tx.ID, nil
 }
 
 func (s *Store) GetTransaction(id uuid.UUID) (*ref.Transaction, error) {

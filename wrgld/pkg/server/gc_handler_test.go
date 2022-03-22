@@ -19,7 +19,7 @@ func (s *testSuite) TestGCHandler(t *testing.T) {
 	rs := s.s.GetRS(repo)
 
 	sum, _ := factory.CommitRandom(t, db, nil)
-	ctr, err := cli.CreateTransaction()
+	ctr, err := cli.CreateTransaction(nil)
 	require.NoError(t, err)
 	tid, err := uuid.Parse(ctr.ID)
 	require.NoError(t, err)

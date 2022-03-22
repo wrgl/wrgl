@@ -206,7 +206,7 @@ func (s *Store) LogReader(key string) (ref.ReflogReader, error) {
 	return NewReflogReader(f)
 }
 
-func (s *Store) NewTransaction() (*uuid.UUID, error) {
+func (s *Store) NewTransaction(tx *ref.Transaction) (*uuid.UUID, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

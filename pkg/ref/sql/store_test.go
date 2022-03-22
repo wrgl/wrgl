@@ -117,7 +117,7 @@ func TestCreateTransaction(t *testing.T) {
 	defer cleanup()
 	s := NewStore(db)
 
-	txid, err := s.NewTransaction()
+	txid, err := s.NewTransaction(nil)
 	require.NoError(t, err)
 
 	tx, err := s.GetTransaction(*txid)
@@ -134,17 +134,17 @@ func TestCreateTransaction(t *testing.T) {
 	require.NoError(t, err)
 	refhelpers.AssertTransactionEqual(t, tx, tx2)
 
-	txid2, err := s.NewTransaction()
+	txid2, err := s.NewTransaction(nil)
 	require.NoError(t, err)
 	require.NoError(t, s.DeleteTransaction(*txid2))
 
-	txid3, err := s.NewTransaction()
+	txid3, err := s.NewTransaction(nil)
 	require.NoError(t, err)
-	txid4, err := s.NewTransaction()
+	txid4, err := s.NewTransaction(nil)
 	require.NoError(t, err)
 
 	time.Sleep(time.Second)
-	txid5, err := s.NewTransaction()
+	txid5, err := s.NewTransaction(nil)
 	require.NoError(t, err)
 	ids, err := s.GCTransactions(time.Second)
 	require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestTransactionLog(t *testing.T) {
 	defer cleanup()
 	s := NewStore(db)
 
-	txid, err := s.NewTransaction()
+	txid, err := s.NewTransaction(nil)
 	require.NoError(t, err)
 
 	rl1 := refhelpers.RandomReflog()
@@ -197,7 +197,7 @@ func TestListTransactions(t *testing.T) {
 
 	txids := []*uuid.UUID{}
 	for i := 0; i < 4; i++ {
-		txid, err := s.NewTransaction()
+		txid, err := s.NewTransaction(nil)
 		require.NoError(t, err)
 		txids = append(txids, txid)
 	}
@@ -222,4 +222,23 @@ func TestListTransactions(t *testing.T) {
 	sl, err = s.ListTransactions(1, 2)
 	require.NoError(t, err)
 	refhelpers.AssertTransactionSliceEqual(t, []*ref.Transaction{txs[2], txs[1]}, sl)
+}
+
+func TestCreateTransactionFromExisting(t *testing.T) {
+	db, cleanup := testSqliteDB(t)
+	defer cleanup()
+	s := NewStore(db)
+
+	tx := &ref.Transaction{
+		ID:     uuid.New(),
+		Begin:  time.Now().Add(-time.Hour),
+		Status: ref.TSInProgress,
+		End:    time.Now(),
+	}
+	txid, err := s.NewTransaction(tx)
+	require.NoError(t, err)
+	assert.Equal(t, tx.ID, *txid)
+	tx2, err := s.GetTransaction(*txid)
+	require.NoError(t, err)
+	refhelpers.AssertTransactionEqual(t, tx, tx2)
 }

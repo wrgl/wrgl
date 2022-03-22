@@ -22,7 +22,7 @@ func TestTransaction(t *testing.T) {
 	db := objmock.NewStore()
 	rs, cleanup := refmock.NewStore(t)
 	defer cleanup()
-	id, err := rs.NewTransaction()
+	id, err := rs.NewTransaction(nil)
 	require.NoError(t, err)
 
 	sum1, com1 := factory.CommitRandom(t, db, nil)
@@ -127,7 +127,7 @@ func TestDiscard(t *testing.T) {
 	db := objmock.NewStore()
 	rs, cleanup := refmock.NewStore(t)
 	defer cleanup()
-	id, err := rs.NewTransaction()
+	id, err := rs.NewTransaction(nil)
 	require.NoError(t, err)
 
 	sum1, _ := factory.CommitRandom(t, db, nil)
@@ -146,13 +146,13 @@ func TestGarbageCollect(t *testing.T) {
 	rs, cleanup := refmock.NewStore(t)
 	defer cleanup()
 
-	id1, err := rs.NewTransaction()
+	id1, err := rs.NewTransaction(nil)
 	require.NoError(t, err)
-	id2, err := rs.NewTransaction()
+	id2, err := rs.NewTransaction(nil)
 	require.NoError(t, err)
 
 	time.Sleep(time.Second)
-	id3, err := rs.NewTransaction()
+	id3, err := rs.NewTransaction(nil)
 	require.NoError(t, err)
 	require.NoError(t, GarbageCollect(db, rs, time.Second, nil))
 

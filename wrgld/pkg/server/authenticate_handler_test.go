@@ -153,13 +153,13 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	require.NoError(t, err)
 
 	// test scopes on transaction handlers
-	_, err = cli.CreateTransaction()
+	_, err = cli.CreateTransaction(nil)
 	assert.Error(t, err)
-	_, err = cli.CreateTransaction(apiclient.WithRequestAuthorization(tok))
+	_, err = cli.CreateTransaction(nil, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
-	_, err = cli.CreateTransaction(apiclient.WithRequestAuthorization(readTok))
+	_, err = cli.CreateTransaction(nil, apiclient.WithRequestAuthorization(readTok))
 	assert.Error(t, err)
-	ctr, err := cli.CreateTransaction(apiclient.WithRequestAuthorization(writeTok))
+	ctr, err := cli.CreateTransaction(nil, apiclient.WithRequestAuthorization(writeTok))
 	require.NoError(t, err)
 	tid, err := uuid.Parse(ctr.ID)
 	require.NoError(t, err)

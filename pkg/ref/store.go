@@ -26,7 +26,7 @@ type Store interface {
 	Copy(srcKey, dstKey string) (err error)
 	LogReader(key string) (ReflogReader, error)
 
-	NewTransaction() (*uuid.UUID, error)
+	NewTransaction(tx *Transaction) (*uuid.UUID, error)
 	GetTransaction(id uuid.UUID) (*Transaction, error)
 	UpdateTransaction(tx *Transaction) error
 	DeleteTransaction(id uuid.UUID) error

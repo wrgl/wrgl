@@ -18,7 +18,7 @@ var (
 	headPrefix           = "heads/"
 	tagPrefix            = "tags/"
 	remoteRefPrefix      = "remotes/"
-	transactionRefPrefix = "transactions/"
+	transactionRefPrefix = "txs/"
 )
 
 func HeadRef(name string) string {

@@ -22,7 +22,7 @@ func startCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
-			id, err := rs.NewTransaction()
+			id, err := rs.NewTransaction(nil)
 			if err != nil {
 				return err
 			}

@@ -195,8 +195,11 @@ func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs 
 }
 
 func trimRefPrefix(r string) string {
-	if strings.Contains(r, "/") && !strings.HasPrefix(r, "refs/") && !strings.HasPrefix(r, "heads/") &&
-		!strings.HasPrefix(r, "tags/") && !strings.HasPrefix(r, "remotes/") {
+	if strings.Contains(r, "/") &&
+		!strings.HasPrefix(r, "refs/") &&
+		!strings.HasPrefix(r, "heads/") &&
+		!strings.HasPrefix(r, "tags/") &&
+		!strings.HasPrefix(r, "remotes/") {
 		// preserve "refs/" prefix for custom ref
 		return "refs/" + r
 	}

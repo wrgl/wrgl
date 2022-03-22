@@ -452,8 +452,20 @@ func (c *Client) GetObjects(tables [][]byte, opts ...RequestOption) (pr *packfil
 	return packfile.NewPackfileReader(resp.Body)
 }
 
-func (c *Client) CreateTransaction(opts ...RequestOption) (ctr *payload.CreateTransactionResponse, err error) {
-	resp, err := c.Request(http.MethodPost, "/transactions/", nil, nil, opts...)
+func (c *Client) CreateTransaction(req *payload.CreateTransactionRequest, opts ...RequestOption) (ctr *payload.CreateTransactionResponse, err error) {
+	var body io.Reader
+	var header map[string]string
+	if req != nil {
+		b, err := json.Marshal(req)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewReader(b)
+		header = map[string]string{
+			"Content-Type": CTJSON,
+		}
+	}
+	resp, err := c.Request(http.MethodPost, "/transactions/", body, header, opts...)
 	if err != nil {
 		return
 	}

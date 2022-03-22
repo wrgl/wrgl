@@ -5,16 +5,21 @@ package wrgl
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/testutils"
+	server_testutils "github.com/wrgl/wrgl/wrgld/pkg/server/testutils"
 )
 
 func createRandomCSVFile(t *testing.T) (header []string, filePath string) {
@@ -180,4 +185,79 @@ func TestTransactionDiscardCmd(t *testing.T) {
 		ref.HeadRef("alpha"),
 	)
 	assert.Len(t, txSums, 0)
+}
+
+func TestTransactionListCmd(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
+	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
+	defer cleanup()
+
+	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+
+	txid1 := startTransaction(t)
+	txid2 := startTransaction(t)
+
+	header, fp := createRandomCSVFile(t)
+	defer os.Remove(fp)
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"commit", "alpha", fp, "initial commit", "-n", "1", "--txid", txid1, "-p", header[0]})
+	require.NoError(t, cmd.Execute())
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"transaction", "commit", txid1})
+	require.NoError(t, cmd.Execute())
+
+	rs := rd.OpenRefStore()
+	id1 := uuid.Must(uuid.Parse(txid1))
+	tx1, err := rs.GetTransaction(id1)
+	require.NoError(t, err)
+	id2 := uuid.Must(uuid.Parse(txid2))
+	tx2, err := rs.GetTransaction(id2)
+	require.NoError(t, err)
+	alphaSum, err := ref.GetRef(rs, ref.TransactionRef(txid1, "alpha"))
+	require.NoError(t, err)
+
+	cmd = rootCmd()
+	zone, offset := time.Now().Zone()
+	cmd.SetArgs([]string{"transaction", "list", "--no-pager"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		fmt.Sprintf("transaction %s", txid2),
+		"Status: in-progress",
+		fmt.Sprintf("Begin: %s", tx2.Begin.In(time.FixedZone(zone, offset))),
+		"",
+		"",
+		fmt.Sprintf("transaction %s", txid1),
+		"Status: committed",
+		fmt.Sprintf("Begin: %s", tx1.Begin.In(time.FixedZone(zone, offset))),
+		fmt.Sprintf("End: %s", tx1.End.In(time.FixedZone(zone, offset))),
+		"",
+		fmt.Sprintf("    [alpha %s] initial commit", hex.EncodeToString(alphaSum)[:7]),
+		"",
+		"",
+	}, "\n"))
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
+	require.NoError(t, cmd.Execute())
+	authenticate(t, ts, url)
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"transaction", "push", "--no-progress", "my-repo", txid1})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"To " + url,
+		fmt.Sprintf("transaction %s created", txid1),
+		fmt.Sprintf(" * [new reference]   refs/txs/%s/alpha -> refs/txs/%s/alpha", txid1, txid1),
+		"",
+	}, "\n"))
+
+	rss := ts.GetRS(repo)
+	sum, err := ref.GetRef(rss, ref.TransactionRef(txid1, "alpha"))
+	require.NoError(t, err)
+	assert.Equal(t, alphaSum, sum)
+	tx3, err := rss.GetTransaction(id1)
+	require.NoError(t, err)
+	assert.Equal(t, tx1, tx3)
 }

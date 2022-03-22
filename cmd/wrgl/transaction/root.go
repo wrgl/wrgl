@@ -18,5 +18,7 @@ func RootCmd() *cobra.Command {
 	cmd.AddCommand(startCmd())
 	cmd.AddCommand(commitCmd())
 	cmd.AddCommand(discardCmd())
+	cmd.AddCommand(listCmd())
+	cmd.AddCommand(pushCmd())
 	return cmd
 }

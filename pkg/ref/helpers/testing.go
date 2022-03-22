@@ -92,10 +92,8 @@ func AssertTransactionEqual(t *testing.T, a, b *ref.Transaction) {
 	t.Helper()
 	require.Equal(t, a.ID, b.ID, "id not equal")
 	require.Equal(t, a.Status, b.Status, "status not equal")
-	require.Equal(t, a.Begin.Unix(), b.Begin.Unix(), "begin not equal")
-	require.Equal(t, a.Begin.Format("-0700"), b.Begin.Format("-0700"), "begin not equal")
-	require.Equal(t, a.End.Unix(), b.End.Unix(), "end not equal")
-	require.Equal(t, a.End.Format("-0700"), b.End.Format("-0700"), "end not equal")
+	testutils.AssertTimeEqual(t, a.Begin, b.Begin, "begin not equal")
+	testutils.AssertTimeEqual(t, a.End, b.End, "end not equal")
 }
 
 func AssertTransactionSliceEqual(t *testing.T, a, b []*ref.Transaction) {

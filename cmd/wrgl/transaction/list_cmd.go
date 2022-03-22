@@ -1,11 +1,13 @@
 package transaction
 
 import (
+	"encoding/hex"
 	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -26,26 +28,37 @@ func listCmd() *cobra.Command {
 			var off int
 			limit := 20
 			zone, offset := time.Now().Zone()
-			for {
-				txs, err := rs.ListTransactions(off, limit)
+			db, err := rd.OpenObjectsStore()
+			if err != nil {
+				return err
+			}
+			defer db.Close()
+			txs, err := rs.ListTransactions(off, limit)
+			if err != nil {
+				return err
+			}
+			for _, tx := range txs {
+				fmt.Fprintf(out, "transaction %s\n", tx.ID)
+				fmt.Fprintf(out, "Status: %s\n", string(tx.Status))
+				fmt.Fprintf(out, "Begin: %s\n", tx.Begin.In(time.FixedZone(zone, offset)))
+				if !tx.End.IsZero() {
+					fmt.Fprintf(out, "End: %s\n", tx.End.In(time.FixedZone(zone, offset)))
+				}
+				fmt.Fprintln(out)
+				refs, err := ref.ListTransactionRefs(rs, tx.ID)
 				if err != nil {
 					return err
 				}
-				for _, tx := range txs {
-					fmt.Fprintf(out, "transaction %s\n", tx.ID)
-					switch tx.Status {
-					case ref.TSCommitted:
-						fmt.Fprint(out, "Status: committed\n")
-					case ref.TSInProgress:
-						fmt.Fprint(out, "Status: in-progress\n")
+				for branch, sum := range refs {
+					com, err := objects.GetCommit(db, sum)
+					if err != nil {
+						return err
 					}
-					fmt.Fprintf(out, "Begin: %s\n", tx.Begin.In(time.FixedZone(zone, offset)))
-					if tx.End.IsZero() {
-						fmt.Fprintf(out, "End: %s\n", tx.End.In(time.FixedZone(zone, offset)))
-					}
-					fmt.Fprintln(out)
+					fmt.Fprintf(out, "    [%s %s] %s\n", branch, hex.EncodeToString(sum)[:7], ref.FirstLine(com.Message))
 				}
+				fmt.Fprintln(out)
 			}
+			return nil
 		},
 	}
 	cmd.Flags().BoolP("no-pager", "P", false, "don't use PAGER")

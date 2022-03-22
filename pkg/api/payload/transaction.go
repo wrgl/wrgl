@@ -5,6 +5,13 @@ package payload
 
 import "time"
 
+type CreateTransactionRequest struct {
+	ID     string    `json:"id"`
+	Begin  time.Time `json:"begin,omitempty"`
+	End    time.Time `json:"end,omitempty"`
+	Status string    `json:"status"`
+}
+
 type CreateTransactionResponse struct {
 	ID string `json:"id"`
 }
