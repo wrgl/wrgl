@@ -135,6 +135,7 @@ func mergeCmd() *cobra.Command {
 	cmd.Flags().Bool("ff", false, "when merging a descendant commit into a branch, don't create a merge commit but simply fast-forward branch to the descendant commit. Create an extra merge commit otherwise. This is the default behavior unless merge.fastForward is configured.")
 	cmd.Flags().Bool("no-ff", false, "always create a merge commit, even when a simple fast-forward is possible. This is the default when merge.fastFoward is set to \"never\".")
 	cmd.Flags().Bool("ff-only", false, "only allow fast-forward merges. This is the default when merge.fastForward is set to \"only\".")
+	cmd.Flags().String("delimiter", "", "CSV delimiter during commit with --commit-csv, defaults to comma")
 	return cmd
 }
 
@@ -241,7 +242,14 @@ func runMerge(
 			return err
 		}
 		sortPT, blkPT := displayCommitProgress(cmd)
-		s, err := sorter.NewSorter(0, sortPT)
+		delim, err := getRuneFromFlag(cmd, "delimiter")
+		if err != nil {
+			return err
+		}
+		s, err := sorter.NewSorter(
+			sorter.WithProgressBar(sortPT),
+			sorter.WithDelimiter(delim),
+		)
 		if err != nil {
 			return err
 		}
@@ -511,7 +519,7 @@ func commitMergeResult(
 		return err
 	}
 	blkPT := utils.PBar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
-	s, err := sorter.NewSorter(0, nil)
+	s, err := sorter.NewSorter()
 	if err != nil {
 		return err
 	}

@@ -49,18 +49,18 @@ func TestMergeCmdCommitCSV(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	_, fp := createCSVFile(t, []string{
-		"a,b,c",
-		"1,q,e",
-		"2,a,d",
-		"3,z,x",
+		"a|b|c",
+		"1|q|e",
+		"2|a|d",
+		"3|z|x",
 	})
 	defer os.Remove(fp)
 	cmd := rootCmd()
-	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--commit-csv", fp})
+	cmd.SetArgs([]string{"merge", "branch-1", "branch-2", "--commit-csv", fp, "--delimiter", "|"})
 	require.NoError(t, cmd.Execute())
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"export", "branch-1"})
+	cmd.SetArgs([]string{"export", "branch-1", "--delimiter", "|"})
 	b, err := ioutil.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))

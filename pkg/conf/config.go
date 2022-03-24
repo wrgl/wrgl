@@ -47,6 +47,9 @@ type Branch struct {
 	// PrimaryKey is the primary key used in addition to branch.file during diff or commit if
 	// no file is specified.
 	PrimaryKey []string `yaml:"primaryKey,omitempty" json:"primaryKey,omitempty"`
+
+	// Delimiter is the CSV delimiter of File. Defaults to comma.
+	Delimiter rune `yaml:"delimiter,omitempty" json:"delimiter,omitempty"`
 }
 
 type AuthType string

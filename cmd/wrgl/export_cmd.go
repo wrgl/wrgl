@@ -30,6 +30,7 @@ func newExportCmd() *cobra.Command {
 			return exportCommit(cmd, cStr)
 		},
 	}
+	cmd.Flags().String("delimiter", "", "CSV delimiter. Defaults to comma.")
 	return cmd
 }
 
@@ -54,7 +55,14 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	if err != nil {
 		return err
 	}
+	delim, err := getRuneFromFlag(cmd, "delimiter")
+	if err != nil {
+		return err
+	}
 	writer := csv.NewWriter(cmd.OutOrStdout())
+	if delim != 0 {
+		writer.Comma = delim
+	}
 	err = writer.Write(tbl.Columns)
 	if err != nil {
 		return err

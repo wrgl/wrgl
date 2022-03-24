@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -100,7 +101,7 @@ func newCommitCmd() *cobra.Command {
 			if err := utils.EnsureUserSet(cmd, c); err != nil {
 				return err
 			}
-			branchName, csvFilePath, message, primaryKey, commitFromBranchFile, err := parseCommitArgs(cmd, c, setFile, all, args)
+			branchName, csvFilePath, message, primaryKey, delim, commitFromBranchFile, err := parseCommitArgs(cmd, c, setFile, all, args)
 			if err != nil {
 				return err
 			}
@@ -125,7 +126,7 @@ func newCommitCmd() *cobra.Command {
 
 			var sum []byte
 			if commitFromBranchFile {
-				sum, err = commitIfBranchFileHasChanged(cmd, db, rs, c, branchName, csvFilePath, primaryKey, message, numWorkers, memLimit, false, tid)
+				sum, err = commitIfBranchFileHasChanged(cmd, db, rs, c, branchName, csvFilePath, primaryKey, message, numWorkers, memLimit, false, tid, delim)
 				if err != nil {
 					return err
 				}
@@ -134,14 +135,14 @@ func newCommitCmd() *cobra.Command {
 					return nil
 				}
 			} else {
-				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, c, debugFile, false, tid)
+				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, c, debugFile, false, tid, delim)
 				if err != nil {
 					return err
 				}
 			}
 			cmd.Printf("[%s %s] %s\n", branchName, hex.EncodeToString(sum)[:7], message)
 
-			return setBranchFile(rd, setFile, setPK, branchName, csvFilePath, primaryKey)
+			return setBranchFile(rd, setFile, setPK, branchName, csvFilePath, primaryKey, delim)
 		},
 	}
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key for table")
@@ -151,6 +152,7 @@ func newCommitCmd() *cobra.Command {
 	cmd.Flags().Bool("set-primary-key", false, "set branch.primaryKey to PRIMARY_KEY. If branch.primaryKey is set then you don't need to specify PRIMARY_KEY in subsequent commits to BRANCH.")
 	cmd.Flags().Bool("all", false, "commit all branches that have branch.file configured.")
 	cmd.Flags().String("txid", "", "commit using specified transaction id")
+	cmd.Flags().String("delimiter", "", "CSV delimiter, defaults to comma")
 	return cmd
 }
 
@@ -180,9 +182,24 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) error {
 	return nil
 }
 
+func getRuneFromFlag(cmd *cobra.Command, flag string) (rune, error) {
+	s, err := cmd.Flags().GetString(flag)
+	if err != nil {
+		return 0, err
+	}
+	if s != "" {
+		r, size := utf8.DecodeRuneInString(s)
+		if size > 0 {
+			return r, nil
+		}
+		return 0, fmt.Errorf("error reading rune from flag %q: could not decode rune in %q", flag, s)
+	}
+	return 0, nil
+}
+
 func commit(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, message, branchName string, primaryKey []string,
-	numWorkers int, memLimit uint64, c *conf.Config, debugFile io.Writer, quiet bool, tid *uuid.UUID,
+	numWorkers int, memLimit uint64, c *conf.Config, debugFile io.Writer, quiet bool, tid *uuid.UUID, delim rune,
 ) ([]byte, error) {
 	if !ref.HeadPattern.MatchString(branchName) {
 		return nil, fmt.Errorf("invalid branch name, must consist of only alphanumeric letters, hyphen and underscore")
@@ -205,7 +222,11 @@ func commit(
 	if !quiet {
 		sortPT, blkPT = displayCommitProgress(cmd)
 	}
-	s, err := sorter.NewSorter(memLimit, sortPT)
+	s, err := sorter.NewSorter(
+		sorter.WithRunSize(memLimit),
+		sorter.WithProgressBar(sortPT),
+		sorter.WithDelimiter(delim),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -245,20 +266,20 @@ func commit(
 
 func commitTempBranch(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, tmpBranch, csvFilePath string,
-	primaryKey []string, numWorkers int, memLimit uint64, quiet bool,
+	primaryKey []string, numWorkers int, memLimit uint64, quiet bool, delim rune,
 ) (sum []byte, err error) {
 	ref.DeleteHead(rs, tmpBranch)
-	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, numWorkers, memLimit, c, nil, quiet, nil)
+	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, numWorkers, memLimit, c, nil, quiet, nil, delim)
 }
 
 func ensureTempCommit(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string,
-	primaryKey []string, numWorkers int, memLimit uint64, quiet bool,
+	primaryKey []string, numWorkers int, memLimit uint64, quiet bool, delim rune,
 ) (sum []byte, err error) {
 	tmpBranch := branch + "-tmp"
 	sum, err = ref.GetHead(rs, tmpBranch)
 	if err == ref.ErrKeyNotFound {
-		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet)
+		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet, delim)
 		if err != nil {
 			return nil, err
 		}
@@ -273,7 +294,7 @@ func ensureTempCommit(
 		return nil, err
 	}
 	if com.Message != fd.Name() || com.Time.Before(fd.ModTime()) || !c.IsBranchPrimaryKeyEqual(branch, primaryKey) {
-		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet)
+		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet, delim)
 		if err != nil {
 			return nil, err
 		}
@@ -318,9 +339,9 @@ func saveHead(rs ref.Store, branch string, commitSum []byte, commit *objects.Com
 
 func commitIfBranchFileHasChanged(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string,
-	primaryKey []string, message string, numWorkers int, memLimit uint64, quiet bool, tid *uuid.UUID,
+	primaryKey []string, message string, numWorkers int, memLimit uint64, quiet bool, tid *uuid.UUID, delim rune,
 ) ([]byte, error) {
-	tmpSum, err := ensureTempCommit(cmd, db, rs, c, branch, csvFilePath, primaryKey, numWorkers, memLimit, quiet)
+	tmpSum, err := ensureTempCommit(cmd, db, rs, c, branch, csvFilePath, primaryKey, numWorkers, memLimit, quiet, delim)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +373,7 @@ func commitAllBranches(
 			cmd.Printf("File %q does not exist, skipping branch %q.\n", branch.File, name)
 			continue
 		}
-		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit, quiet, tid)
+		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit, quiet, tid, branch.Delimiter)
 		if err != nil {
 			return err
 		}
@@ -365,7 +386,7 @@ func commitAllBranches(
 	return nil
 }
 
-func setBranchFile(rd *local.RepoDir, setFile, setPK bool, branchName, csvFilePath string, primaryKey []string) error {
+func setBranchFile(rd *local.RepoDir, setFile, setPK bool, branchName, csvFilePath string, primaryKey []string, delim rune) error {
 	if setFile || setPK {
 		s := conffs.NewStore(rd.FullPath, conffs.LocalSource, "")
 		c, err := s.Open()
@@ -380,6 +401,9 @@ func setBranchFile(rd *local.RepoDir, setFile, setPK bool, branchName, csvFilePa
 		}
 		if setFile {
 			c.Branch[branchName].File = csvFilePath
+			if delim != 0 {
+				c.Branch[branchName].Delimiter = delim
+			}
 		}
 		if setPK {
 			c.Branch[branchName].PrimaryKey = primaryKey
@@ -390,9 +414,13 @@ func setBranchFile(rd *local.RepoDir, setFile, setPK bool, branchName, csvFilePa
 }
 
 func parseCommitArgs(cmd *cobra.Command, c *conf.Config, setFile, all bool, args []string) (
-	branchName, csvFilePath, message string, primaryKey []string, commitFromBranchFile bool, err error,
+	branchName, csvFilePath, message string, primaryKey []string, delim rune, commitFromBranchFile bool, err error,
 ) {
 	primaryKey, err = cmd.Flags().GetStringSlice("primary-key")
+	if err != nil {
+		return
+	}
+	delim, err = getRuneFromFlag(cmd, "delimiter")
 	if err != nil {
 		return
 	}
@@ -415,6 +443,7 @@ func parseCommitArgs(cmd *cobra.Command, c *conf.Config, setFile, all bool, args
 			if len(primaryKey) == 0 && branch.PrimaryKey != nil {
 				primaryKey = branch.PrimaryKey
 			}
+			delim = branch.Delimiter
 			commitFromBranchFile = true
 		}
 	} else if len(args) == 3 {

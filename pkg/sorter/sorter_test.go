@@ -16,11 +16,12 @@ import (
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
-func writeCSV(t *testing.T, rows [][]string) *os.File {
+func writeCSV(t *testing.T, rows [][]string, delimiter rune) *os.File {
 	t.Helper()
 	f, err := testutils.TempFile("", "test_sorter_*")
 	require.NoError(t, err)
 	w := csv.NewWriter(f)
+	w.Comma = delimiter
 	require.NoError(t, w.WriteAll(rows))
 	w.Flush()
 	_, err = f.Seek(0, io.SeekStart)
@@ -60,10 +61,10 @@ func sortedBlocks(t *testing.T, s *Sorter, rowsCount uint32) []*Block {
 
 func TestSorterSortedRows(t *testing.T) {
 	rows := testutils.BuildRawCSV(4, 700)
-	f := writeCSV(t, rows)
+	f := writeCSV(t, rows, ',')
 	defer os.Remove(f.Name())
 
-	s, err := NewSorter(4096, nil)
+	s, err := NewSorter(WithRunSize(4096))
 	require.NoError(t, err)
 	err = s.SortFile(f, rows[0][:1])
 	require.NoError(t, err)
@@ -89,7 +90,7 @@ func TestSorterSortedRows(t *testing.T) {
 	// sorter run entirely in memory
 	f, err = os.Open(f.Name())
 	require.NoError(t, err)
-	s, err = NewSorter(0, nil)
+	s, err = NewSorter()
 	require.NoError(t, err)
 	require.NoError(t, s.SortFile(f, rows[0][:1]))
 	rowBlocks2 := sortedRows(t, s, 700, nil)
@@ -99,10 +100,10 @@ func TestSorterSortedRows(t *testing.T) {
 
 func TestSorterSortedBlocks(t *testing.T) {
 	rows := testutils.BuildRawCSV(4, 700)
-	f := writeCSV(t, rows)
+	f := writeCSV(t, rows, ',')
 	defer os.Remove(f.Name())
 
-	s, err := NewSorter(4096, nil)
+	s, err := NewSorter(WithRunSize(4096))
 	require.NoError(t, err)
 	err = s.SortFile(f, rows[0][:1])
 	require.NoError(t, err)
@@ -138,7 +139,7 @@ func TestSorterSortedBlocks(t *testing.T) {
 	// sorter run entirely in memory
 	f, err = os.Open(f.Name())
 	require.NoError(t, err)
-	s, err = NewSorter(0, nil)
+	s, err = NewSorter()
 	require.NoError(t, err)
 	require.NoError(t, s.SortFile(f, rows[0][:1]))
 	blocks2 := sortedBlocks(t, s, 700)
@@ -148,7 +149,7 @@ func TestSorterSortedBlocks(t *testing.T) {
 	// sorter return entire row as PK if PK is nil
 	f, err = os.Open(f.Name())
 	require.NoError(t, err)
-	s, err = NewSorter(0, nil)
+	s, err = NewSorter()
 	require.NoError(t, err)
 	require.NoError(t, s.SortFile(f, nil))
 	blocks3 := sortedBlocks(t, s, 700)
@@ -158,7 +159,7 @@ func TestSorterSortedBlocks(t *testing.T) {
 }
 
 func TestSorterAddRow(t *testing.T) {
-	s, err := NewSorter(0, nil)
+	s, err := NewSorter()
 	require.NoError(t, err)
 	s.PK = []uint32{1}
 	require.NoError(t, s.AddRow([]string{"1", "a", "q"}))
@@ -175,4 +176,26 @@ func TestSorterAddRow(t *testing.T) {
 		},
 	}, rowBlocks)
 	require.NoError(t, s.Close())
+}
+
+func TestSorterDelimiter(t *testing.T) {
+	rows := testutils.BuildRawCSV(4, 100)
+	f := writeCSV(t, rows, '|')
+	defer os.Remove(f.Name())
+	s, err := NewSorter(WithDelimiter('|'))
+	require.NoError(t, err)
+	defer s.Close()
+
+	require.NoError(t, s.SortFile(f, rows[0][:1]))
+	rowBlocks := sortedRows(t, s, 100, nil)
+	assert.Equal(t, rows[0], s.Columns)
+	assert.Equal(t, []uint32{0}, s.PK)
+	assert.Len(t, rowBlocks, 1)
+	SortRows(rows[1:], s.PK)
+	require.Equal(t, 0, rowBlocks[0].Offset)
+	require.Len(t, rowBlocks[0].Rows, 100)
+	for j, row := range rowBlocks[0].Rows {
+		require.Equal(t, rows[j+1], row, "j:%d", j)
+	}
+	assert.NotNil(t, s.TableSummary())
 }

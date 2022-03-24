@@ -26,14 +26,25 @@ func TestCommitCmd(t *testing.T) {
 	defer cleanup()
 
 	_, fp := createCSVFile(t, []string{
+		"a|b|c",
+		"1|q|w",
+		"2|a|s",
+		"3|z|x",
+	})
+	defer os.Remove(fp)
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"commit", "my-other-branch", fp, "initial commit", "-n", "1", "--delimiter", "|"})
+	cmd.SetOut(ioutil.Discard)
+	require.NoError(t, cmd.Execute())
+
+	_, fp = createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
 		"2,a,s",
 		"3,z,x",
 	})
 	defer os.Remove(fp)
-
-	cmd := rootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", fp, "initial commit", "-n", "1"})
 	cmd.SetOut(ioutil.Discard)
 	require.NoError(t, cmd.Execute())
@@ -53,6 +64,9 @@ func TestCommitCmd(t *testing.T) {
 	sum, err := ref.GetHead(rs, "my-branch")
 	require.NoError(t, err)
 	assert.Equal(t, sl[0], sum)
+	sum2, err := ref.GetHead(rs, "my-other-branch")
+	require.NoError(t, err)
+	assert.Equal(t, sum, sum2)
 	refhelpers.AssertLatestReflogEqual(t, rs, "heads/my-branch", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",
@@ -134,10 +148,10 @@ func TestCommitSetFile(t *testing.T) {
 	defer cleanup()
 
 	_, fp := createCSVFile(t, []string{
-		"a,b,c",
-		"1,q,w",
-		"2,a,s",
-		"3,z,x",
+		"a|b|c",
+		"1|q|w",
+		"2|a|s",
+		"3|z|x",
 	})
 	defer os.Remove(fp)
 	cmd := rootCmd()
@@ -145,12 +159,19 @@ func TestCommitSetFile(t *testing.T) {
 	assertCmdFailed(t, cmd, "", fmt.Errorf("branch.file is not set for branch \"my-branch\". You need to specify CSV_FILE_PATH"))
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"commit", "my-branch", fp, "initial commit", "-n", "1", "-p", "a", "--set-file", "--set-primary-key"})
+	cmd.SetArgs([]string{
+		"commit", "my-branch", fp, "initial commit",
+		"-n", "1",
+		"-p", "a",
+		"--delimiter", "|",
+		"--set-file",
+		"--set-primary-key",
+	})
 	cmd.SetOut(ioutil.Discard)
 	require.NoError(t, cmd.Execute())
 
 	// append a single line to fp
-	appendToFile(t, fp, "\n4,r,t")
+	appendToFile(t, fp, "\n4|r|t")
 
 	// commit reading file and pk from config
 	cmd = rootCmd()
@@ -205,13 +226,13 @@ func TestCommitCmdAll(t *testing.T) {
 	rs := rd.OpenRefStore()
 
 	_, fp1 := createCSVFile(t, []string{
-		"a,b,c",
-		"1,q,w",
-		"2,a,s",
-		"3,z,x",
+		"a|b|c",
+		"1|q|w",
+		"2|a|s",
+		"3|z|x",
 	})
 	defer os.Remove(fp1)
-	commitFile(t, "branch-1", fp1, "a", "--set-file", "--set-primary-key")
+	commitFile(t, "branch-1", fp1, "a", "--set-file", "--set-primary-key", "--delimiter", "|")
 	sum1, err := ref.GetHead(rs, "branch-1")
 	require.NoError(t, err)
 
@@ -241,7 +262,7 @@ func TestCommitCmdAll(t *testing.T) {
 	cmd.SetArgs([]string{"config", "set", "branch.branch-4.file", "non-existent.csv"})
 	require.NoError(t, cmd.Execute())
 
-	appendToFile(t, fp1, "\n4,t,y")
+	appendToFile(t, fp1, "\n4|t|y")
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "--all", "mass commit"})

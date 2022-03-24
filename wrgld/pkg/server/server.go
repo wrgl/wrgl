@@ -75,7 +75,7 @@ func NewServer(
 		maxAge:       90 * 24 * time.Hour,
 		sPool: &sync.Pool{
 			New: func() interface{} {
-				s, err := sorter.NewSorter(8*1024*1024, nil)
+				s, err := sorter.NewSorter(sorter.WithRunSize(8 * 1024 * 1024))
 				if err != nil {
 					panic(err)
 				}

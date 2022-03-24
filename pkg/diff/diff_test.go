@@ -320,7 +320,7 @@ func ingestRawCSV(b *testing.B, db objects.Store, rows [][]string) (*objects.Tab
 	b.Helper()
 	buf := bytes.NewBuffer(nil)
 	require.NoError(b, csv.NewWriter(buf).WriteAll(rows))
-	s, err := sorter.NewSorter(0, nil)
+	s, err := sorter.NewSorter()
 	require.NoError(b, err)
 	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), nil)
 	require.NoError(b, err)

@@ -25,7 +25,7 @@ type RowCollector struct {
 }
 
 func NewCollector(db objects.Store, baseT *objects.Table, discardedRow *index.HashSet) (*RowCollector, error) {
-	s, err := sorter.NewSorter(0, nil)
+	s, err := sorter.NewSorter()
 	if err != nil {
 		return nil, err
 	}

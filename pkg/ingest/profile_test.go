@@ -20,7 +20,7 @@ func TestProfileTable(t *testing.T) {
 	f := writeCSV(t, rows)
 	defer os.Remove(f.Name())
 	db := objmock.NewStore()
-	s, err := sorter.NewSorter(0, nil)
+	s, err := sorter.NewSorter()
 	require.NoError(t, err)
 
 	sum, err := IngestTable(db, s, f, rows[0][:1])

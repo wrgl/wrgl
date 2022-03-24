@@ -4,7 +4,6 @@
 package utils
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -35,7 +34,6 @@ func PagerOrOut(cmd *cobra.Command) (io.Writer, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	fmt.Printf("noPager: %v\n", noPager)
 	if noPager {
 		return cmd.OutOrStdout(), func() {}, nil
 	}

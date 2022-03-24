@@ -71,6 +71,27 @@ type Sorter struct {
 	Columns   []string
 	cleanups  []func() error
 	RowsCount uint32
+	delimiter rune
+}
+
+type SorterOption func(s *Sorter)
+
+func WithDelimiter(delimiter rune) SorterOption {
+	return func(s *Sorter) {
+		s.delimiter = delimiter
+	}
+}
+
+func WithRunSize(runSize uint64) SorterOption {
+	return func(s *Sorter) {
+		s.runSize = runSize
+	}
+}
+
+func WithProgressBar(pt ProgressBar) SorterOption {
+	return func(s *Sorter) {
+		s.pt = pt
+	}
 }
 
 func SortRows(blk [][]string, pk []uint32) {
@@ -79,16 +100,16 @@ func SortRows(blk [][]string, pk []uint32) {
 	})
 }
 
-func NewSorter(runSize uint64, pt ProgressBar) (s *Sorter, err error) {
-	if runSize == 0 {
-		runSize, err = getRunSize()
+func NewSorter(opts ...SorterOption) (s *Sorter, err error) {
+	s = &Sorter{}
+	for _, opt := range opts {
+		opt(s)
+	}
+	if s.runSize == 0 {
+		s.runSize, err = getRunSize()
 		if err != nil {
 			return
 		}
-	}
-	s = &Sorter{
-		pt:      pt,
-		runSize: runSize,
 	}
 	return
 }
@@ -159,6 +180,9 @@ func (s *Sorter) AddRow(row []string) error {
 
 func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 	r := csv.NewReader(f)
+	if s.delimiter != 0 {
+		r.Comma = s.delimiter
+	}
 	r.ReuseRecord = true
 	row, err := r.Read()
 	if err != nil {

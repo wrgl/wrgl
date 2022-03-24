@@ -23,7 +23,7 @@ func TestIndexTable(t *testing.T) {
 
 	for _, pk := range [][]string{rows[0][:1], nil} {
 		db := objmock.NewStore()
-		s, err := sorter.NewSorter(0, nil)
+		s, err := sorter.NewSorter()
 		require.NoError(t, err)
 		f, err = os.Open(f.Name())
 		require.NoError(t, err)

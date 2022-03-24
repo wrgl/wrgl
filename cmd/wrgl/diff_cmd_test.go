@@ -269,3 +269,33 @@ func TestDiffCmdAll(t *testing.T) {
 		"branch-4 columns: +1/-1; primary key: a->a,b",
 	}, lines)
 }
+
+func TestDiffWithDelimiter(t *testing.T) {
+	_, cleanup := createRepoDir(t)
+	defer cleanup()
+
+	_, fp1 := createCSVFile(t, []string{
+		"a@b@c",
+		"1@q@w",
+		"2@a@s",
+		"3@z@x",
+	})
+	defer os.Remove(fp1)
+	_, fp2 := createCSVFile(t, []string{
+		"a|b|c",
+		"1|q|w",
+		"2|a|s",
+		"3|z|x",
+	})
+	defer os.Remove(fp2)
+
+	assertDiffCSVEqual(t, []string{fp1, fp2, "--delimiter-1", "@", "--delimiter-2", "|"}, func(sum1, sum2 string) string {
+		return strings.Join([]string{
+			fmt.Sprintf("COLUMNS IN %s (%s),a,b,c", filepath.Base(fp2), sum2),
+			fmt.Sprintf("COLUMNS IN %s (%s),a,b,c", filepath.Base(fp1), sum1),
+			fmt.Sprintf("PRIMARY KEY IN %s (%s),,,", filepath.Base(fp2), sum2),
+			fmt.Sprintf("PRIMARY KEY IN %s (%s),,,", filepath.Base(fp1), sum1),
+			"",
+		}, "\n")
+	})
+}

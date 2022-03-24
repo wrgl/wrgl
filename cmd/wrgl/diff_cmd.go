@@ -139,32 +139,37 @@ func newDiffCmd() *cobra.Command {
 	cmd.Flags().Bool("branch-file", false, "if only one argument is given and it is a branch name, compare against branch.file (if it is configured with wrgl commit --set-file)")
 	cmd.Flags().Bool("all", false, "show diff summary for all branches that have branch.file configured")
 	cmd.Flags().String("txid", "", "show diff summary for all changes with specified transaction id")
+	cmd.Flags().String("delimiter-1", "", "CSV delimiter of the first argument if the first argument is an external file. Defaults to comma.")
+	cmd.Flags().String("delimiter-2", "", "CSV delimiter of the second argument if the second argument is an external file. Defaults to comma.")
 	return cmd
 }
 
 func getSecondCommit(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, memDB *objmock.Store, rs ref.Store,
-	pk []string, args []string, commit1 *objects.Commit, branchFile, quiet bool,
+	pk []string, args []string, commit1 *objects.Commit, branchFile, quiet bool, delim rune,
 ) (inUsedDB objects.Store, name, hash string, commit *objects.Commit, err error) {
 	if branchFile {
-		return getCommit(cmd, c, db, memDB, rs, pk, args[0], false, quiet)
+		return getCommit(cmd, c, db, memDB, rs, pk, args[0], false, quiet, delim)
 	}
 	if len(args) > 1 {
-		return getCommit(cmd, c, db, memDB, rs, pk, args[1], false, quiet)
+		return getCommit(cmd, c, db, memDB, rs, pk, args[1], false, quiet, delim)
 	}
 	if len(commit1.Parents) > 0 {
-		return getCommit(cmd, c, db, memDB, rs, pk, hex.EncodeToString(commit1.Parents[0]), false, quiet)
+		return getCommit(cmd, c, db, memDB, rs, pk, hex.EncodeToString(commit1.Parents[0]), false, quiet, delim)
 	}
 	err = fmt.Errorf("specify the second object to diff against")
 	return
 }
 
-func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File, quiet bool) (hash string, commit *objects.Commit, err error) {
+func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File, quiet bool, delim rune) (hash string, commit *objects.Commit, err error) {
 	var sortPT, blkPT *progressbar.ProgressBar
 	if !quiet {
 		sortPT, blkPT = displayCommitProgress(cmd)
 	}
-	s, err := sorter.NewSorter(0, sortPT)
+	s, err := sorter.NewSorter(
+		sorter.WithProgressBar(sortPT),
+		sorter.WithDelimiter(delim),
+	)
 	if err != nil {
 		return
 	}
@@ -202,7 +207,7 @@ func displayableCommitName(name string, sum []byte) string {
 
 func getCommit(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store,
-	rs ref.Store, pk []string, cStr string, branchFile, quiet bool,
+	rs ref.Store, pk []string, cStr string, branchFile, quiet bool, delim rune,
 ) (inUsedDB objects.Store, name, hash string, commit *objects.Commit, err error) {
 	inUsedDB = db
 	var file *os.File
@@ -218,7 +223,7 @@ func getCommit(
 		}
 		inUsedDB = memStore
 		defer file.Close()
-		hash, commit, err = createInMemCommit(cmd, memStore, pk, file, quiet)
+		hash, commit, err = createInMemCommit(cmd, memStore, pk, file, quiet, delim)
 		return inUsedDB, path.Base(file.Name()), hash, commit, err
 	}
 	if branchFile && strings.HasPrefix(name, "heads/") {
@@ -236,7 +241,7 @@ func getCommit(
 			return
 		} else {
 			var tmpSum []byte
-			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, 1, 0, quiet)
+			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, 1, 0, quiet, delim)
 			if err != nil {
 				return
 			}
@@ -726,12 +731,20 @@ func runDiff(
 		tpd *diffprof.TableProfileDiff,
 	) error,
 ) error {
-	db1, name1, commitHash1, commit1, err := getCommit(cmd, c, db, memStore, rs, pk, args[0], branchFile, quiet)
+	delim1, err := getRuneFromFlag(cmd, "delimiter-1")
+	if err != nil {
+		return err
+	}
+	db1, name1, commitHash1, commit1, err := getCommit(cmd, c, db, memStore, rs, pk, args[0], branchFile, quiet, delim1)
 	if err != nil {
 		return err
 	}
 
-	db2, name2, commitHash2, commit2, err := getSecondCommit(cmd, c, db, memStore, rs, pk, args, commit1, branchFile, quiet)
+	delim2, err := getRuneFromFlag(cmd, "delimiter-2")
+	if err != nil {
+		return err
+	}
+	db2, name2, commitHash2, commit2, err := getSecondCommit(cmd, c, db, memStore, rs, pk, args, commit1, branchFile, quiet, delim2)
 	if err != nil {
 		return err
 	}

@@ -108,7 +108,7 @@ func ReceivePackConfig(denyNonFastForwards, denyDeletes bool) *conf.Config {
 // 	buf := bytes.NewBuffer(nil)
 // 	w := csv.NewWriter(buf)
 // 	require.NoError(t, w.WriteAll(rows))
-// 	s, err := sorter.NewSorter(0, nil)
+// 	s, err := sorter.NewSorter()
 // 	require.NoError(t, err)
 // 	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), rows[0][:1])
 // 	require.NoError(t, err)
