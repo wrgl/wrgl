@@ -3,6 +3,7 @@ package refsql
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -106,8 +107,29 @@ func (s *Store) Delete(key string) error {
 	})
 }
 
-func (s *Store) Filter(prefix string) (m map[string][]byte, err error) {
-	rows, err := s.db.Query(`SELECT name, sum FROM refs WHERE name LIKE ?`, prefix+"%")
+func filterQuery(q string, prefixes []string, notPrefixes []string) (string, []interface{}) {
+	conds := []string{}
+	args := []interface{}{}
+	for _, s := range prefixes {
+		conds = append(conds, "name LIKE ?")
+		args = append(args, s+"%")
+	}
+	if len(conds) > 1 {
+		conds = []string{fmt.Sprintf("(%s)", strings.Join(conds, " OR "))}
+	}
+	for _, s := range notPrefixes {
+		conds = append(conds, "name NOT LIKE ?")
+		args = append(args, s+"%")
+	}
+	if len(conds) > 0 {
+		q = fmt.Sprintf("%s WHERE %s", q, strings.Join(conds, " AND "))
+	}
+	return q, args
+}
+
+func (s *Store) Filter(prefixes []string, notPrefixes []string) (m map[string][]byte, err error) {
+	q, args := filterQuery("SELECT name, sum FROM refs", prefixes, notPrefixes)
+	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -127,8 +149,9 @@ func (s *Store) Filter(prefix string) (m map[string][]byte, err error) {
 	return m, nil
 }
 
-func (s *Store) FilterKey(prefix string) (keys []string, err error) {
-	rows, err := s.db.Query(`SELECT name FROM refs WHERE name LIKE ? ORDER BY name`, prefix+"%")
+func (s *Store) FilterKey(prefixes []string, notPrefixes []string) (keys []string, err error) {
+	q, args := filterQuery("SELECT name FROM refs", prefixes, notPrefixes)
+	rows, err := s.db.Query(fmt.Sprintf(`%s ORDER BY name`, q), args...)
 	if err != nil {
 		return nil, err
 	}

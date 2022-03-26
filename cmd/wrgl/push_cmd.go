@@ -404,7 +404,7 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 	if err != nil {
 		return err
 	}
-	remoteRefs, err := client.GetRefs()
+	remoteRefs, err := client.GetRefs("")
 	if err != nil {
 		return utils.HandleHTTPError(cmd, cs, cr.URL, uri, err)
 	}

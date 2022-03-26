@@ -246,8 +246,14 @@ func (c *Client) GetCommits(head string, maxDepth int, opts ...RequestOption) (g
 	return
 }
 
-func (c *Client) GetRefs(opts ...RequestOption) (m map[string][]byte, err error) {
-	resp, err := c.Request(http.MethodGet, "/refs/", nil, nil, opts...)
+func (c *Client) GetRefs(prefix string, opts ...RequestOption) (m map[string][]byte, err error) {
+	path := "/refs/"
+	if prefix != "" {
+		v := url.Values{}
+		v.Set("prefix", prefix)
+		path = fmt.Sprintf("%s?%s", path, v.Encode())
+	}
+	resp, err := c.Request(http.MethodGet, path, nil, nil, opts...)
 	if err != nil {
 		return
 	}

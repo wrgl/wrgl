@@ -91,7 +91,7 @@ func TestStore(t *testing.T) {
 	sum4 := testutils.SecureRandomBytes(16)
 	l4 := refhelpers.RandomReflog()
 	require.NoError(t, s.SetWithLog("heads/gamma", sum4, l4))
-	sl, err := s.FilterKey("heads/")
+	sl, err := s.FilterKey([]string{"heads/"}, nil)
 	require.NoError(t, err)
 	sort.Slice(sl, func(i, j int) bool { return sl[i] < sl[j] })
 	assert.Equal(t, []string{
@@ -101,7 +101,7 @@ func TestStore(t *testing.T) {
 
 	sum5 := testutils.SecureRandomBytes(16)
 	require.NoError(t, s.Set("tags/def", sum5))
-	sl, err = s.FilterKey("")
+	sl, err = s.FilterKey(nil, nil)
 	require.NoError(t, err)
 	sort.Slice(sl, func(i, j int) bool { return sl[i] < sl[j] })
 	assert.Equal(t, []string{
@@ -111,13 +111,13 @@ func TestStore(t *testing.T) {
 	}, sl)
 
 	// test Filter
-	m, err := s.Filter("heads/")
+	m, err := s.Filter([]string{"heads/"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/gamma": sum4,
 		"heads/theta": sum3,
 	}, m)
-	m, err = s.Filter("")
+	m, err = s.Filter(nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/gamma": sum4,
@@ -126,10 +126,10 @@ func TestStore(t *testing.T) {
 	}, m)
 
 	// Filter non-existent keys
-	sl, err = s.FilterKey("remotes/")
+	sl, err = s.FilterKey([]string{"remotes/"}, nil)
 	require.NoError(t, err)
 	assert.Len(t, sl, 0)
-	m, err = s.Filter("remotes/")
+	m, err = s.Filter([]string{"remotes/"}, nil)
 	require.NoError(t, err)
 	assert.Len(t, m, 0)
 }

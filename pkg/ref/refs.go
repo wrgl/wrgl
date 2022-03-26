@@ -109,7 +109,7 @@ func GetRemoteRef(s Store, remote, name string) ([]byte, error) {
 
 func listRefs(s Store, prefix string) (map[string][]byte, error) {
 	result := map[string][]byte{}
-	m, err := s.Filter(prefix)
+	m, err := s.Filter([]string{prefix}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -138,18 +138,18 @@ func ListRemoteRefs(s Store, remote string) (map[string][]byte, error) {
 }
 
 func ListAllRefs(s Store) (map[string][]byte, error) {
-	return s.Filter("")
+	return s.Filter(nil, nil)
 }
 
-func ListLocalRefs(s Store) (map[string][]byte, error) {
-	m, err := ListAllRefs(s)
+func ListLocalRefs(s Store, prefix string) (map[string][]byte, error) {
+	prefixes := []string{}
+	notPrefixes := []string{remoteRefPrefix}
+	if prefix != "" {
+		prefixes = append(prefixes, prefix)
+	}
+	m, err := s.Filter(prefixes, notPrefixes)
 	if err != nil {
 		return nil, err
-	}
-	for k := range m {
-		if strings.HasPrefix(k, remoteRefPrefix) {
-			delete(m, k)
-		}
 	}
 	return m, nil
 }
@@ -171,7 +171,7 @@ func DeleteRemoteRef(s Store, remote, name string) error {
 }
 
 func DeleteAllRemoteRefs(s Store, remote string) error {
-	keys, err := s.FilterKey(RemoteRef(remote, ""))
+	keys, err := s.FilterKey([]string{RemoteRef(remote, "")}, nil)
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func DeleteAllRemoteRefs(s Store, remote string) error {
 }
 
 func DeleteTransactionRefs(s Store, id uuid.UUID) error {
-	keys, err := s.FilterKey(TransactionRef(id.String(), ""))
+	keys, err := s.FilterKey([]string{TransactionRef(id.String(), "")}, nil)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func CopyRef(s Store, srcName, dstName string) (sum []byte, err error) {
 func RenameAllRemoteRefs(s Store, oldRemote, newRemote string) error {
 	prefix := RemoteRef(oldRemote, "")
 	n := len(prefix)
-	keys, err := s.FilterKey(prefix)
+	keys, err := s.FilterKey([]string{prefix}, nil)
 	if err != nil {
 		return err
 	}

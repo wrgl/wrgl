@@ -97,8 +97,8 @@ func (s *Store) Delete(key string) error {
 	return nil
 }
 
-func (s *Store) Filter(prefix string) (m map[string][]byte, err error) {
-	keys, err := s.FilterKey(prefix)
+func (s *Store) Filter(prefixes, notPrefixes []string) (m map[string][]byte, err error) {
+	keys, err := s.FilterKey(prefixes, notPrefixes)
 	if err != nil {
 		return
 	}
@@ -113,7 +113,11 @@ func (s *Store) Filter(prefix string) (m map[string][]byte, err error) {
 	return
 }
 
-func (s *Store) FilterKey(prefix string) (keys []string, err error) {
+func (s *Store) FilterKey(prefixes, notPrefixes []string) (keys []string, err error) {
+	prefix := ""
+	if len(prefixes) > 0 {
+		prefix = prefixes[0]
+	}
 	paths := list.New()
 	paths.PushBack(prefix)
 	for e := paths.Front(); e != nil; e = e.Next() {

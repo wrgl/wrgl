@@ -20,8 +20,8 @@ type Store interface {
 	Set(key string, val []byte) error
 	Get(key string) (val []byte, err error)
 	Delete(key string) error
-	Filter(prefix string) (m map[string][]byte, err error)
-	FilterKey(prefix string) (keys []string, err error)
+	Filter(prefixes, notPrefixes []string) (m map[string][]byte, err error)
+	FilterKey(prefixes, notPrefixes []string) (keys []string, err error)
 	Rename(oldKey, newKey string) (err error)
 	Copy(srcKey, dstKey string) (err error)
 	LogReader(key string) (ReflogReader, error)

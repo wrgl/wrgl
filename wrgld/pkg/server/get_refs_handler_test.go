@@ -37,17 +37,23 @@ func (s *testSuite) TestGetRefsHandler(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	refs, err := cli.GetRefs()
+	refs, err := cli.GetRefs("")
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/" + head: sum1,
 		"tags/" + tag:   sum2,
 	}, refs)
 
+	refs, err = cli.GetRefs("heads/")
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]byte{
+		"heads/" + head: sum1,
+	}, refs)
+
 	// pass custom header
 	req := m.Capture(t, func(header http.Header) {
 		header.Set("Custom-Header", "sdf")
-		refs, err := cli.GetRefs(apiclient.WithRequestHeader(header))
+		refs, err := cli.GetRefs("", apiclient.WithRequestHeader(header))
 		require.NoError(t, err)
 		assert.Greater(t, len(refs), 0)
 	})

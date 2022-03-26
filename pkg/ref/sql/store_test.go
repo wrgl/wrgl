@@ -78,23 +78,38 @@ func TestStore(t *testing.T) {
 	_, err = s.LogReader("heads/beta")
 	assert.Error(t, err)
 
-	keys, err := s.FilterKey("heads/")
-	require.NoError(t, err)
-	assert.Equal(t, []string{
-		"heads/alpha", "heads/beta-1", "heads/beta-2",
-	}, keys)
-	keys, err = s.FilterKey("heads/be")
-	require.NoError(t, err)
-	assert.Equal(t, []string{"heads/beta-1", "heads/beta-2"}, keys)
+	require.NoError(t, s.Set("tags/dec-2022", testutils.SecureRandomBytes(16)))
+	for i, c := range []struct {
+		Prefixes    []string
+		NotPrefixes []string
+		Expected    []string
+	}{
+		{nil, nil, []string{"heads/alpha", "heads/beta-1", "heads/beta-2", "tags/dec-2022"}},
+		{[]string{"heads/"}, nil, []string{"heads/alpha", "heads/beta-1", "heads/beta-2"}},
+		{[]string{"heads/a", "heads/beta-1"}, nil, []string{"heads/alpha", "heads/beta-1"}},
+		{nil, []string{"heads/"}, []string{"tags/dec-2022"}},
+		{[]string{"heads/"}, []string{"heads/alpha"}, []string{"heads/beta-1", "heads/beta-2"}},
+		{[]string{"heads/", "tags/"}, []string{"heads/alpha"}, []string{"heads/beta-1", "heads/beta-2", "tags/dec-2022"}},
+	} {
+		keys, err := s.FilterKey(c.Prefixes, c.NotPrefixes)
+		require.NoError(t, err)
+		assert.Equal(t, c.Expected, keys, "case %d", i)
+		m, err := s.Filter(c.Prefixes, c.NotPrefixes)
+		require.NoError(t, err)
+		assert.Len(t, m, len(c.Expected), "case %d", i)
+		for _, r := range c.Expected {
+			assert.Contains(t, m, r, "case %d", i)
+		}
+	}
 
-	m, err := s.Filter("heads/")
+	m, err := s.Filter([]string{"heads/"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/alpha":  sum,
 		"heads/beta-1": rl2.NewOID,
 		"heads/beta-2": rl2.NewOID,
 	}, m)
-	m, err = s.Filter("heads/b")
+	m, err = s.Filter([]string{"heads/b"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/beta-1": rl2.NewOID,

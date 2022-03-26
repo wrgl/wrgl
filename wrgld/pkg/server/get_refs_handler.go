@@ -8,8 +8,9 @@ import (
 )
 
 func (s *Server) handleGetRefs(rw http.ResponseWriter, r *http.Request) {
+	values := r.URL.Query()
 	rs := s.getRS(r)
-	refs, err := ref.ListLocalRefs(rs)
+	refs, err := ref.ListLocalRefs(rs, values.Get("prefix"))
 	if err != nil {
 		panic(err)
 	}

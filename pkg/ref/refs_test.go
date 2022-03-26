@@ -265,10 +265,10 @@ func TestListRemoteRefs(t *testing.T) {
 		names[0]: sums[0],
 		names[1]: sums[1],
 	}, m)
-	sl, err := s.Filter("remotes/" + remote1)
+	sl, err := s.Filter([]string{"remotes/" + remote1}, nil)
 	require.NoError(t, err)
 	assert.Len(t, sl, 0)
-	sl, err = s.Filter("remotes/" + remote2)
+	sl, err = s.Filter([]string{"remotes/" + remote2}, nil)
 	require.NoError(t, err)
 	assert.Len(t, sl, 2)
 
@@ -278,7 +278,7 @@ func TestListRemoteRefs(t *testing.T) {
 	m, err = ref.ListRemoteRefs(s, remote2)
 	require.NoError(t, err)
 	assert.Len(t, m, 0)
-	sl, err = s.Filter("remotes/" + remote2)
+	sl, err = s.Filter([]string{"remotes/" + remote2}, nil)
 	require.NoError(t, err)
 	assert.Len(t, sl, 0)
 }
@@ -315,11 +315,17 @@ func TestListAllRefs(t *testing.T) {
 		fmt.Sprintf("remotes/%s/%s", remote, name): sum3,
 	}, m)
 
-	m, err = ref.ListLocalRefs(s)
+	m, err = ref.ListLocalRefs(s, "")
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/" + head: sum1,
 		"tags/" + tag:   sum2,
+	}, m)
+
+	m, err = ref.ListLocalRefs(s, "heads/")
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]byte{
+		"heads/" + head: sum1,
 	}, m)
 }
 
