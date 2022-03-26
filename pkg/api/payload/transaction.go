@@ -18,7 +18,7 @@ type CreateTransactionResponse struct {
 
 type TxBranch struct {
 	Name       string `json:"name"`
-	CurrentSum string `json:"currentSum"`
+	CurrentSum string `json:"currentSum,omitempty"`
 	NewSum     string `json:"newSum"`
 }
 

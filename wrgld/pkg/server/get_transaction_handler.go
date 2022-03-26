@@ -14,33 +14,32 @@ import (
 
 var transactionURIPat = regexp.MustCompile(`/transactions/([0-9a-f-]+)/`)
 
-func extractTransactionID(rw http.ResponseWriter, r *http.Request, rs ref.Store) (*uuid.UUID, *ref.Transaction, bool) {
+func extractTransactionID(rw http.ResponseWriter, r *http.Request, rs ref.Store) (*uuid.UUID, bool) {
 	m := transactionURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
 		SendHTTPError(rw, http.StatusNotFound)
-		return nil, nil, false
+		return nil, false
 	}
 	tid, err := uuid.Parse(m[1])
 	if err != nil {
 		SendError(rw, http.StatusBadRequest, "invalid transaction id")
-		return nil, nil, false
+		return nil, false
 	}
-	tx, err := rs.GetTransaction(tid)
-	if err != nil {
-		SendError(rw, http.StatusNotFound, "transaction not found")
-		return nil, nil, false
-	}
-	return &tid, tx, true
+	return &tid, true
 }
 
 func (s *Server) handleGetTransaction(rw http.ResponseWriter, r *http.Request) {
 	rs := s.getRS(r)
-	tid, tx, ok := extractTransactionID(rw, r, rs)
+	tid, ok := extractTransactionID(rw, r, rs)
 	if !ok {
 		return
 	}
-	refs, err := transaction.Diff(rs, *tid)
+	refs, tx, err := transaction.Diff(rs, *tid)
 	if err != nil {
+		if err == ref.ErrKeyNotFound {
+			SendError(rw, http.StatusNotFound, "transaction not found")
+			return
+		}
 		panic(err)
 	}
 	resp := &payload.GetTransactionResponse{

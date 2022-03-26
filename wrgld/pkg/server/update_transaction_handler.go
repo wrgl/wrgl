@@ -30,7 +30,7 @@ func parseJSONRequest(r *http.Request, rw http.ResponseWriter, obj interface{}) 
 func (s *Server) handleUpdateTransaction(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
 	rs := s.getRS(r)
-	tid, _, ok := extractTransactionID(rw, r, rs)
+	tid, ok := extractTransactionID(rw, r, rs)
 	if !ok {
 		return
 	}

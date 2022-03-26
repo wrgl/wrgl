@@ -813,7 +813,7 @@ func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.S
 }
 
 func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, debugFile io.Writer, tid uuid.UUID) (err error) {
-	m, err := transaction.Diff(rs, tid)
+	m, _, err := transaction.Diff(rs, tid)
 	if err != nil {
 		return
 	}

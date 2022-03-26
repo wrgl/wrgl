@@ -15,21 +15,39 @@ import (
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
-func Diff(rs ref.Store, id uuid.UUID) (map[string][2][]byte, error) {
-	m, err := ref.ListTransactionRefs(rs, id)
+// Diff returns new sum and old sum for each branch in a transaction. If the
+// transaction is still in progress, old sum for each branch is the current
+// sum of that branch. If the transaction is already committed, then old sum
+// for each branch is the oldoid recorded in reflog.
+func Diff(rs ref.Store, id uuid.UUID) (map[string][2][]byte, *ref.Transaction, error) {
+	tx, err := rs.GetTransaction(id)
 	if err != nil {
-		return nil, err
+		return nil, nil, ref.ErrKeyNotFound
 	}
 	result := map[string][2][]byte{}
-	for branch, sum := range m {
-		oldSum, err := ref.GetHead(rs, branch)
-		if err == nil {
-			result[branch] = [2][]byte{sum, oldSum}
-		} else {
-			result[branch] = [2][]byte{sum, nil}
+	if tx.Status == ref.TSInProgress {
+		m, err := ref.ListTransactionRefs(rs, id)
+		if err != nil {
+			return nil, nil, err
+		}
+		for branch, sum := range m {
+			oldSum, err := ref.GetHead(rs, branch)
+			if err == nil {
+				result[branch] = [2][]byte{sum, oldSum}
+			} else {
+				result[branch] = [2][]byte{sum, nil}
+			}
+		}
+	} else {
+		logs, err := rs.GetTransactionLogs(id)
+		if err != nil {
+			return nil, nil, err
+		}
+		for branch, log := range logs {
+			result[branch[6:]] = [2][]byte{log.NewOID, log.OldOID}
 		}
 	}
-	return result, nil
+	return result, tx, nil
 }
 
 func Commit(db objects.Store, rs ref.Store, id uuid.UUID) (err error) {

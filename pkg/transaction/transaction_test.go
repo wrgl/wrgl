@@ -32,36 +32,37 @@ func TestTransaction(t *testing.T) {
 	sum3, com3 := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.SaveTransactionRef(rs, *id, "beta", sum3))
 
-	m, err := Diff(rs, *id)
+	m, tx, err := Diff(rs, *id)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][2][]byte{
 		"alpha": {sum1, nil},
 		"beta":  {sum3, sum2},
 	}, m)
+	assert.Equal(t, ref.TSInProgress, tx.Status)
 
 	require.NoError(t, Commit(db, rs, *id))
 
-	sum, err := ref.GetHead(rs, "alpha")
+	sum4, err := ref.GetHead(rs, "alpha")
 	require.NoError(t, err)
-	assert.NotEqual(t, sum1, sum)
+	assert.NotEqual(t, sum1, sum4)
 	refhelpers.AssertLatestReflogEqual(t, rs, "heads/alpha", &ref.Reflog{
-		NewOID:      sum,
+		NewOID:      sum4,
 		AuthorName:  com1.AuthorName,
 		AuthorEmail: com1.AuthorEmail,
 		Action:      "commit",
 		Message:     com1.Message,
 		Txid:        id,
 	})
-	com, err := objects.GetCommit(db, sum)
+	com, err := objects.GetCommit(db, sum4)
 	require.NoError(t, err)
 	assert.Equal(t, com1.Table, com.Table)
 	assert.Equal(t, fmt.Sprintf("commit [tx/%s]\n%s", id, com1.Message), com.Message)
 
-	sum, err = ref.GetHead(rs, "beta")
+	sum5, err := ref.GetHead(rs, "beta")
 	require.NoError(t, err)
-	assert.NotEqual(t, sum3, sum)
+	assert.NotEqual(t, sum3, sum5)
 	refhelpers.AssertLatestReflogEqual(t, rs, "heads/beta", &ref.Reflog{
-		NewOID:      sum,
+		NewOID:      sum5,
 		OldOID:      sum2,
 		AuthorName:  com3.AuthorName,
 		AuthorEmail: com3.AuthorEmail,
@@ -69,19 +70,27 @@ func TestTransaction(t *testing.T) {
 		Message:     com3.Message,
 		Txid:        id,
 	})
-	com, err = objects.GetCommit(db, sum)
+	com, err = objects.GetCommit(db, sum5)
 	require.NoError(t, err)
 	assert.Equal(t, com3.Table, com.Table)
 	assert.Equal(t, [][]byte{sum2}, com.Parents)
 	assert.Equal(t, fmt.Sprintf("commit [tx/%s]\n%s", id, com3.Message), com.Message)
 
-	tx, err := rs.GetTransaction(*id)
+	tx, err = rs.GetTransaction(*id)
 	require.NoError(t, err)
 	assert.NotEmpty(t, tx.End)
 	assert.Equal(t, ref.TSCommitted, tx.Status)
 
+	m, tx2, err := Diff(rs, *id)
+	require.NoError(t, err)
+	assert.Equal(t, map[string][2][]byte{
+		"alpha": {sum4, nil},
+		"beta":  {sum5, sum2},
+	}, m)
+	assert.Equal(t, tx, tx2)
+
 	// test reapply
-	sum4, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
+	sum6, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	require.NoError(t, Reapply(db, rs, *id, func(branch string, sum []byte, message string) {
 		switch branch {
 		case "alpha":
@@ -94,14 +103,14 @@ func TestTransaction(t *testing.T) {
 			t.Errorf("unexepected branch %q", branch)
 		}
 	}))
-	sum, err = ref.GetHead(rs, "alpha")
+	sum, err := ref.GetHead(rs, "alpha")
 	require.NoError(t, err)
 	com, err = objects.GetCommit(db, sum)
 	require.NoError(t, err)
 	assert.Equal(t, com1.Table, com.Table)
-	assert.Equal(t, [][]byte{sum4}, com.Parents)
+	assert.Equal(t, [][]byte{sum6}, com.Parents)
 	refhelpers.AssertLatestReflogEqual(t, rs, "heads/alpha", &ref.Reflog{
-		OldOID:      sum4,
+		OldOID:      sum6,
 		NewOID:      sum,
 		AuthorName:  com1.AuthorName,
 		AuthorEmail: com1.AuthorEmail,
