@@ -27,12 +27,14 @@ jobs:
   tagged-release:
     name: "Tagged Release"
     needs: test
-    runs-on: "ubuntu-latest"
+    runs-on: "macos-latest"
     steps:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.17.x
+      - name: Install cross-compiler
+        run: brew install FiloSottile/musl-cross/musl-cross
       - uses: actions/checkout@v2
       - name: Build
         run: make

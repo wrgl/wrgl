@@ -24,7 +24,11 @@ define binary_rule =
 echo "\$$(BUILD_DIR)/$(1)-$(3)-$(2)/bin/$(1): \$$(MD5_DIR)/go.sum.md5 \$$($(1)_SOURCES)" >> $(4) && \
 echo -e "\t@-mkdir -p \$$(dir \$$@) 2>/dev/null" >> $(4) && \
 echo -e '\tcp VERSION $(if $(findstring wrgld,$(1)),$(1)/cmd,cmd/$(1))/VERSION' >> $(4) && \
-echo -e "\tCGO_ENABLED=1 GOARCH=$(2) GOOS=$(3) go build -a -o \$$@ github.com/wrgl/wrgl/$(1)" >> $(4) && \
+(if [ "$(3)" == "linux" ]; then \
+  echo -e "\tenv CC=x86_64-linux-musl-gcc CXX=x86_64-linux-musl-g++ GOARCH=amd64 GOOS=linux CGO_ENABLED=1 go build -ldflags \"-linkmode external -extldflags -static\" -a -o \$$@ github.com/wrgl/wrgl/$(1)" >> $(4); \
+else \
+  echo -e "\tCGO_ENABLED=1 GOARCH=$(2) GOOS=$(3) go build -a -o \$$@ github.com/wrgl/wrgl/$(1)" >> $(4); \
+fi) && \
 echo "" >> $(4)
 
 endef
@@ -72,10 +76,10 @@ $(foreach osarch,$(OS_ARCHS),$(eval $(call license_rule,$(osarch))))
 
 $(foreach prog,$(PROGRAMS),$(foreach osarch,$(OS_ARCHS),$(eval $(call tar_rule,$(prog),$(osarch)))))
 
-$(BUILD_DIR)/%.image: %.Dockerfile $(BUILD_DIR)/wrgl-linux-amd64/bin/% $(BUILD_DIR)/wrgl-linux-amd64/LICENSE VERSION
-	$(DOCKER) build -t $*:latest -f $*.Dockerfile $(BUILD_DIR)/wrgl-linux-amd64
-	$(DOCKER) tag $*:latest $*:$(file < VERSION)
-	$(DOCKER) images --format '{{.ID}}' $*:latest > $@
+$(BUILD_DIR)/wrgld.image: wrgld.Dockerfile $(BUILD_DIR)/wrgld-linux-amd64/bin/wrgld $(BUILD_DIR)/wrgld-linux-amd64/LICENSE VERSION
+	$(DOCKER) build -t wrgld:latest -f wrgld.Dockerfile $(BUILD_DIR)/wrgld-linux-amd64
+	$(DOCKER) tag wrgld:latest wrgld:$(file < VERSION)
+	$(DOCKER) images --format '{{.ID}}' wrgld:latest > $@
 
 $(BUILD_DIR): ; @-mkdir $@ 2>/dev/null
 $(MD5_DIR): | $(BUILD_DIR) ; @-mkdir $@ 2>/dev/null
