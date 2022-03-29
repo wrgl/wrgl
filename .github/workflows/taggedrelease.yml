@@ -33,10 +33,11 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.17.x
-      - name: Install cross-compiler
-        run: brew install FiloSottile/musl-cross/musl-cross
+      - run: brew update
       - name: Install make
         run: brew install make --with-default-names
+      - name: Install cross-compiler
+        run: brew install FiloSottile/musl-cross/musl-cross
       - uses: actions/checkout@v2
       - name: Build
         run: /usr/local/opt/make/libexec/gnubin/make
