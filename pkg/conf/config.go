@@ -161,7 +161,7 @@ type Config struct {
 }
 
 func (c *Config) TokenDuration() time.Duration {
-	if c.Auth != nil {
+	if c.Auth != nil && c.Auth.TokenDuration != nil {
 		return time.Duration(*c.Auth.TokenDuration)
 	}
 	return 0
