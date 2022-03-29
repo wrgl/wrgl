@@ -18,7 +18,7 @@ func TestTTLMap(t *testing.T) {
 	assert.Nil(t, m.Get("abc"))
 
 	m.Add("def", 456, time.Millisecond*10)
-	m.Add("qwe", 234, time.Millisecond*220)
+	m.Add("qwe", 234, time.Millisecond*2000)
 	time.Sleep(time.Millisecond * 200)
 	assert.Nil(t, m.Get("def"))
 	assert.Equal(t, 234, m.Get("qwe"))
