@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/wrgl/wrgl/cmd/wrgl/hub/api"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
@@ -34,7 +35,7 @@ func authenticateCmd() *cobra.Command {
 			},
 			{
 				Comment: "authenticate for all repositories on wrgl hub",
-				Line:    "wrgl credentials authenticate https://hub.wrgl.co/api",
+				Line:    "wrgl credentials authenticate " + api.APIRoot,
 			},
 		}),
 		Args: cobra.ExactArgs(1),

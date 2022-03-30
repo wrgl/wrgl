@@ -64,7 +64,7 @@ func createCmd() *cobra.Command {
 			}
 			cmd.Printf("Repository %q created at https://hub.wrgl.co/@%s/r/%s/\n", args[0], username, args[0])
 			if setRemote != "" {
-				return utils.AddRemote(cmd, setRemote, fmt.Sprintf("https://hub.wrgl.co/api/users/%s/repos/%s", username, args[0]))
+				return utils.AddRemote(cmd, setRemote, fmt.Sprintf("%s/users/%s/repos/%s", api.APIRoot, username, args[0]))
 			}
 			return nil
 		},

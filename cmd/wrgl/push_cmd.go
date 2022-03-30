@@ -449,6 +449,15 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 		}
 	}
 	reportUpdateStatus(cmd, updates)
+	if username, reponame, ok := utils.IsWrglhubRemote(cr.URL); ok {
+		cmd.Printf("See latest data at:\n")
+		for _, u := range updates {
+			if u.ErrMsg != "" || u.Sum == nil || (!strings.HasPrefix(u.Dst, "heads/") && !strings.HasPrefix(u.Dst, "refs/heads/")) {
+				continue
+			}
+			cmd.Printf("  %-11s %srefs/%s\n", fetch.TrimRefPrefix(u.Dst), utils.RepoWebURI(username, reponame), u.Dst)
+		}
+	}
 	if setUpstream {
 		refs := []*conf.Refspec{}
 		for _, rs := range upToDateRefspecs {

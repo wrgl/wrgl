@@ -78,3 +78,20 @@ func TestGetTable(t *testing.T) {
 	assert.Equal(t, fmt.Errorf("table %x not found, try fetching it with:\n  wrgl fetch tables origin %x", c2.Table, c2.Table), err)
 	assert.Nil(t, tbl)
 }
+
+func TestIsWrglhubRemote(t *testing.T) {
+	_, _, ok := IsWrglhubRemote("https://my-repo")
+	assert.False(t, ok)
+	username, reponame, ok := IsWrglhubRemote("https://hub.wrgl.co/api/users/my-username/repos/my-repo/")
+	assert.True(t, ok)
+	assert.Equal(t, "my-username", username)
+	assert.Equal(t, "my-repo", reponame)
+	username, reponame, ok = IsWrglhubRemote("https://hub.wrgl.co/api/users/my-username/repos/my-repo")
+	assert.True(t, ok)
+	assert.Equal(t, "my-username", username)
+	assert.Equal(t, "my-repo", reponame)
+}
+
+func TestRepoWebURI(t *testing.T) {
+	assert.Equal(t, "https://hub.wrgl.co/@my-username/r/my-repo/", RepoWebURI("my-username", "my-repo"))
+}

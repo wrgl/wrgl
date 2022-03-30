@@ -194,7 +194,7 @@ func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs 
 	return
 }
 
-func trimRefPrefix(r string) string {
+func TrimRefPrefix(r string) string {
 	if strings.Contains(r, "/") &&
 		!strings.HasPrefix(r, "refs/") &&
 		!strings.HasPrefix(r, "heads/") &&
@@ -215,8 +215,8 @@ func DisplayRefUpdate(cmd *cobra.Command, code byte, summary, errStr, from, to s
 	if errStr != "" {
 		errStr = fmt.Sprintf(" (%s)", errStr)
 	}
-	from = trimRefPrefix(from)
-	to = trimRefPrefix(to)
+	from = TrimRefPrefix(from)
+	to = TrimRefPrefix(to)
 	cmd.Printf(" %c %-17s %-11s -> %s%s\n", code, summary, from, to, errStr)
 }
 
