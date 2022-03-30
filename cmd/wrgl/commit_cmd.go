@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -180,21 +179,6 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) error {
 		}, "\n"))
 	}
 	return nil
-}
-
-func getRuneFromFlag(cmd *cobra.Command, flag string) (rune, error) {
-	s, err := cmd.Flags().GetString(flag)
-	if err != nil {
-		return 0, err
-	}
-	if s != "" {
-		r, size := utf8.DecodeRuneInString(s)
-		if size > 0 {
-			return r, nil
-		}
-		return 0, fmt.Errorf("error reading rune from flag %q: could not decode rune in %q", flag, s)
-	}
-	return 0, nil
 }
 
 func commit(
@@ -420,7 +404,7 @@ func parseCommitArgs(cmd *cobra.Command, c *conf.Config, setFile, all bool, args
 	if err != nil {
 		return
 	}
-	delim, err = getRuneFromFlag(cmd, "delimiter")
+	delim, err = utils.GetRuneFromFlag(cmd, "delimiter")
 	if err != nil {
 		return
 	}

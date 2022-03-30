@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wrgl/wrgl/cmd/wrgl/auth"
+	"github.com/wrgl/wrgl/cmd/wrgl/branch"
 	"github.com/wrgl/wrgl/cmd/wrgl/config"
 	"github.com/wrgl/wrgl/cmd/wrgl/credentials"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
@@ -88,7 +89,7 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(newPreviewCmd())
 	rootCmd.AddCommand(newDiffCmd())
 	rootCmd.AddCommand(newExportCmd())
-	rootCmd.AddCommand(newBranchCmd())
+	rootCmd.AddCommand(branch.RootCmd())
 	rootCmd.AddCommand(newPruneCmd())
 	rootCmd.AddCommand(newResetCmd())
 	rootCmd.AddCommand(newCatObjCmd())

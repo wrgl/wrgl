@@ -55,7 +55,7 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	if err != nil {
 		return err
 	}
-	delim, err := getRuneFromFlag(cmd, "delimiter")
+	delim, err := utils.GetRuneFromFlag(cmd, "delimiter")
 	if err != nil {
 		return err
 	}

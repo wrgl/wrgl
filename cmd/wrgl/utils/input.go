@@ -6,8 +6,10 @@ package utils
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"strings"
 	"syscall"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -55,4 +57,19 @@ func Prompt(cmd *cobra.Command, name string) (value string, err error) {
 		return "", err
 	}
 	return strings.Trim(val, "\n "), nil
+}
+
+func GetRuneFromFlag(cmd *cobra.Command, flag string) (rune, error) {
+	s, err := cmd.Flags().GetString(flag)
+	if err != nil {
+		return 0, err
+	}
+	if s != "" {
+		r, size := utf8.DecodeRuneInString(s)
+		if size > 0 {
+			return r, nil
+		}
+		return 0, fmt.Errorf("error reading rune from flag %q: could not decode rune in %q", flag, s)
+	}
+	return 0, nil
 }

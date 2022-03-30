@@ -731,7 +731,7 @@ func runDiff(
 		tpd *diffprof.TableProfileDiff,
 	) error,
 ) error {
-	delim1, err := getRuneFromFlag(cmd, "delimiter-1")
+	delim1, err := utils.GetRuneFromFlag(cmd, "delimiter-1")
 	if err != nil {
 		return err
 	}
@@ -740,7 +740,7 @@ func runDiff(
 		return err
 	}
 
-	delim2, err := getRuneFromFlag(cmd, "delimiter-2")
+	delim2, err := utils.GetRuneFromFlag(cmd, "delimiter-2")
 	if err != nil {
 		return err
 	}

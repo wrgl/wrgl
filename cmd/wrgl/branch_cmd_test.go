@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -72,15 +73,15 @@ func TestBranchCmdList(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	// test list branch
-	cmd.SetArgs([]string{"branch"})
+	cmd.SetArgs([]string{"branch", "list"})
 	assertCmdOutput(t, cmd, "alpha\nbeta\n")
 
 	// test list branch with pattern
-	cmd.SetArgs([]string{"branch", "--list", "al*"})
+	cmd.SetArgs([]string{"branch", "list", "al*"})
 	assertCmdOutput(t, cmd, "alpha\n")
 
 	// test list branch with multiple patterns
-	cmd.SetArgs([]string{"branch", "--list", "al*", "--list", "b*"})
+	cmd.SetArgs([]string{"branch", "list", "al*", "b*"})
 	assertCmdOutput(t, cmd, "alpha\nbeta\n")
 }
 
@@ -96,13 +97,13 @@ func TestBranchCmdCopy(t *testing.T) {
 	factory.CommitHead(t, db, rs, "beta", nil, nil)
 	require.NoError(t, db.Close())
 
-	cmd.SetArgs([]string{"branch", "gamma", "--copy", "delta"})
+	cmd.SetArgs([]string{"branch", "create", "delta", "--copy", "gamma"})
 	assert.Equal(t, `branch "gamma" does not exist`, cmd.Execute().Error())
 
-	cmd.SetArgs([]string{"branch", "alpha", "--copy", "beta"})
+	cmd.SetArgs([]string{"branch", "create", "beta", "--copy", "alpha"})
 	assert.Equal(t, `branch "beta" already exist`, cmd.Execute().Error())
 
-	cmd.SetArgs([]string{"branch", "alpha", "--copy", "gamma"})
+	cmd.SetArgs([]string{"branch", "create", "gamma", "--copy", "alpha"})
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", hex.EncodeToString(sum)))
 
 	db, err = rd.OpenObjectsStore()
@@ -135,13 +136,13 @@ func TestBranchCmdMove(t *testing.T) {
 	factory.CommitHead(t, db, rs, "beta", nil, nil)
 	require.NoError(t, db.Close())
 
-	cmd.SetArgs([]string{"branch", "gamma", "--move", "delta"})
+	cmd.SetArgs([]string{"branch", "create", "--move", "delta", "gamma"})
 	assert.Equal(t, `branch "gamma" does not exist`, cmd.Execute().Error())
 
-	cmd.SetArgs([]string{"branch", "alpha", "--move", "beta"})
+	cmd.SetArgs([]string{"branch", "create", "--move", "beta", "alpha"})
 	assert.Equal(t, `branch "beta" already exist`, cmd.Execute().Error())
 
-	cmd.SetArgs([]string{"branch", "alpha", "--move", "gamma"})
+	cmd.SetArgs([]string{"branch", "create", "--move", "gamma", "alpha"})
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch gamma (%s)\n", hex.EncodeToString(sum)))
 
 	db, err = rd.OpenObjectsStore()
@@ -165,10 +166,10 @@ func TestBranchCmdDelete(t *testing.T) {
 	factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	require.NoError(t, db.Close())
 
-	cmd.SetArgs([]string{"branch", "gamma", "--delete"})
+	cmd.SetArgs([]string{"branch", "delete", "gamma"})
 	assert.Equal(t, `branch "gamma" does not exist`, cmd.Execute().Error())
 
-	cmd.SetArgs([]string{"branch", "alpha", "--delete"})
+	cmd.SetArgs([]string{"branch", "delete", "alpha"})
 	assertCmdOutput(t, cmd, "deleted branch alpha\n")
 
 	db, err = rd.OpenObjectsStore()
@@ -189,13 +190,13 @@ func TestBranchCmdCreate(t *testing.T) {
 	sum, _ := factory.CommitHead(t, db, rs, "alpha", nil, nil)
 	require.NoError(t, db.Close())
 
-	cmd.SetArgs([]string{"branch", "delta"})
-	assert.Equal(t, "please specify both branch name and start point (could be branch name, commit hash)", cmd.Execute().Error())
+	cmd.SetArgs([]string{"branch", "create", "delta"})
+	assert.Error(t, cmd.Execute())
 
-	cmd.SetArgs([]string{"branch", "delta", "alpha"})
+	cmd.SetArgs([]string{"branch", "create", "delta", "alpha"})
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch delta (%s)\n", hex.EncodeToString(sum)))
 
-	cmd.SetArgs([]string{"branch", "beta", hex.EncodeToString(sum)})
+	cmd.SetArgs([]string{"branch", "create", "beta", hex.EncodeToString(sum)})
 	assertCmdOutput(t, cmd, fmt.Sprintf("created branch beta (%s)\n", hex.EncodeToString(sum)))
 
 	db, err = rd.OpenObjectsStore()
@@ -221,4 +222,50 @@ func TestBranchCmdCreate(t *testing.T) {
 		Action:      "branch",
 		Message:     "created from " + hex.EncodeToString(sum),
 	})
+}
+
+func TestBranchCmdConfig(t *testing.T) {
+	_, cleanUp := createRepoDir(t)
+	defer cleanUp()
+
+	branch := "my-branch"
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"branch", "config", branch})
+	assert.Equal(t, fmt.Errorf(`branch "my-branch" not found`), cmd.Execute())
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"branch", "config", branch, "--set-file", "my_data.csv", "--set-primary-key", "id", "--set-delimiter", "|"})
+	require.NoError(t, cmd.Execute())
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"branch", "config", branch})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		`{`,
+		`    "file": "my_data.csv",`,
+		`    "primaryKey": [`,
+		`        "id"`,
+		`    ],`,
+		`    "delimiter": 124`,
+		`}`,
+		"",
+	}, "\n"))
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"branch", "config", branch, "--set-upstream-remote", "origin", "--set-upstream-dest", "refs/heads/my-other-branch"})
+	require.NoError(t, cmd.Execute())
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"branch", "config", branch})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		`{`,
+		`    "remote": "origin",`,
+		`    "merge": "refs/heads/my-other-branch",`,
+		`    "file": "my_data.csv",`,
+		`    "primaryKey": [`,
+		`        "id"`,
+		`    ],`,
+		`    "delimiter": 124`,
+		`}`,
+		"",
+	}, "\n"))
 }

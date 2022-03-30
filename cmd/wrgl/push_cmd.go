@@ -455,7 +455,8 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 			if u.ErrMsg != "" || u.Sum == nil || (!strings.HasPrefix(u.Dst, "heads/") && !strings.HasPrefix(u.Dst, "refs/heads/")) {
 				continue
 			}
-			cmd.Printf("  %-11s %srefs/%s\n", fetch.TrimRefPrefix(u.Dst), utils.RepoWebURI(username, reponame), u.Dst)
+			branch := fetch.TrimRefPrefix(u.Dst)
+			cmd.Printf("  %-11s %srefs/heads/%s\n", branch, utils.RepoWebURI(username, reponame), branch)
 		}
 	}
 	if setUpstream {

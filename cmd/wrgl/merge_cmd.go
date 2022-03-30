@@ -242,7 +242,7 @@ func runMerge(
 			return err
 		}
 		sortPT, blkPT := displayCommitProgress(cmd)
-		delim, err := getRuneFromFlag(cmd, "delimiter")
+		delim, err := utils.GetRuneFromFlag(cmd, "delimiter")
 		if err != nil {
 			return err
 		}
