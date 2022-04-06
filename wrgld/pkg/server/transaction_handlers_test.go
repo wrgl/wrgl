@@ -1,6 +1,9 @@
 package server_test
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -29,9 +32,16 @@ func (s *testSuite) TestTransaction(t *testing.T) {
 	cr3, err := cli.Commit("beta", "initial commit", "file.csv", testutils.RawCSVBytesReader(testutils.BuildRawCSV(3, 4)), nil, &tid)
 	require.NoError(t, err)
 
-	gtr, err := cli.GetTransaction(tid)
+	resp, err := cli.Request(http.MethodGet, fmt.Sprintf("/transactions/%s/", tid), nil, nil)
 	require.NoError(t, err)
+	b, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	assert.NotContains(t, string(b), `"end"`)
+	gtr := &payload.GetTransactionResponse{}
+	require.NoError(t, json.Unmarshal(b, gtr))
 	assert.NotEmpty(t, gtr.Begin)
+	assert.Empty(t, gtr.End)
 	assert.Equal(t, []payload.TxBranch{
 		{
 			Name:       "alpha",
@@ -44,7 +54,7 @@ func (s *testSuite) TestTransaction(t *testing.T) {
 		},
 	}, gtr.Branches)
 
-	resp, err := cli.DiscardTransaction(tid)
+	resp, err = cli.DiscardTransaction(tid)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	_, err = cli.GetTransaction(tid)
@@ -93,7 +103,7 @@ func (s *testSuite) TestTransaction(t *testing.T) {
 	tx, err := cli.GetTransaction(id)
 	require.NoError(t, err)
 	testutils.AssertTimeEqual(t, req.Begin, tx.Begin)
-	testutils.AssertTimeEqual(t, req.End, tx.End)
+	testutils.AssertTimeEqual(t, req.End, *tx.End)
 	assert.Equal(t, req.Status, tx.Status)
 	assert.Len(t, tx.Branches, 0)
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/api/payload"
@@ -45,7 +46,10 @@ func (s *Server) handleGetTransaction(rw http.ResponseWriter, r *http.Request) {
 	resp := &payload.GetTransactionResponse{
 		Begin:  tx.Begin,
 		Status: string(tx.Status),
-		End:    tx.End,
+	}
+	if !tx.End.IsZero() {
+		resp.End = &time.Time{}
+		*resp.End = tx.End
 	}
 	for branch, sums := range refs {
 		if sums[1] != nil {
