@@ -32,8 +32,7 @@ func sendAll(t *testing.T, sender *apiutils.ObjectSender, receiver *apiutils.Obj
 		require.NoError(t, err)
 		assert.Equal(t, sendDone, done)
 		if done {
-			assert.Greater(t, i, 0)
-			t.Logf("i:%d", i)
+			assert.GreaterOrEqual(t, i, 0)
 			break
 		}
 	}
@@ -76,4 +75,22 @@ func TestSendCommitsWithIdenticalTable(t *testing.T) {
 	r := apiutils.NewObjectReceiver(db2, [][]byte{sum1, sum3}, nil)
 	sendAll(t, s, r)
 	factory.AssertCommitsPersisted(t, db2, [][]byte{sum1, sum2, sum3})
+}
+
+func TestSendCommitButNotTable(t *testing.T) {
+	db1 := objmock.NewStore()
+	db2 := objmock.NewStore()
+
+	sum1, c1 := factory.CommitRandomN(t, db1, 5, 5, nil)
+	factory.CopyCommitsToNewStore(t, db1, db2, [][]byte{sum1})
+	sum2, c2 := factory.CommitRandomWithTable(t, db2, c1.Table, [][]byte{sum1})
+
+	tables := map[string]struct{}{
+		string(c2.Table): {},
+	}
+	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c2}, tables, nil, uint64(10*1024))
+	require.NoError(t, err)
+	r := apiutils.NewObjectReceiver(db2, [][]byte{sum2}, nil)
+	sendAll(t, s, r)
+	factory.AssertCommitsPersisted(t, db2, [][]byte{sum1, sum2})
 }

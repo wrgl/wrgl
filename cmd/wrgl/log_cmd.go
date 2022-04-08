@@ -12,6 +12,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -62,7 +63,7 @@ func writeCommitLog(cmd *cobra.Command, db objects.Store, rs ref.Store, branchNa
 		return err
 	}
 	hash := commitSum
-	f, err := utils.NewRemoteFinder(db, rs)
+	f, err := apiclient.NewRemoteFinder(db, rs)
 	if err != nil {
 		return err
 	}

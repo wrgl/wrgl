@@ -65,7 +65,6 @@ func configCmd() *cobra.Command {
 				c.Branch = map[string]*conf.Branch{}
 			}
 			branch, ok := c.Branch[args[0]]
-			fmt.Printf("setFile: %v, setPrimaryKey: %v, setDelimiter: %v, setUpstreamRemote: %v, setUpstreamDest: %v\n", setFile, setPrimaryKey, setDelimiter, setUpstreamRemote, setUpstreamDest)
 
 			if setFile == "" && len(setPrimaryKey) == 0 && setDelimiter == 0 && setUpstreamRemote == "" && setUpstreamDest == "" {
 				if !ok {

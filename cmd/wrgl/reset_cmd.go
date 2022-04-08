@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -56,7 +57,7 @@ func newResetCmd() *cobra.Command {
 				return fmt.Errorf("commit \"%s\" not found", args[1])
 			}
 			if !objects.TableExist(db, com.Table) {
-				if remote, err := utils.FindRemoteFor(db, rs, hash); err != nil {
+				if remote, err := apiclient.FindRemoteFor(db, rs, hash); err != nil {
 					return err
 				} else if remote != "" {
 					return fmt.Errorf("cannot reset branch to a shallow commit: table %x is missing. Fetch missing table with:\n  wrgl fetch tables %s %x", com.Table, remote, com.Table)

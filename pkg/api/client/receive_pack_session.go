@@ -47,10 +47,8 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 		return nil, fmt.Errorf("finder.Process error: %v", err)
 	}
 	coms := finder.CommitsToSend()
-	for _, com := range coms {
-		if !objects.TableExist(db, com.Table) {
-			return nil, NewShallowCommitError(com.Sum, com.Table)
-		}
+	if err := NewShallowCommitError(db, rs, coms); err != nil {
+		return nil, err
 	}
 	sender, err := apiutils.NewObjectSender(db, coms, finder.TablesToSend(), finder.CommonCommmits(), maxPackfileSize)
 	if err != nil {

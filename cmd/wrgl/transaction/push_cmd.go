@@ -96,7 +96,7 @@ func pushCmd() *cobra.Command {
 					Sum: payload.BytesToHex(sum),
 				}
 			}
-			ses, err := apiclient.NewReceivePackSession(db, rs, client, updates, remoteRefs, 0, pbar)
+			ses, err := apiclient.NewReceivePackSession(db, rs, client, updates, remoteRefs, c.MaxPackFileSize(), pbar)
 			if err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}

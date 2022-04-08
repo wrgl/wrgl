@@ -11,6 +11,7 @@ import (
 	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -59,7 +60,7 @@ func catCommit(cmd *cobra.Command, db objects.Store, rs ref.Store, commit *objec
 	out := cmd.OutOrStdout()
 	colorstring.Fprintf(out, "[yellow]table[white]  %s", hex.EncodeToString(commit.Table))
 	if !objects.TableExist(db, commit.Table) {
-		if remote, err := utils.FindRemoteFor(db, rs, commit.Sum); err != nil {
+		if remote, err := apiclient.FindRemoteFor(db, rs, commit.Sum); err != nil {
 			return err
 		} else if remote != "" {
 			colorstring.Fprintf(out, " [red]<missing, possibly reside on %s>[white]", remote)

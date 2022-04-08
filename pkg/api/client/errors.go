@@ -4,6 +4,7 @@
 package apiclient
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 type HTTPError struct {
@@ -54,16 +57,58 @@ func (obj *HTTPError) Error() string {
 }
 
 type ShallowCommitError struct {
-	CommitSum []byte
-	TableSum  []byte
+	CommitSums [][]byte
+	TableSums  map[string][][]byte
 }
 
-func NewShallowCommitError(comSum, tblSum []byte) *ShallowCommitError {
-	return &ShallowCommitError{comSum, tblSum}
+func NewShallowCommitError(db objects.Store, rs ref.Store, coms []*objects.Commit) error {
+	e := &ShallowCommitError{
+		TableSums: map[string][][]byte{},
+	}
+	for _, com := range coms {
+		if !objects.TableExist(db, com.Table) {
+			e.CommitSums = append(e.CommitSums, com.Sum)
+			rem, err := FindRemoteFor(db, rs, com.Sum)
+			if err != nil {
+				return err
+			}
+			if rem == "" {
+				return fmt.Errorf("no remote found for table %x", com.Table)
+			}
+			e.TableSums[rem] = append(e.TableSums[rem], com.Table)
+		}
+	}
+	if len(e.CommitSums) > 0 {
+		return e
+	}
+	return nil
 }
 
 func (e *ShallowCommitError) Error() string {
-	return fmt.Sprintf("commit %x is shallow", e.CommitSum)
+	comSums := make([]string, len(e.CommitSums))
+	for i, v := range e.CommitSums {
+		comSums[i] = hex.EncodeToString(v)
+	}
+	cmds := make([]string, 0, len(e.TableSums))
+	for rem, sl := range e.TableSums {
+		tblSums := make([]string, len(sl))
+		for i, v := range sl {
+			tblSums[i] = hex.EncodeToString(v)
+		}
+		cmds = append(cmds, fmt.Sprintf("wrgl fetch tables %s %s", rem, strings.Join(tblSums, " ")))
+	}
+	if len(comSums) == 1 {
+		return fmt.Sprintf(
+			"commit %s is shallow\nrun this command to fetch their content:\n  %s",
+			strings.Join(comSums, ", "),
+			strings.Join(cmds, "\n  "),
+		)
+	}
+	return fmt.Sprintf(
+		"commits %s are shallow\nrun this command to fetch their content:\n  %s",
+		strings.Join(comSums, ", "),
+		strings.Join(cmds, "\n  "),
+	)
 }
 
 func UnwrapHTTPError(err error) *HTTPError {

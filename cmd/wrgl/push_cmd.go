@@ -18,7 +18,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
-	"github.com/wrgl/wrgl/pkg/credentials"
 	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -95,6 +94,11 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 
+			clients, err := newClientMap()
+			if err != nil {
+				return err
+			}
+
 			if all {
 				names := []string{}
 				for name, branch := range c.Branch {
@@ -108,7 +112,7 @@ func newPushCmd() *cobra.Command {
 					branch := c.Branch[name]
 					colorstring.Fprintf(cmd.OutOrStdout(), "pushing [bold]%s[reset]...\n", name)
 					if err := pushSingleRepo(
-						cmd, c, db, rs, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
+						cmd, c, db, rs, clients, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
 						mirror, force, false, wrglDir,
 					); err != nil {
 						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
@@ -121,7 +125,7 @@ func newPushCmd() *cobra.Command {
 				return nil
 			}
 
-			return pushSingleRepo(cmd, c, db, rs, args, mirror, force, setUpstream, wrglDir)
+			return pushSingleRepo(cmd, c, db, rs, clients, args, mirror, force, setUpstream, wrglDir)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update remote branch in certain conditions.")
@@ -291,7 +295,7 @@ func identifyUpdates(
 		if src != "" {
 			_, sum, _, err = ref.InterpretCommitName(db, rs, src, false)
 			if err != nil {
-				err = fmt.Errorf("unrecognized ref %q", src)
+				err = fmt.Errorf("error interpreting %q: %v", src, err)
 				return
 			}
 		}
@@ -381,7 +385,7 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*receivePackUpdate) {
 	}
 }
 
-func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, mirror, force, setUpstream bool, wrglDir string) error {
+func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, clients *clientMap, args []string, mirror, force, setUpstream bool, wrglDir string) error {
 	remote, cr, args, err := getRepoToPush(c, args)
 	if err != nil {
 		return err
@@ -392,21 +396,13 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 	if mirror {
 		force = true
 	}
-	cs, err := credentials.NewStore()
+	client, uri, err := clients.GetClient(cmd, cr)
 	if err != nil {
 		return err
 	}
-	uri, tok, err := fetch.GetCredentials(cmd, cs, cr.URL)
+	remoteRefs, err := clients.GetRefs(cmd, cr)
 	if err != nil {
 		return err
-	}
-	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(tok))
-	if err != nil {
-		return err
-	}
-	remoteRefs, err := client.GetRefs("")
-	if err != nil {
-		return utils.HandleHTTPError(cmd, cs, cr.URL, uri, err)
 	}
 	cmd.Printf("To %s\n", cr.URL)
 	refspecs, err := getRefspecsToPush(cmd, rs, cr, args, remoteRefs, mirror)
@@ -417,46 +413,53 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 	if err != nil {
 		return err
 	}
-	um := map[string]*payload.Update{}
-	for _, u := range updates {
-		um[u.Dst] = &payload.Update{
-			Sum:    payload.BytesToHex(u.Sum),
-			OldSum: payload.BytesToHex(u.OldSum),
-		}
-	}
-	noP, err := cmd.Flags().GetBool("no-progress")
-	if err != nil {
-		return err
-	}
-	var pbar *progressbar.ProgressBar
-	if !noP {
-		pbar = utils.PBar(-1, "Pushing objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-		defer pbar.Finish()
-	}
-	ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, 0, pbar)
-	if err != nil {
-		return utils.HandleHTTPError(cmd, cs, cr.URL, uri, err)
-	}
-	um, err = ses.Start()
-	if err != nil {
-		return err
-	}
-	for _, u := range updates {
-		if v, ok := um[u.Dst]; ok {
-			u.ErrMsg = v.ErrMsg
-		} else {
-			u.ErrMsg = "remote failed to report status"
-		}
-	}
-	reportUpdateStatus(cmd, updates)
-	if username, reponame, ok := utils.IsWrglhubRemote(cr.URL); ok {
-		cmd.Printf("See latest data at:\n")
+	if len(updates) > 0 {
+		um := map[string]*payload.Update{}
 		for _, u := range updates {
-			if u.ErrMsg != "" || u.Sum == nil || (!strings.HasPrefix(u.Dst, "heads/") && !strings.HasPrefix(u.Dst, "refs/heads/")) {
-				continue
+			um[u.Dst] = &payload.Update{
+				Sum:    payload.BytesToHex(u.Sum),
+				OldSum: payload.BytesToHex(u.OldSum),
 			}
-			branch := fetch.TrimRefPrefix(u.Dst)
-			cmd.Printf("  %-11s %srefs/heads/%s\n", branch, utils.RepoWebURI(username, reponame), branch)
+		}
+		noP, err := cmd.Flags().GetBool("no-progress")
+		if err != nil {
+			return err
+		}
+		var pbar *progressbar.ProgressBar
+		if !noP {
+			pbar = utils.PBar(-1, "Pushing objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+			defer pbar.Finish()
+		}
+		ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, c.MaxPackFileSize(), pbar)
+		if err != nil {
+			return utils.HandleHTTPError(cmd, clients.CredsStore, cr.URL, uri, err)
+		}
+		um, err = ses.Start()
+		if err != nil {
+			return err
+		}
+		for _, u := range updates {
+			if v, ok := um[u.Dst]; ok {
+				u.ErrMsg = v.ErrMsg
+			} else {
+				u.ErrMsg = "remote failed to report status"
+			}
+		}
+		if pbar != nil {
+			if err = pbar.Finish(); err != nil {
+				return err
+			}
+		}
+		reportUpdateStatus(cmd, updates)
+		if username, reponame, ok := utils.IsWrglhubRemote(cr.URL); ok {
+			cmd.Printf("See latest data at:\n")
+			for _, u := range updates {
+				if u.ErrMsg != "" || u.Sum == nil || (!strings.HasPrefix(u.Dst, "heads/") && !strings.HasPrefix(u.Dst, "refs/heads/")) {
+					continue
+				}
+				branch := fetch.TrimRefPrefix(u.Dst)
+				cmd.Printf("  %srefs/heads/%s\n", utils.RepoWebURI(username, reponame), branch)
+			}
 		}
 	}
 	if setUpstream {

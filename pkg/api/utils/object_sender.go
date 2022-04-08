@@ -87,9 +87,13 @@ func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend ma
 	if err != nil {
 		return nil, err
 	}
-	err = s.enqueueFrontTable()
-	if err != nil {
+	if err = s.enqueueFrontTable(); err != nil {
 		return nil, err
+	}
+	if s.tables.Len() == 0 {
+		if err = s.enqueueAllCommits(); err != nil {
+			return nil, err
+		}
 	}
 	return s, nil
 }

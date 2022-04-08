@@ -12,12 +12,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	confhelpers "github.com/wrgl/wrgl/pkg/conf/helpers"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
-	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
 	server_testutils "github.com/wrgl/wrgl/wrgld/pkg/server/testutils"
 )
 
@@ -142,19 +140,38 @@ func TestShallowCommit(t *testing.T) {
 	assert.Len(t, sl, 0)
 	require.NoError(t, db.Close())
 
-	db, err = rd.OpenObjectsStore()
-	require.NoError(t, err)
-	sum4, c4 := refhelpers.SaveTestCommit(t, db, nil)
-	sum5, c5 := factory.CommitRandom(t, db, [][]byte{sum4})
-	sum6, c6 := refhelpers.SaveTestCommit(t, db, [][]byte{sum5})
-	require.NoError(t, ref.CommitHead(rs, "alpha", sum5, c5, nil))
-	require.NoError(t, db.Close())
+	repo2, url2, _, cleanup2 := ts.NewRemote(t, "", nil)
+	defer cleanup2()
+	dbs2 := ts.GetDB(repo2)
+	rss2 := ts.GetRS(repo2)
+	sum4, c4 := factory.CommitRandom(t, dbs2, nil)
+	sum5, c5 := factory.CommitRandom(t, dbs2, [][]byte{sum4})
+	sum6, c6 := factory.CommitRandom(t, dbs2, [][]byte{sum5})
+	sum7, c7 := factory.CommitRandom(t, dbs2, [][]byte{sum6})
+	require.NoError(t, ref.CommitHead(rss2, "alpha", sum5, c5, nil))
+	require.NoError(t, ref.CommitHead(rss2, "beta", sum7, c7, nil))
+	authenticate(t, ts, url2)
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"remote", "add", "origin", url2})
+	require.NoError(t, cmd.Execute())
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"pull", "alpha", "origin", "refs/heads/alpha:refs/remotes/origin/alpha", "--depth", "1"})
+	require.NoError(t, cmd.Execute())
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"pull", "beta", "origin", "refs/heads/beta:refs/remotes/origin/beta", "--depth", "1"})
+	require.NoError(t, cmd.Execute())
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "--no-progress", "my-repo", "refs/heads/alpha:alpha"})
-	assertCmdFailed(t, cmd, fmt.Sprintf("To %s\n", url), apiclient.NewShallowCommitError(sum4, c4.Table))
+	assertCmdFailed(t, cmd, fmt.Sprintf("To %s\n", url), fmt.Errorf(
+		"commit %x is shallow\nrun this command to fetch their content:\n  wrgl fetch tables origin %x",
+		sum4, c4.Table,
+	))
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"merge", "alpha", hex.EncodeToString(sum6)})
-	assertCmdFailed(t, cmd, "", fmt.Errorf("table %x not found", c6.Table))
+	assertCmdFailed(t, cmd, "", fmt.Errorf(
+		"table %x not found, try fetching it with:\n  wrgl fetch tables origin %x",
+		c6.Table, c6.Table,
+	))
 }

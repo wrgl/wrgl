@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -209,7 +210,8 @@ func (s *testSuite) TestReceivePackRejectsShallowCommits(t *testing.T) {
 	defer cleanup()
 	sum1, c1 := refhelpers.SaveTestCommit(t, dbc, nil)
 	sum2, c2 := factory.CommitRandomN(t, dbc, 3, 4, [][]byte{sum1})
-	require.NoError(t, ref.CommitHead(rsc, "main", sum2, c2, nil))
+	// require.NoError(t, ref.CommitHead(rsc, "main", sum2, c2, nil))
+	require.NoError(t, ref.SaveFetchRef(rsc, "main", sum2, c2.AuthorName, c2.AuthorEmail, "origin", c2.Message))
 	_, err = apiclient.NewReceivePackSession(dbc, rsc, cli, map[string]*payload.Update{"refs/heads/main": {Sum: payload.BytesToHex(sum2)}}, remoteRefs, 0, nil)
-	assert.Equal(t, apiclient.NewShallowCommitError(sum1, c1.Table), err)
+	assert.Equal(t, fmt.Sprintf("commit %x is shallow\nrun this command to fetch their content:\n  wrgl fetch tables origin %x", sum1, c1.Table), err.Error())
 }
