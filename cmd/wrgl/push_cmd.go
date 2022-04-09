@@ -110,7 +110,7 @@ func newPushCmd() *cobra.Command {
 				sort.Strings(names)
 				for _, name := range names {
 					branch := c.Branch[name]
-					colorstring.Fprintf(cmd.OutOrStdout(), "pushing [bold]%s[reset]...\n", name)
+					colorstring.Fprintf(cmd.OutOrStdout(), "pushing [bold]%s[reset]\n", name)
 					if err := pushSingleRepo(
 						cmd, c, db, rs, clients, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
 						mirror, force, false, wrglDir,

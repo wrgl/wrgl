@@ -241,10 +241,10 @@ func TestPushCmdSetUpstream(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"push", "--no-progress", "--all"})
 	assertCmdOutput(t, cmd, strings.Join([]string{
-		"pushing \x1b[1malpha\x1b[0m...",
+		"pushing \x1b[1malpha\x1b[0m",
 		"\x1b[0mTo " + url,
 		" = [up to date]      alpha       -> alpha",
-		"pushing \x1b[1mbeta\x1b[0m...",
+		"pushing \x1b[1mbeta\x1b[0m",
 		"\x1b[0mTo " + url,
 		fmt.Sprintf("   %s..%s  beta        -> beta", hex.EncodeToString(sum2)[:7], hex.EncodeToString(sum3)[:7]),
 		"",
