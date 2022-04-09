@@ -123,6 +123,7 @@ func deduplicateSums(sums [][]byte) [][]byte {
 
 func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c *conf.Config, tblSums map[string][][]byte) (err error) {
 	for remote, sums := range tblSums {
+		sums = deduplicateSums(sums)
 		rem, ok := c.Remote[remote]
 		if !ok {
 			return fmt.Errorf("remote %q not found", remote)
