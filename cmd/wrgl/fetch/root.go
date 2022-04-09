@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"net/url"
 	"sort"
 	"strings"
 
@@ -91,7 +90,7 @@ func RootCmd() *cobra.Command {
 			}
 			if all {
 				for k, v := range c.Remote {
-					uri, tok, err := GetCredentials(cmd, cs, v.URL)
+					uri, tok, err := utils.GetCredentials(cmd, cs, v.URL)
 					if err != nil {
 						return err
 					}
@@ -106,7 +105,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			uri, tok, err := GetCredentials(cmd, cs, rem.URL)
+			uri, tok, err := utils.GetCredentials(cmd, cs, rem.URL)
 			if err != nil {
 				return err
 			}
@@ -122,20 +121,6 @@ func RootCmd() *cobra.Command {
 	cmd.Flags().Bool("no-progress", false, "Don't display progress bar")
 	cmd.AddCommand(newTablesCmd())
 	return cmd
-}
-
-func GetCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (uri *url.URL, token string, err error) {
-	u, err := url.Parse(remote)
-	if err != nil {
-		return
-	}
-	uri, token = cs.GetTokenMatching(*u)
-	if uri == nil {
-		cmd.Printf("No credential found for %s\n", remote)
-		cmd.Println("Proceed as anonymous user...")
-		return
-	}
-	return
 }
 
 func ParseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, args []string) (string, *conf.Remote, []*conf.Refspec, error) {

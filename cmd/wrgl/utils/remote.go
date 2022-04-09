@@ -5,12 +5,14 @@ package utils
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"sort"
 
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/credentials"
 )
 
 func MustGetRemote(cmd *cobra.Command, c *conf.Config, name string) *conf.Remote {
@@ -71,4 +73,18 @@ func AddRemote(cmd *cobra.Command, name string, uri string) error {
 		remote.Mirror = true
 	}
 	return s.Save(c)
+}
+
+func GetCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (uri *url.URL, token string, err error) {
+	u, err := url.Parse(remote)
+	if err != nil {
+		return
+	}
+	uri, token = cs.GetTokenMatching(*u)
+	if uri == nil {
+		cmd.Printf("No credential found for %s\n", remote)
+		cmd.Println("Proceed as anonymous user...")
+		return
+	}
+	return
 }

@@ -94,7 +94,7 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 
-			clients, err := newClientMap()
+			clients, err := utils.NewClientMap()
 			if err != nil {
 				return err
 			}
@@ -385,7 +385,7 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*receivePackUpdate) {
 	}
 }
 
-func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, clients *clientMap, args []string, mirror, force, setUpstream bool, wrglDir string) error {
+func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, clients *utils.ClientMap, args []string, mirror, force, setUpstream bool, wrglDir string) error {
 	remote, cr, args, err := getRepoToPush(c, args)
 	if err != nil {
 		return err

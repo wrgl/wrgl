@@ -205,7 +205,7 @@ func pullSingleRepo(
 	if err != nil {
 		return err
 	}
-	uri, tok, err := fetch.GetCredentials(cmd, cs, rem.URL)
+	uri, tok, err := utils.GetCredentials(cmd, cs, rem.URL)
 	if err != nil {
 		return err
 	}

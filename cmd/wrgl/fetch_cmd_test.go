@@ -4,6 +4,7 @@
 package wrgl
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -470,5 +471,58 @@ func TestFetchCmdDepth(t *testing.T) {
 	db, err = rd.OpenObjectsStore()
 	require.NoError(t, err)
 	factory.AssertTablesPersisted(t, db, [][]byte{c1.Table})
+	require.NoError(t, db.Close())
+}
+
+func TestFetchMissingTablesCmd(t *testing.T) {
+	defer confhelpers.MockGlobalConf(t, true)()
+	ts := server_testutils.NewServer(t, nil)
+	defer ts.Close()
+	repo, url, _, cleanup := ts.NewRemote(t, "", nil)
+	defer cleanup()
+	dbs := ts.GetDB(repo)
+	rss := ts.GetRS(repo)
+	sum1, c1 := factory.CommitRandom(t, dbs, nil)
+	sum2, c2 := factory.CommitRandom(t, dbs, [][]byte{sum1})
+	require.NoError(t, ref.CommitHead(rss, "alpha", sum2, c2, nil))
+	sum3, c3 := factory.CommitRandom(t, dbs, nil)
+	sum4, c4 := factory.CommitRandom(t, dbs, [][]byte{sum3})
+	require.NoError(t, ref.CommitHead(rss, "beta", sum4, c4, nil))
+
+	rd, cleanUp := createRepoDir(t)
+	defer cleanUp()
+
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"remote", "add", "origin", url})
+	require.NoError(t, cmd.Execute())
+
+	authenticate(t, ts, url)
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"pull", "alpha", "origin", "refs/heads/alpha:refs/remotes/origin/alpha", "--no-progress", "--depth", "1"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"From " + url,
+		" * [new branch]      alpha       -> origin/alpha",
+		fmt.Sprintf("[alpha %s] %s", hex.EncodeToString(sum2)[:7], c2.Message),
+		"",
+	}, "\n"))
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"pull", "beta", "origin", "refs/heads/beta:refs/remotes/origin/beta", "--no-progress", "--depth", "1"})
+	assertCmdOutput(t, cmd, strings.Join([]string{
+		"From " + url,
+		" * [new branch]      beta        -> origin/beta",
+		fmt.Sprintf("[beta %s] %s", hex.EncodeToString(sum4)[:7], c4.Message),
+		"",
+	}, "\n"))
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"fetch", "tables", "--no-progress", "--missing"})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, buf.String(), fmt.Sprintf("Table %x persisted", c3.Table))
+	assert.Contains(t, buf.String(), fmt.Sprintf("Table %x persisted", c1.Table))
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	factory.AssertTablesPersisted(t, db, [][]byte{c1.Table, c3.Table})
 	require.NoError(t, db.Close())
 }

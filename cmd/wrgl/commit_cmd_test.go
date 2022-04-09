@@ -62,7 +62,9 @@ func TestCommitCmd(t *testing.T) {
 	assert.Equal(t, "initial commit", com.Message)
 	sum2, err := ref.GetHead(rs, "my-other-branch")
 	require.NoError(t, err)
-	assert.Equal(t, sum, sum2)
+	com2, err := objects.GetCommit(db, sum2)
+	require.NoError(t, err)
+	assert.Equal(t, com.Table, com2.Table)
 	refhelpers.AssertLatestReflogEqual(t, rs, "heads/my-branch", &ref.Reflog{
 		NewOID:      sum,
 		AuthorName:  "John Doe",

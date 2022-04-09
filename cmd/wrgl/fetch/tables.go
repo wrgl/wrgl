@@ -6,27 +6,34 @@ package fetch
 import (
 	"encoding/hex"
 	"fmt"
+	"io"
 
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
+	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
-	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 func newTablesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tables REMOTE SUM...",
+		Use:   "tables { REMOTE SUM... | --missing }",
 		Short: "Download missing tables from another repository",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "fetch 2 missing tables from origin",
 				Line:    "wrgl fetch tables origin 639c229dd42c53e03d716eaa0829916b a29a4d9a6c445eeb4b32c929d8c1e669",
 			},
+			{
+				Comment: "fetch all missing tables",
+				Line:    "wrgl fetch tables --missing",
+			},
 		}),
-		Args: cobra.MinimumNArgs(2),
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wrglDir := utils.MustWRGLDir(cmd)
 			s := conffs.NewStore(wrglDir, conffs.AggregateSource, "")
@@ -44,59 +51,111 @@ func newTablesCmd() *cobra.Command {
 				return err
 			}
 			defer db.Close()
+			missing, err := cmd.Flags().GetBool("missing")
+			if err != nil {
+				return err
+			}
+			cm, err := utils.NewClientMap()
+			if err != nil {
+				return err
+			}
 
-			remote := args[0]
-			rem, ok := c.Remote[remote]
-			if !ok {
-				return fmt.Errorf("remote %q not found", remote)
-			}
-			sums := make([][]byte, len(args)-1)
-			for i, s := range args[1:] {
-				sums[i], err = hex.DecodeString(s)
+			if missing {
+				rs := rd.OpenRefStore()
+				heads, err := ref.ListHeads(rs)
 				if err != nil {
-					return fmt.Errorf("error decoding hex string %q: %v", s, err)
+					return err
 				}
+				for _, sum := range heads {
+					q, err := ref.NewCommitsQueue(db, [][]byte{sum})
+					if err != nil {
+						return err
+					}
+					coms := []*objects.Commit{}
+					for {
+						_, com, err := q.PopInsertParents()
+						if com != nil {
+							coms = append(coms, com)
+						}
+						if err != nil {
+							if err == io.EOF {
+								break
+							}
+							return err
+						}
+					}
+					if shallowErr := apiclient.NewShallowCommitError(db, rs, coms); shallowErr != nil {
+						if err = fetchTableSums(cmd, db, cm, c, shallowErr.TableSums); err != nil {
+							return err
+						}
+					}
+				}
+				return nil
+			} else {
+				remote := args[0]
+				sums := make([][]byte, len(args)-1)
+				for i, s := range args[1:] {
+					sums[i], err = hex.DecodeString(s)
+					if err != nil {
+						return fmt.Errorf("error decoding hex string %q: %v", s, err)
+					}
+				}
+				return fetchTableSums(cmd, db, cm, c, map[string][][]byte{remote: sums})
 			}
-			cs, err := credentials.NewStore()
-			if err != nil {
-				return err
-			}
-			uri, tok, err := GetCredentials(cmd, cs, rem.URL)
-			if err != nil {
-				return err
-			}
-			client, err := apiclient.NewClient(rem.URL, apiclient.WithAuthorization(tok))
-			if err != nil {
-				return err
-			}
-			pr, err := client.GetObjects(sums)
-			if err != nil {
-				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
-			}
-			defer pr.Close()
-			or := apiutils.NewObjectReceiver(db, nil, nil)
-			noP, err := cmd.Flags().GetBool("no-progress")
-			if err != nil {
-				return err
-			}
-			var pbar *progressbar.ProgressBar
-			if !noP {
-				pbar = utils.PBar(-1, "fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-				defer pbar.Finish()
-			}
-			_, err = or.Receive(pr, pbar)
-			if err != nil {
-				return err
-			}
-			if pbar != nil {
-				pbar.Finish()
-			}
-			for _, b := range sums {
-				cmd.Printf("Table %x persisted\n", b)
-			}
-			return nil
 		},
 	}
 	cmd.Flags().Bool("no-progress", false, "Don't display progress bar")
+	cmd.Flags().Bool("missing", false, "Fetch all missing tables that could be reached from a branch")
 	return cmd
+}
+
+func deduplicateSums(sums [][]byte) [][]byte {
+	m := map[string]struct{}{}
+	for _, s := range sums {
+		m[string(s)] = struct{}{}
+	}
+	sl := make([][]byte, 0, len(m))
+	for s := range m {
+		sl = append(sl, []byte(s))
+	}
+	return sl
+}
+
+func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c *conf.Config, tblSums map[string][][]byte) (err error) {
+	for remote, sums := range tblSums {
+		rem, ok := c.Remote[remote]
+		if !ok {
+			return fmt.Errorf("remote %q not found", remote)
+		}
+		client, uri, err := cm.GetClient(cmd, rem)
+		if err != nil {
+			return err
+		}
+		pr, err := client.GetObjects(sums)
+		if err != nil {
+			return utils.HandleHTTPError(cmd, cm.CredsStore, rem.URL, uri, err)
+		}
+		defer pr.Close()
+		or := apiutils.NewObjectReceiver(db, nil, nil)
+		noP, err := cmd.Flags().GetBool("no-progress")
+		if err != nil {
+			return err
+		}
+		var pbar *progressbar.ProgressBar
+		if !noP {
+			pbar = utils.PBar(-1, "fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+			defer pbar.Finish()
+		}
+		_, err = or.Receive(pr, pbar)
+		if err != nil {
+			return err
+		}
+		if pbar != nil {
+			pbar.Finish()
+		}
+		for _, b := range sums {
+			cmd.Printf("Table %x persisted\n", b)
+		}
+	}
+	return nil
 }

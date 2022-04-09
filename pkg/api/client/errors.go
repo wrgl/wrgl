@@ -57,37 +57,38 @@ func (obj *HTTPError) Error() string {
 }
 
 type ShallowCommitError struct {
-	CommitSums [][]byte
-	TableSums  map[string][][]byte
+	ComSumMap map[string]struct{}
+	TableSums map[string][][]byte
 }
 
-func NewShallowCommitError(db objects.Store, rs ref.Store, coms []*objects.Commit) error {
+func NewShallowCommitError(db objects.Store, rs ref.Store, coms []*objects.Commit) *ShallowCommitError {
 	e := &ShallowCommitError{
+		ComSumMap: map[string]struct{}{},
 		TableSums: map[string][][]byte{},
 	}
 	for _, com := range coms {
 		if !objects.TableExist(db, com.Table) {
-			e.CommitSums = append(e.CommitSums, com.Sum)
+			e.ComSumMap[string(com.Sum)] = struct{}{}
 			rem, err := FindRemoteFor(db, rs, com.Sum)
 			if err != nil {
-				return err
+				panic(err)
 			}
 			if rem == "" {
-				return fmt.Errorf("no remote found for table %x", com.Table)
+				panic(fmt.Errorf("no remote found for table %x", com.Table))
 			}
 			e.TableSums[rem] = append(e.TableSums[rem], com.Table)
 		}
 	}
-	if len(e.CommitSums) > 0 {
+	if len(e.ComSumMap) > 0 {
 		return e
 	}
 	return nil
 }
 
 func (e *ShallowCommitError) Error() string {
-	comSums := make([]string, len(e.CommitSums))
-	for i, v := range e.CommitSums {
-		comSums[i] = hex.EncodeToString(v)
+	comSums := make([]string, 0, len(e.ComSumMap))
+	for v := range e.ComSumMap {
+		comSums = append(comSums, hex.EncodeToString([]byte(v)))
 	}
 	cmds := make([]string, 0, len(e.TableSums))
 	for rem, sl := range e.TableSums {
@@ -109,6 +110,14 @@ func (e *ShallowCommitError) Error() string {
 		strings.Join(comSums, ", "),
 		strings.Join(cmds, "\n  "),
 	)
+}
+
+func (e *ShallowCommitError) CommitSums() [][]byte {
+	comSums := make([][]byte, 0, len(e.ComSumMap))
+	for v := range e.ComSumMap {
+		comSums = append(comSums, []byte(v))
+	}
+	return comSums
 }
 
 func UnwrapHTTPError(err error) *HTTPError {
