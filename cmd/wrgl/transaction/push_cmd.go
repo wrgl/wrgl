@@ -104,6 +104,11 @@ func pushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if pbar != nil {
+				if err = pbar.Finish(); err != nil {
+					return err
+				}
+			}
 			for k, u := range updates {
 				if u.ErrMsg != "" {
 					fetch.DisplayRefUpdate(cmd, '!', "[remote rejected]", u.ErrMsg, k, k)
