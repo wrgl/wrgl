@@ -37,6 +37,10 @@ func authenticateCmd() *cobra.Command {
 				Comment: "authenticate for all repositories on wrgl hub",
 				Line:    "wrgl credentials authenticate " + api.APIRoot,
 			},
+			{
+				Comment: "authenticate from token",
+				Line:    fmt.Sprintf("wrgl credentials authenticate %s --token-location ./token.txt", api.APIRoot),
+			},
 		}),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -50,13 +54,31 @@ func authenticateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if v, ok := c.Remote[args[0]]; ok {
-				return getCredentials(cmd, cs, v.URL)
-			} else {
-				return getCredentials(cmd, cs, args[0])
+			tokLoc, err := cmd.Flags().GetString("token-location")
+			if err != nil {
+				return err
 			}
+			uriS := args[0]
+			if v, ok := c.Remote[uriS]; ok {
+				uriS = v.URL
+			}
+			uriS = strings.TrimRight(uriS, "/")
+			u, err := url.Parse(uriS)
+			if err != nil {
+				return err
+			}
+			if tokLoc != "" {
+				token, err := ioutil.ReadFile(tokLoc)
+				if err != nil {
+					return err
+				}
+				cs.Set(*u, strings.TrimSpace(string(token)))
+				return cs.Flush()
+			}
+			return getCredentials(cmd, cs, uriS, u)
 		},
 	}
+	cmd.Flags().String("token-location", "", "read and save auth token from this location")
 	return cmd
 }
 
@@ -128,20 +150,18 @@ func authenticate(uri, email, password string) (token string, err error) {
 
 func getLegacyCredentials(cmd *cobra.Command, uriS string) (token string, err error) {
 	cmd.Printf("Enter your email and password for %s.\n", uriS)
-	reader := bufio.NewReader(cmd.InOrStdin())
-	cmd.Print("Email: ")
-	email, err := reader.ReadString('\n')
+	email, err := utils.Prompt(cmd, "Email")
 	if err != nil {
 		return "", err
 	}
 	email = strings.TrimSpace(email)
 	password, err := utils.PromptForPassword(cmd)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("read password err: %v", err)
 	}
 	token, err = authenticate(uriS, email, password)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("authenticate err: %v", err)
 	}
 	return
 }
@@ -227,12 +247,7 @@ func getOauth2Credentials(cmd *cobra.Command, uriS string) (token string, err er
 	}
 }
 
-func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string) (err error) {
-	uriS = strings.TrimRight(uriS, "/")
-	u, err := url.Parse(uriS)
-	if err != nil {
-		return
-	}
+func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string, u *url.URL) (err error) {
 	at, err := detectAuthType(cmd, uriS)
 	if err != nil {
 		return
@@ -248,7 +263,7 @@ func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string) (err
 	}
 	cs.Set(*u, token)
 	if err = cs.Flush(); err != nil {
-		return
+		return fmt.Errorf("flush err: %v", err)
 	}
 	cmd.Printf("Saved credentials to %s\n", cs.Path())
 	return nil
