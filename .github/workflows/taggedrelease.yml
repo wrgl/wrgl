@@ -22,7 +22,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Test all packages except csvgen
-        run: go test $(go list ./... | grep -v csvgen)
+        run: |
+          cp VERSION cmd/wrgl
+          cp VERSION wrgld/cmd
+          go test $(go list ./... | grep -v csvgen)
 
   tagged-release:
     name: "Tagged Release"

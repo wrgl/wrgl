@@ -22,3 +22,6 @@ build
 
 # log files
 *.log
+
+cmd/wrgl/VERSION
+wrgld/cmd/VERSION
