@@ -82,7 +82,7 @@ func TestPullCmd(t *testing.T) {
 
 	// pull merge first fetch refspec
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"pull", "beta", "my-repo"})
+	cmd.SetArgs([]string{"pull", "beta", "my-repo", "--no-progress"})
 	assertCmdOutput(t, cmd, "Already up to date.\n")
 
 	db, err = rd.OpenObjectsStore()
@@ -93,7 +93,7 @@ func TestPullCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"pull", "main"})
+	cmd.SetArgs([]string{"pull", "main", "--no-progress"})
 	assertCmdOutput(t, cmd, "Already up to date.\n")
 
 	// configure gamma upstream

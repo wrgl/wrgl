@@ -53,11 +53,11 @@ func (h *GZIPAwareHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	h.Handler.ServeHTTP(rw, r)
 }
 
-func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, advertised [][]byte, havesPerRoundTrip, depth int, opts ...apiclient.RequestOption) [][]byte {
+func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, advertised [][]byte, opts ...apiclient.UploadPackOption) [][]byte {
 	t.Helper()
-	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, havesPerRoundTrip, depth, opts...)
+	ses, err := apiclient.NewUploadPackSession(db, rs, c, advertised, opts...)
 	require.NoError(t, err)
-	commits, err := ses.Start(nil)
+	commits, err := ses.Start()
 	require.NoError(t, err)
 	return commits
 }

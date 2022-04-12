@@ -152,7 +152,7 @@ func TestFetchCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"fetch"})
+	cmd.SetArgs([]string{"fetch", "--no-progress"})
 	assertCmdOutput(t, cmd, "")
 }
 

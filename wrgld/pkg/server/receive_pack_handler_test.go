@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"testing"
@@ -257,19 +258,18 @@ func (s *testSuite) TestReceivePackSkipPersistedTables(t *testing.T) {
 		remoteRefs, 0, nil,
 	)
 	require.NoError(t, err)
-	objs := [][]byte{}
 	// assert only commit is persisted
 	s.withReceiverSaveObjHook(func(objType int, sum []byte) {
-		objs = append(objs, sum)
-		assert.NotEqual(t, packfile.ObjectTable, objType)
-		if objType == packfile.ObjectCommit {
-			assert.Equal(t, sum2, sum)
+		// this callback might receive with objects saved from
+		// other tests that are running in parallel
+		assert.NotEqual(t, c1.Table, sum)
+		if bytes.Equal(sum2, sum) {
+			assert.Equal(t, packfile.ObjectCommit, objType)
 		}
 	}, func() {
 		updates, err = ses.Start()
 		require.NoError(t, err)
 	})
-	assert.Len(t, objs, 1)
 	assert.Empty(t, updates["refs/heads/beta"].ErrMsg)
 	sum, err = ref.GetHead(rs, "beta")
 	require.NoError(t, err)

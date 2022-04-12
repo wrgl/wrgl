@@ -10,5 +10,5 @@
     }
   },
   "git.ignoreLimitWarning": true
-  // "go.testFlags": ["-run", "//ReceivePackRejectsShallowCommits"]
+  // "go.testFlags": ["-run", "//ReceivePackSkipPersistedTables"]
 }

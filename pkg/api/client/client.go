@@ -405,40 +405,18 @@ func (c *Client) GetTable(sum []byte, opts ...RequestOption) (tr *payload.GetTab
 	return tr, nil
 }
 
-func (c *Client) sendUploadPackRequest(wants, haves [][]byte, done bool, depth int, opts ...RequestOption) (resp *http.Response, err error) {
-	req := &payload.UploadPackRequest{}
-	for _, want := range wants {
-		req.Wants = payload.AppendHex(req.Wants, want)
-	}
-	for _, have := range haves {
-		req.Haves = payload.AppendHex(req.Haves, have)
-	}
-	req.Done = done
-	req.Depth = depth
-	b, err := json.Marshal(req)
-	if err != nil {
-		return
-	}
-	return c.Request(http.MethodPost, "/upload-pack/", bytes.NewReader(b), map[string]string{
-		"Content-Type": CTJSON,
-	}, opts...)
-}
-
-func parseUploadPackResult(r io.ReadCloser) (acks [][]byte, err error) {
+func parseUploadPackResult(r io.ReadCloser) (upr *payload.UploadPackResponse, err error) {
 	defer r.Close()
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return
 	}
-	resp := &payload.UploadPackResponse{}
-	err = json.Unmarshal(b, resp)
+	upr = &payload.UploadPackResponse{}
+	err = json.Unmarshal(b, upr)
 	if err != nil {
-		return
+		return nil, err
 	}
-	for _, h := range resp.ACKs {
-		acks = append(acks, (*h)[:])
-	}
-	return
+	return upr, nil
 }
 
 func (c *Client) GetObjects(tables [][]byte, opts ...RequestOption) (pr *packfile.PackfileReader, err error) {
@@ -520,15 +498,21 @@ func (c *Client) GarbageCollect(opts ...RequestOption) (resp *http.Response, err
 	return c.Request(http.MethodPost, "/gc/", nil, nil, opts...)
 }
 
-func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, depth int, opts ...RequestOption) (acks [][]byte, pr *packfile.PackfileReader, err error) {
-	resp, err := c.sendUploadPackRequest(wants, haves, done, depth, opts...)
+func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestOption) (upr *payload.UploadPackResponse, pr *packfile.PackfileReader, err error) {
+	b, err := json.Marshal(req)
+	if err != nil {
+		return
+	}
+	resp, err := c.Request(http.MethodPost, "/upload-pack/", bytes.NewReader(b), map[string]string{
+		"Content-Type": CTJSON,
+	}, opts...)
 	if err != nil {
 		return
 	}
 	if resp.Header.Get("Content-Type") == CTPackfile {
 		pr, err = packfile.NewPackfileReader(resp.Body)
 	} else if resp.Header.Get("Content-Type") == CTJSON {
-		acks, err = parseUploadPackResult(resp.Body)
+		upr, err = parseUploadPackResult(resp.Body)
 	}
 	return
 }

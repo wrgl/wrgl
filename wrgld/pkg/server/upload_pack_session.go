@@ -2,6 +2,7 @@ package server
 
 import (
 	"compress/gzip"
+	"container/list"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -37,6 +38,8 @@ type UploadPackSession struct {
 	state           stateFn
 	rs              ref.Store
 	maxPackfileSize uint64
+	candidateTables *list.List
+	tablesToSend    map[string]struct{}
 }
 
 func NewUploadPackSession(db objects.Store, rs ref.Store, id uuid.UUID, maxPackfileSize uint64) *UploadPackSession {
@@ -45,12 +48,14 @@ func NewUploadPackSession(db objects.Store, rs ref.Store, id uuid.UUID, maxPackf
 		id:              id,
 		rs:              rs,
 		maxPackfileSize: maxPackfileSize,
+		candidateTables: list.New(),
+		tablesToSend:    map[string]struct{}{},
 	}
 	s.state = s.greet
 	return s
 }
 
-func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, r *http.Request, acks [][]byte) (nextState stateFn) {
+func (s *UploadPackSession) sendJSONResponse(rw http.ResponseWriter, r *http.Request, acks, tableHaves [][]byte) {
 	rw.Header().Set("Content-Type", api.CTJSON)
 	http.SetCookie(rw, &http.Cookie{
 		Name:     api.CookieUploadPackSession,
@@ -63,6 +68,9 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, r *http.Request, ac
 	for _, ack := range acks {
 		resp.ACKs = payload.AppendHex(resp.ACKs, ack)
 	}
+	for _, sum := range tableHaves {
+		resp.TableHaves = payload.AppendHex(resp.TableHaves, sum)
+	}
 	b, err := json.Marshal(resp)
 	if err != nil {
 		panic(err)
@@ -71,18 +79,9 @@ func (s *UploadPackSession) sendACKs(rw http.ResponseWriter, r *http.Request, ac
 	if err != nil {
 		panic(err)
 	}
-	return s.negotiate
 }
 
 func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	var err error
-	if s.sender == nil {
-		s.sender, err = apiutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.finder.TablesToSend(), s.finder.CommonCommmits(), s.maxPackfileSize)
-		if err != nil {
-			panic(err)
-		}
-	}
-
 	rw.Header().Set("Content-Type", api.CTPackfile)
 	rw.Header().Set("Content-Encoding", "gzip")
 	rw.Header().Set("Trailer", api.HeaderPurgeUploadPackSession)
@@ -119,9 +118,14 @@ func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Reque
 		panic(err)
 	}
 	if len(acks) > 0 && len(s.finder.Wants) > 0 && !req.Done {
-		return s.sendACKs(rw, r, acks)
+		s.sendJSONResponse(rw, r, acks, nil)
+		return s.negotiate
 	}
-	return s.sendPackfile(rw, r)
+	s.tablesToSend = s.finder.TablesToSend()
+	for sum := range s.tablesToSend {
+		s.candidateTables.PushFront([]byte(sum))
+	}
+	return s.sendTableHaves(rw, r)
 }
 
 func (s *UploadPackSession) greet(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
@@ -143,6 +147,37 @@ func (s *UploadPackSession) negotiate(rw http.ResponseWriter, r *http.Request) (
 		panic(err)
 	}
 	return s.findClosedSets(rw, r, req)
+}
+
+func (s *UploadPackSession) sendTableHaves(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
+	if s.candidateTables.Len() == 0 {
+		var err error
+		s.sender, err = apiutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.tablesToSend, s.finder.CommonCommmits(), s.maxPackfileSize)
+		if err != nil {
+			panic(err)
+		}
+		return s.sendPackfile(rw, r)
+	}
+	tbls := [][]byte{}
+	for i := 0; i < 256; i++ {
+		if s.candidateTables.Len() == 0 {
+			break
+		}
+		tbls = append(tbls, s.candidateTables.Remove(s.candidateTables.Front()).([]byte))
+	}
+	s.sendJSONResponse(rw, r, nil, tbls)
+	return s.negotiateTables
+}
+
+func (s *UploadPackSession) negotiateTables(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
+	req, err := parseUploadPackRequest(r)
+	if err != nil {
+		panic(err)
+	}
+	for _, sum := range req.TableACKs {
+		delete(s.tablesToSend, string((*sum)[:]))
+	}
+	return s.sendTableHaves(rw, r)
 }
 
 // ServeHTTP negotiates which commits to be sent and send them in one or more packfiles,

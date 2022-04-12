@@ -84,9 +84,15 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	assert.Error(t, err)
 	_, err = cli.GetRefs("", apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
-	_, _, err = cli.PostUploadPack([][]byte{sum2}, nil, true, 0)
+	_, _, err = cli.PostUploadPack(&payload.UploadPackRequest{
+		Wants: payload.BytesSliceToHexSlice([][]byte{sum2}),
+		Done:  true,
+	})
 	assert.Error(t, err)
-	_, _, err = cli.PostUploadPack([][]byte{sum2}, nil, true, 0, apiclient.WithRequestAuthorization(tok))
+	_, _, err = cli.PostUploadPack(&payload.UploadPackRequest{
+		Wants: payload.BytesSliceToHexSlice([][]byte{sum2}),
+		Done:  true,
+	}, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
 	_, err = cli.PostReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, nil)
 	assert.Error(t, err)
@@ -134,7 +140,10 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	refs, err := cli.GetRefs("", apiclient.WithRequestAuthorization(readTok))
 	require.NoError(t, err)
 	assert.Greater(t, len(refs), 0)
-	_, _, err = cli.PostUploadPack([][]byte{sum2}, nil, true, 0, apiclient.WithRequestAuthorization(readTok))
+	_, _, err = cli.PostUploadPack(&payload.UploadPackRequest{
+		Wants: payload.BytesSliceToHexSlice([][]byte{sum2}),
+		Done:  true,
+	}, apiclient.WithRequestAuthorization(readTok))
 	require.NoError(t, err)
 	_, err = cli.PostReceivePack(map[string]*payload.Update{"main": {OldSum: payload.BytesToHex(sum2)}}, nil, apiclient.WithRequestAuthorization(readTok))
 	assert.Error(t, err)

@@ -337,7 +337,19 @@ func saveFetchedRefs(
 }
 
 func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *apiclient.Client, advertised [][]byte, depth int32) (fetchedCommits [][]byte, err error) {
-	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised, 0, int(depth))
+	var pbar *progressbar.ProgressBar
+	noP, err := cmd.Flags().GetBool("no-progress")
+	if err != nil {
+		return
+	}
+	if !noP {
+		pbar = utils.PBar(-1, "Fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		defer pbar.Finish()
+	}
+	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised,
+		apiclient.WithUploadPackDepth(int(depth)),
+		apiclient.WithUploadPackProgressBar(pbar),
+	)
 	if err != nil {
 		if err.Error() == "nothing wanted" {
 			err = nil
@@ -346,16 +358,7 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 		err = errors.Wrap("error creating new upload pack session", err)
 		return
 	}
-	noP, err := cmd.Flags().GetBool("no-progress")
-	if err != nil {
-		return
-	}
-	var pbar *progressbar.ProgressBar
-	if !noP {
-		pbar = utils.PBar(-1, "Fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-		defer pbar.Finish()
-	}
-	return ses.Start(pbar)
+	return ses.Start()
 }
 
 func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool, depth int32) error {
