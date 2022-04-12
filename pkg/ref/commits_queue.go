@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"sync"
 
 	"github.com/wrgl/wrgl/pkg/objects"
 )
@@ -20,6 +21,7 @@ type CommitsQueue struct {
 	sums    [][]byte
 	seen    map[string]struct{}
 	grow    int
+	mutex   sync.Mutex
 }
 
 func NewCommitsQueue(db objects.Store, initialSums [][]byte) (*CommitsQueue, error) {
@@ -71,6 +73,8 @@ func (q *CommitsQueue) growSize() int {
 }
 
 func (q *CommitsQueue) Insert(sum []byte) (err error) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	if q.Seen(sum) {
 		return
 	}
@@ -103,6 +107,8 @@ func (q *CommitsQueue) Insert(sum []byte) (err error) {
 }
 
 func (q *CommitsQueue) Pop() (sum []byte, commit *objects.Commit, err error) {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	if q.Len() == 0 {
 		return nil, nil, io.EOF
 	}
@@ -148,6 +154,8 @@ func (q *CommitsQueue) PopUntil(b []byte) (sum []byte, commit *objects.Commit, e
 }
 
 func (q *CommitsQueue) RemoveAncestors(sums [][]byte) error {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	q2, err := NewCommitsQueue(q.db, sums)
 	if err != nil {
 		return err
