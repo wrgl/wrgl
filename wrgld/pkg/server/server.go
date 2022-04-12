@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -27,6 +28,12 @@ func WithPostCommitCallback(postCommit PostCommitHook) ServerOption {
 func WithDebug(w io.Writer) ServerOption {
 	return func(s *Server) {
 		s.debugOut = w
+	}
+}
+
+func WithReceiverOptions(opts ...apiutils.ObjectReceiveOption) ServerOption {
+	return func(s *Server) {
+		s.receiverOpts = opts
 	}
 }
 
@@ -54,6 +61,7 @@ type Server struct {
 	maxAge       time.Duration
 	debugOut     io.Writer
 	sPool        *sync.Pool
+	receiverOpts []apiutils.ObjectReceiveOption
 }
 
 func NewServer(

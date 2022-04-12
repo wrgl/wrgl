@@ -9,7 +9,6 @@ import (
 	"io"
 
 	"github.com/klauspost/compress/s2"
-	"github.com/pckhoi/meow"
 	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/ingest"
@@ -21,14 +20,32 @@ type ObjectReceiver struct {
 	expectedCommits map[string]struct{}
 	ReceivedCommits [][]byte
 	debugOut        io.Writer
+	saveObjHook     func(objType int, sum []byte)
 	buf             []byte
 }
 
-func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, debugOut io.Writer) *ObjectReceiver {
+type ObjectReceiveOption func(r *ObjectReceiver)
+
+func WithReceiverDebugOut(out io.Writer) ObjectReceiveOption {
+	return func(r *ObjectReceiver) {
+		r.debugOut = out
+	}
+}
+
+// WithReceiverSaveObjectHook registers a hook that run right after an object is persisted successfully
+func WithReceiverSaveObjectHook(hook func(objType int, sum []byte)) ObjectReceiveOption {
+	return func(r *ObjectReceiver) {
+		r.saveObjHook = hook
+	}
+}
+
+func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, opts ...ObjectReceiveOption) *ObjectReceiver {
 	r := &ObjectReceiver{
 		db:              db,
 		expectedCommits: map[string]struct{}{},
-		debugOut:        debugOut,
+	}
+	for _, opt := range opts {
+		opt(r)
 	}
 	for _, com := range expectedCommits {
 		r.expectedCommits[string(com)] = struct{}{}
@@ -44,7 +61,10 @@ func (r *ObjectReceiver) saveBlock(b []byte) (err error) {
 	if err = objects.ValidateBlockBytes(r.buf); err != nil {
 		return
 	}
-	_, err = objects.SaveCompressedBlock(r.db, r.buf, b)
+	sum, err := objects.SaveCompressedBlock(r.db, r.buf, b)
+	if r.saveObjHook != nil {
+		r.saveObjHook(packfile.ObjectBlock, sum)
+	}
 	return err
 }
 
@@ -53,14 +73,16 @@ func (r *ObjectReceiver) saveTable(b []byte) (err error) {
 	if err != nil {
 		return
 	}
-	sum := meow.Checksum(0, b)
-	if err = ingest.IndexTable(r.db, sum[:], tbl, r.debugOut); err != nil {
+	sum, err := objects.SaveTable(r.db, b)
+	if err = ingest.IndexTable(r.db, sum, tbl, r.debugOut); err != nil {
 		return
 	}
-	if err = ingest.ProfileTable(r.db, sum[:], tbl); err != nil {
+	if err = ingest.ProfileTable(r.db, sum, tbl); err != nil {
 		return
 	}
-	_, err = objects.SaveTable(r.db, b)
+	if r.saveObjHook != nil {
+		r.saveObjHook(packfile.ObjectTable, sum)
+	}
 	return err
 }
 
@@ -80,6 +102,9 @@ func (r *ObjectReceiver) saveCommit(b []byte) (err error) {
 	}
 	delete(r.expectedCommits, string(sum))
 	r.ReceivedCommits = append(r.ReceivedCommits, sum)
+	if r.saveObjHook != nil {
+		r.saveObjHook(packfile.ObjectCommit, sum)
+	}
 	return nil
 }
 

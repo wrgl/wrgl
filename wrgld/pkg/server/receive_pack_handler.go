@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/api"
+	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 )
 
 type ReceivePackSessionStore interface {
@@ -38,7 +39,12 @@ func (s *Server) getReceivePackSession(r *http.Request, sessions ReceivePackSess
 		if err != nil {
 			panic(err)
 		}
-		ses = NewReceivePackSession(db, rs, c, sid, s.debugOut)
+		opts := make([]apiutils.ObjectReceiveOption, len(s.receiverOpts))
+		copy(opts, s.receiverOpts)
+		if s.debugOut != nil {
+			opts = append(opts, apiutils.WithReceiverDebugOut(s.debugOut))
+		}
+		ses = NewReceivePackSession(db, rs, c, sid, opts...)
 		sessions.Set(sid, ses)
 	}
 	return

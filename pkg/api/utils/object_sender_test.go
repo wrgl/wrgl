@@ -53,7 +53,7 @@ func TestObjectSender(t *testing.T) {
 	}
 	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c2, c3}, tables, [][]byte{sum1}, uint64(10*1024))
 	require.NoError(t, err)
-	r := apiutils.NewObjectReceiver(db2, [][]byte{sum3}, nil)
+	r := apiutils.NewObjectReceiver(db2, [][]byte{sum3})
 	sendAll(t, s, r)
 	factory.AssertCommitsPersisted(t, db2, [][]byte{sum2, sum3})
 }
@@ -72,7 +72,7 @@ func TestSendCommitsWithIdenticalTable(t *testing.T) {
 	}
 	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c1, c2, c3}, tables, nil, uint64(10*1024))
 	require.NoError(t, err)
-	r := apiutils.NewObjectReceiver(db2, [][]byte{sum1, sum3}, nil)
+	r := apiutils.NewObjectReceiver(db2, [][]byte{sum1, sum3})
 	sendAll(t, s, r)
 	factory.AssertCommitsPersisted(t, db2, [][]byte{sum1, sum2, sum3})
 }
@@ -90,7 +90,7 @@ func TestSendCommitButNotTable(t *testing.T) {
 	}
 	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c2}, tables, nil, uint64(10*1024))
 	require.NoError(t, err)
-	r := apiutils.NewObjectReceiver(db2, [][]byte{sum2}, nil)
+	r := apiutils.NewObjectReceiver(db2, [][]byte{sum2})
 	sendAll(t, s, r)
 	factory.AssertCommitsPersisted(t, db2, [][]byte{sum1, sum2})
 }

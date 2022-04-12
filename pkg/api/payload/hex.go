@@ -44,6 +44,17 @@ func HexSliceToBytesSlice(sl []*Hex) [][]byte {
 	return b
 }
 
+func BytesSliceToHexSlice(sl [][]byte) []*Hex {
+	if len(sl) == 0 {
+		return nil
+	}
+	b := make([]*Hex, len(sl))
+	for i, v := range sl {
+		b[i] = BytesToHex(v)
+	}
+	return b
+}
+
 func BytesToHex(b []byte) *Hex {
 	if b == nil {
 		return nil

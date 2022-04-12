@@ -533,9 +533,10 @@ func (c *Client) PostUploadPack(wants, haves [][]byte, done bool, depth int, opt
 	return
 }
 
-func (c *Client) PostUpdatesToReceivePack(updates map[string]*payload.Update, opts ...RequestOption) (*http.Response, error) {
+func (c *Client) PostReceivePack(updates map[string]*payload.Update, tableHaves [][]byte, opts ...RequestOption) (*http.Response, error) {
 	req := &payload.ReceivePackRequest{
-		Updates: updates,
+		Updates:    updates,
+		TableHaves: payload.BytesSliceToHexSlice(tableHaves),
 	}
 	b, err := json.Marshal(req)
 	if err != nil {

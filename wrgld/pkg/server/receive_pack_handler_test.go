@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/api/payload"
+	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
@@ -214,4 +215,64 @@ func (s *testSuite) TestReceivePackRejectsShallowCommits(t *testing.T) {
 	require.NoError(t, ref.SaveFetchRef(rsc, "main", sum2, c2.AuthorName, c2.AuthorEmail, "origin", c2.Message))
 	_, err = apiclient.NewReceivePackSession(dbc, rsc, cli, map[string]*payload.Update{"refs/heads/main": {Sum: payload.BytesToHex(sum2)}}, remoteRefs, 0, nil)
 	assert.Equal(t, fmt.Sprintf("commit %x is shallow\nrun this command to fetch their content:\n  wrgl fetch tables origin %x", sum1, c1.Table), err.Error())
+}
+
+func (s *testSuite) TestReceivePackSkipPersistedTables(t *testing.T) {
+	repo, cli, _, cleanup := s.s.NewClient(t, "", nil, true)
+	defer cleanup()
+	rs := s.s.GetRS(repo)
+	db := s.s.GetDB(repo)
+
+	dbc := objmock.NewStore()
+	rsc, cleanup := refmock.NewStore(t)
+	defer cleanup()
+	sum1, c1 := factory.CommitRandom(t, dbc, nil)
+	sum2, c2 := factory.CommitRandomWithTable(t, dbc, c1.Table, nil)
+	require.NoError(t, ref.CommitHead(rsc, "alpha", sum1, c1, nil))
+	require.NoError(t, ref.CommitHead(rsc, "beta", sum2, c2, nil))
+
+	remoteRefs, err := ref.ListAllRefs(rs)
+	require.NoError(t, err)
+	ses, err := apiclient.NewReceivePackSession(dbc, rsc, cli,
+		map[string]*payload.Update{
+			"refs/heads/alpha": {Sum: payload.BytesToHex(sum1)},
+		},
+		remoteRefs, 0, nil,
+	)
+	require.NoError(t, err)
+	updates, err := ses.Start()
+	require.NoError(t, err)
+	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
+	sum, err := ref.GetHead(rs, "alpha")
+	require.NoError(t, err)
+	assert.Equal(t, sum1, sum)
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum1})
+
+	remoteRefs, err = ref.ListAllRefs(rs)
+	require.NoError(t, err)
+	ses, err = apiclient.NewReceivePackSession(dbc, rsc, cli,
+		map[string]*payload.Update{
+			"refs/heads/beta": {Sum: payload.BytesToHex(sum2)},
+		},
+		remoteRefs, 0, nil,
+	)
+	require.NoError(t, err)
+	objs := [][]byte{}
+	// assert only commit is persisted
+	s.withReceiverSaveObjHook(func(objType int, sum []byte) {
+		objs = append(objs, sum)
+		assert.NotEqual(t, packfile.ObjectTable, objType)
+		if objType == packfile.ObjectCommit {
+			assert.Equal(t, sum2, sum)
+		}
+	}, func() {
+		updates, err = ses.Start()
+		require.NoError(t, err)
+	})
+	assert.Len(t, objs, 1)
+	assert.Empty(t, updates["refs/heads/beta"].ErrMsg)
+	sum, err = ref.GetHead(rs, "beta")
+	require.NoError(t, err)
+	assert.Equal(t, sum2, sum)
+	factory.AssertCommitsPersisted(t, db, [][]byte{sum2})
 }

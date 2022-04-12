@@ -6,6 +6,7 @@ package apiclient
 import (
 	"bytes"
 	"compress/gzip"
+	"container/list"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,12 +23,17 @@ import (
 type stateFn func() (stateFn, error)
 
 type ReceivePackSession struct {
-	sender  *apiutils.ObjectSender
-	c       *Client
-	updates map[string]*payload.Update
-	state   stateFn
-	pbar    *progressbar.ProgressBar
-	opts    []RequestOption
+	sender          *apiutils.ObjectSender
+	c               *Client
+	updates         map[string]*payload.Update
+	state           stateFn
+	pbar            *progressbar.ProgressBar
+	opts            []RequestOption
+	finder          *apiutils.ClosedSetsFinder
+	candidateTables *list.List
+	tablesToSend    map[string]struct{}
+	db              objects.Store
+	maxPackfileSize uint64
 }
 
 func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, pbar *progressbar.ProgressBar, opts ...RequestOption) (*ReceivePackSession, error) {
@@ -50,45 +56,26 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 	if err := NewShallowCommitError(db, rs, coms); err != nil {
 		return nil, err
 	}
-	sender, err := apiutils.NewObjectSender(db, coms, finder.TablesToSend(), finder.CommonCommmits(), maxPackfileSize)
-	if err != nil {
-		return nil, err
-	}
 	s := &ReceivePackSession{
-		sender:  sender,
-		updates: updates,
-		c:       c,
-		opts:    opts,
-		pbar:    pbar,
+		finder:          finder,
+		updates:         updates,
+		c:               c,
+		opts:            opts,
+		pbar:            pbar,
+		candidateTables: list.New(),
+		db:              db,
+		maxPackfileSize: maxPackfileSize,
 	}
-	s.state = s.initialize
+	s.tablesToSend = finder.TablesToSend()
+	for sum := range s.tablesToSend {
+		s.candidateTables.PushFront([]byte(sum))
+	}
+	s.state = s.greet
 	return s, nil
 }
 
-func (s *ReceivePackSession) initialize() (stateFn, error) {
-	var nextState stateFn
-	for _, u := range s.updates {
-		if u.Sum != nil {
-			nextState = s.sendObjects
-		}
-	}
-	resp, err := s.c.PostUpdatesToReceivePack(s.updates, s.opts...)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, s.c.ErrHTTP(resp)
-	}
-	if ct := resp.Header.Get("Content-Type"); ct == CTJSON {
-		return s.readReport(resp)
-	}
-	if nextState != nil {
-		return nextState, nil
-	}
-	return s.readReport(resp)
-}
-
-func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
+func parseReceivePackResponse(resp *http.Response) (rpr *payload.ReceivePackResponse, err error) {
+	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -96,8 +83,56 @@ func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 	if ct := resp.Header.Get("Content-Type"); ct != CTJSON {
 		return nil, fmt.Errorf("unexpected content type %q, payload was %q", ct, strings.TrimSpace(string(b)))
 	}
-	r := &payload.ReceivePackResponse{}
-	err = json.Unmarshal(b, r)
+	rpr = &payload.ReceivePackResponse{}
+	if err = json.Unmarshal(b, rpr); err != nil {
+		return nil, err
+	}
+	return rpr, nil
+}
+
+func (s *ReceivePackSession) greet() (stateFn, error) {
+	return s.negotiate(s.updates)
+}
+
+func (s *ReceivePackSession) negotiate(updates map[string]*payload.Update) (stateFn, error) {
+	tbls := [][]byte{}
+	for i := 0; i < 256; i++ {
+		if s.candidateTables.Len() == 0 {
+			break
+		}
+		tbls = append(tbls, s.candidateTables.Remove(s.candidateTables.Front()).([]byte))
+	}
+	resp, err := s.c.PostReceivePack(updates, tbls, s.opts...)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, s.c.ErrHTTP(resp)
+	}
+	rpr, err := parseReceivePackResponse(resp)
+	if err != nil {
+		return nil, err
+	}
+	if len(rpr.Updates) > 0 {
+		s.updates = rpr.Updates
+		return nil, nil
+	} else {
+		for _, sum := range rpr.TableACKs {
+			delete(s.tablesToSend, string((*sum)[:]))
+		}
+		if s.candidateTables.Len() == 0 {
+			s.sender, err = apiutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.tablesToSend, s.finder.CommonCommmits(), s.maxPackfileSize)
+			if err != nil {
+				return nil, err
+			}
+			return s.sendObjects()
+		}
+		return s.negotiate(nil)
+	}
+}
+
+func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
+	r, err := parseReceivePackResponse(resp)
 	if err != nil {
 		return nil, err
 	}

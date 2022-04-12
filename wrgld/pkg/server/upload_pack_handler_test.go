@@ -116,7 +116,7 @@ func (s *testSuite) TestUploadPackWithDepth(t *testing.T) {
 	pr, err := cli.GetObjects([][]byte{c2.Table, c1.Table})
 	require.NoError(t, err)
 	defer pr.Close()
-	or := apiutils.NewObjectReceiver(dbc, nil, nil)
+	or := apiutils.NewObjectReceiver(dbc, nil)
 	done, err := or.Receive(pr, nil)
 	require.NoError(t, err)
 	assert.True(t, done)

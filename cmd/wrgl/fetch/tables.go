@@ -137,7 +137,7 @@ func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c
 			return utils.HandleHTTPError(cmd, cm.CredsStore, rem.URL, uri, err)
 		}
 		defer pr.Close()
-		or := apiutils.NewObjectReceiver(db, nil, nil)
+		or := apiutils.NewObjectReceiver(db, nil)
 		noP, err := cmd.Flags().GetBool("no-progress")
 		if err != nil {
 			return err

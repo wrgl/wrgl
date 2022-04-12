@@ -79,25 +79,6 @@ func (s *Server) Close() {
 			wg.Done()
 		}()
 	}
-	// for _, m := range s.upSessions {
-	// 	wg.Add(1)
-	// 	m := m
-	// 	go func() {
-	// 		m.Stop()
-	// 		wg.Done()
-	// 	}()
-	// }
-	// for _, m := range s.rpSessions {
-	// 	wg.Add(1)
-	// 	m := m
-	// 	go func() {
-	// 		m.Stop()
-	// 		wg.Done()
-	// 	}()
-	// }
-	// for _, db := range s.db {
-	// 	db.Close()
-	// }
 	wg.Wait()
 }
 

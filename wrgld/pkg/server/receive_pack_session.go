@@ -21,26 +21,61 @@ import (
 )
 
 type ReceivePackSession struct {
-	db       objects.Store
-	rs       ref.Store
-	c        *conf.Config
-	updates  map[string]*payload.Update
-	state    stateFn
-	receiver *apiutils.ObjectReceiver
-	id       uuid.UUID
-	debugOut io.Writer
+	db           objects.Store
+	rs           ref.Store
+	c            *conf.Config
+	updates      map[string]*payload.Update
+	state        stateFn
+	receiver     *apiutils.ObjectReceiver
+	id           uuid.UUID
+	receiverOpts []apiutils.ObjectReceiveOption
 }
 
-func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, id uuid.UUID, debugOut io.Writer) *ReceivePackSession {
+func parseReceivePackRequest(r *http.Request) (req *payload.ReceivePackRequest, err error) {
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
+	defer r.Body.Close()
+	req = &payload.ReceivePackRequest{}
+	if err = json.Unmarshal(b, req); err != nil {
+		return
+	}
+	return req, nil
+}
+
+func NewReceivePackSession(db objects.Store, rs ref.Store, c *conf.Config, id uuid.UUID, receiverOpts ...apiutils.ObjectReceiveOption) *ReceivePackSession {
 	s := &ReceivePackSession{
-		db:       db,
-		rs:       rs,
-		c:        c,
-		id:       id,
-		debugOut: debugOut,
+		db:           db,
+		rs:           rs,
+		c:            c,
+		id:           id,
+		receiverOpts: receiverOpts,
 	}
 	s.state = s.greet
 	return s
+}
+
+func (s *ReceivePackSession) respondWithTableACKs(rw http.ResponseWriter, r *http.Request, acks [][]byte) {
+	rw.Header().Set("Content-Type", api.CTJSON)
+	http.SetCookie(rw, &http.Cookie{
+		Name:     api.CookieReceivePackSession,
+		Value:    s.id.String(),
+		Path:     r.URL.Path,
+		HttpOnly: true,
+		MaxAge:   3600 * 3,
+	})
+	resp := &payload.ReceivePackResponse{
+		TableACKs: payload.BytesSliceToHexSlice(acks),
+	}
+	b, err := json.Marshal(resp)
+	if err != nil {
+		panic(err)
+	}
+	_, err = rw.Write(b)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (s *ReceivePackSession) saveRefs() error {
@@ -105,12 +140,7 @@ func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nex
 		SendError(rw, http.StatusBadRequest, "updates expected")
 		return nil
 	}
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return
-	}
-	req := &payload.ReceivePackRequest{}
-	err = json.Unmarshal(b, req)
+	req, err := parseReceivePackRequest(r)
 	if err != nil {
 		return
 	}
@@ -134,14 +164,42 @@ func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nex
 		return s.reportStatus(rw, r)
 	}
 	if len(commits) > 0 {
-		s.receiver = apiutils.NewObjectReceiver(s.db, commits, s.debugOut)
-		return s.askForMore(rw, r)
+		s.receiver = apiutils.NewObjectReceiver(s.db, commits, s.receiverOpts...)
+		s.respondWithTableACKs(rw, r, s.negotiateTables(req))
+		return s.negotiate
 	}
 	err = s.saveRefs()
 	if err != nil {
 		panic(err)
 	}
 	return s.reportStatus(rw, r)
+}
+
+func (s *ReceivePackSession) negotiateTables(req *payload.ReceivePackRequest) (acks [][]byte) {
+	for _, sum := range req.TableHaves {
+		b := (*sum)[:]
+		if objects.TableExist(s.db, b) {
+			acks = append(acks, b)
+		}
+	}
+	return acks
+}
+
+func (s *ReceivePackSession) negotiate(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
+	ct := r.Header.Get("Content-Type")
+	if ct == api.CTPackfile {
+		return s.receiveObjects(rw, r)
+	} else if strings.Contains(ct, api.CTJSON) {
+		req, err := parseReceivePackRequest(r)
+		if err != nil {
+			return
+		}
+		s.respondWithTableACKs(rw, r, s.negotiateTables(req))
+		return s.negotiate
+	} else {
+		SendError(rw, http.StatusBadRequest, "unanticipated content-type")
+		return nil
+	}
 }
 
 func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
@@ -166,25 +224,21 @@ func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Requ
 		panic(err)
 	}
 	if !done {
-		return s.askForMore(rw, r)
+		http.SetCookie(rw, &http.Cookie{
+			Name:     api.CookieReceivePackSession,
+			Value:    s.id.String(),
+			Path:     r.URL.Path,
+			HttpOnly: true,
+			MaxAge:   3600 * 3,
+		})
+		rw.WriteHeader(http.StatusOK)
+		return s.receiveObjects
 	}
 	err = s.saveRefs()
 	if err != nil {
 		panic(err)
 	}
 	return s.reportStatus(rw, r)
-}
-
-func (s *ReceivePackSession) askForMore(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
-	http.SetCookie(rw, &http.Cookie{
-		Name:     api.CookieReceivePackSession,
-		Value:    s.id.String(),
-		Path:     r.URL.Path,
-		HttpOnly: true,
-		MaxAge:   3600 * 3,
-	})
-	rw.WriteHeader(http.StatusOK)
-	return s.receiveObjects
 }
 
 func (s *ReceivePackSession) reportStatus(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {

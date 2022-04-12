@@ -10,9 +10,11 @@ type Update struct {
 }
 
 type ReceivePackRequest struct {
-	Updates map[string]*Update `json:"updates"`
+	Updates    map[string]*Update `json:"updates"`
+	TableHaves []*Hex             `json:"tableHaves,omitempty"`
 }
 
 type ReceivePackResponse struct {
-	Updates map[string]*Update `json:"updates"`
+	Updates   map[string]*Update `json:"updates"`
+	TableACKs []*Hex             `json:"tableACKs,omitempty"`
 }
