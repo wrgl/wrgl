@@ -25,8 +25,9 @@ type CommitsQueue struct {
 }
 
 func NewCommitsQueue(db objects.Store, initialSums [][]byte) (*CommitsQueue, error) {
-	sums := [][]byte{}
-	commits := []*objects.Commit{}
+	n := len(initialSums)
+	sums := make([][]byte, 0, n)
+	commits := make([]*objects.Commit, 0, n)
 	seen := map[string]struct{}{}
 	for _, v := range initialSums {
 		if _, ok := seen[string(v)]; ok {
