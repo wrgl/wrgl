@@ -425,16 +425,16 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 		if err != nil {
 			return err
 		}
+		ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, c.MaxPackFileSize())
+		if err != nil {
+			return utils.HandleHTTPError(cmd, clients.CredsStore, cr.URL, uri, err)
+		}
 		var pbar *progressbar.ProgressBar
 		if !noP {
 			pbar = utils.PBar(-1, "Pushing objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
 			defer pbar.Finish()
 		}
-		ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, c.MaxPackFileSize(), pbar)
-		if err != nil {
-			return utils.HandleHTTPError(cmd, clients.CredsStore, cr.URL, uri, err)
-		}
-		um, err = ses.Start()
+		um, err = ses.Start(pbar)
 		if err != nil {
 			return err
 		}

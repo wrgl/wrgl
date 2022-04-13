@@ -36,7 +36,7 @@ type ReceivePackSession struct {
 	maxPackfileSize uint64
 }
 
-func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, pbar *progressbar.ProgressBar, opts ...RequestOption) (*ReceivePackSession, error) {
+func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, opts ...RequestOption) (*ReceivePackSession, error) {
 	wants := [][]byte{}
 	for _, u := range updates {
 		if u.Sum != nil {
@@ -61,7 +61,6 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 		updates:         updates,
 		c:               c,
 		opts:            opts,
-		pbar:            pbar,
 		candidateTables: list.New(),
 		db:              db,
 		maxPackfileSize: maxPackfileSize,
@@ -167,7 +166,8 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	return s.readReport(resp)
 }
 
-func (s *ReceivePackSession) Start() (updates map[string]*payload.Update, err error) {
+func (s *ReceivePackSession) Start(pbar *progressbar.ProgressBar) (updates map[string]*payload.Update, err error) {
+	s.pbar = pbar
 	for s.state != nil {
 		s.state, err = s.state()
 		if err != nil {

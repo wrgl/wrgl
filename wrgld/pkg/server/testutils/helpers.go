@@ -64,9 +64,9 @@ func FetchObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Cli
 
 func PushObjects(t *testing.T, db objects.Store, rs ref.Store, c *apiclient.Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, opts ...apiclient.RequestOption) map[string]*payload.Update {
 	t.Helper()
-	ses, err := apiclient.NewReceivePackSession(db, rs, c, updates, remoteRefs, maxPackfileSize, nil, opts...)
+	ses, err := apiclient.NewReceivePackSession(db, rs, c, updates, remoteRefs, maxPackfileSize, opts...)
 	require.NoError(t, err)
-	updates, err = ses.Start()
+	updates, err = ses.Start(nil)
 	require.NoError(t, err)
 	return updates
 }

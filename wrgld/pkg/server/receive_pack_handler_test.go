@@ -238,10 +238,10 @@ func (s *testSuite) TestReceivePackSkipPersistedTables(t *testing.T) {
 		map[string]*payload.Update{
 			"refs/heads/alpha": {Sum: payload.BytesToHex(sum1)},
 		},
-		remoteRefs, 0, nil,
+		remoteRefs, 0,
 	)
 	require.NoError(t, err)
-	updates, err := ses.Start()
+	updates, err := ses.Start(nil)
 	require.NoError(t, err)
 	assert.Empty(t, updates["refs/heads/alpha"].ErrMsg)
 	sum, err := ref.GetHead(rs, "alpha")
@@ -255,7 +255,7 @@ func (s *testSuite) TestReceivePackSkipPersistedTables(t *testing.T) {
 		map[string]*payload.Update{
 			"refs/heads/beta": {Sum: payload.BytesToHex(sum2)},
 		},
-		remoteRefs, 0, nil,
+		remoteRefs, 0,
 	)
 	require.NoError(t, err)
 	// assert only commit is persisted
@@ -267,7 +267,7 @@ func (s *testSuite) TestReceivePackSkipPersistedTables(t *testing.T) {
 			assert.Equal(t, packfile.ObjectCommit, objType)
 		}
 	}, func() {
-		updates, err = ses.Start()
+		updates, err = ses.Start(nil)
 		require.NoError(t, err)
 	})
 	assert.Empty(t, updates["refs/heads/beta"].ErrMsg)

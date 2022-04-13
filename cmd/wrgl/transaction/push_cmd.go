@@ -81,11 +81,6 @@ func pushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var pbar *progressbar.ProgressBar
-			if !noP {
-				pbar = utils.PBar(-1, "Pushing objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-				defer pbar.Finish()
-			}
 			txRefs, err := ref.ListTransactionRefs(rs, id)
 			if err != nil {
 				return err
@@ -96,11 +91,16 @@ func pushCmd() *cobra.Command {
 					Sum: payload.BytesToHex(sum),
 				}
 			}
-			ses, err := apiclient.NewReceivePackSession(db, rs, client, updates, remoteRefs, c.MaxPackFileSize(), pbar)
+			ses, err := apiclient.NewReceivePackSession(db, rs, client, updates, remoteRefs, c.MaxPackFileSize())
 			if err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
-			updates, err = ses.Start()
+			var pbar *progressbar.ProgressBar
+			if !noP {
+				pbar = utils.PBar(-1, "Pushing objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
+				defer pbar.Finish()
+			}
+			updates, err = ses.Start(pbar)
 			if err != nil {
 				return err
 			}
