@@ -50,6 +50,13 @@ func pushCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("transaction not found")
 			}
+			txRefs, err := ref.ListTransactionRefs(rs, id)
+			if err != nil {
+				return err
+			}
+			if len(txRefs) == 0 {
+				return fmt.Errorf("transaction is empty")
+			}
 			cs, err := credentials.NewStore()
 			if err != nil {
 				return err
@@ -78,10 +85,6 @@ func pushCmd() *cobra.Command {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
 			noP, err := cmd.Flags().GetBool("no-progress")
-			if err != nil {
-				return err
-			}
-			txRefs, err := ref.ListTransactionRefs(rs, id)
 			if err != nil {
 				return err
 			}

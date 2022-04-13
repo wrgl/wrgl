@@ -200,9 +200,18 @@ func TestTransactionListCmd(t *testing.T) {
 	txid1 := startTransaction(t)
 	txid2 := startTransaction(t)
 
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
+	require.NoError(t, cmd.Execute())
+	authenticate(t, ts, url)
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"transaction", "push", "my-repo", txid1})
+	assertCmdFailed(t, cmd, "", fmt.Errorf("transaction is empty"))
+
 	header, fp := createRandomCSVFile(t)
 	defer os.Remove(fp)
-	cmd := rootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "alpha", fp, "initial commit", "-n", "1", "--txid", txid1, "-p", header[0]})
 	require.NoError(t, cmd.Execute())
 
@@ -238,11 +247,6 @@ func TestTransactionListCmd(t *testing.T) {
 		"",
 		"",
 	}, "\n"))
-
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"remote", "add", "my-repo", url})
-	require.NoError(t, cmd.Execute())
-	authenticate(t, ts, url)
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"transaction", "push", "--no-progress", "my-repo", txid1})
