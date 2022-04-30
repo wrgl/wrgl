@@ -189,3 +189,23 @@ func (s *testSuite) TestCommitGzip(t *testing.T) {
 	assert.NotEmpty(t, cr.Sum)
 	assert.NotEmpty(t, cr.Table)
 }
+
+func (s *testSuite) TestCommitEmptyColumnName(t *testing.T) {
+	_, cli, _, cleanup := s.s.NewClient(t, "", nil, true)
+	defer cleanup()
+
+	buf := bytes.NewBuffer(nil)
+	gw := gzip.NewWriter(buf)
+	w := csv.NewWriter(gw)
+	require.NoError(t, w.WriteAll([][]string{
+		{"a", "", "c"},
+		{"1", "q", "w"},
+		{"2", "a", "s"},
+		{"3", "z", "x"},
+	}))
+	w.Flush()
+	require.NoError(t, gw.Flush())
+	require.NoError(t, gw.Close())
+	_, err := cli.Commit("alpha", "initial commit", "file.csv.gz", bytes.NewReader(buf.Bytes()), []string{"a"}, nil)
+	assert.Equal(t, `status 400: {"message":"ingest error: column name at position 1 is empty"}`, err.Error())
+}

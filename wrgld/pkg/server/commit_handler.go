@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/csv"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -95,6 +96,9 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if v, ok := err.(*csv.ParseError); ok {
 			sendCSVError(rw, v)
+			return
+		} else if v, ok := err.(*ingest.Error); ok {
+			SendError(rw, http.StatusBadRequest, fmt.Sprintf("ingest error: %s", v.Error()))
 			return
 		} else {
 			panic(err)
