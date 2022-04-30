@@ -122,6 +122,11 @@ func IngestTableFromBlocks(db objects.Store, sorter *sorter.Sorter, columns []st
 }
 
 func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCount uint32) ([]byte, error) {
+	for i, s := range columns {
+		if s == "" {
+			return nil, fmt.Errorf("column name at position %d is empty", i)
+		}
+	}
 	i.tbl = objects.NewTable(columns, pk, rowsCount)
 	i.tblIdx = make([][]string, objects.BlocksCount(rowsCount))
 	errChan := make(chan error, i.numWorkers)

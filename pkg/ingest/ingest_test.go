@@ -76,6 +76,25 @@ func TestIngestTable(t *testing.T) {
 	}
 }
 
+func TestRejectEmptyColumnName(t *testing.T) {
+	rows := [][]string{
+		{"", "a", "b"},
+		{"1", "q", "w"},
+		{"2", "a", "s"},
+	}
+	f := writeCSV(t, rows)
+	defer os.Remove(f.Name())
+	db := objmock.NewStore()
+	s, err := sorter.NewSorter()
+	require.NoError(t, err)
+
+	_, err = IngestTable(db, s, f, rows[0][1:2])
+	assert.Equal(t, `column name at position 0 is empty`, err.Error())
+
+	_, err = IngestTableFromBlocks(db, s, []string{"", "a", "b"}, []uint32{1}, 2, make(<-chan *sorter.Block))
+	assert.Equal(t, `column name at position 0 is empty`, err.Error())
+}
+
 func BenchmarkIngestTable(b *testing.B) {
 	rows := testutils.BuildRawCSV(100, b.N)
 	f := writeCSV(b, rows)
