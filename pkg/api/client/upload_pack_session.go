@@ -134,7 +134,7 @@ func (n *UploadPackSession) negotiate() (stateFn, error) {
 		Depth: n.depth,
 	}, n.opts...)
 	if err != nil {
-		return nil, errors.Wrap("error requesting upload pack", err)
+		return nil, errors.Wrap("error requesting upload pack (state=negotiate)", err)
 	}
 	n.wants = nil
 	if pr != nil {
@@ -160,7 +160,7 @@ func (n *UploadPackSession) negotiateTables(upr *payload.UploadPackResponse) (st
 		TableACKs: payload.BytesSliceToHexSlice(acks),
 	}, n.opts...)
 	if err != nil {
-		return nil, errors.Wrap("error requesting upload pack", err)
+		return nil, errors.Wrap("error requesting upload pack (state=negotiateTables)", err)
 	}
 	if pr != nil {
 		return n.receiveObjects(pr)
@@ -173,7 +173,7 @@ func (n *UploadPackSession) receiveObjects(pr *packfile.PackfileReader) (stateFn
 	if pr == nil {
 		_, pr, err = n.c.PostUploadPack(&payload.UploadPackRequest{}, n.opts...)
 		if err != nil {
-			return nil, errors.Wrap("error requesting upload pack", err)
+			return nil, errors.Wrap("error requesting upload pack (state=receiveObjects)", err)
 		}
 	}
 	defer pr.Close()

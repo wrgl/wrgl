@@ -246,11 +246,16 @@ func (c *Client) GetCommits(head string, maxDepth int, opts ...RequestOption) (g
 	return
 }
 
-func (c *Client) GetRefs(prefix string, opts ...RequestOption) (m map[string][]byte, err error) {
+func (c *Client) GetRefs(prefixes, notPrefixes []string, opts ...RequestOption) (m map[string][]byte, err error) {
 	path := "/refs/"
-	if prefix != "" {
-		v := url.Values{}
-		v.Set("prefix", prefix)
+	v := url.Values{}
+	for _, s := range prefixes {
+		v.Add("prefix", s)
+	}
+	for _, s := range notPrefixes {
+		v.Add("notprefix", s)
+	}
+	if len(v) > 0 {
 		path = fmt.Sprintf("%s?%s", path, v.Encode())
 	}
 	resp, err := c.Request(http.MethodGet, path, nil, nil, opts...)

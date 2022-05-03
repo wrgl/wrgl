@@ -150,7 +150,7 @@ func ParseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, ar
 }
 
 func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs []*conf.Refspec, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
-	m, err := client.GetRefs("")
+	m, err := client.GetRefs(nil, []string{ref.TransactionRefPrefix})
 	if err != nil {
 		return
 	}

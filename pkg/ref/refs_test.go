@@ -315,17 +315,23 @@ func TestListAllRefs(t *testing.T) {
 		fmt.Sprintf("remotes/%s/%s", remote, name): sum3,
 	}, m)
 
-	m, err = ref.ListLocalRefs(s, "")
+	m, err = ref.ListLocalRefs(s, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/" + head: sum1,
 		"tags/" + tag:   sum2,
 	}, m)
 
-	m, err = ref.ListLocalRefs(s, "heads/")
+	m, err = ref.ListLocalRefs(s, []string{"heads/"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, map[string][]byte{
 		"heads/" + head: sum1,
+	}, m)
+
+	m, err = ref.ListLocalRefs(s, nil, []string{"heads/"})
+	require.NoError(t, err)
+	assert.Equal(t, map[string][]byte{
+		"tags/" + tag: sum2,
 	}, m)
 }
 

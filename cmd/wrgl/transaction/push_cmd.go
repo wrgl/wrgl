@@ -80,7 +80,7 @@ func pushCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("transaction %s created\n", tx.ID)
-			remoteRefs, err := client.GetRefs("")
+			remoteRefs, err := client.GetRefs(nil, []string{ref.TransactionRefPrefix})
 			if err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}

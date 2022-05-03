@@ -80,9 +80,9 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	assert.Error(t, err)
 	_, err = cli.Diff(sum1, sum2, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
-	_, err = cli.GetRefs("")
+	_, err = cli.GetRefs(nil, nil)
 	assert.Error(t, err)
-	_, err = cli.GetRefs("", apiclient.WithRequestAuthorization(tok))
+	_, err = cli.GetRefs(nil, nil, apiclient.WithRequestAuthorization(tok))
 	assert.Error(t, err)
 	_, _, err = cli.PostUploadPack(&payload.UploadPackRequest{
 		Wants: payload.BytesSliceToHexSlice([][]byte{sum2}),
@@ -137,7 +137,7 @@ func (s *testSuite) TestAuthenticate(t *testing.T) {
 	assert.NotEmpty(t, dr.OldColumns)
 	assert.NotEmpty(t, dr.PK)
 	assert.NotEmpty(t, dr.OldPK)
-	refs, err := cli.GetRefs("", apiclient.WithRequestAuthorization(readTok))
+	refs, err := cli.GetRefs(nil, nil, apiclient.WithRequestAuthorization(readTok))
 	require.NoError(t, err)
 	assert.Greater(t, len(refs), 0)
 	_, _, err = cli.PostUploadPack(&payload.UploadPackRequest{

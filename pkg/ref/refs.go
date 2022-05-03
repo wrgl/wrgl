@@ -14,27 +14,27 @@ import (
 	"github.com/wrgl/wrgl/pkg/objects"
 )
 
-var (
-	headPrefix           = "heads/"
-	tagPrefix            = "tags/"
-	remoteRefPrefix      = "remotes/"
-	transactionRefPrefix = "txs/"
+const (
+	HeadPrefix           = "heads/"
+	TagPrefix            = "tags/"
+	RemoteRefPrefix      = "remotes/"
+	TransactionRefPrefix = "txs/"
 )
 
 func HeadRef(name string) string {
-	return headPrefix + name
+	return HeadPrefix + name
 }
 
 func tagRef(name string) string {
-	return tagPrefix + name
+	return TagPrefix + name
 }
 
 func TransactionRef(tid, branch string) string {
-	return fmt.Sprintf("%s%s/%s", transactionRefPrefix, tid, branch)
+	return fmt.Sprintf("%s%s/%s", TransactionRefPrefix, tid, branch)
 }
 
 func RemoteRef(remote, name string) string {
-	return fmt.Sprintf("%s%s/%s", string(remoteRefPrefix), remote, name)
+	return fmt.Sprintf("%s%s/%s", string(RemoteRefPrefix), remote, name)
 }
 
 func SaveFetchRef(s Store, name string, commit []byte, authorName, authorEmail, remote, message string) error {
@@ -126,11 +126,11 @@ func ListTransactionRefs(s Store, id uuid.UUID) (map[string][]byte, error) {
 }
 
 func ListHeads(s Store) (map[string][]byte, error) {
-	return listRefs(s, headPrefix)
+	return listRefs(s, HeadPrefix)
 }
 
 func ListTags(s Store) (map[string][]byte, error) {
-	return listRefs(s, tagPrefix)
+	return listRefs(s, TagPrefix)
 }
 
 func ListRemoteRefs(s Store, remote string) (map[string][]byte, error) {
@@ -141,12 +141,8 @@ func ListAllRefs(s Store) (map[string][]byte, error) {
 	return s.Filter(nil, nil)
 }
 
-func ListLocalRefs(s Store, prefix string) (map[string][]byte, error) {
-	prefixes := []string{}
-	notPrefixes := []string{remoteRefPrefix}
-	if prefix != "" {
-		prefixes = append(prefixes, prefix)
-	}
+func ListLocalRefs(s Store, prefixes, notPrefixes []string) (map[string][]byte, error) {
+	notPrefixes = append(notPrefixes, RemoteRefPrefix)
 	m, err := s.Filter(prefixes, notPrefixes)
 	if err != nil {
 		return nil, err

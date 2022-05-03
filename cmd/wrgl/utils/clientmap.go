@@ -10,6 +10,7 @@ import (
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 type ClientMap struct {
@@ -57,7 +58,7 @@ func (m *ClientMap) GetRefs(cmd *cobra.Command, cr *conf.Remote) (refs map[strin
 	if err != nil {
 		return
 	}
-	refs, err = client.GetRefs("")
+	refs, err = client.GetRefs(nil, []string{ref.TransactionRefPrefix})
 	if err != nil {
 		return nil, HandleHTTPError(cmd, m.CredsStore, cr.URL, uri, err)
 	}
