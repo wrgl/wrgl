@@ -21,33 +21,33 @@ import (
 func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	email := GetEmail(r)
 	if email == "" {
-		SendHTTPError(rw, http.StatusUnauthorized)
+		SendHTTPError(rw, r, http.StatusUnauthorized)
 		return
 	}
 	err := r.ParseMultipartForm(0)
 	if err != nil {
 		if err == http.ErrNotMultipart || err == http.ErrMissingBoundary {
-			SendError(rw, http.StatusUnsupportedMediaType, err.Error())
+			SendError(rw, r, http.StatusUnsupportedMediaType, err.Error())
 			return
 		}
 		panic(err)
 	}
 	branch := r.PostFormValue("branch")
 	if branch == "" {
-		SendError(rw, http.StatusBadRequest, "missing branch name")
+		SendError(rw, r, http.StatusBadRequest, "missing branch name")
 		return
 	}
 	if !ref.HeadPattern.MatchString(branch) {
-		SendError(rw, http.StatusBadRequest, "invalid branch name")
+		SendError(rw, r, http.StatusBadRequest, "invalid branch name")
 		return
 	}
 	message := r.PostFormValue("message")
 	if message == "" {
-		SendError(rw, http.StatusBadRequest, "missing message")
+		SendError(rw, r, http.StatusBadRequest, "missing message")
 		return
 	}
 	if len(r.MultipartForm.File["file"]) == 0 {
-		SendError(rw, http.StatusBadRequest, "missing file")
+		SendError(rw, r, http.StatusBadRequest, "missing file")
 		return
 	}
 	fh := r.MultipartForm.File["file"][0]
@@ -76,18 +76,18 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 		tid = &uuid.UUID{}
 		*tid, err = uuid.Parse(s)
 		if err != nil {
-			SendError(rw, http.StatusBadRequest, "invalid txid")
+			SendError(rw, r, http.StatusBadRequest, "invalid txid")
 			return
 		}
 		if _, err := rs.GetTransaction(*tid); err != nil {
-			SendError(rw, http.StatusNotFound, "transaction not found")
+			SendError(rw, r, http.StatusNotFound, "transaction not found")
 			return
 		}
 	}
 
 	var opts = []ingest.InserterOption{}
-	if s.debugOut != nil {
-		opts = append(opts, ingest.WithDebugOutput(s.debugOut))
+	if s.debugLogger != nil {
+		opts = append(opts, ingest.WithDebugLogger(s.debugLogger))
 	}
 	sorter := s.sPool.Get().(*sorter.Sorter)
 	sorter.Reset()
@@ -95,10 +95,10 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	sum, err := ingest.IngestTable(db, sorter, f, primaryKey, opts...)
 	if err != nil {
 		if v, ok := err.(*csv.ParseError); ok {
-			sendCSVError(rw, v)
+			sendCSVError(rw, r, v)
 			return
 		} else if v, ok := err.(*ingest.Error); ok {
-			SendError(rw, http.StatusBadRequest, fmt.Sprintf("ingest error: %s", v.Error()))
+			SendError(rw, r, http.StatusBadRequest, fmt.Sprintf("ingest error: %s", v.Error()))
 			return
 		} else {
 			panic(err)
@@ -142,5 +142,5 @@ func (s *Server) handleCommit(rw http.ResponseWriter, r *http.Request) {
 	}
 	copy((*resp.Sum)[:], commitSum)
 	copy((*resp.Table)[:], sum)
-	WriteJSON(rw, resp)
+	WriteJSON(rw, r, resp)
 }

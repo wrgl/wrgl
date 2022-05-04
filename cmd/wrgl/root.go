@@ -5,7 +5,6 @@ package wrgl
 
 import (
 	_ "embed"
-	"log"
 	"os"
 	"runtime/pprof"
 	"strings"
@@ -21,7 +20,6 @@ import (
 	"github.com/wrgl/wrgl/cmd/wrgl/reflog"
 	"github.com/wrgl/wrgl/cmd/wrgl/remote"
 	"github.com/wrgl/wrgl/cmd/wrgl/transaction"
-	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 )
 
 //go:embed VERSION
@@ -80,7 +78,8 @@ func RootCmd() *cobra.Command {
 	viper.BindEnv("wrgl_dir")
 	viper.BindPFlag("wrgl_dir", rootCmd.PersistentFlags().Lookup("wrgl-dir"))
 	rootCmd.PersistentFlags().String("badger-log", "", `set Badger log level, valid options are "error", "warning", "debug", and "info" (defaults to "error")`)
-	rootCmd.PersistentFlags().String("debug-file", "", "output debug logs to a file")
+	rootCmd.PersistentFlags().Bool("debug", false, "print debug logs to stdout")
+	rootCmd.PersistentFlags().String("debug-file", "", "print debug logs to the given file instead")
 	rootCmd.PersistentFlags().String("cpuprofile", "", "write cpu profile to file")
 	rootCmd.PersistentFlags().String("heapprofile", "", "write heap profile to file")
 	rootCmd.AddCommand(newInitCmd())
@@ -108,13 +107,4 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(gcCmd())
 	rootCmd.AddCommand(reapplyCmd())
 	return rootCmd
-}
-
-func setupDebugLog(cmd *cobra.Command) (func(), error) {
-	r, cleanup, err := utils.SetupDebug(cmd)
-	if err != nil {
-		return nil, err
-	}
-	log.SetOutput(r)
-	return cleanup, nil
 }

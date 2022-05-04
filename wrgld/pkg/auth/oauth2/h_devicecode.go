@@ -23,12 +23,12 @@ type DeviceCodeResponse struct {
 func (h *Handler) handleDeviceCode(rw http.ResponseWriter, r *http.Request) {
 	values, err := h.parsePOSTForm(r)
 	if err != nil {
-		outputError(rw, err)
+		outputError(rw, r, err)
 		return
 	}
 	clientID := values.Get("client_id")
 	if !h.validClientID(clientID) {
-		outputError(rw, &Oauth2Error{"invalid_client", "unknown client"})
+		outputError(rw, r, &Oauth2Error{"invalid_client", "unknown client"})
 		return
 	}
 	deviceCode := uuid.New()
@@ -48,5 +48,5 @@ func (h *Handler) handleDeviceCode(rw http.ResponseWriter, r *http.Request) {
 		ExpiresIn:       codeDuration,
 		Interval:        deviceCodeInterval,
 	}
-	server.WriteJSON(rw, resp)
+	server.WriteJSON(rw, r, resp)
 }

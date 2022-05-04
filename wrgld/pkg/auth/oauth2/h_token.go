@@ -43,7 +43,7 @@ func (h *Handler) getSessionForTokenEndpoint(values url.Values, stateKey string)
 func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	values, err := h.parsePOSTForm(r)
 	if err != nil {
-		outputError(rw, err)
+		outputError(rw, r, err)
 		return
 	}
 	var code string
@@ -52,24 +52,24 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	case "authorization_code":
 		state, session, popState, err := h.getSessionForTokenEndpoint(values, "code")
 		if err != nil {
-			outputError(rw, err)
+			outputError(rw, r, err)
 			return
 		}
 		redirectURI, err := url.Parse(values.Get("redirect_uri"))
 		if err != nil {
-			outputError(rw, &Oauth2Error{"invalid_request", "failed to parse redirect_uri"})
+			outputError(rw, r, &Oauth2Error{"invalid_request", "failed to parse redirect_uri"})
 			return
 		}
 		if s := fmt.Sprintf("%s://%s%s", redirectURI.Scheme, redirectURI.Host, redirectURI.Path); s != session.RedirectURI {
 			log.Printf("redirect URI does not match %q != %q", s, session.RedirectURI)
-			outputError(rw, &Oauth2Error{"invalid_request", "redirect_uri does not match"})
+			outputError(rw, r, &Oauth2Error{"invalid_request", "redirect_uri does not match"})
 			return
 		}
 		if s := values.Get("code_verifier"); s == "" {
-			outputError(rw, &Oauth2Error{"invalid_grant", "code_verifier required"})
+			outputError(rw, r, &Oauth2Error{"invalid_grant", "code_verifier required"})
 			return
 		} else if generateCodeChallenge(s) != session.CodeChallenge {
-			outputError(rw, &Oauth2Error{"invalid_grant", "code challenge failed"})
+			outputError(rw, r, &Oauth2Error{"invalid_grant", "code challenge failed"})
 			return
 		}
 		code = state
@@ -77,13 +77,13 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	case "urn:ietf:params:oauth:grant-type:device_code":
 		_, session, popState, err := h.getSessionForTokenEndpoint(values, "device_code")
 		if err != nil {
-			outputError(rw, err)
+			outputError(rw, r, err)
 			return
 		}
 		code = session.Code
 		popState()
 	default:
-		outputError(rw, &Oauth2Error{"invalid_request", "invalid grant_type"})
+		outputError(rw, r, &Oauth2Error{"invalid_request", "invalid grant_type"})
 		return
 	}
 
@@ -92,29 +92,29 @@ func (h *Handler) handleToken(rw http.ResponseWriter, r *http.Request) {
 	token, err := h.provider.Exchange(ctx, code)
 	if err != nil {
 		log.Printf("error: error exchanging code: %v", err)
-		server.SendError(rw, http.StatusInternalServerError, "internal server error")
+		server.SendError(rw, r, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if token.TokenType != "Bearer" {
 		log.Printf("error: expected bearer token, found %q", token.TokenType)
-		server.SendError(rw, http.StatusInternalServerError, "internal server error")
+		server.SendError(rw, r, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
 		log.Printf("error: no id_token field in oauth2 token")
-		server.SendError(rw, http.StatusInternalServerError, "internal server error")
+		server.SendError(rw, r, http.StatusInternalServerError, "internal server error")
 		return
 	}
 	if err = h.provider.Verify(context.Background(), rawIDToken); err != nil {
 		log.Printf("error: failed to verify id_token: %v", err)
-		server.SendError(rw, http.StatusInternalServerError, "internal server error")
+		server.SendError(rw, r, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
 	rw.Header().Set("Cache-Control", "no-store")
 	rw.Header().Set("Pragma", "no-cache")
-	server.WriteJSON(rw, &TokenResponse{
+	server.WriteJSON(rw, r, &TokenResponse{
 		AccessToken: rawIDToken,
 		TokenType:   token.TokenType,
 	})

@@ -112,6 +112,7 @@ func (s *ReceivePackSession) negotiate(updates map[string]*payload.Update) (stat
 	if err != nil {
 		return nil, err
 	}
+	s.c.LogResponse(resp, rpr)
 	if len(rpr.Updates) > 0 {
 		s.updates = rpr.Updates
 		return nil, nil
@@ -135,6 +136,7 @@ func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.c.LogResponse(resp, r)
 	s.updates = r.Updates
 	return nil, nil
 }
@@ -142,7 +144,7 @@ func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	reqBody := bytes.NewBuffer(nil)
 	gzw := gzip.NewWriter(reqBody)
-	done, err := s.sender.WriteObjects(gzw, s.pbar)
+	done, info, err := s.sender.WriteObjects(gzw, s.pbar)
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +159,7 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.c.LogRequest(resp.Request, info)
 	if resp.StatusCode != http.StatusOK {
 		return nil, s.c.ErrHTTP(resp)
 	}

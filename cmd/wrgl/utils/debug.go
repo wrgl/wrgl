@@ -4,14 +4,18 @@
 package utils
 
 import (
-	"io"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
 // SetupDebug open debug file (specified with --debug-file) for writing
-func SetupDebug(cmd *cobra.Command) (w io.Writer, cleanup func(), err error) {
+func SetupDebug(cmd *cobra.Command) (l *log.Logger, cleanup func(), err error) {
+	debug, err := cmd.Flags().GetBool("debug")
+	if err != nil {
+		return nil, nil, err
+	}
 	name, err := cmd.Flags().GetString("debug-file")
 	if err != nil {
 		return nil, nil, err
@@ -22,10 +26,14 @@ func SetupDebug(cmd *cobra.Command) (w io.Writer, cleanup func(), err error) {
 		if err != nil {
 			return nil, nil, err
 		}
+		return log.New(f, "", 0), func() {
+			if f != nil {
+				f.Close()
+			}
+		}, nil
 	}
-	return f, func() {
-		if f != nil {
-			f.Close()
-		}
-	}, nil
+	if debug {
+		return log.Default(), func() {}, nil
+	}
+	return nil, func() {}, nil
 }

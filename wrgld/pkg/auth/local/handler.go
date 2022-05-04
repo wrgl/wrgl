@@ -5,11 +5,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	wrgldutils "github.com/wrgl/wrgl/wrgld/pkg/utils"
 	"github.com/wrgl/wrgl/pkg/api"
-	server "github.com/wrgl/wrgl/wrgld/pkg/server"
 	"github.com/wrgl/wrgl/pkg/auth"
 	"github.com/wrgl/wrgl/pkg/conf"
+	server "github.com/wrgl/wrgl/wrgld/pkg/server"
+	wrgldutils "github.com/wrgl/wrgl/wrgld/pkg/utils"
 )
 
 type LocalAuthHandler struct {
@@ -61,11 +61,11 @@ func (h *LocalAuthHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 func (h *LocalAuthHandler) handleAuthenticate(rw http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		server.SendError(rw, http.StatusMethodNotAllowed, "method not allowed")
+		server.SendError(rw, r, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 	if v := r.Header.Get("Content-Type"); v != api.CTJSON {
-		server.SendError(rw, http.StatusUnsupportedMediaType, "json expected")
+		server.SendError(rw, r, http.StatusUnsupportedMediaType, "json expected")
 		return
 	}
 	b, err := ioutil.ReadAll(r.Body)
@@ -80,7 +80,7 @@ func (h *LocalAuthHandler) handleAuthenticate(rw http.ResponseWriter, r *http.Re
 	tok, err := h.authnS.Authenticate(req.Email, req.Password)
 	if err != nil {
 		if err.Error() == "email/password invalid" {
-			server.SendError(rw, http.StatusUnauthorized, err.Error())
+			server.SendError(rw, r, http.StatusUnauthorized, err.Error())
 			return
 		}
 		panic(err)
@@ -88,5 +88,5 @@ func (h *LocalAuthHandler) handleAuthenticate(rw http.ResponseWriter, r *http.Re
 	resp := &AuthenticateResponse{
 		IDToken: tok,
 	}
-	server.WriteJSON(rw, resp)
+	server.WriteJSON(rw, r, resp)
 }

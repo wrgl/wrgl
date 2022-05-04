@@ -26,20 +26,20 @@ func (s *Server) handleCreateTransaction(rw http.ResponseWriter, r *http.Request
 		}
 		id, err := uuid.Parse(req.ID)
 		if err != nil {
-			SendError(rw, http.StatusBadRequest, "invalid id")
+			SendError(rw, r, http.StatusBadRequest, "invalid id")
 			return
 		}
 		_, err = rs.GetTransaction(id)
 		if err == nil {
-			SendError(rw, http.StatusBadRequest, "transaction already created")
+			SendError(rw, r, http.StatusBadRequest, "transaction already created")
 			return
 		}
 		if req.Begin.IsZero() {
-			SendError(rw, http.StatusBadRequest, "begin time missing")
+			SendError(rw, r, http.StatusBadRequest, "begin time missing")
 			return
 		}
 		if req.Status != string(ref.TSCommitted) && req.Status != string(ref.TSInProgress) {
-			SendError(rw, http.StatusBadRequest, "invalid status")
+			SendError(rw, r, http.StatusBadRequest, "invalid status")
 			return
 		}
 		tx = &ref.Transaction{
@@ -53,7 +53,7 @@ func (s *Server) handleCreateTransaction(rw http.ResponseWriter, r *http.Request
 	if err != nil {
 		panic(err)
 	}
-	WriteJSON(rw, &payload.CreateTransactionResponse{
+	WriteJSON(rw, r, &payload.CreateTransactionResponse{
 		ID: id.String(),
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"sync"
@@ -22,16 +23,16 @@ type ProgressBar interface {
 }
 
 type Inserter struct {
-	db         objects.Store
-	pt         ProgressBar
-	tbl        *objects.Table
-	tblIdx     [][]string
-	wg         sync.WaitGroup
-	errChan    chan error
-	blocks     <-chan *sorter.Block
-	numWorkers int
-	sorter     *sorter.Sorter
-	debugOut   io.Writer
+	db          objects.Store
+	pt          ProgressBar
+	tbl         *objects.Table
+	tblIdx      [][]string
+	wg          sync.WaitGroup
+	errChan     chan error
+	blocks      <-chan *sorter.Block
+	numWorkers  int
+	sorter      *sorter.Sorter
+	debugLogger *log.Logger
 }
 
 type InserterOption func(*Inserter)
@@ -48,9 +49,9 @@ func WithNumWorkers(n int) InserterOption {
 	}
 }
 
-func WithDebugOutput(w io.Writer) InserterOption {
+func WithDebugLogger(w *log.Logger) InserterOption {
 	return func(i *Inserter) {
-		i.debugOut = w
+		i.debugLogger = w
 	}
 }
 
@@ -96,11 +97,11 @@ func (i *Inserter) insertBlock() {
 		}
 		buf.Reset()
 		idx.WriteTo(buf)
-		if i.debugOut != nil {
+		if i.debugLogger != nil {
 			hash.Reset()
 			hash.Write(buf.Bytes())
 			hash.SumTo(idxSum)
-			fmt.Fprintf(i.debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
+			i.debugLogger.Printf("  block %x (indexSum %x)\n", sum, idxSum)
 		}
 		blkIdxSum, bb, err = objects.SaveBlockIndex(i.db, bb, buf.Bytes())
 		if err != nil {
@@ -156,8 +157,8 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCoun
 	if err != nil {
 		return nil, err
 	}
-	if i.debugOut != nil {
-		fmt.Fprintf(i.debugOut, "Saved table %x\n", sum)
+	if i.debugLogger != nil {
+		i.debugLogger.Printf("Saved table %x\n", sum)
 	}
 
 	// write and save table index

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"runtime"
 	"sort"
 	"strings"
@@ -61,6 +62,11 @@ func pullCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
+			logger, cleanup, err := utils.SetupDebug(cmd)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
 
 			force, err := cmd.Flags().GetBool("force")
 			if err != nil {
@@ -110,7 +116,10 @@ func pullCmd() *cobra.Command {
 				sort.Strings(names)
 				for _, name := range names {
 					colorstring.Fprintf(cmd.OutOrStdout(), "pulling [bold]%s[reset]...\n", name)
-					if err := pullSingleRepo(cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI, wrglDir, ff, numWorkers, message, depth); err != nil {
+					if err := pullSingleRepo(
+						cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI,
+						wrglDir, ff, numWorkers, message, depth, logger,
+					); err != nil {
 						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
 							cmd.Println("Repository not found, skipping.")
 						} else {
@@ -121,7 +130,10 @@ func pullCmd() *cobra.Command {
 				return nil
 			}
 
-			return pullSingleRepo(cmd, c, db, rs, args, force, setUpstream, noCommit, noGUI, wrglDir, ff, numWorkers, message, depth)
+			return pullSingleRepo(
+				cmd, c, db, rs, args, force, setUpstream, noCommit, noGUI,
+				wrglDir, ff, numWorkers, message, depth, logger,
+			)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update local branch in certain conditions.")
@@ -178,7 +190,7 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 
 func pullSingleRepo(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, force, setUpstream bool,
-	noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string, depth int32,
+	noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string, depth int32, logger *log.Logger,
 ) error {
 	newBranch := false
 	name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
@@ -209,7 +221,7 @@ func pullSingleRepo(
 	if err != nil {
 		return err
 	}
-	err = fetch.Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth)
+	err = fetch.Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger)
 	if err != nil {
 		return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 	}

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
@@ -84,11 +85,18 @@ func WithRequestAuthorization(token string) RequestOption {
 	}
 }
 
+func WithLogger(logger *log.Logger) ClientOption {
+	return func(c *Client) {
+		c.logger = logger
+	}
+}
+
 type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
 	origin         string
 	requestOptions []RequestOption
+	logger         *log.Logger
 }
 
 func NewClient(origin string, opts ...ClientOption) (*Client, error) {
@@ -106,6 +114,28 @@ func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 		opt(c)
 	}
 	return c, nil
+}
+
+func (s *Client) LogRequest(r *http.Request, payload interface{}) {
+	if s.logger == nil {
+		return
+	}
+	b, err := json.MarshalIndent(payload, "  ", "  ")
+	if err != nil {
+		panic(err)
+	}
+	s.logger.Printf("%s %s request %s", r.Method, r.URL, string(b))
+}
+
+func (s *Client) LogResponse(r *http.Response, payload interface{}) {
+	if s.logger == nil {
+		return
+	}
+	b, err := json.MarshalIndent(payload, "  ", "  ")
+	if err != nil {
+		panic(err)
+	}
+	s.logger.Printf("%s %s receive %s", r.Request.Method, r.Request.URL, string(b))
 }
 
 func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {
@@ -266,6 +296,7 @@ func (c *Client) GetRefs(prefixes, notPrefixes []string, opts ...RequestOption) 
 	if err = parseJSONPayload(resp, rr); err != nil {
 		return nil, err
 	}
+	c.LogResponse(resp, rr)
 	m = map[string][]byte{}
 	for k, v := range rr.Refs {
 		m[k] = (*v)[:]
@@ -503,7 +534,7 @@ func (c *Client) GarbageCollect(opts ...RequestOption) (resp *http.Response, err
 	return c.Request(http.MethodPost, "/gc/", nil, nil, opts...)
 }
 
-func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestOption) (upr *payload.UploadPackResponse, pr *packfile.PackfileReader, err error) {
+func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestOption) (upr *payload.UploadPackResponse, pr *packfile.PackfileReader, logPayload func(), err error) {
 	b, err := json.Marshal(req)
 	if err != nil {
 		return
@@ -514,10 +545,23 @@ func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestO
 	if err != nil {
 		return
 	}
+	c.LogRequest(resp.Request, req)
 	if resp.Header.Get("Content-Type") == CTPackfile {
 		pr, err = packfile.NewPackfileReader(resp.Body)
+		if err != nil {
+			return
+		}
+		logPayload = func() {
+			c.LogResponse(resp, pr.Info)
+		}
 	} else if resp.Header.Get("Content-Type") == CTJSON {
 		upr, err = parseUploadPackResult(resp.Body)
+		if err != nil {
+			return
+		}
+		logPayload = func() {
+			c.LogResponse(resp, upr)
+		}
 	}
 	return
 }
@@ -531,9 +575,14 @@ func (c *Client) PostReceivePack(updates map[string]*payload.Update, tableHaves 
 	if err != nil {
 		return nil, err
 	}
-	return c.Request(http.MethodPost, "/receive-pack/", bytes.NewReader(b), map[string]string{
+	resp, err := c.Request(http.MethodPost, "/receive-pack/", bytes.NewReader(b), map[string]string{
 		"Content-Type": CTJSON,
 	}, opts...)
+	if err != nil {
+		return nil, err
+	}
+	c.LogRequest(resp.Request, req)
+	return resp, nil
 }
 
 func (c *Client) ErrHTTP(resp *http.Response) error {

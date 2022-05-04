@@ -5,7 +5,7 @@ package diff
 
 import (
 	"bytes"
-	"io"
+	"log"
 	"time"
 
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -27,7 +27,7 @@ func strSliceEqual(s1, s2 []string) bool {
 type Differ struct {
 	progressInterval time.Duration
 	emitUnchangedRow bool
-	debugOut         io.Writer
+	debugLogger      *log.Logger
 	db1, db2         objects.Store
 	tbl1, tbl2       *objects.Table
 	tblIdx1, tblIdx2 [][]string
@@ -51,10 +51,10 @@ func WithEmitUnchangedRow() DiffOption {
 	}
 }
 
-// WithDebugOutput tells DiffTables to write debug info into the provided writer
-func WithDebugOutput(r io.Writer) DiffOption {
+// WithDebugLogger tells DiffTables to write debug info into the provided writer
+func WithDebugLogger(r *log.Logger) DiffOption {
 	return func(d *Differ) {
-		d.debugOut = r
+		d.debugLogger = r
 	}
 }
 
@@ -97,7 +97,7 @@ func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblI
 func (d *Differ) diffRows(diffChan chan<- *objects.Diff, pt *progress.SingleTracker, colsEqual bool) error {
 	pt.SetTotal(int64(d.tbl1.RowsCount + d.tbl2.RowsCount))
 	var current int64
-	err := iterateAndMatch(d.db1, d.db2, d.tbl1, d.tbl2, d.tblIdx1, d.tblIdx2, d.debugOut, func(pk, row1, row2 []byte, off1, off2 uint32) {
+	err := iterateAndMatch(d.db1, d.db2, d.tbl1, d.tbl2, d.tblIdx1, d.tblIdx2, d.debugLogger, func(pk, row1, row2 []byte, off1, off2 uint32) {
 		current++
 		pt.SetCurrent(current)
 		if row2 != nil {
@@ -122,7 +122,7 @@ func (d *Differ) diffRows(diffChan chan<- *objects.Diff, pt *progress.SingleTrac
 	if err != nil {
 		return err
 	}
-	return iterateAndMatch(d.db2, d.db1, d.tbl2, d.tbl1, d.tblIdx2, d.tblIdx1, d.debugOut, func(pk, row1, row2 []byte, off1, off2 uint32) {
+	return iterateAndMatch(d.db2, d.db1, d.tbl2, d.tbl1, d.tblIdx2, d.tblIdx1, d.debugLogger, func(pk, row1, row2 []byte, off1, off2 uint32) {
 		current++
 		pt.SetCurrent(current)
 		if row2 == nil {

@@ -8,7 +8,7 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
-	"io"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -75,7 +75,7 @@ func newDiffCmd() *cobra.Command {
 		}, "\n"),
 		Args: cobra.RangeArgs(0, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			debugFile, cleanup, err := utils.SetupDebug(cmd)
+			logger, cleanup, err := utils.SetupDebug(cmd)
 			if err != nil {
 				return err
 			}
@@ -121,17 +121,17 @@ func newDiffCmd() *cobra.Command {
 			}
 
 			if tid != nil {
-				return diffTransaction(cmd, c, db, rs, debugFile, *tid)
+				return diffTransaction(cmd, c, db, rs, logger, *tid)
 			}
 
 			if all {
-				return diffAllBranches(cmd, c, db, rs, pk, args, debugFile)
+				return diffAllBranches(cmd, c, db, rs, pk, args, logger)
 			}
 
 			if noGUI {
-				return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, debugFile, false, outputDiffToCSV)
+				return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, logger, false, outputDiffToCSV)
 			}
-			return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, debugFile, false, outputDiffToTerminal)
+			return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, logger, false, outputDiffToTerminal)
 		},
 	}
 	cmd.Flags().Bool("no-gui", false, "don't show the diff table, instead output changes to file DIFF_SUM1_SUM2.csv")
@@ -510,7 +510,7 @@ func commitTitle(commitName, commitSum string) string {
 }
 
 func getDiffChan(
-	db1, db2 objects.Store, rs ref.Store, commit1, commit2 *objects.Commit, debugFile io.Writer,
+	db1, db2 objects.Store, rs ref.Store, commit1, commit2 *objects.Commit, logger *log.Logger,
 ) (tbl1, tbl2 *objects.Table, diffChan <-chan *objects.Diff, pt progress.Tracker, cd *diff.ColDiff, errChan chan error, err error) {
 	tbl1, err = utils.GetTable(db1, rs, commit1)
 	if err != nil {
@@ -538,8 +538,8 @@ func getDiffChan(
 	errChan = make(chan error, 10)
 	opts := []diff.DiffOption{}
 	opts = append(opts, diff.WithProgressInterval(65*time.Millisecond))
-	if debugFile != nil {
-		opts = append(opts, diff.WithDebugOutput(debugFile))
+	if logger != nil {
+		opts = append(opts, diff.WithDebugLogger(logger))
 	}
 	diffChan, pt = diff.DiffTables(db1, db2, tbl1, tbl2, tblIdx1, tblIdx2, errChan, opts...)
 	return tbl1, tbl2, diffChan, pt, cd, errChan, nil
@@ -718,7 +718,7 @@ func diffTableProfiles(db1, db2 objects.Store, commit1, commit2 *objects.Commit)
 
 func runDiff(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store, rs ref.Store,
-	pk []string, args []string, branchFile bool, debugFile io.Writer, quiet bool,
+	pk []string, args []string, branchFile bool, logger *log.Logger, quiet bool,
 	outputDiff func(
 		cmd *cobra.Command,
 		db1, db2 objects.Store,
@@ -749,7 +749,7 @@ func runDiff(
 		return err
 	}
 
-	tbl1, tbl2, diffChan, pt, cd, errChan, err := getDiffChan(db1, db2, rs, commit1, commit2, debugFile)
+	tbl1, tbl2, diffChan, pt, cd, errChan, err := getDiffChan(db1, db2, rs, commit1, commit2, logger)
 	if err != nil {
 		return err
 	}
@@ -776,7 +776,7 @@ type diffArgs struct {
 	Commits []string
 }
 
-func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, debugFile io.Writer, dargs []diffArgs, branchFile, quiet bool) (err error) {
+func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, logger *log.Logger, dargs []diffArgs, branchFile, quiet bool) (err error) {
 	var maxLen int
 	for _, darg := range dargs {
 		if len(darg.Branch) > maxLen {
@@ -788,7 +788,7 @@ func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.S
 	})
 	for _, darg := range dargs {
 		var diffSum string
-		if err := runDiff(cmd, c, db, nil, rs, darg.PK, darg.Commits, branchFile, debugFile, quiet,
+		if err := runDiff(cmd, c, db, nil, rs, darg.PK, darg.Commits, branchFile, logger, quiet,
 			func(
 				cmd *cobra.Command, db1, db2 objects.Store, name1, name2, commitHash1, commitHash2 string,
 				tbl1, tbl2 *objects.Table, diffChan <-chan *objects.Diff, pt progress.Tracker,
@@ -812,7 +812,7 @@ func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.S
 	return nil
 }
 
-func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, debugFile io.Writer, tid uuid.UUID) (err error) {
+func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, logger *log.Logger, tid uuid.UUID) (err error) {
 	m, _, err := transaction.Diff(rs, tid)
 	if err != nil {
 		return
@@ -829,12 +829,12 @@ func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs re
 			Commits: []string{hex.EncodeToString(sums[0]), hex.EncodeToString(sums[1])},
 		})
 	}
-	return diffMultiple(cmd, c, db, rs, debugFile, dargs, false, true)
+	return diffMultiple(cmd, c, db, rs, logger, dargs, false, true)
 }
 
 func diffAllBranches(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store,
-	pk []string, args []string, debugFile io.Writer,
+	pk []string, args []string, logger *log.Logger,
 ) error {
 	dargs := []diffArgs{}
 	for name, branch := range c.Branch {
@@ -857,5 +857,5 @@ func diffAllBranches(
 			Commits: []string{"heads/" + name},
 		})
 	}
-	return diffMultiple(cmd, c, db, rs, debugFile, dargs, true, true)
+	return diffMultiple(cmd, c, db, rs, logger, dargs, true, true)
 }

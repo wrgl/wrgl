@@ -22,5 +22,5 @@ func (s *Server) handleGetRefs(rw http.ResponseWriter, r *http.Request) {
 		copy((*h)[:], v)
 		resp.Refs[k] = h
 	}
-	WriteJSON(rw, resp)
+	WriteJSON(rw, r, resp)
 }

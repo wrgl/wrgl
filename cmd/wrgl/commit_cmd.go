@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -62,7 +63,7 @@ func newCommitCmd() *cobra.Command {
 		}),
 		Args: cobra.MaximumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			debugFile, cleanup, err := utils.SetupDebug(cmd)
+			logger, cleanup, err := utils.SetupDebug(cmd)
 			if err != nil {
 				return err
 			}
@@ -134,7 +135,7 @@ func newCommitCmd() *cobra.Command {
 					return nil
 				}
 			} else {
-				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, c, debugFile, false, tid, delim)
+				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, numWorkers, memLimit, c, logger, false, tid, delim)
 				if err != nil {
 					return err
 				}
@@ -183,7 +184,7 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) error {
 
 func commit(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, message, branchName string, primaryKey []string,
-	numWorkers int, memLimit uint64, c *conf.Config, debugFile io.Writer, quiet bool, tid *uuid.UUID, delim rune,
+	numWorkers int, memLimit uint64, c *conf.Config, logger *log.Logger, quiet bool, tid *uuid.UUID, delim rune,
 ) ([]byte, error) {
 	if !ref.HeadPattern.MatchString(branchName) {
 		return nil, fmt.Errorf("invalid branch name, must consist of only alphanumeric letters, hyphen and underscore")
@@ -217,7 +218,7 @@ func commit(
 	sum, err := ingest.IngestTable(db, s, f, primaryKey,
 		ingest.WithNumWorkers(numWorkers),
 		ingest.WithProgressBar(blkPT),
-		ingest.WithDebugOutput(debugFile),
+		ingest.WithDebugLogger(logger),
 	)
 	if err != nil {
 		return nil, err

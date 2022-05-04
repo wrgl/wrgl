@@ -227,7 +227,7 @@ func AuthorizeMiddleware(options AuthzMiddlewareOptions) func(handler http.Handl
 				}
 			}
 			if route == nil {
-				SendHTTPError(rw, http.StatusNotFound)
+				SendHTTPError(rw, r, http.StatusNotFound)
 				return
 			}
 			if route.Scope != "" {
@@ -237,9 +237,9 @@ func AuthorizeMiddleware(options AuthzMiddlewareOptions) func(handler http.Handl
 					return
 				}
 				if options.MaskUnauthorizedPath {
-					SendHTTPError(rw, http.StatusNotFound)
+					SendHTTPError(rw, r, http.StatusNotFound)
 				} else {
-					SendHTTPError(rw, http.StatusForbidden)
+					SendHTTPError(rw, r, http.StatusForbidden)
 				}
 			}
 		})

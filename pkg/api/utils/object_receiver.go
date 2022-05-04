@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/schollz/progressbar/v3"
@@ -19,16 +20,16 @@ type ObjectReceiver struct {
 	db              objects.Store
 	expectedCommits map[string]struct{}
 	ReceivedCommits [][]byte
-	debugOut        io.Writer
+	debugLogger     *log.Logger
 	saveObjHook     func(objType int, sum []byte)
 	buf             []byte
 }
 
 type ObjectReceiveOption func(r *ObjectReceiver)
 
-func WithReceiverDebugOut(out io.Writer) ObjectReceiveOption {
+func WithReceiverDebugLogger(out *log.Logger) ObjectReceiveOption {
 	return func(r *ObjectReceiver) {
-		r.debugOut = out
+		r.debugLogger = out
 	}
 }
 
@@ -53,7 +54,7 @@ func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, opts ...Objec
 	return r
 }
 
-func (r *ObjectReceiver) saveBlock(b []byte) (err error) {
+func (r *ObjectReceiver) saveBlock(b []byte) (sum []byte, err error) {
 	r.buf, err = s2.Decode(r.buf, b)
 	if err != nil {
 		return
@@ -61,20 +62,20 @@ func (r *ObjectReceiver) saveBlock(b []byte) (err error) {
 	if err = objects.ValidateBlockBytes(r.buf); err != nil {
 		return
 	}
-	sum, err := objects.SaveCompressedBlock(r.db, r.buf, b)
+	sum, err = objects.SaveCompressedBlock(r.db, r.buf, b)
 	if r.saveObjHook != nil {
 		r.saveObjHook(packfile.ObjectBlock, sum)
 	}
-	return err
+	return
 }
 
-func (r *ObjectReceiver) saveTable(b []byte) (err error) {
+func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
 	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
 	if err != nil {
 		return
 	}
-	sum, err := objects.SaveTable(r.db, b)
-	if err = ingest.IndexTable(r.db, sum, tbl, r.debugOut); err != nil {
+	sum, err = objects.SaveTable(r.db, b)
+	if err = ingest.IndexTable(r.db, sum, tbl, r.debugLogger); err != nil {
 		return
 	}
 	if err = ingest.ProfileTable(r.db, sum, tbl); err != nil {
@@ -83,20 +84,20 @@ func (r *ObjectReceiver) saveTable(b []byte) (err error) {
 	if r.saveObjHook != nil {
 		r.saveObjHook(packfile.ObjectTable, sum)
 	}
-	return err
+	return
 }
 
-func (r *ObjectReceiver) saveCommit(b []byte) (err error) {
+func (r *ObjectReceiver) saveCommit(b []byte) (sum []byte, err error) {
 	_, com, err := objects.ReadCommitFrom(bytes.NewReader(b))
 	if err != nil {
 		return
 	}
 	for _, parent := range com.Parents {
 		if !objects.CommitExist(r.db, parent) {
-			return fmt.Errorf("parent commit %x does not exist", parent)
+			return nil, fmt.Errorf("parent commit %x does not exist", parent)
 		}
 	}
-	sum, err := objects.SaveCommit(r.db, b)
+	sum, err = objects.SaveCommit(r.db, b)
 	if err != nil {
 		return
 	}
@@ -105,7 +106,7 @@ func (r *ObjectReceiver) saveCommit(b []byte) (err error) {
 	if r.saveObjHook != nil {
 		r.saveObjHook(packfile.ObjectCommit, sum)
 	}
-	return nil
+	return
 }
 
 func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, pbar *progressbar.ProgressBar) (done bool, err error) {
@@ -114,25 +115,31 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, pbar *progressbar.
 		if err != nil && err != io.EOF {
 			return false, err
 		}
+		var sum []byte
 		switch ot {
 		case packfile.ObjectBlock:
-			err := r.saveBlock(b)
+			sum, err = r.saveBlock(b)
 			if err != nil {
 				return false, err
 			}
 		case packfile.ObjectTable:
-			err := r.saveTable(b)
+			sum, err = r.saveTable(b)
 			if err != nil {
 				return false, err
 			}
 		case packfile.ObjectCommit:
-			err := r.saveCommit(b)
+			sum, err = r.saveCommit(b)
 			if err != nil {
 				return false, err
 			}
 		default:
 			if ot != 0 || len(b) != 0 {
 				return false, fmt.Errorf("unrecognized object type %d", ot)
+			}
+		}
+		if ot != 0 {
+			if err = pr.Info.AddObject(ot, sum); err != nil {
+				return false, err
 			}
 		}
 		if ot != 0 && pbar != nil {

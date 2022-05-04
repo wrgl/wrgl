@@ -13,7 +13,7 @@ import (
 
 func parseJSONRequest(r *http.Request, rw http.ResponseWriter, obj interface{}) bool {
 	if v := r.Header.Get("Content-Type"); !strings.Contains(v, api.CTJSON) {
-		SendError(rw, http.StatusBadRequest, "JSON payload expected")
+		SendError(rw, r, http.StatusBadRequest, "JSON payload expected")
 		return false
 	}
 	b, err := ioutil.ReadAll(r.Body)
@@ -47,7 +47,7 @@ func (s *Server) handleUpdateTransaction(rw http.ResponseWriter, r *http.Request
 			panic(err)
 		}
 	} else {
-		SendError(rw, http.StatusBadRequest, "must either discard or commit transaction")
+		SendError(rw, r, http.StatusBadRequest, "must either discard or commit transaction")
 		return
 	}
 }

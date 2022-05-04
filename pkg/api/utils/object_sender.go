@@ -110,7 +110,7 @@ func (s *ObjectSender) enqueueNextCommit() (err error) {
 	}
 	b := make([]byte, s.buf.Len())
 	copy(b, s.buf.Bytes())
-	s.objs.PushBack(object{Type: packfile.ObjectCommit, Content: b})
+	s.objs.PushBack(object{Type: packfile.ObjectCommit, Content: b, Sum: com.Sum})
 	return nil
 }
 
@@ -135,11 +135,11 @@ func (s *ObjectSender) enqueueTable(sum []byte) (err error) {
 	}
 	b := make([]byte, s.buf.Len())
 	copy(b, s.buf.Bytes())
-	s.objs.PushBack(object{Type: packfile.ObjectTable, Content: b})
+	s.objs.PushBack(object{Type: packfile.ObjectTable, Content: b, Sum: sum})
 	return nil
 }
 
-func (s *ObjectSender) WriteObjects(w io.Writer, pbar *progressbar.ProgressBar) (done bool, err error) {
+func (s *ObjectSender) WriteObjects(w io.Writer, pbar *progressbar.ProgressBar) (done bool, info *packfile.PackfileInfo, err error) {
 	pw, err := packfile.NewPackfileWriter(w)
 	if err != nil {
 		return
@@ -161,9 +161,12 @@ func (s *ObjectSender) WriteObjects(w io.Writer, pbar *progressbar.ProgressBar) 
 		if err != nil {
 			return
 		}
+		if err = pw.Info.AddObject(obj.Type, obj.Sum); err != nil {
+			return
+		}
 		if pbar != nil {
 			if err = pbar.Add(1); err != nil {
-				return false, err
+				return false, nil, err
 			}
 		}
 		size += uint64(n)
@@ -176,5 +179,5 @@ func (s *ObjectSender) WriteObjects(w io.Writer, pbar *progressbar.ProgressBar) 
 			break
 		}
 	}
-	return s.objs.Len() == 0 && s.commits.Len() == 0, nil
+	return s.objs.Len() == 0 && s.commits.Len() == 0, pw.Info, nil
 }

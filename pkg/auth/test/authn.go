@@ -53,15 +53,15 @@ func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *
 	c := &auth.Claims{}
 	b, err := base64.RawStdEncoding.DecodeString(token)
 	if err != nil {
-		return nil, nil, err
+		return r, nil, err
 	}
 	if err := json.Unmarshal([]byte(b), c); err != nil {
-		return nil, nil, err
+		return r, nil, err
 	}
 	if _, ok := s.pass[c.Email]; ok {
 		return r, c, nil
 	}
-	return nil, nil, fmt.Errorf("invalid token")
+	return r, nil, fmt.Errorf("invalid token")
 }
 
 func (s *AuthnStore) RemoveUser(email string) error {

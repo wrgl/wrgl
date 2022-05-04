@@ -33,7 +33,7 @@ func NewClientMap() (*ClientMap, error) {
 	}, nil
 }
 
-func (m *ClientMap) GetClient(cmd *cobra.Command, cr *conf.Remote) (client *apiclient.Client, uri *url.URL, err error) {
+func (m *ClientMap) GetClient(cmd *cobra.Command, cr *conf.Remote, opts ...apiclient.ClientOption) (client *apiclient.Client, uri *url.URL, err error) {
 	if v, ok := m.clients[cr.URL]; ok {
 		return v, m.uris[cr.URL], nil
 	}
@@ -42,7 +42,8 @@ func (m *ClientMap) GetClient(cmd *cobra.Command, cr *conf.Remote) (client *apic
 		return nil, nil, err
 	}
 	m.uris[cr.URL] = uri
-	client, err = apiclient.NewClient(cr.URL, apiclient.WithAuthorization(tok))
+	opts = append(opts, apiclient.WithAuthorization(tok))
+	client, err = apiclient.NewClient(cr.URL, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -50,11 +51,11 @@ func (m *ClientMap) GetClient(cmd *cobra.Command, cr *conf.Remote) (client *apic
 	return
 }
 
-func (m *ClientMap) GetRefs(cmd *cobra.Command, cr *conf.Remote) (refs map[string][]byte, err error) {
+func (m *ClientMap) GetRefs(cmd *cobra.Command, cr *conf.Remote, opts ...apiclient.ClientOption) (refs map[string][]byte, err error) {
 	if v, ok := m.refs[cr.URL]; ok {
 		return v, nil
 	}
-	client, uri, err := m.GetClient(cmd, cr)
+	client, uri, err := m.GetClient(cmd, cr, opts...)
 	if err != nil {
 		return
 	}

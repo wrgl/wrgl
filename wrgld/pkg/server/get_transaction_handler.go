@@ -18,12 +18,12 @@ var transactionURIPat = regexp.MustCompile(`/transactions/([0-9a-f-]+)/`)
 func extractTransactionID(rw http.ResponseWriter, r *http.Request, rs ref.Store) (*uuid.UUID, bool) {
 	m := transactionURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return nil, false
 	}
 	tid, err := uuid.Parse(m[1])
 	if err != nil {
-		SendError(rw, http.StatusBadRequest, "invalid transaction id")
+		SendError(rw, r, http.StatusBadRequest, "invalid transaction id")
 		return nil, false
 	}
 	return &tid, true
@@ -38,7 +38,7 @@ func (s *Server) handleGetTransaction(rw http.ResponseWriter, r *http.Request) {
 	refs, tx, err := transaction.Diff(rs, *tid)
 	if err != nil {
 		if err == ref.ErrKeyNotFound {
-			SendError(rw, http.StatusNotFound, "transaction not found")
+			SendError(rw, r, http.StatusNotFound, "transaction not found")
 			return
 		}
 		panic(err)
@@ -68,5 +68,5 @@ func (s *Server) handleGetTransaction(rw http.ResponseWriter, r *http.Request) {
 	sort.Slice(resp.Branches, func(i, j int) bool {
 		return resp.Branches[i].Name < resp.Branches[j].Name
 	})
-	WriteJSON(rw, resp)
+	WriteJSON(rw, r, resp)
 }

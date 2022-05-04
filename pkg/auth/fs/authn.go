@@ -157,11 +157,11 @@ func (s *AuthnStore) Authenticate(email, password string) (token string, err err
 func (s *AuthnStore) CheckToken(r *http.Request, token string) (*http.Request, *auth.Claims, error) {
 	sec, err := s.getSecret()
 	if err != nil {
-		return nil, nil, err
+		return r, nil, err
 	}
 	claims, err := validateIDToken(token, sec)
 	if err != nil {
-		return nil, nil, err
+		return r, nil, err
 	}
 	return r, claims, nil
 }

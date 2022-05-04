@@ -4,7 +4,6 @@
 package auth
 
 import (
-	"fmt"
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
@@ -67,7 +66,7 @@ func adduserCmd() *cobra.Command {
 				return err
 			}
 			if dw != nil {
-				fmt.Fprintf(dw, "authn store internal state:\n%s\n", authnS.InternalState())
+				dw.Printf("authn store internal state:\n%s\n", authnS.InternalState())
 			}
 			if err := authnS.Flush(); err != nil {
 				return err
@@ -75,9 +74,9 @@ func adduserCmd() *cobra.Command {
 			if dw != nil {
 				b, err := ioutil.ReadFile(authnS.Filepath())
 				if err != nil {
-					fmt.Fprintf(dw, "error opening authn.csv: %v\n", err)
+					dw.Printf("error opening authn.csv: %v\n", err)
 				}
-				fmt.Fprintf(dw, "content from %s:\n%s\n", authnS.Filepath(), string(b))
+				dw.Printf("content from %s:\n%s\n", authnS.Filepath(), string(b))
 			}
 			return nil
 		},

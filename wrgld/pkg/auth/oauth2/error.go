@@ -10,7 +10,7 @@ import (
 
 type ResponseError interface {
 	error
-	WriteResponse(rw http.ResponseWriter)
+	WriteResponse(rw http.ResponseWriter, r *http.Request)
 	WriteHTMLResponse(rw http.ResponseWriter)
 }
 
@@ -19,10 +19,10 @@ type Oauth2Error struct {
 	ErrorDescription string `json:"error_description,omitempty"`
 }
 
-func (e *Oauth2Error) WriteResponse(rw http.ResponseWriter) {
+func (e *Oauth2Error) WriteResponse(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", api.CTJSON)
 	rw.WriteHeader(http.StatusBadRequest)
-	server.WriteJSON(rw, e)
+	server.WriteJSON(rw, r, e)
 }
 
 func (e *Oauth2Error) WriteHTMLResponse(rw http.ResponseWriter) {
@@ -38,10 +38,10 @@ type HTTPError struct {
 	Message string `json:"message"`
 }
 
-func (e *HTTPError) WriteResponse(rw http.ResponseWriter) {
+func (e *HTTPError) WriteResponse(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", api.CTJSON)
 	rw.WriteHeader(e.Code)
-	server.WriteJSON(rw, e)
+	server.WriteJSON(rw, r, e)
 }
 
 func (e *HTTPError) WriteHTMLResponse(rw http.ResponseWriter) {
@@ -52,9 +52,9 @@ func (e *HTTPError) Error() string {
 	return fmt.Sprintf("HTTPError: %d %s", e.Code, e.Message)
 }
 
-func outputError(rw http.ResponseWriter, err error) {
+func outputError(rw http.ResponseWriter, r *http.Request, err error) {
 	if v, ok := err.(ResponseError); ok {
-		v.WriteResponse(rw)
+		v.WriteResponse(rw, r)
 	} else {
 		panic(err)
 	}

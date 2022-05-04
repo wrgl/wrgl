@@ -137,7 +137,7 @@ func (s *ReceivePackSession) saveRefs() error {
 func (s *ReceivePackSession) greet(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	var err error
 	if v := r.Header.Get("Content-Type"); !strings.Contains(v, api.CTJSON) {
-		SendError(rw, http.StatusBadRequest, "updates expected")
+		SendError(rw, r, http.StatusBadRequest, "updates expected")
 		return nil
 	}
 	req, err := parseReceivePackRequest(r)
@@ -197,14 +197,14 @@ func (s *ReceivePackSession) negotiate(rw http.ResponseWriter, r *http.Request) 
 		s.respondWithTableACKs(rw, r, s.negotiateTables(req))
 		return s.negotiate
 	} else {
-		SendError(rw, http.StatusBadRequest, "unanticipated content-type")
+		SendError(rw, r, http.StatusBadRequest, "unanticipated content-type")
 		return nil
 	}
 }
 
 func (s *ReceivePackSession) receiveObjects(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	if v := r.Header.Get("Content-Type"); v != api.CTPackfile {
-		SendError(rw, http.StatusBadRequest, "packfile expected")
+		SendError(rw, r, http.StatusBadRequest, "packfile expected")
 		return nil
 	}
 	body := r.Body

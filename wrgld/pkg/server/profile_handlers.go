@@ -11,7 +11,7 @@ func (s *Server) handleGetCommitProfile(rw http.ResponseWriter, r *http.Request)
 	db := s.getDB(r)
 	m := commitURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	sum, err := hex.DecodeString(m[1])
@@ -20,22 +20,22 @@ func (s *Server) handleGetCommitProfile(rw http.ResponseWriter, r *http.Request)
 	}
 	com, err := objects.GetCommit(db, sum)
 	if err != nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	prof, err := objects.GetTableProfile(db, com.Table)
 	if err != nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
-	WriteJSON(rw, prof)
+	WriteJSON(rw, r, prof)
 }
 
 func (s *Server) handleGetTableProfile(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
 	m := tableURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	sum, err := hex.DecodeString(m[1])
@@ -44,8 +44,8 @@ func (s *Server) handleGetTableProfile(rw http.ResponseWriter, r *http.Request) 
 	}
 	prof, err := objects.GetTableProfile(db, sum)
 	if err != nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
-	WriteJSON(rw, prof)
+	WriteJSON(rw, r, prof)
 }

@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"sync"
@@ -25,9 +25,9 @@ func WithPostCommitCallback(postCommit PostCommitHook) ServerOption {
 	}
 }
 
-func WithDebug(w io.Writer) ServerOption {
+func WithDebug(w *log.Logger) ServerOption {
 	return func(s *Server) {
-		s.debugOut = w
+		s.debugLogger = w
 	}
 }
 
@@ -59,7 +59,7 @@ type Server struct {
 	postCommit   PostCommitHook
 	router       *router.Router
 	maxAge       time.Duration
-	debugOut     io.Writer
+	debugLogger  *log.Logger
 	sPool        *sync.Pool
 	receiverOpts []apiutils.ObjectReceiveOption
 }

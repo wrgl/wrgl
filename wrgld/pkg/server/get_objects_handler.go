@@ -28,12 +28,12 @@ func (s *Server) handleGetObjects(rw http.ResponseWriter, r *http.Request) {
 	for i, h := range hexes {
 		sum, err := hex.DecodeString(h)
 		if err != nil {
-			SendError(rw, http.StatusBadRequest, fmt.Sprintf("error decoding table sum: %v", err))
+			SendError(rw, r, http.StatusBadRequest, fmt.Sprintf("error decoding table sum: %v", err))
 			return
 		}
 		tbl, err := objects.GetTable(db, sum)
 		if err == objects.ErrKeyNotFound {
-			SendError(rw, http.StatusNotFound, fmt.Sprintf("table %s not found", h))
+			SendError(rw, r, http.StatusNotFound, fmt.Sprintf("table %s not found", h))
 			return
 		}
 		if err != nil {

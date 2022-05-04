@@ -5,6 +5,7 @@ package packfile
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
@@ -13,11 +14,19 @@ import (
 	"github.com/wrgl/wrgl/pkg/misc"
 )
 
+const Version uint32 = 1
+
 const (
 	ObjectCommit int = iota + 1
 	ObjectTable
 	ObjectBlock
 )
+
+var typeStrs = map[int]string{
+	ObjectCommit: "commit",
+	ObjectTable:  "table",
+	ObjectBlock:  "block",
+}
 
 func encodeObjTypeAndLen(buf encoding.Bufferer, objType int, u uint64) []byte {
 	bits := int(math.Ceil(math.Log2(float64(u))))
@@ -65,15 +74,33 @@ func decodeObjTypeAndLen(r io.Reader) (objType int, u uint64, err error) {
 	return
 }
 
+type PackfileInfo struct {
+	Version uint32
+	Objects [][2]string
+}
+
+func (i *PackfileInfo) AddObject(objType int, sum []byte) error {
+	typeStr, ok := typeStrs[objType]
+	if !ok {
+		return fmt.Errorf("unrecognized object type %d", objType)
+	}
+	i.Objects = append(i.Objects, [2]string{typeStr, hex.EncodeToString(sum)})
+	return nil
+}
+
 type PackfileWriter struct {
-	w   io.Writer
-	buf encoding.Bufferer
+	w    io.Writer
+	buf  encoding.Bufferer
+	Info *PackfileInfo
 }
 
 func NewPackfileWriter(w io.Writer) (*PackfileWriter, error) {
 	pw := &PackfileWriter{
 		w:   w,
 		buf: misc.NewBuffer(nil),
+		Info: &PackfileInfo{
+			Version: Version,
+		},
 	}
 	err := pw.writeVersion()
 	if err != nil {
@@ -85,7 +112,7 @@ func NewPackfileWriter(w io.Writer) (*PackfileWriter, error) {
 func (w *PackfileWriter) writeVersion() error {
 	b := w.buf.Buffer(8)
 	copy(b[:4], []byte("PACK"))
-	binary.BigEndian.PutUint32(b[4:], 1)
+	binary.BigEndian.PutUint32(b[4:], Version)
 	_, err := w.w.Write(b)
 	return err
 }
@@ -108,12 +135,16 @@ type PackfileReader struct {
 	r       io.ReadCloser
 	buf     encoding.Bufferer
 	Version int
+	Info    *PackfileInfo
 }
 
 func NewPackfileReader(r io.ReadCloser) (*PackfileReader, error) {
 	pr := &PackfileReader{
 		r:   r,
 		buf: misc.NewBuffer(nil),
+		Info: &PackfileInfo{
+			Version: Version,
+		},
 	}
 	err := pr.readVersion()
 	if err != nil {

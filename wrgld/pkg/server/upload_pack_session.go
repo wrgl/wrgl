@@ -27,6 +27,7 @@ func parseUploadPackRequest(r *http.Request) (req *payload.UploadPackRequest, er
 	if err != nil {
 		return nil, err
 	}
+	setRequestInfo(r, req)
 	return
 }
 
@@ -71,6 +72,7 @@ func (s *UploadPackSession) sendJSONResponse(rw http.ResponseWriter, r *http.Req
 	for _, sum := range tableHaves {
 		resp.TableHaves = payload.AppendHex(resp.TableHaves, sum)
 	}
+	setResponseInfo(r, resp)
 	b, err := json.Marshal(resp)
 	if err != nil {
 		panic(err)
@@ -96,10 +98,11 @@ func (s *UploadPackSession) sendPackfile(rw http.ResponseWriter, r *http.Request
 	gzw := gzip.NewWriter(rw)
 	defer gzw.Close()
 
-	done, err := s.sender.WriteObjects(gzw, nil)
+	done, info, err := s.sender.WriteObjects(gzw, nil)
 	if err != nil {
 		panic(err)
 	}
+	setResponseInfo(r, info)
 	if done {
 		// TODO: figure out whether to enable this trailer once more servers can deal with it?
 		// rw.Header().Set(api.HeaderPurgeUploadPackSession, "true")
@@ -112,7 +115,7 @@ func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Reque
 	acks, err := s.finder.Process(payload.HexSliceToBytesSlice(req.Wants), payload.HexSliceToBytesSlice(req.Haves), req.Done)
 	if err != nil {
 		if v, ok := err.(*apiutils.UnrecognizedWantsError); ok {
-			SendError(rw, http.StatusBadRequest, v.Error())
+			SendError(rw, r, http.StatusBadRequest, v.Error())
 			return nil
 		}
 		panic(err)
@@ -135,7 +138,7 @@ func (s *UploadPackSession) greet(rw http.ResponseWriter, r *http.Request) (next
 	}
 	s.finder = apiutils.NewClosedSetsFinder(s.db, s.rs, req.Depth)
 	if len(req.Wants) == 0 {
-		SendError(rw, http.StatusBadRequest, "empty wants list")
+		SendError(rw, r, http.StatusBadRequest, "empty wants list")
 		return nil
 	}
 	return s.findClosedSets(rw, r, req)
@@ -184,7 +187,7 @@ func (s *UploadPackSession) negotiateTables(rw http.ResponseWriter, r *http.Requ
 // returns true when this session is completed and should be removed.
 func (s *UploadPackSession) ServeHTTP(rw http.ResponseWriter, r *http.Request) bool {
 	if ct := r.Header.Get("Content-Type"); ct != api.CTJSON {
-		SendError(rw, http.StatusUnsupportedMediaType, "")
+		SendError(rw, r, http.StatusUnsupportedMediaType, "")
 		return true
 	}
 	s.state = s.state(rw, r)

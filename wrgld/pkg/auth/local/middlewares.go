@@ -51,7 +51,7 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 			} else if strings.HasPrefix(cookie.Value, "Bearer%20") || strings.HasPrefix(cookie.Value, "Bearer+") {
 				s, err := url.QueryUnescape(cookie.Value)
 				if err != nil {
-					server.SendError(rw, http.StatusUnauthorized, "invalid token")
+					server.SendError(rw, r, http.StatusUnauthorized, "invalid token")
 					return
 				}
 				token = s[7:]
@@ -64,7 +64,7 @@ func (m *authenticateMiddleware) ServeHTTP(rw http.ResponseWriter, r *http.Reque
 		r, claims, err = m.authnS.CheckToken(r, token)
 		if err != nil {
 			if _, ok := err.(*jwt.ValidationError); ok {
-				server.SendError(rw, http.StatusUnauthorized, "invalid token")
+				server.SendError(rw, r, http.StatusUnauthorized, "invalid token")
 				return
 			}
 			panic(err)

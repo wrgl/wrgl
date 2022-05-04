@@ -34,11 +34,6 @@ func newPreviewCmd() *cobra.Command {
 		}),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cleanup, err := setupDebugLog(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
 			cStr := args[0]
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()

@@ -136,7 +136,7 @@ func (h *Handler) validateAccessToken(handler http.Handler) http.Handler {
 			c, err := h.provider.Claims(ctx, rawIDToken)
 			if err != nil {
 				log.Printf("failed to verify access_token: %v", err)
-				server.SendError(rw, http.StatusUnauthorized, "unauthorized")
+				server.SendError(rw, r, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 			r = setClaims(r, c)

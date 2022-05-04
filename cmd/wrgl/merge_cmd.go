@@ -84,11 +84,6 @@ func mergeCmd() *cobra.Command {
 			if err := utils.EnsureUserSet(cmd, c); err != nil {
 				return err
 			}
-			cleanup, err := setupDebugLog(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err

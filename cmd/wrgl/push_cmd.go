@@ -6,6 +6,7 @@ package wrgl
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -77,6 +78,11 @@ func newPushCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
+			logger, cleanup, err := utils.SetupDebug(cmd)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
 			force, err := cmd.Flags().GetBool("force")
 			if err != nil {
 				return err
@@ -113,7 +119,7 @@ func newPushCmd() *cobra.Command {
 					colorstring.Fprintf(cmd.OutOrStdout(), "pushing [bold]%s[reset]\n", name)
 					if err := pushSingleRepo(
 						cmd, c, db, rs, clients, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
-						mirror, force, false, wrglDir,
+						mirror, force, false, wrglDir, logger,
 					); err != nil {
 						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
 							cmd.Println("Repository not found, skipping.")
@@ -125,7 +131,7 @@ func newPushCmd() *cobra.Command {
 				return nil
 			}
 
-			return pushSingleRepo(cmd, c, db, rs, clients, args, mirror, force, setUpstream, wrglDir)
+			return pushSingleRepo(cmd, c, db, rs, clients, args, mirror, force, setUpstream, wrglDir, logger)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update remote branch in certain conditions.")
@@ -385,7 +391,10 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*receivePackUpdate) {
 	}
 }
 
-func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, clients *utils.ClientMap, args []string, mirror, force, setUpstream bool, wrglDir string) error {
+func pushSingleRepo(
+	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, clients *utils.ClientMap,
+	args []string, mirror, force, setUpstream bool, wrglDir string, logger *log.Logger,
+) error {
 	remote, cr, args, err := getRepoToPush(c, args)
 	if err != nil {
 		return err
@@ -396,11 +405,11 @@ func pushSingleRepo(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref
 	if mirror {
 		force = true
 	}
-	client, uri, err := clients.GetClient(cmd, cr)
+	client, uri, err := clients.GetClient(cmd, cr, apiclient.WithLogger(logger))
 	if err != nil {
 		return err
 	}
-	remoteRefs, err := clients.GetRefs(cmd, cr)
+	remoteRefs, err := clients.GetRefs(cmd, cr, apiclient.WithLogger(logger))
 	if err != nil {
 		return err
 	}

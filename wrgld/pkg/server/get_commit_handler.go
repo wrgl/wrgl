@@ -14,7 +14,7 @@ var commitURIPat = regexp.MustCompile(`/commits/([0-9a-f]{32})/`)
 func writeCommitJSON(rw http.ResponseWriter, r *http.Request, db objects.Store, sum []byte) {
 	com, err := objects.GetCommit(db, sum)
 	if err != nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	tbl, err := objects.GetTable(db, com.Table)
@@ -43,13 +43,13 @@ func writeCommitJSON(rw http.ResponseWriter, r *http.Request, db objects.Store, 
 		copy((*h)[:], sum)
 		resp.Parents = append(resp.Parents, h)
 	}
-	WriteJSON(rw, resp)
+	WriteJSON(rw, r, resp)
 }
 
 func (s *Server) handleGetCommit(rw http.ResponseWriter, r *http.Request) {
 	m := commitURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	sum, err := hex.DecodeString(m[1])

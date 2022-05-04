@@ -49,18 +49,18 @@ func diffDataProfile(db objects.Store, resp *payload.DiffResponse, sum1, sum2 []
 func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	m := diffURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	db := s.getDB(r)
 	sum1, tbl1, idx1 := s.getTable(db, m[1])
 	if tbl1 == nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	sum2, tbl2, idx2 := s.getTable(db, m[2])
 	if tbl2 == nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	resp := &payload.DiffResponse{
@@ -74,8 +74,8 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 	if !bytes.Equal(sum1, sum2) {
 		errCh := make(chan error, 10)
 		opts := []diff.DiffOption{}
-		if s.debugOut != nil {
-			opts = append(opts, diff.WithDebugOutput(s.debugOut))
+		if s.debugLogger != nil {
+			opts = append(opts, diff.WithDebugLogger(s.debugLogger))
 		}
 		diffChan, _ := diff.DiffTables(db, db, tbl1, tbl2, idx1, idx2, errCh, opts...)
 		for obj := range diffChan {
@@ -98,5 +98,5 @@ func (s *Server) handleDiff(rw http.ResponseWriter, r *http.Request) {
 		diffDataProfile(db, resp, sum1, sum2)
 	}
 	s.cacheControlImmutable(rw)
-	WriteJSON(rw, resp)
+	WriteJSON(rw, r, resp)
 }

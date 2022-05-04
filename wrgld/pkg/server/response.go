@@ -9,7 +9,8 @@ import (
 	"github.com/wrgl/wrgl/pkg/api/payload"
 )
 
-func WriteJSON(rw http.ResponseWriter, v interface{}) {
+func WriteJSON(rw http.ResponseWriter, r *http.Request, v interface{}) {
+	setResponseInfo(r, v)
 	rw.Header().Set("Content-Type", api.CTJSON)
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -21,12 +22,14 @@ func WriteJSON(rw http.ResponseWriter, v interface{}) {
 	}
 }
 
-func SendError(rw http.ResponseWriter, code int, message string) {
+func SendError(rw http.ResponseWriter, r *http.Request, code int, message string) {
 	rw.Header().Set("Content-Type", api.CTJSON)
 	rw.WriteHeader(code)
-	b, err := json.Marshal(&payload.Error{
+	errPayload := &payload.Error{
 		Message: message,
-	})
+	}
+	setResponseInfo(r, errPayload)
+	b, err := json.Marshal(errPayload)
 	if err != nil {
 		panic(err)
 	}
@@ -36,21 +39,23 @@ func SendError(rw http.ResponseWriter, code int, message string) {
 	}
 }
 
-func SendHTTPError(rw http.ResponseWriter, code int) {
-	SendError(rw, code, http.StatusText(code))
+func SendHTTPError(rw http.ResponseWriter, r *http.Request, code int) {
+	SendError(rw, r, code, http.StatusText(code))
 }
 
-func sendCSVError(rw http.ResponseWriter, obj *csv.ParseError) {
+func sendCSVError(rw http.ResponseWriter, r *http.Request, obj *csv.ParseError) {
 	rw.Header().Set("Content-Type", api.CTJSON)
 	rw.WriteHeader(http.StatusBadRequest)
-	b, err := json.Marshal(&payload.Error{
+	errPayload := &payload.Error{
 		Message: obj.Err.Error(),
 		CSV: &payload.CSVLocation{
 			StartLine: obj.StartLine,
 			Line:      obj.Line,
 			Column:    obj.Column,
 		},
-	})
+	}
+	setResponseInfo(r, errPayload)
+	b, err := json.Marshal(errPayload)
 	if err != nil {
 		panic(err)
 	}

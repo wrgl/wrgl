@@ -6,14 +6,14 @@ package ingest
 import (
 	"bytes"
 	"fmt"
-	"io"
+	"log"
 
 	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/slice"
 )
 
-func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io.Writer) error {
+func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger *log.Logger) error {
 	var (
 		tblIdx    = make([][]string, len(tbl.Blocks))
 		buf       = bytes.NewBuffer(nil)
@@ -24,8 +24,8 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 		bb        []byte
 		blkIdxSum []byte
 	)
-	if debugOut != nil {
-		fmt.Fprintf(debugOut, "Indexing table %x\n", tblSum)
+	if logger != nil {
+		logger.Printf("Indexing table %x\n", tblSum)
 	}
 	var idxSum = make([]byte, meow.Size)
 	for i, sum := range tbl.Blocks {
@@ -48,11 +48,11 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, debugOut io
 		if err != nil {
 			return fmt.Errorf("idx.WriteTo: %v", err)
 		}
-		if debugOut != nil {
+		if logger != nil {
 			hash.Reset()
 			hash.Write(buf.Bytes())
 			hash.SumTo(idxSum)
-			fmt.Fprintf(debugOut, "  block %x (indexSum %x)\n", sum, idxSum)
+			logger.Printf("  block %x (indexSum %x)\n", sum, idxSum)
 		}
 		blkIdxSum, bb, err = objects.SaveBlockIndex(db, bb, buf.Bytes())
 		if err != nil {

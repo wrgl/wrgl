@@ -19,7 +19,7 @@ var blocksURIPat = regexp.MustCompile(`/tables/([0-9a-f]{32})/blocks/`)
 func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db objects.Store, tblProf []byte) {
 	tbl, err := objects.GetTable(db, tblProf)
 	if err != nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	blkCount := len(tbl.Blocks)
@@ -28,24 +28,24 @@ func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db obje
 	if v, ok := values["start"]; ok {
 		start, err = strconv.Atoi(v[0])
 		if err != nil {
-			SendError(rw, http.StatusBadRequest, "invalid start")
+			SendError(rw, r, http.StatusBadRequest, "invalid start")
 			return
 		}
 	}
 	if start < 0 || start >= int(blkCount) {
-		SendError(rw, http.StatusBadRequest, "start out of range")
+		SendError(rw, r, http.StatusBadRequest, "start out of range")
 		return
 	}
 	end := blkCount
 	if v, ok := values["end"]; ok {
 		end, err = strconv.Atoi(v[0])
 		if err != nil {
-			SendError(rw, http.StatusBadRequest, "invalid end")
+			SendError(rw, r, http.StatusBadRequest, "invalid end")
 			return
 		}
 	}
 	if end < start || end > int(blkCount) {
-		SendError(rw, http.StatusBadRequest, "end out of range")
+		SendError(rw, r, http.StatusBadRequest, "end out of range")
 		return
 	}
 	format := payload.BlockFormatCSV
@@ -98,7 +98,7 @@ func (s *Server) transferBlocks(rw http.ResponseWriter, r *http.Request, db obje
 			}
 		}
 	default:
-		SendError(rw, http.StatusBadRequest, "invalid format")
+		SendError(rw, r, http.StatusBadRequest, "invalid format")
 		return
 	}
 }
@@ -112,7 +112,7 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 	db := s.getDB(r)
 	com, err := objects.GetCommit(db, sum)
 	if err != nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	s.transferBlocks(rw, r, db, com.Table)
@@ -121,7 +121,7 @@ func (s *Server) handleGetBlocks(rw http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetTableBlocks(rw http.ResponseWriter, r *http.Request) {
 	m := blocksURIPat.FindStringSubmatch(r.URL.Path)
 	if m == nil {
-		SendHTTPError(rw, http.StatusNotFound)
+		SendHTTPError(rw, r, http.StatusNotFound)
 		return
 	}
 	sum, err := hex.DecodeString(m[1])
