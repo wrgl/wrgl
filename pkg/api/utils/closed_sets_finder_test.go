@@ -39,8 +39,11 @@ func TestClosedSetsFinder(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, acks)
 	assert.Equal(t, [][]byte{}, finder.CommonCommmits())
-	commits := finder.CommitsToSend()
+	commits, err := finder.CommitsToSend()
+	require.NoError(t, err)
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c2, c1, c3, c4, c5, c6}, commits, true)
+	tables, err := finder.TablesToSend()
+	require.NoError(t, err)
 	assert.Equal(t, map[string]struct{}{
 		string(c2.Table): {},
 		string(c1.Table): {},
@@ -48,7 +51,7 @@ func TestClosedSetsFinder(t *testing.T) {
 		string(c4.Table): {},
 		string(c5.Table): {},
 		string(c6.Table): {},
-	}, finder.TablesToSend(), true)
+	}, tables, true)
 
 	// send only necessary commits
 	finder = apiutils.NewClosedSetsFinder(db, rs, 0)
@@ -56,12 +59,15 @@ func TestClosedSetsFinder(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1, sum2}, acks)
 	testutils.AssertBytesEqual(t, [][]byte{sum1, sum2}, finder.CommonCommmits(), true)
-	commits = finder.CommitsToSend()
+	commits, err = finder.CommitsToSend()
+	require.NoError(t, err)
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c3, c4}, commits, true)
+	tables, err = finder.TablesToSend()
+	require.NoError(t, err)
 	assert.Equal(t, map[string]struct{}{
 		string(c3.Table): {},
 		string(c4.Table): {},
-	}, finder.TablesToSend(), true)
+	}, tables, true)
 }
 
 func TestClosedSetsFinderACKs(t *testing.T) {
@@ -94,8 +100,11 @@ func TestClosedSetsFinderACKs(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum3}, acks)
 
-	commits := finder.CommitsToSend()
+	commits, err := finder.CommitsToSend()
+	require.NoError(t, err)
 	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c4, c5, c6, c7, c8, c9}, commits, true)
+	tables, err := finder.TablesToSend()
+	require.NoError(t, err)
 	assert.Equal(t, map[string]struct{}{
 		string(c4.Table): {},
 		string(c5.Table): {},
@@ -103,7 +112,7 @@ func TestClosedSetsFinderACKs(t *testing.T) {
 		string(c7.Table): {},
 		string(c8.Table): {},
 		string(c9.Table): {},
-	}, finder.TablesToSend(), true)
+	}, tables, true)
 }
 
 func TestClosedSetsFinderUnrecognizedWants(t *testing.T) {
@@ -140,22 +149,56 @@ func TestClosedSetsFinderDepth(t *testing.T) {
 	acks, err := finder.Process([][]byte{sum4}, nil, true)
 	require.NoError(t, err)
 	assert.Nil(t, acks)
-	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c1, c2, c3, c4}, finder.CommitsToSend(), true)
+	commits, err := finder.CommitsToSend()
+	require.NoError(t, err)
+	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c1, c2, c3, c4}, commits, true)
+	tables, err := finder.TablesToSend()
+	require.NoError(t, err)
 	assert.Equal(t, map[string]struct{}{
 		string(c3.Table): {},
 		string(c4.Table): {},
-	}, finder.TablesToSend(), true)
+	}, tables, true)
 
 	finder = apiutils.NewClosedSetsFinder(db, rs, 3)
 	acks, err = finder.Process([][]byte{sum6}, [][]byte{sum1}, true)
 	require.NoError(t, err)
 	assert.Equal(t, [][]byte{sum1}, acks)
 	assert.Equal(t, [][]byte{sum1}, finder.CommonCommmits())
-	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c6, c5, c4, c3, c2}, finder.CommitsToSend(), true)
+	commits, err = finder.CommitsToSend()
+	require.NoError(t, err)
+	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c6, c5, c4, c3, c2}, commits, true)
+	tables, err = finder.TablesToSend()
+	require.NoError(t, err)
 	assert.Equal(t, map[string]struct{}{
 		string(c6.Table): {},
 		string(c5.Table): {},
 		string(c4.Table): {},
 		string(c3.Table): {},
-	}, finder.TablesToSend(), true)
+	}, tables, true)
+}
+
+func TestIncludeLeftOverWants(t *testing.T) {
+	db := objmock.NewStore()
+	rs, cleanup := refmock.NewStore(t)
+	defer cleanup()
+	sum1, c1 := factory.CommitRandom(t, db, nil)
+	sum2, c2 := factory.CommitRandom(t, db, nil)
+	sum3, c3 := factory.CommitRandom(t, db, [][]byte{sum2})
+	require.NoError(t, ref.CommitHead(rs, "alpha", sum1, c1, nil))
+	require.NoError(t, ref.CommitHead(rs, "beta", sum3, c3, nil))
+
+	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
+	acks, err := finder.Process([][]byte{sum3}, [][]byte{sum1}, false)
+	require.NoError(t, err)
+	assert.Equal(t, [][]byte{sum1}, acks)
+	assert.Equal(t, [][]byte{sum1}, finder.CommonCommmits())
+	commits, err := finder.CommitsToSend()
+	require.NoError(t, err)
+	objhelpers.AssertCommitsEqual(t, []*objects.Commit{c3, c2}, commits, true)
+	tables, err := finder.TablesToSend()
+	require.NoError(t, err)
+	assert.Equal(t, map[string]struct{}{
+		string(c2.Table): {},
+		string(c3.Table): {},
+	}, tables)
 }

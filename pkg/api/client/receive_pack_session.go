@@ -52,7 +52,10 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 	if err != nil {
 		return nil, fmt.Errorf("finder.Process error: %v", err)
 	}
-	coms := finder.CommitsToSend()
+	coms, err := finder.CommitsToSend()
+	if err != nil {
+		return nil, err
+	}
 	if err := NewShallowCommitError(db, rs, coms); err != nil {
 		return nil, err
 	}
@@ -65,7 +68,10 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 		db:              db,
 		maxPackfileSize: maxPackfileSize,
 	}
-	s.tablesToSend = finder.TablesToSend()
+	s.tablesToSend, err = finder.TablesToSend()
+	if err != nil {
+		return nil, err
+	}
 	for sum := range s.tablesToSend {
 		s.candidateTables.PushFront([]byte(sum))
 	}
@@ -121,7 +127,11 @@ func (s *ReceivePackSession) negotiate(updates map[string]*payload.Update) (stat
 			delete(s.tablesToSend, string((*sum)[:]))
 		}
 		if s.candidateTables.Len() == 0 {
-			s.sender, err = apiutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.tablesToSend, s.finder.CommonCommmits(), s.maxPackfileSize)
+			commits, err := s.finder.CommitsToSend()
+			if err != nil {
+				return nil, err
+			}
+			s.sender, err = apiutils.NewObjectSender(s.db, commits, s.tablesToSend, s.finder.CommonCommmits(), s.maxPackfileSize)
 			if err != nil {
 				return nil, err
 			}

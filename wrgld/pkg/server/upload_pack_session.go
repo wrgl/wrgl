@@ -120,11 +120,14 @@ func (s *UploadPackSession) findClosedSets(rw http.ResponseWriter, r *http.Reque
 		}
 		panic(err)
 	}
-	if len(acks) > 0 && len(s.finder.Wants) > 0 && !req.Done {
+	if len(s.finder.Wants) > 0 && !req.Done {
 		s.sendJSONResponse(rw, r, acks, nil)
 		return s.negotiate
 	}
-	s.tablesToSend = s.finder.TablesToSend()
+	s.tablesToSend, err = s.finder.TablesToSend()
+	if err != nil {
+		panic(err)
+	}
 	for sum := range s.tablesToSend {
 		s.candidateTables.PushFront([]byte(sum))
 	}
@@ -154,8 +157,11 @@ func (s *UploadPackSession) negotiate(rw http.ResponseWriter, r *http.Request) (
 
 func (s *UploadPackSession) sendTableHaves(rw http.ResponseWriter, r *http.Request) (nextState stateFn) {
 	if s.candidateTables.Len() == 0 {
-		var err error
-		s.sender, err = apiutils.NewObjectSender(s.db, s.finder.CommitsToSend(), s.tablesToSend, s.finder.CommonCommmits(), s.maxPackfileSize)
+		commits, err := s.finder.CommitsToSend()
+		if err != nil {
+			panic(err)
+		}
+		s.sender, err = apiutils.NewObjectSender(s.db, commits, s.tablesToSend, s.finder.CommonCommmits(), s.maxPackfileSize)
 		if err != nil {
 			panic(err)
 		}

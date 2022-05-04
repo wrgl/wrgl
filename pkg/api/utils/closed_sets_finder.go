@@ -44,7 +44,12 @@ func (f *ClosedSetsFinder) CommonCommmits() [][]byte {
 	return result
 }
 
-func (f *ClosedSetsFinder) CommitsToSend() (commits []*objects.Commit) {
+func (f *ClosedSetsFinder) CommitsToSend() (commits []*objects.Commit, err error) {
+	if len(f.Wants) > 0 {
+		if err = f.enqueueWants(nil); err != nil {
+			return
+		}
+	}
 	for _, l := range f.commitLists {
 		e := l.Front()
 		for e != nil {
@@ -55,7 +60,12 @@ func (f *ClosedSetsFinder) CommitsToSend() (commits []*objects.Commit) {
 	return
 }
 
-func (f *ClosedSetsFinder) TablesToSend() (tableSums map[string]struct{}) {
+func (f *ClosedSetsFinder) TablesToSend() (tableSums map[string]struct{}, err error) {
+	if len(f.Wants) > 0 {
+		if err = f.enqueueWants(nil); err != nil {
+			return
+		}
+	}
 	tableSums = map[string]struct{}{}
 	for _, l := range f.tableSumLists {
 		e := l.Front()
@@ -173,8 +183,22 @@ type commitDepth struct {
 }
 
 func (f *ClosedSetsFinder) findClosedSetOfObjects(done bool) (err error) {
-	alreadySeenCommits := map[string]struct{}{}
 	wants := map[string]struct{}{}
+	if err = f.enqueueWants(func(want string, c *objects.Commit) bool {
+		if len(c.Parents) == 0 && len(f.commons) > 0 && !done {
+			wants[want] = struct{}{}
+			return true
+		}
+		return false
+	}); err != nil {
+		return
+	}
+	f.Wants = wants
+	return nil
+}
+
+func (f *ClosedSetsFinder) enqueueWants(cont func(want string, c *objects.Commit) bool) (err error) {
+	alreadySeenCommits := map[string]struct{}{}
 wantsLoop:
 	for want := range f.Wants {
 		commitList := list.New()
@@ -199,10 +223,7 @@ wantsLoop:
 			if f.depth == 0 || cd.depth < f.depth {
 				tableList.PushFront(c.Table)
 			}
-			// reached a root commit but still haven't seen anything in common
-			if len(c.Parents) == 0 && len(f.commons) > 0 && !done {
-				// preserve want for the next time findClosedSetOfObjects is called
-				wants[string(want)] = struct{}{}
+			if cont != nil && cont(want, c) {
 				continue wantsLoop
 			}
 			for _, p := range c.Parents {
@@ -216,7 +237,7 @@ wantsLoop:
 			alreadySeenCommits[string(sum)] = struct{}{}
 		}
 	}
-	f.Wants = wants
+	f.Wants = map[string]struct{}{}
 	return nil
 }
 
