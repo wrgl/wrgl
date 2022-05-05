@@ -288,3 +288,38 @@ func TestCommitCmdAll(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "mass commit", com.Message)
 }
+
+func TestCommitDetectPrimaryKeyChange(t *testing.T) {
+	rd, cleanup := createRepoDir(t)
+	defer cleanup()
+
+	_, fp := createCSVFile(t, []string{
+		"a,d,e",
+		"1,e,r",
+		"2,d,f",
+		"3,c,v",
+	})
+	defer os.Remove(fp)
+	commitFile(t, "alpha", fp, "a", "--set-file", "--set-primary-key")
+
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"config", "set", "branch.alpha.primaryKey", "a,d"})
+	require.NoError(t, cmd.Execute())
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"commit", "alpha", "second commit"})
+	require.NoError(t, cmd.Execute())
+
+	rs := rd.OpenRefStore()
+	db, err := rd.OpenObjectsStore()
+	require.NoError(t, err)
+	defer db.Close()
+	sum, err := ref.GetHead(rs, "alpha")
+	require.NoError(t, err)
+	com, err := objects.GetCommit(db, sum)
+	require.NoError(t, err)
+	assert.NotEmpty(t, com.Parents)
+	tbl, err := objects.GetTable(db, com.Table)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a", "d"}, tbl.PrimaryKey())
+}

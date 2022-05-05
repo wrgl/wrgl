@@ -188,6 +188,14 @@ func TestSetValue(t *testing.T) {
 				},
 			},
 		},
+		{
+			Obj:   &conf.Branch{},
+			Prop:  "primaryKey",
+			Value: "uid,uof_uid",
+			ExpectedObj: &conf.Branch{
+				PrimaryKey: []string{"uid", "uof_uid"},
+			},
+		},
 	} {
 		v, err := GetFieldValue(c.Obj, c.Prop, true)
 		if err != nil {

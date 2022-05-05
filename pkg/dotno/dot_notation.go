@@ -186,12 +186,18 @@ func SetValue(v reflect.Value, val string) error {
 	case reflect.String:
 		v.Set(reflect.ValueOf(val).Convert(v.Type()))
 	case reflect.Ptr:
-		switch v.Type().Elem().Kind() {
+		wrappedType := v.Type().Elem()
+		switch wrappedType.Kind() {
 		case reflect.String:
 			return SetValue(v.Elem(), val)
 		default:
 			if err := json.Unmarshal([]byte(val), v.Interface()); err != nil {
-				return err
+				// try strings.Split if target is a string slice
+				if wrappedType.Kind() == reflect.Slice && wrappedType.Elem().Kind() == reflect.String {
+					v.Elem().Set(reflect.ValueOf(strings.Split(val, ",")))
+				} else {
+					return err
+				}
 			}
 		}
 	default:
