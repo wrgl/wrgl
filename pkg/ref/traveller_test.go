@@ -21,7 +21,7 @@ func TestTraveller(t *testing.T) {
 	defer cleanup()
 
 	_, err := ref.NewTraveller(db, rs, "non-existent")
-	assert.Equal(t, ref.ErrKeyNotFound, err)
+	assert.Error(t, err)
 
 	sum1, c1 := factory.CommitRandom(t, db, nil)
 	require.NoError(t, ref.CommitHead(rs, "main", sum1, c1, nil))

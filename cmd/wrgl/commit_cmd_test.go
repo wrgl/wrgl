@@ -16,6 +16,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
@@ -203,19 +204,32 @@ func TestCommitSetFile(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", "third commit", "-n", "1", "-p", "b"})
 	require.NoError(t, cmd.Execute())
-
 	// check that pk is different
-	db, err = rd.OpenObjectsStore()
+	assertPK(t, rd, "my-branch", []string{"b"})
+
+	// commit pick up primary key change inside config file
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"config", "set", "branch.my-branch.primaryKey", "a,b"})
+	require.NoError(t, cmd.Execute())
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"commit", "my-branch", "fourth commit", "-n", "1"})
+	require.NoError(t, cmd.Execute())
+	assertPK(t, rd, "my-branch", []string{"a", "b"})
+}
+
+func assertPK(t *testing.T, rd *local.RepoDir, branch string, primaryKey []string) {
+	t.Helper()
+	db, err := rd.OpenObjectsStore()
 	require.NoError(t, err)
 	defer db.Close()
-	rs = rd.OpenRefStore()
-	sum, err = ref.GetHead(rs, "my-branch")
+	rs := rd.OpenRefStore()
+	sum, err := ref.GetHead(rs, branch)
 	require.NoError(t, err)
-	com, err = objects.GetCommit(db, sum)
+	com, err := objects.GetCommit(db, sum)
 	require.NoError(t, err)
-	tbl, err = objects.GetTable(db, com.Table)
+	tbl, err := objects.GetTable(db, com.Table)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"b"}, tbl.PrimaryKey())
+	assert.Equal(t, primaryKey, tbl.PrimaryKey())
 }
 
 func TestCommitCmdAll(t *testing.T) {

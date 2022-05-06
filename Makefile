@@ -21,7 +21,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 define binary_rule =
-echo "\$$(BUILD_DIR)/$(1)-$(3)-$(2)/bin/$(1): \$$(MD5_DIR)/go.sum.md5 \$$($(1)_SOURCES)" >> $(4) && \
+echo "\$$(BUILD_DIR)/$(1)-$(3)-$(2)/bin/$(1): \$$(MD5_DIR)/go.sum.md5 VERSION \$$($(1)_SOURCES)" >> $(4) && \
 echo -e "\t@-mkdir -p \$$(dir \$$@) 2>/dev/null" >> $(4) && \
 echo -e '\tcp VERSION $(if $(findstring wrgld,$(1)),$(1)/cmd,cmd/$(1))/VERSION' >> $(4) && \
 (if [ "$(3)" == "linux" ]; then \

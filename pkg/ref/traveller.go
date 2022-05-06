@@ -5,6 +5,7 @@ package ref
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -26,11 +27,11 @@ type Traveller struct {
 func NewTraveller(db objects.Store, rs Store, refName string) (*Traveller, error) {
 	reader, err := rs.LogReader(refName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("rs.LogReader err: %v", err)
 	}
 	nxt, err := reader.Read()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reader.Read err: %v", err)
 	}
 	rt := &Traveller{
 		name:    refName,
@@ -39,7 +40,7 @@ func NewTraveller(db objects.Store, rs Store, refName string) (*Traveller, error
 		db:      db,
 	}
 	if err := rt.readReflog(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("rt.readReflog err: %v", err)
 	}
 	return rt, nil
 }

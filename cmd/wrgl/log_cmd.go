@@ -60,25 +60,24 @@ func newLogCmd() *cobra.Command {
 func writeCommitLog(cmd *cobra.Command, db objects.Store, rs ref.Store, branchName string, out io.Writer) error {
 	commitSum, err := ref.GetHead(rs, branchName)
 	if err != nil {
-		return err
+		return fmt.Errorf("ref.GetHead err: %v", err)
 	}
 	hash := commitSum
-	f, err := apiclient.NewRemoteFinder(db, rs)
-	if err != nil {
-		return err
+	remFinder, err := apiclient.NewRemoteFinder(db, rs)
+	if err == nil {
+		defer remFinder.Close()
 	}
-	defer f.Close()
 	zone, offset := time.Now().Zone()
 	for {
 		c, err := objects.GetCommit(db, hash)
 		if err != nil {
-			return err
+			return fmt.Errorf("objects.GetCommit err: %v", err)
 		}
 		tblExist := objects.TableExist(db, c.Table)
 		var tblRemote string
-		if !tblExist {
-			if s, err := f.FindRemoteFor(c.Sum); err != nil {
-				return err
+		if !tblExist && remFinder != nil {
+			if s, err := remFinder.FindRemoteFor(c.Sum); err != nil {
+				return fmt.Errorf("remFinder.FindRemoteFor err: %v", err)
 			} else if s != "" {
 				tblRemote = s
 			}

@@ -18,13 +18,13 @@ type RemoteFinder struct {
 func NewRemoteFinder(db objects.Store, rs ref.Store) (*RemoteFinder, error) {
 	m, err := ref.ListAllRefs(rs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ref.ListAllRefs err: %v", err)
 	}
 	travellers := map[string]*ref.Traveller{}
 	for name := range m {
 		travellers[name], err = ref.NewTraveller(db, rs, name)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ref.NewTraveller err: %v", err)
 		}
 	}
 	return &RemoteFinder{

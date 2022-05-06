@@ -5,8 +5,6 @@ package conf
 
 import (
 	"time"
-
-	"github.com/wrgl/wrgl/pkg/slice"
 )
 
 const (
@@ -179,15 +177,6 @@ func (c *Config) GetTransactionTTL() time.Duration {
 		return time.Duration(c.TransactionTTL)
 	}
 	return time.Duration(DefaultTransactionTTL)
-}
-
-func (c *Config) IsBranchPrimaryKeyEqual(branchName string, primaryKey []string) bool {
-	if c.Branch != nil {
-		if branch, ok := c.Branch[branchName]; ok {
-			return slice.StringSliceEqual(branch.PrimaryKey, primaryKey)
-		}
-	}
-	return len(primaryKey) == 0
 }
 
 func (c *Config) MergeFastForward() FastForward {

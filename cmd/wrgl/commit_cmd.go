@@ -24,6 +24,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
@@ -257,6 +258,22 @@ func commitTempBranch(
 	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, numWorkers, memLimit, c, nil, quiet, nil, delim)
 }
 
+func isBranchPrimaryKeyEqual(db objects.Store, rs ref.Store, branch string, primaryKey []string) (bool, error) {
+	sum, err := ref.GetHead(rs, branch)
+	if err == nil {
+		com, err := objects.GetCommit(db, sum)
+		if err != nil {
+			return false, fmt.Errorf("commit not found: %x", sum)
+		}
+		tbl, err := objects.GetTable(db, com.Table)
+		if err != nil {
+			return false, fmt.Errorf("table not found: %x", com.Table)
+		}
+		return slice.StringSliceEqual(tbl.PrimaryKey(), primaryKey), nil
+	}
+	return false, nil
+}
+
 func ensureTempCommit(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string,
 	primaryKey []string, numWorkers int, memLimit uint64, quiet bool, delim rune,
@@ -278,7 +295,9 @@ func ensureTempCommit(
 	if err != nil {
 		return nil, err
 	}
-	if com.Message != fd.Name() || com.Time.Before(fd.ModTime()) || !c.IsBranchPrimaryKeyEqual(branch, primaryKey) {
+	if pkEqual, err := isBranchPrimaryKeyEqual(db, rs, tmpBranch, primaryKey); err != nil {
+		return nil, fmt.Errorf("isBranchPrimaryKeyEqual err: %v", err)
+	} else if com.Message != fd.Name() || com.Time.Before(fd.ModTime()) || !pkEqual {
 		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet, delim)
 		if err != nil {
 			return nil, err
