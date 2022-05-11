@@ -262,7 +262,8 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 		defer close(blocks)
 		blk := make([][]byte, 0, 255)
 		offset := 0
-		var pk []string
+		var blkPK, rowPK, prevRowPK []string
+		var pkOK bool
 		n := len(s.chunks)
 		chunkRows := make([]objects.StrList, n)
 		chunkEOF := make([]bool, n)
@@ -319,31 +320,35 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 			}
 
 			// append min row to block
-			m := len(blk)
-			blk = blk[:m+1]
 			minRow = r.RemoveFrom(minRow)
-			if k := len(minRow); k > cap(blk[m]) {
-				blk[m] = make([]byte, k)
-			} else {
-				blk[m] = blk[m][:k]
+			rowPK = objects.StrList(minRow).ReadColumns(pkIndices)
+			prevRowPK, pkOK = pkIsDifferent(rowPK, prevRowPK)
+			if pkOK {
+				m := len(blk)
+				blk = blk[:m+1]
+				if k := len(minRow); k > cap(blk[m]) {
+					blk[m] = make([]byte, k)
+				} else {
+					blk[m] = blk[m][:k]
+				}
+				copy(blk[m], minRow)
 			}
-			copy(blk[m], minRow)
-			minRow = nil
+			// minRow = nil
 
-			if len(blk) == 1 {
-				pk = objects.StrList(blk[0]).ReadColumns(pkIndices)
-			}
 			if minInd < n {
 				chunkRows[minInd] = chunkRows[minInd][:0]
 			} else {
 				s.current = s.current[1:]
 				currentBlock = nil
 			}
+			if len(blk) == 1 {
+				blkPK = rowPK
+			}
 			if len(blk) == 255 {
 				blocks <- &Block{
 					Offset: offset,
 					Block:  objects.CombineRowBytesIntoBlock(blk),
-					PK:     pk,
+					PK:     blkPK,
 				}
 				offset++
 				blk = blk[:0]
@@ -353,15 +358,27 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 			blocks <- &Block{
 				Offset: offset,
 				Block:  objects.CombineRowBytesIntoBlock(blk),
-				PK:     pk,
+				PK:     blkPK,
 			}
 		}
 	}()
 	return
 }
 
+func pkIsDifferent(pk, prevPK []string) ([]string, bool) {
+	if prevPK == nil {
+		return pk, true
+	} else {
+		if slice.StringSliceEqual(prevPK, pk) {
+			return pk, false
+		}
+	}
+	return pk, true
+}
+
 func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) (rowsCh chan *Rows) {
 	rowsCh = make(chan *Rows, 10)
+	pkIndices := s.pkIndices()
 	go func() {
 		defer close(rowsCh)
 		rows := make([][]string, 0, 255)
@@ -372,6 +389,7 @@ func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) 
 		dec := objects.NewStrListDecoder(false)
 		SortRows(s.current, s.PK)
 		chunkIdx := make([]int, n)
+		var prevPK, pk []string
 		for {
 			minInd := 0
 			var minRow []string
@@ -424,7 +442,13 @@ func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) 
 			if minRow == nil {
 				break
 			}
-			rows = append(rows, s.removeCols(minRow, removedCols))
+			pk = slice.IndicesToValues(minRow, pkIndices)
+			var pkOK bool
+			prevPK, pkOK = pkIsDifferent(pk, prevPK)
+			if pkOK {
+				rows = append(rows, s.removeCols(minRow, removedCols))
+			}
+
 			if minInd < n {
 				chunkRows[minInd] = nil
 			} else {

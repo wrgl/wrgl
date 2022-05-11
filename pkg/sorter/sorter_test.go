@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"io"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -198,4 +199,47 @@ func TestSorterDelimiter(t *testing.T) {
 		require.Equal(t, rows[j+1], row, "j:%d", j)
 	}
 	assert.NotNil(t, s.TableSummary())
+}
+
+func TestSorterDuplicatedPK(t *testing.T) {
+	rows := testutils.BuildRawCSV(4, 400)
+	pk := rows[0][:1]
+	rows = append(rows, rows[1:]...)
+	rand.Shuffle(len(rows), func(i, j int) {
+		if i != 0 && j != 0 {
+			rows[i], rows[j] = rows[j], rows[i]
+		}
+	})
+	f := writeCSV(t, rows, ',')
+	defer os.Remove(f.Name())
+
+	s, err := NewSorter()
+	require.NoError(t, err)
+	defer s.Close()
+	require.NoError(t, s.SortFile(f, pk))
+	rowBlocks := sortedRows(t, s, 400, nil)
+	assert.Equal(t, rows[0], s.Columns)
+	assert.Equal(t, []uint32{0}, s.PK)
+	assert.Equal(t, 2, len(rowBlocks))
+	assert.Equal(t, 255, len(rowBlocks[0].Rows))
+	assert.Equal(t, 145, len(rowBlocks[1].Rows))
+	require.NoError(t, s.Close())
+
+	s, err = NewSorter()
+	require.NoError(t, err)
+	defer s.Close()
+	f, err = os.Open(f.Name())
+	require.NoError(t, err)
+	require.NoError(t, s.SortFile(f, pk))
+	blocks := sortedBlocks(t, s, 400)
+	assert.Equal(t, rows[0], s.Columns)
+	assert.Equal(t, []uint32{0}, s.PK)
+	assert.Equal(t, 2, len(blocks))
+	for i, l := range []int{255, 145} {
+		obj := blocks[i]
+		require.Equal(t, i, obj.Offset)
+		_, blk, err := objects.ReadBlockFrom(bytes.NewReader(obj.Block))
+		require.NoError(t, err)
+		assert.Len(t, blk, l)
+	}
 }
