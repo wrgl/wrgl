@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -214,6 +215,15 @@ func TestTransactionListCmd(t *testing.T) {
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "alpha", fp, "initial commit", "-n", "1", "--txid", txid1, "-p", header[0]})
 	require.NoError(t, cmd.Execute())
+
+	cmd = rootCmd()
+	cmd.SetArgs([]string{"export", "alpha", "--txid", txid1})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	b, err := ioutil.ReadFile(fp)
+	require.NoError(t, err)
+	assert.Equal(t, b, buf.Bytes())
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"transaction", "commit", txid1})

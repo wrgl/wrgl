@@ -31,6 +31,7 @@ func newExportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("delimiter", "", "CSV delimiter. Defaults to comma.")
+	cmd.Flags().String("txid", "", "export commit with specified transaction id. COMMIT must be a branch name.")
 	return cmd
 }
 
@@ -46,11 +47,20 @@ func exportCommit(cmd *cobra.Command, cStr string) error {
 	}
 	defer db.Close()
 	rs := rd.OpenRefStore()
-
-	_, _, commit, err := ref.InterpretCommitName(db, rs, cStr, false)
+	txid, err := cmd.Flags().GetString("txid")
 	if err != nil {
 		return err
 	}
+	var commit *objects.Commit
+	if txid != "" {
+		_, commit, err = getCommitWithTxid(db, rs, txid, cStr)
+	} else {
+		_, _, commit, err = ref.InterpretCommitName(db, rs, cStr, false)
+	}
+	if err != nil {
+		return err
+	}
+
 	tbl, err := utils.GetTable(db, rs, commit)
 	if err != nil {
 		return err

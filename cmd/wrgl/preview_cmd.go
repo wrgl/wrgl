@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/google/uuid"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -46,9 +47,22 @@ func newPreviewCmd() *cobra.Command {
 			}
 			rs := rd.OpenRefStore()
 			defer db.Close()
-			_, hash, commit, err := ref.InterpretCommitName(db, rs, cStr, false)
+			txid, err := cmd.Flags().GetString("txid")
 			if err != nil {
 				return err
+			}
+			var sum []byte
+			var commit *objects.Commit
+			if txid != "" {
+				sum, commit, err = getCommitWithTxid(db, rs, txid, cStr)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, sum, commit, err = ref.InterpretCommitName(db, rs, cStr, false)
+				if err != nil {
+					return err
+				}
 			}
 			if commit == nil {
 				return fmt.Errorf("commit \"%s\" not found", cStr)
@@ -57,10 +71,31 @@ func newPreviewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return previewTable(cmd, db, hex.EncodeToString(hash), commit, tbl)
+			return previewTable(cmd, db, hex.EncodeToString(sum), commit, tbl)
 		},
 	}
+	cmd.Flags().String("txid", "", "preview commit with specified transaction id. COMMIT must be a branch name.")
 	return cmd
+}
+
+func getCommitWithTxid(db objects.Store, rs ref.Store, txid, branch string) (sum []byte, commit *objects.Commit, err error) {
+	tid, err := uuid.Parse(txid)
+	if err != nil {
+		err = fmt.Errorf("error parsing txid: %v", err)
+		return
+	}
+	r := ref.TransactionRef(tid.String(), branch)
+	sum, err = ref.GetRef(rs, r)
+	if err != nil {
+		err = fmt.Errorf("ref %q not found", r)
+		return
+	}
+	commit, err = objects.GetCommit(db, sum)
+	if err != nil {
+		err = fmt.Errorf("commit %x not found", sum)
+		return
+	}
+	return sum, commit, nil
 }
 
 func previewTable(cmd *cobra.Command, db objects.Store, hash string, commit *objects.Commit, tbl *objects.Table) error {

@@ -379,7 +379,7 @@ func commitAllBranches(
 		}
 		sum, err := commitIfBranchFileHasChanged(cmd, db, rs, c, name, branch.File, branch.PrimaryKey, message, numWorkers, memLimit, quiet, tid, branch.Delimiter)
 		if err != nil {
-			return err
+			return fmt.Errorf("error committing to branch %q: %v", name, err)
 		}
 		if sum == nil {
 			cmd.Printf("branch %q is up-to-date.\n", name)
