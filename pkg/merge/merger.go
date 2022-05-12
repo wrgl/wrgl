@@ -185,12 +185,12 @@ func (m *Merger) SaveResolvedRow(pk []byte, row []string) error {
 	return m.collector.SaveResolvedRow(pk, row)
 }
 
-func (m *Merger) SortedBlocks(removedCols map[int]struct{}) (<-chan *sorter.Block, uint32, error) {
+func (m *Merger) SortedBlocks(removedCols map[int]struct{}) (<-chan *sorter.Block, error) {
 	m.errChan = make(chan error, 1)
 	return m.collector.SortedBlocks(removedCols, m.errChan)
 }
 
-func (m *Merger) SortedRows(removedCols map[int]struct{}) (<-chan *sorter.Rows, uint32, error) {
+func (m *Merger) SortedRows(removedCols map[int]struct{}) (<-chan *sorter.Rows, error) {
 	m.errChan = make(chan error, 1)
 	return m.collector.SortedRows(removedCols, m.errChan)
 }

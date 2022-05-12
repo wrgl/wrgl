@@ -13,11 +13,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
-func TestTableInsertBlock(t *testing.T) {
-	tbl := NewTable([]string{"a", "b", "c", "d"}, []uint32{0, 1}, 760)
-	assert.Len(t, tbl.Blocks, 3)
-}
-
 func TestTableReader(t *testing.T) {
 	buf := misc.NewBuffer(nil)
 	table := &Table{

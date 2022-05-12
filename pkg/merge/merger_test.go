@@ -65,8 +65,7 @@ func TestMergerAutoResolve(t *testing.T) {
 	}, merges)
 	require.NoError(t, merger.Error())
 
-	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, nil)
-	assert.Equal(t, uint32(3), rowsCount)
+	rows := mergehelpers.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, []*sorter.Rows{
 		{
 			Rows: [][]string{
@@ -171,8 +170,7 @@ func TestMergerManualResolve(t *testing.T) {
 		hexToBytes(t, "c5e86ba7d7653eec345ae9b6d77ab0cc"), []string{"4", "n", "m"},
 	))
 
-	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, nil)
-	assert.Equal(t, uint32(4), rowsCount)
+	rows := mergehelpers.CollectSortedRows(t, merger, nil)
 	assert.Equal(t, []*sorter.Rows{
 		{
 			Rows: [][]string{
@@ -229,8 +227,7 @@ func TestMergerRemoveCols(t *testing.T) {
 		},
 	}, merges)
 
-	rows, rowsCount := mergehelpers.CollectSortedRows(t, merger, map[int]struct{}{2: {}})
-	assert.Equal(t, uint32(3), rowsCount)
+	rows := mergehelpers.CollectSortedRows(t, merger, map[int]struct{}{2: {}})
 	assert.Equal(t, []*sorter.Rows{
 		{
 			Rows: [][]string{

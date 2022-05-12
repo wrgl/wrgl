@@ -91,7 +91,7 @@ func TestRejectEmptyColumnName(t *testing.T) {
 	_, err = IngestTable(db, s, f, rows[0][1:2])
 	assert.Equal(t, `column name at position 0 is empty`, err.Error())
 
-	_, err = IngestTableFromBlocks(db, s, []string{"", "a", "b"}, []uint32{1}, 2, make(<-chan *sorter.Block))
+	_, err = IngestTableFromBlocks(db, s, []string{"", "a", "b"}, []uint32{1}, make(<-chan *sorter.Block))
 	assert.Equal(t, `column name at position 0 is empty`, err.Error())
 }
 

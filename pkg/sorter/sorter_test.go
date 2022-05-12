@@ -118,8 +118,10 @@ func TestSorterSortedBlocks(t *testing.T) {
 		_, blk, err := objects.ReadBlockFrom(bytes.NewReader(obj.Block))
 		require.NoError(t, err)
 		if i < len(blocks)-1 {
+			assert.Equal(t, 255, obj.RowsCount)
 			require.Len(t, blk, 255)
 		} else {
+			assert.Equal(t, 190, obj.RowsCount)
 			require.Len(t, blk, 190)
 		}
 		for j, row := range blk {
@@ -128,9 +130,9 @@ func TestSorterSortedBlocks(t *testing.T) {
 		for j, row := range blk {
 			require.Equal(t, rows[i*255+j+1], row, "i:%d j:%d", i, j)
 			if j == 0 {
-				require.Equal(t, obj.PK, row[:1])
+				require.Equal(t, obj.PK, row[:1], "block %d row %d", i, j)
 			} else {
-				require.LessOrEqual(t, obj.PK[0], row[0])
+				require.LessOrEqual(t, obj.PK[0], row[0], "block %d row %d", i, j)
 			}
 		}
 	}
@@ -238,6 +240,7 @@ func TestSorterDuplicatedPK(t *testing.T) {
 	for i, l := range []int{255, 145} {
 		obj := blocks[i]
 		require.Equal(t, i, obj.Offset)
+		assert.Equal(t, l, obj.RowsCount)
 		_, blk, err := objects.ReadBlockFrom(bytes.NewReader(obj.Block))
 		require.NoError(t, err)
 		assert.Len(t, blk, l)

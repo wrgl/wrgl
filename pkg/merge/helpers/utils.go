@@ -54,28 +54,28 @@ func CollectUnresolvedMerges(t *testing.T, merger *merge.Merger) []*merge.Merge 
 	return merges
 }
 
-func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) ([]*sorter.Rows, uint32) {
+func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) []*sorter.Rows {
 	t.Helper()
 	rows := []*sorter.Rows{}
-	ch, rowsCount, err := merger.SortedRows(removedCols)
+	ch, err := merger.SortedRows(removedCols)
 	require.NoError(t, err)
 	for blk := range ch {
 		rows = append(rows, blk)
 	}
 	require.NoError(t, merger.Error())
-	return rows, rowsCount
+	return rows
 }
 
-func CollectSortedBlocks(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) ([]*sorter.Block, uint32) {
+func CollectSortedBlocks(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) []*sorter.Block {
 	t.Helper()
 	rows := []*sorter.Block{}
-	ch, rowsCount, err := merger.SortedBlocks(removedCols)
+	ch, err := merger.SortedBlocks(removedCols)
 	require.NoError(t, err)
 	for blk := range ch {
 		rows = append(rows, blk)
 	}
 	require.NoError(t, merger.Error())
-	return rows, rowsCount
+	return rows
 }
 
 func CreateMerger(t *testing.T, db objects.Store, commits ...[]byte) (*merge.Merger, *diff.BlockBuffer) {

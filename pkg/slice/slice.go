@@ -40,6 +40,12 @@ func IndicesToValues(vals []string, keys []uint32) []string {
 	return res
 }
 
+func CopyValuesFromIndices(src, dst []string, keys []uint32) {
+	for i, k := range keys {
+		dst[i] = src[k]
+	}
+}
+
 func KeyIndices(columns, keys []string) (res []uint32, err error) {
 	for _, k := range keys {
 		found := false

@@ -65,7 +65,7 @@ func GetTable(db objects.Store, rs ref.Store, commit *objects.Commit) (*objects.
 		if err == objects.ErrKeyNotFound {
 			return nil, ErrTableNotFound(db, rs, commit)
 		}
-		return nil, err
+		return nil, fmt.Errorf("objects.GetTable err: %v", err)
 	}
 	return tbl, nil
 }

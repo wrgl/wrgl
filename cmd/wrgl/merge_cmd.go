@@ -414,7 +414,7 @@ func outputConflicts(cmd *cobra.Command, db objects.Store, buf *diff.BlockBuffer
 	if err = merger.Error(); err != nil {
 		return err
 	}
-	rc, _, err := merger.SortedRows(nil)
+	rc, err := merger.SortedRows(nil)
 	if err != nil {
 		return err
 	}
@@ -466,7 +466,7 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	if err != nil {
 		return err
 	}
-	blocks, _, err := merger.SortedRows(removedCols)
+	blocks, err := merger.SortedRows(removedCols)
 	if err != nil {
 		return err
 	}
@@ -509,7 +509,7 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
-	blocks, rowsCount, err := merger.SortedBlocks(removedCols)
+	blocks, err := merger.SortedBlocks(removedCols)
 	if err != nil {
 		return err
 	}
@@ -518,7 +518,7 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
-	sum, err := ingest.IngestTableFromBlocks(db, s, columns, pk, rowsCount, blocks,
+	sum, err := ingest.IngestTableFromBlocks(db, s, columns, pk, blocks,
 		ingest.WithNumWorkers(numWorkers),
 		ingest.WithProgressBar(blkPT),
 	)

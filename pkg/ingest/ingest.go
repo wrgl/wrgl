@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 
 	"github.com/pckhoi/meow"
@@ -22,11 +23,19 @@ type ProgressBar interface {
 	Finish() error
 }
 
+type asyncBlock struct {
+	Offset int
+	Sum    []byte
+	IdxSum []byte
+	PK     []string
+}
+
 type Inserter struct {
 	db          objects.Store
 	pt          ProgressBar
 	tbl         *objects.Table
-	tblIdx      [][]string
+	asyncBlocks []asyncBlock
+	rowsCount   uint32
 	wg          sync.WaitGroup
 	errChan     chan error
 	blocks      <-chan *sorter.Block
@@ -87,7 +96,7 @@ func (i *Inserter) insertBlock() {
 			i.errChan <- err
 			return
 		}
-		i.tbl.Blocks[blk.Offset] = sum
+		i.rowsCount += uint32(blk.RowsCount)
 
 		// write block index and add pk sums to table index
 		idx, err := objects.IndexBlockFromBytes(dec, hash, e, blk.Block, i.tbl.PK)
@@ -108,28 +117,47 @@ func (i *Inserter) insertBlock() {
 			i.errChan <- err
 			return
 		}
-		i.tbl.BlockIndices[blk.Offset] = blkIdxSum
-		i.tblIdx[blk.Offset] = blk.PK
+		i.asyncBlocks = append(i.asyncBlocks, asyncBlock{
+			Offset: blk.Offset,
+			Sum:    sum,
+			IdxSum: blkIdxSum,
+			PK:     blk.PK,
+		})
 		if i.pt != nil {
 			i.pt.Add(1)
 		}
 	}
 }
 
-func IngestTableFromBlocks(db objects.Store, sorter *sorter.Sorter, columns []string, pk []uint32, rowsCount uint32, blocks <-chan *sorter.Block, opts ...InserterOption) ([]byte, error) {
+func IngestTableFromBlocks(db objects.Store, sorter *sorter.Sorter, columns []string, pk []uint32, blocks <-chan *sorter.Block, opts ...InserterOption) ([]byte, error) {
 	i := NewInserter(db, sorter, opts...)
 	i.blocks = blocks
-	return i.ingestTableFromBlocks(columns, pk, rowsCount)
+	return i.ingestTableFromBlocks(columns, pk)
 }
 
-func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCount uint32) ([]byte, error) {
+func (o *Inserter) sortBlocks() (blkPKs [][]string) {
+	n := len(o.asyncBlocks)
+	sort.Slice(o.asyncBlocks, func(i, j int) bool {
+		return o.asyncBlocks[i].Offset < o.asyncBlocks[j].Offset
+	})
+	o.tbl.Blocks = make([][]byte, n)
+	o.tbl.BlockIndices = make([][]byte, n)
+	blkPKs = make([][]string, n)
+	for i, blk := range o.asyncBlocks {
+		o.tbl.Blocks[i] = blk.Sum
+		o.tbl.BlockIndices[i] = blk.IdxSum
+		blkPKs[i] = blk.PK
+	}
+	return
+}
+
+func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32) ([]byte, error) {
 	for i, s := range columns {
 		if s == "" {
 			return nil, &Error{fmt.Sprintf("column name at position %d is empty", i)}
 		}
 	}
-	i.tbl = objects.NewTable(columns, pk, rowsCount)
-	i.tblIdx = make([][]string, objects.BlocksCount(rowsCount))
+	i.tbl = objects.NewTable(columns, pk)
 	errChan := make(chan error, i.numWorkers)
 	for j := 0; j < i.numWorkers; j++ {
 		i.wg.Add(1)
@@ -146,6 +174,8 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCoun
 			return nil, err
 		}
 	}
+	tblIdx := i.sortBlocks()
+	i.tbl.RowsCount = i.rowsCount
 
 	// write and save table
 	buf := bytes.NewBuffer(nil)
@@ -164,7 +194,7 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32, rowsCoun
 	// write and save table index
 	buf.Reset()
 	enc := objects.NewStrListEncoder(true)
-	_, err = objects.WriteBlockTo(enc, buf, i.tblIdx)
+	_, err = objects.WriteBlockTo(enc, buf, tblIdx)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +255,7 @@ func (i *Inserter) ingestTable(f io.ReadCloser, pk []string) ([]byte, error) {
 	}
 	errChan := make(chan error, i.numWorkers)
 	i.blocks = i.sorter.SortedBlocks(nil, errChan)
-	sum, err := i.ingestTableFromBlocks(i.sorter.Columns, i.sorter.PK, i.sorter.RowsCount)
+	sum, err := i.ingestTableFromBlocks(i.sorter.Columns, i.sorter.PK)
 	if err != nil {
 		return nil, err
 	}

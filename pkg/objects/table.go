@@ -26,14 +26,10 @@ func BlocksCount(rowsCount uint32) uint32 {
 	return uint32(math.Ceil(float64(rowsCount) / float64(255)))
 }
 
-func NewTable(columns []string, pk []uint32, rowsCount uint32) *Table {
-	bc := BlocksCount(rowsCount)
+func NewTable(columns []string, pk []uint32) *Table {
 	return &Table{
-		Columns:      columns,
-		PK:           pk,
-		RowsCount:    rowsCount,
-		Blocks:       make([][]byte, bc),
-		BlockIndices: make([][]byte, bc),
+		Columns: columns,
+		PK:      pk,
 	}
 }
 

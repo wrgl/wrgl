@@ -12,7 +12,7 @@ import (
 var (
 	columnStyle     = tcell.StyleDefault.Background(tcell.ColorBlack).Bold(true)
 	rowCountStyle   = tcell.StyleDefault.Foreground(tcell.ColorSlateGray).Background(tcell.ColorBlack)
-	primaryKeyStyle = tcell.StyleDefault.Foreground(tcell.ColorAquaMarine).Background(tcell.ColorBlack)
+	primaryKeyStyle = tcell.StyleDefault.Foreground(tcell.ColorAqua).Background(tcell.ColorBlack)
 	cellStyle       = tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 )
 
