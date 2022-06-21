@@ -20,6 +20,17 @@ var (
 	tblSumPrefix = []byte("tblsum/")
 )
 
+func Prefixes() []string {
+	return []string{
+		string(blkPrefix),
+		string(tblPrefix),
+		string(blkIdxPrefix),
+		string(tblIdxPrefix),
+		string(comPrefix),
+		string(tblSumPrefix),
+	}
+}
+
 func blockKey(sum []byte) []byte {
 	return append(blkPrefix, sum...)
 }
