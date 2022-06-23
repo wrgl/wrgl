@@ -6,6 +6,7 @@ package repo
 import (
 	"fmt"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/hub/api"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -13,10 +14,10 @@ import (
 
 func deleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete NAME",
-		Short: "Remove a repository.",
-		Long:  "Remote a repository. This also wipes the data completely.",
-		Args:  cobra.ExactArgs(1),
+		Use:   "delete NAME...",
+		Short: "Remove one or more repository.",
+		Long:  "Remote one or more repository. This also wipes the data completely.",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cs, uri, tok, err := getWrglHubCreds(cmd)
 			if err != nil {
@@ -26,19 +27,38 @@ func deleteCmd() *cobra.Command {
 			if err != nil {
 				return utils.HandleHTTPError(cmd, cs, api.APIRoot, uri, err)
 			}
-			val, err := utils.Prompt(cmd, fmt.Sprintf("Type repo name (%s) for confirmation", args[0]))
+			quiet, err := cmd.Flags().GetBool("quiet")
 			if err != nil {
 				return err
 			}
-			if val != args[0] {
-				return fmt.Errorf("input mismatch %q != %q", val, args[0])
+			n := len(args)
+			var pb *progressbar.ProgressBar
+			if n > 1 {
+				pb = utils.PBar(int64(n), "Removing repositories", cmd.OutOrStdout(), cmd.ErrOrStderr())
+				defer pb.Finish()
 			}
-			if err = api.DeleteRepo(tok, user.Username, args[0]); err != nil {
-				return err
+			for _, repo := range args {
+				if !quiet {
+					val, err := utils.Prompt(cmd, fmt.Sprintf("Type repo name (%s) for confirmation", repo))
+					if err != nil {
+						return err
+					}
+					if val != repo {
+						return fmt.Errorf("input mismatch %q != %q", val, repo)
+					}
+				}
+				if err = api.DeleteRepo(tok, user.Username, repo); err != nil {
+					return err
+				}
+				if n > 1 {
+					pb.Add(1)
+				} else {
+					cmd.Printf("Deleted repository %q\n", repo)
+				}
 			}
-			cmd.Printf("Deleted repository %q\n", args[0])
 			return nil
 		},
 	}
+	cmd.Flags().BoolP("quiet", "q", false, "don't ask for confirmation")
 	return cmd
 }
