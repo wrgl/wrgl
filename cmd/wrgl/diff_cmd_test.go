@@ -196,6 +196,10 @@ func TestDiffCmdAll(t *testing.T) {
 	_, cleanup := createRepoDir(t)
 	defer cleanup()
 
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"diff"})
+	assertCmdFailed(t, cmd, "", fmt.Errorf("no branch with file configured. To track a file with a branch, set --set-file and --set-primary-key during commit."))
+
 	_, fp1 := createCSVFile(t, []string{
 		"a,b,c",
 		"1,q,w",
@@ -229,7 +233,7 @@ func TestDiffCmdAll(t *testing.T) {
 	defer os.Remove(fp3)
 	commitFile(t, "branch-3", fp3, "a")
 
-	cmd := rootCmd()
+	cmd = rootCmd()
 	cmd.SetArgs([]string{"config", "set", "branch.branch-0.file", fp3})
 	require.NoError(t, cmd.Execute())
 
@@ -255,19 +259,24 @@ func TestDiffCmdAll(t *testing.T) {
 	cmd.SetArgs([]string{"config", "set", "branch.branch-5.file", "non-existent.csv"})
 	require.NoError(t, cmd.Execute())
 
-	cmd = rootCmd()
-	cmd.SetArgs([]string{"diff", "--all"})
-	buf := bytes.NewBuffer(nil)
-	cmd.SetOut(buf)
-	require.NoError(t, cmd.Execute())
-	lines := strings.Split(strings.TrimSpace(removeColor(buf.String())), "\n")
-	sort.Strings(lines)
-	assert.Equal(t, []string{
-		"Branch \"branch-0\" not found, skipping.",
-		"File \"non-existent.csv\" does not exist, skipping branch \"branch-5\".",
-		"branch-1 rows: +1/-1/m2",
-		"branch-4 columns: +1/-1; primary key: a->a,b",
-	}, lines)
+	for _, args := range [][]string{
+		{"diff", "--all"},
+		{"diff"},
+	} {
+		cmd = rootCmd()
+		cmd.SetArgs(args)
+		buf := bytes.NewBuffer(nil)
+		cmd.SetOut(buf)
+		require.NoError(t, cmd.Execute())
+		lines := strings.Split(strings.TrimSpace(removeColor(buf.String())), "\n")
+		sort.Strings(lines)
+		assert.Equal(t, []string{
+			"Branch \"branch-0\" not found, skipping.",
+			"File \"non-existent.csv\" does not exist, skipping branch \"branch-5\".",
+			"branch-1 rows: +1/-1/m2",
+			"branch-4 columns: +1/-1; primary key: a->a,b",
+		}, lines)
+	}
 }
 
 func TestDiffWithDelimiter(t *testing.T) {

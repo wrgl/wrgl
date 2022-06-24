@@ -113,6 +113,9 @@ func newDiffCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(args) == 0 && !all && tid == nil {
+				all = true
+			}
 			memStore := objmock.NewStore()
 			s := conffs.NewStore(rd.FullPath, conffs.AggregateSource, "")
 			c, err := s.Open()
@@ -137,7 +140,7 @@ func newDiffCmd() *cobra.Command {
 	cmd.Flags().Bool("no-gui", false, "don't show the diff table, instead output changes to file DIFF_SUM1_SUM2.csv")
 	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key (only applicable if diff target is a file)")
 	cmd.Flags().Bool("branch-file", false, "if only one argument is given and it is a branch name, compare against branch.file (if it is configured with wrgl commit --set-file)")
-	cmd.Flags().Bool("all", false, "show diff summary for all branches that have branch.file configured")
+	cmd.Flags().Bool("all", false, "show diff summary for all branches that have branch.file configured. This flag is automatically set when no argument is given and --txid is not set")
 	cmd.Flags().String("txid", "", "show diff summary for all changes with specified transaction id")
 	cmd.Flags().String("delimiter-1", "", "CSV delimiter of the first argument if the first argument is an external file. Defaults to comma.")
 	cmd.Flags().String("delimiter-2", "", "CSV delimiter of the second argument if the second argument is an external file. Defaults to comma.")
@@ -856,6 +859,9 @@ func diffAllBranches(
 			PK:      branch.PrimaryKey,
 			Commits: []string{"heads/" + name},
 		})
+	}
+	if len(dargs) == 0 {
+		return fmt.Errorf("no branch with file configured. To track a file with a branch, set --set-file and --set-primary-key during commit.")
 	}
 	return diffMultiple(cmd, c, db, rs, logger, dargs, true, true)
 }
