@@ -164,7 +164,7 @@ func getSecondCommit(
 	return
 }
 
-func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File, quiet bool, delim rune) (hash string, commit *objects.Commit, err error) {
+func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File, quiet bool, delim rune) (hash []byte, commit *objects.Commit, err error) {
 	var sortPT, blkPT *progressbar.ProgressBar
 	if !quiet {
 		sortPT, blkPT = displayCommitProgress(cmd)
@@ -195,7 +195,8 @@ func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file 
 	if err != nil {
 		return
 	}
-	return hex.EncodeToString(sum), commit, nil
+	commit.Sum = sum
+	return sum, commit, nil
 }
 
 var filePattern = regexp.MustCompile(`^.*\..+$`)
@@ -226,7 +227,8 @@ func getCommit(
 		}
 		inUsedDB = memStore
 		defer file.Close()
-		hash, commit, err = createInMemCommit(cmd, memStore, pk, file, quiet, delim)
+		hashb, commit, err = createInMemCommit(cmd, memStore, pk, file, quiet, delim)
+		hash = hex.EncodeToString(hashb)
 		return inUsedDB, path.Base(file.Name()), hash, commit, err
 	}
 	if branchFile && strings.HasPrefix(name, "heads/") {

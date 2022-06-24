@@ -6,6 +6,8 @@ package wrgl
 import (
 	"encoding/hex"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/google/uuid"
@@ -14,13 +16,14 @@ import (
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/diff"
 	"github.com/wrgl/wrgl/pkg/objects"
+	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/widgets"
 )
 
 func newPreviewCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "preview COMMIT",
+		Use:   "preview { COMMIT_HASH | BRANCH | FILE_NAME }",
 		Short: "Shows a commit's content in an interactive table.",
 		Long:  "Shows a commit's content in an interactive table. To output as a CSV file, use command \"wrgl export\" instead.",
 		Example: utils.CombineExamples([]utils.Example{
@@ -32,15 +35,19 @@ func newPreviewCmd() *cobra.Command {
 				Comment: "preview an arbitrary commit by specifying the full sum",
 				Line:    "wrgl preview 1a2ed6248c7243cdaaecb98ac12213a7",
 			},
+			{
+				Comment: "preview a file. Only works if the entire fit in memory",
+				Line:    "wrgl preview data.csv",
+			},
 		}),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cStr := args[0]
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
 			if err := quitIfRepoDirNotExist(cmd, rd); err != nil {
 				return err
 			}
+			var db objects.Store
 			db, err := rd.OpenObjectsStore()
 			if err != nil {
 				return err
@@ -51,21 +58,44 @@ func newPreviewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			pk, err := cmd.Flags().GetStringSlice("primary-key")
+			if err != nil {
+				return err
+			}
+			delim, err := utils.GetRuneFromFlag(cmd, "delimiter")
+			if err != nil {
+				return err
+			}
 			var sum []byte
 			var commit *objects.Commit
 			if txid != "" {
-				sum, commit, err = getCommitWithTxid(db, rs, txid, cStr)
+				sum, commit, err = getCommitWithTxid(db, rs, txid, args[0])
 				if err != nil {
 					return err
 				}
 			} else {
-				_, sum, commit, err = ref.InterpretCommitName(db, rs, cStr, false)
+				_, sum, commit, err = ref.InterpretCommitName(db, rs, args[0], false)
 				if err != nil {
-					return err
+					if strings.HasPrefix(err.Error(), "can't find ") {
+						memStore := objmock.NewStore()
+						file, err := os.Open(args[0])
+						if err != nil {
+							return err
+						}
+						sum, commit, err = createInMemCommit(cmd, memStore, pk, file, false, delim)
+						if err != nil {
+							file.Close()
+							return err
+						}
+						file.Close()
+						db = memStore
+					} else {
+						return err
+					}
 				}
 			}
 			if commit == nil {
-				return fmt.Errorf("commit \"%s\" not found", cStr)
+				return fmt.Errorf("commit \"%s\" not found", args[0])
 			}
 			tbl, err := utils.GetTable(db, rs, commit)
 			if err != nil {
@@ -74,6 +104,8 @@ func newPreviewCmd() *cobra.Command {
 			return previewTable(cmd, db, hex.EncodeToString(sum), commit, tbl)
 		},
 	}
+	cmd.Flags().StringSliceP("primary-key", "p", []string{}, "field names to be used as primary key (only applicable if preview target is a file)")
+	cmd.Flags().String("delimiter", "", "CSV delimiter to use when preview target is a file. Defaults to comma.")
 	cmd.Flags().String("txid", "", "preview commit with specified transaction id. COMMIT must be a branch name.")
 	return cmd
 }
