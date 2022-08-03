@@ -23,7 +23,6 @@ jobs:
         uses: actions/checkout@v2
       - name: Test all packages except csvgen
         run: |
-          cp VERSION cmd/wrgl
           go test $(go list ./... | grep -v csvgen)
 
   tagged-release:
