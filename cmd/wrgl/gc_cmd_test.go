@@ -1,6 +1,8 @@
 package wrgl
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +12,15 @@ import (
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
+
+func startTransaction(t *testing.T) string {
+	cmd := rootCmd()
+	cmd.SetArgs([]string{"transaction", "start"})
+	buf := bytes.NewBuffer(nil)
+	cmd.SetOut(buf)
+	require.NoError(t, cmd.Execute())
+	return strings.TrimSpace(buf.String())
+}
 
 func TestGCCmd(t *testing.T) {
 	rd, cleanUp := createRepoDir(t)

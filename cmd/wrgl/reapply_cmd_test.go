@@ -13,7 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
+	"github.com/wrgl/wrgl/pkg/testutils"
 )
+
+func createRandomCSVFile(t *testing.T) (header []string, filePath string) {
+	t.Helper()
+	rows := testutils.BuildRawCSV(3, 4)
+	content := make([]string, len(rows))
+	for i, row := range rows {
+		content[i] = strings.Join(row, ",")
+	}
+	return createCSVFile(t, content)
+}
 
 func TestReapplyTxCmd(t *testing.T) {
 	rd, cleanup := createRepoDir(t)

@@ -24,7 +24,6 @@ jobs:
       - name: Test all packages except csvgen
         run: |
           cp VERSION cmd/wrgl
-          cp VERSION wrgld/cmd
           go test $(go list ./... | grep -v csvgen)
 
   tagged-release:
@@ -53,14 +52,6 @@ jobs:
           _output-file: "./build/install.sh"
           _format-key: "%%key%%"
           version: "${{ steps.get_version.outputs.version }}"
-      - name: Put version number in wrgld installer
-        uses: bluwy/substitute-string-action@v1
-        id: sub-wrgld-installer
-        with:
-          _input-file: "./.github/workflows/template/install_wrgld.sh"
-          _output-file: "./build/install_wrgld.sh"
-          _format-key: "%%key%%"
-          version: "${{ steps.get_version.outputs.version }}"
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -68,4 +59,3 @@ jobs:
           files: |
             build/*.tar.gz
             build/install.sh
-            build/install_wrgld.sh
