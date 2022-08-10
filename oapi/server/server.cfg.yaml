@@ -1,0 +1,6 @@
+package: wrgloapiserver
+generate:
+  echo-server: true
+  strict-server: true
+  models: true
+output: server.gen.go
