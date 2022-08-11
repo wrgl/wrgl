@@ -5,12 +5,20 @@ info:
 servers:
   - url: /
 paths:
+  x-uma-resource:
+    type: https://www.wrgl.co/rsrcs/repository
   /transactions:
     post:
       operationId: createTransaction
       summary: Create a new transaction
+      description:
+        Starts a brand new transaction or uploads a local transaction. If no
+        payload is given (Content-Type header is not set), then create a brand
+        new transaction that starts now. Otherwise, it is assumed that a local
+        transaction is being uploaded. In which case, `id`, `begin`, and
+        `status` fields are required.
       security:
-        - bearerAuth: []
+        - oauth2: [write]
       requestBody:
         content:
           application/json:
@@ -27,14 +35,7 @@ paths:
                       $ref: "#/components/schemas/uuid"
       responses:
         "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    $ref: "#/components/schemas/uuid"
+          $ref: "#/components/responses/createTransaction"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -48,35 +49,10 @@ paths:
       operationId: getTransaction
       summary: Get a transaction
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       responses:
         "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/transaction"
-                  - type: object
-                    required:
-                      - status
-                      - begin
-                      - branches
-                    properties:
-                      branches:
-                        type: array
-                        items:
-                          type: object
-                          required:
-                            - name
-                            - newSum
-                          properties:
-                            name:
-                              type: string
-                            currentSum:
-                              type: string
-                            newSum:
-                              type: string
+          $ref: "#/components/responses/getTransaction"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -87,7 +63,7 @@ paths:
       operationId: updateTransaction
       summary: Update a transaction
       security:
-        - bearerAuth: []
+        - oauth2: [write]
       requestBody:
         content:
           application/json:
@@ -100,7 +76,7 @@ paths:
                   type: boolean
       responses:
         "204":
-          description: success
+          $ref: "#/components/responses/noContent"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -114,10 +90,10 @@ paths:
       description:
         Reclaim disk space by removing unreachable objects from references
       security:
-        - bearerAuth: []
+        - oauth2: [write]
       responses:
-        "200":
-          $ref: "#/components/responses/emptySuccess"
+        "204":
+          $ref: "#/components/responses/noContent"
         default:
           $ref: "#/components/responses/errorResponse"
   /refs:
@@ -125,7 +101,7 @@ paths:
       operationId: getRefs
       summary: Returns current references
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       parameters:
         - in: query
           name: prefix
@@ -139,16 +115,7 @@ paths:
             type: string
       responses:
         "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  refs:
-                    type: object
-                    items:
-                      $ref: "#/components/schemas/objectHash"
+          $ref: "#/components/responses/getRefs"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -166,7 +133,7 @@ paths:
       operationId: getBranch
       summary: Returns commit at branch
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -185,7 +152,7 @@ paths:
       operationId: createCommit
       summary: Create a new commit
       security:
-        - bearerAuth: []
+        - oauth2: [write]
       requestBody:
         content:
           multipart/form-data:
@@ -208,18 +175,7 @@ paths:
                   $ref: "#/components/schemas/uuid"
       responses:
         "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  sum:
-                    description: commit object hash
-                    $ref: "#/components/schemas/objectHash"
-                  table:
-                    description: table object hash
-                    $ref: "#/components/schemas/objectHash"
+          $ref: "#/components/responses/createCommit"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -230,7 +186,7 @@ paths:
       operationId: getCommitTree
       summary: Get a commit tree
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/head"
         - in: query
@@ -241,18 +197,7 @@ paths:
             default: 20
       responses:
         "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  sum:
-                    description: hash of the head commit
-                    $ref: "#/components/schemas/objectHash"
-                  root:
-                    description: the commit tree beginning from the head commit
-                    $ref: "#/components/schemas/commit"
+          $ref: "#/components/responses/getCommitTree"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -266,17 +211,10 @@ paths:
       operationId: getCommit
       summary: Get commit with its hash
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       responses:
         "200":
-          description: OK
-          headers:
-            Cache-Control:
-              $ref: "#/components/headers/cacheControlImmutable"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/commit"
+          $ref: "#/components/responses/getCommit"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -290,7 +228,7 @@ paths:
       operationId: getCommitProfile
       summary: Get commit profile
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -320,7 +258,7 @@ paths:
       operationId: diff
       summary: Compares and returns the difference between 2 commits
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -345,7 +283,7 @@ paths:
       operationId: getTable
       summary: Get a table object
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -355,21 +293,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  columns:
-                    description: column names
-                    type: array
-                    items:
-                      type: string
-                  pk:
-                    description: indices of primary key columns
-                    type: array
-                    items:
-                      type: integer
-                  rowsCount:
-                    description: number of rows
-                    type: integer
+                $ref: "#/components/schemas/tablePayload"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -384,7 +308,7 @@ paths:
       operationId: getTableProfile
       summary: Get a table profile
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -411,7 +335,7 @@ paths:
         commit. A block always belongs to a table, which belongs to a commit.
         Getting blocks from a commit is merely more convenient in some cases.
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/start"
         - $ref: "#/components/parameters/end"
@@ -420,7 +344,7 @@ paths:
       responses:
         "200":
           description: OK
-          $ref: "#/components/responses/blocksResult"
+          $ref: "#/components/responses/getBlocks"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -440,13 +364,13 @@ paths:
         belongs to a block, which belongs to a table, which belongs to a commit.
         Getting rows from a commit is merely more convenient in some cases.
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/offsets"
       responses:
         "200":
           description: OK
-          $ref: "#/components/responses/rowsResult"
+          $ref: "#/components/responses/getRows"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -463,7 +387,7 @@ paths:
         (exclusive). Each block is 255 rows. This is useful for paginating large
         CSV for example.
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/head"
         - $ref: "#/components/parameters/start"
@@ -473,7 +397,7 @@ paths:
       responses:
         "200":
           description: OK
-          $ref: "#/components/responses/blocksResult"
+          $ref: "#/components/responses/getBlocks"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -486,16 +410,18 @@ paths:
       summary: Get rows with their offset
       description: >
         This is the method to get non-contiguous rows such as when fetching rows
-        using offsets from [diff payload](#diffSchema").
+        using offsets from [diff payload](#diffSchema"). If `offsets` is not
+        given then this method redirects to
+        [/tables/{hash}/blocks](#getTableBlocks) path.
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/head"
         - $ref: "#/components/parameters/offsets"
       responses:
         "200":
           description: OK
-          $ref: "#/components/responses/rowsResult"
+          $ref: "#/components/responses/getRows"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
@@ -507,7 +433,7 @@ paths:
       operationId: getObjects
       summary: Returns tables and blocks in packfile format
       security:
-        - bearerAuth: []
+        - oauth2: [read]
       parameters:
         - in: query
           name: tables
@@ -536,10 +462,24 @@ paths:
           $ref: "#/components/responses/forbidden"
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    oauth2:
+      type: oauth2
+      description: This API uses OAuth 2 with the authorization code flow.
+      flows:
+        authorizationCode:
+          authorizationUrl: "https://as.example.com/authorize"
+          tokenUrl: "https://as.example.com/token"
+          refreshUrl: "https://as.example.com/refresh"
+          scopes:
+            read: Read data
+            write: Write data
+      x-uma-resource-types:
+        https://www.wrgl.co/rsrcs/repository:
+          description: A Wrgl repository
+          iconUri: https://www.wrgl.co/rsrcs/repository/icon.png
+          resourceScopes:
+            - read
+            - write
   schemas:
     objectHash:
       type: string
@@ -560,6 +500,9 @@ components:
       pattern: "^[-_0-9a-zA-Z]+$"
     table:
       type: object
+      required:
+        - sum
+        - exist
       properties:
         sum:
           description: table hash
@@ -626,6 +569,9 @@ components:
             type: number
     tableProfile:
       type: object
+      x-go-type: objects.TableProfile
+      x-go-type-import:
+        path: github.com/wrgl/wrgl/pkg/objects
       properties:
         rowsCount:
           type: integer
@@ -635,6 +581,13 @@ components:
             $ref: "#/components/schemas/columnProfile"
     commit:
       type: object
+      required:
+        - sum
+        - authorName
+        - authorEmail
+        - message
+        - time
+        - table
       properties:
         sum:
           description: commit hash
@@ -740,6 +693,10 @@ components:
               - $ref: "#/components/schemas/topValuesDiff"
     tableProfileDiff:
       type: object
+      x-go-type: diffprof.TableProfileDiff
+      x-go-type-import:
+        name: diffprof
+        path: github.com/wrgl/wrgl/pkg/diff/prof
       properties:
         oldRowsCount:
           type: integer
@@ -751,6 +708,13 @@ components:
             $ref: "#/components/schemas/columnProfileDiff"
     diff:
       type: object
+      required:
+        - tableSum
+        - oldTableSum
+        - columns
+        - oldColumns
+        - pk
+        - oldPK
       properties:
         tableSum:
           $ref: "#/components/schemas/objectHash"
@@ -773,7 +737,9 @@ components:
           items:
             type: string
         rowDiff:
-          $ref: "#/components/schemas/rowDiff"
+          type: array
+          items:
+            $ref: "#/components/schemas/rowDiff"
         dataProfile:
           $ref: "#/components/schemas/tableProfileDiff"
     csvLocation:
@@ -790,6 +756,18 @@ components:
       enum:
         - in-progress
         - committed
+    transactionBranch:
+      type: object
+      required:
+        - name
+        - newSum
+      properties:
+        name:
+          type: string
+        currentSum:
+          type: string
+        newSum:
+          type: string
     transaction:
       type: object
       properties:
@@ -801,6 +779,26 @@ components:
           format: date-time
         status:
           $ref: "#/components/schemas/txStatus"
+    tablePayload:
+      type: object
+      required:
+        - columns
+        - pk
+        - rowsCount
+      properties:
+        columns:
+          description: column names
+          type: array
+          items:
+            type: string
+        pk:
+          description: indices of primary key columns
+          type: array
+          items:
+            type: integer
+        rowsCount:
+          description: number of rows
+          type: integer
   parameters:
     id:
       in: path
@@ -881,13 +879,8 @@ components:
         type: string
       example: gzip
   responses:
-    emptySuccess:
-      description: OK
-      content:
-        text/plain:
-          schema:
-            type: string
-            example: ""
+    noContent:
+      description: no content
     errorResponse:
       description: bad request
       content:
@@ -926,8 +919,8 @@ components:
           schema:
             type: string
             example: internal server error
-    blocksResult:
-      description: contiguous blocks concatenated
+    getBlocks:
+      description: Contiguous blocks in binary or csv format
       headers:
         Content-Encoding:
           $ref: "#/components/headers/contentEncodingGzip"
@@ -940,8 +933,8 @@ components:
           schema:
             type: string
             format: binary
-    rowsResult:
-      description: rows as CSV
+    getRows:
+      description: Rows as CSV
       headers:
         Content-Encoding:
           $ref: "#/components/headers/contentEncodingGzip"
@@ -950,3 +943,79 @@ components:
           schema:
             type: string
             format: csv
+    createTransaction:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - id
+            properties:
+              id:
+                $ref: "#/components/schemas/uuid"
+    getTransaction:
+      description: OK
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: "#/components/schemas/transaction"
+              - type: object
+                required:
+                  - status
+                  - begin
+                  - branches
+                properties:
+                  branches:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/transactionBranch"
+    getRefs:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - refs
+            properties:
+              refs:
+                type: object
+                additionalProperties:
+                  $ref: "#/components/schemas/objectHash"
+    createCommit:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              sum:
+                description: commit object hash
+                $ref: "#/components/schemas/objectHash"
+              table:
+                description: table object hash
+                $ref: "#/components/schemas/objectHash"
+    getCommitTree:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              sum:
+                description: hash of the head commit
+                $ref: "#/components/schemas/objectHash"
+              root:
+                description: the commit tree beginning from the head commit
+                $ref: "#/components/schemas/commit"
+    getCommit:
+      description: OK
+      headers:
+        Cache-Control:
+          $ref: "#/components/headers/cacheControlImmutable"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/commit"
