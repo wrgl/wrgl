@@ -151,6 +151,9 @@ paths:
     post:
       operationId: createCommit
       summary: Create a new commit
+      description:
+        This method requires an OIDC token to be sent in "X-ID-Token" header,
+        from which it will read the name and email of committer.
       security:
         - oauth2: [write]
       requestBody:
@@ -469,7 +472,6 @@ components:
         authorizationCode:
           authorizationUrl: "https://as.example.com/authorize"
           tokenUrl: "https://as.example.com/token"
-          refreshUrl: "https://as.example.com/refresh"
           scopes:
             read: Read data
             write: Write data
