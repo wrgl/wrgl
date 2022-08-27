@@ -1,4 +1,5 @@
 //go:generate oapi-codegen --config server.cfg.yaml ../oapi.yaml
+//go:generate uma-codegen ../oapi.yaml wrgloapiserver -o uma.gen.go
 
 package wrgloapiserver
 

@@ -92,12 +92,33 @@ type AuthClient struct {
 	RedirectURIs []string `yaml:"redirectURIs,omitempty" json:"redirectURIs,omitempty"`
 }
 
-type AuthOAuth2 struct {
-	// OIDCProvider contains configurations of OIDC provider
-	OIDCProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
+type AuthorizationServiceType string
 
-	// Clients contains OAuth 2 client configurations when Type is ATOauth2
-	Clients []AuthClient `yaml:"clients,omitempty" json:"clients,omitempty"`
+const (
+	KeyCloak AuthorizationServiceType = "keycloak"
+)
+
+type AuthOAuth2 struct {
+	// // OIDCProvider contains configurations of OIDC provider
+	// OIDCProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
+
+	// // Clients contains OAuth 2 client configurations when Type is ATOauth2
+	// Clients []AuthClient `yaml:"clients,omitempty" json:"clients,omitempty"`
+
+	// issuer is the token issuer URI
+	Issuer string `json:"issuer,omitempty"`
+
+	// Realm is a string describes the user pool that can access this repository
+	Realm string `json:"realm,omitempty"`
+
+	// ClientID identifies this repository with the authorization server
+	ClientID string `json:"clientID,omitempty"`
+
+	// ClientSecret authenticates this repository with the authorization server
+	ClientSecret string `json:"clientSecret,omitempty"`
+
+	// ASType uniquely identifies the authorization service (and strategy that govern working with it)
+	ASType AuthorizationServiceType `json:"asType,omitempty"`
 }
 
 type Auth struct {

@@ -2,11 +2,18 @@ openapi: "3.0.2"
 info:
   title: Wrgl API
   version: "1.0"
-servers:
-  - url: /
+x-uma-resource-types:
+  https://www.wrgl.co/rsrcs/repository:
+    description: A Wrgl repository
+    iconUri: https://www.wrgl.co/rsrcs/repository/icon.png
+    resourceScopes:
+      - read
+      - write
+x-uma-resource:
+  type: https://www.wrgl.co/rsrcs/repository
+security:
+  - oidc: [read]
 paths:
-  x-uma-resource:
-    type: https://www.wrgl.co/rsrcs/repository
   /transactions:
     post:
       operationId: createTransaction
@@ -18,7 +25,7 @@ paths:
         transaction is being uploaded. In which case, `id`, `begin`, and
         `status` fields are required.
       security:
-        - oauth2: [write]
+        - oidc: [write]
       requestBody:
         content:
           application/json:
@@ -48,8 +55,6 @@ paths:
     get:
       operationId: getTransaction
       summary: Get a transaction
-      security:
-        - oauth2: [read]
       responses:
         "200":
           $ref: "#/components/responses/getTransaction"
@@ -63,7 +68,7 @@ paths:
       operationId: updateTransaction
       summary: Update a transaction
       security:
-        - oauth2: [write]
+        - oidc: [write]
       requestBody:
         content:
           application/json:
@@ -90,7 +95,7 @@ paths:
       description:
         Reclaim disk space by removing unreachable objects from references
       security:
-        - oauth2: [write]
+        - oidc: [write]
       responses:
         "204":
           $ref: "#/components/responses/noContent"
@@ -100,8 +105,6 @@ paths:
     get:
       operationId: getRefs
       summary: Returns current references
-      security:
-        - oauth2: [read]
       parameters:
         - in: query
           name: prefix
@@ -132,8 +135,6 @@ paths:
     get:
       operationId: getBranch
       summary: Returns commit at branch
-      security:
-        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -155,7 +156,7 @@ paths:
         This method requires an OIDC token to be sent in "X-ID-Token" header,
         from which it will read the name and email of committer.
       security:
-        - oauth2: [write]
+        - oidc: [write]
       requestBody:
         content:
           multipart/form-data:
@@ -188,8 +189,6 @@ paths:
     get:
       operationId: getCommitTree
       summary: Get a commit tree
-      security:
-        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/head"
         - in: query
@@ -213,8 +212,6 @@ paths:
     get:
       operationId: getCommit
       summary: Get commit with its hash
-      security:
-        - oauth2: [read]
       responses:
         "200":
           $ref: "#/components/responses/getCommit"
@@ -230,8 +227,6 @@ paths:
     get:
       operationId: getCommitProfile
       summary: Get commit profile
-      security:
-        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -260,8 +255,6 @@ paths:
     get:
       operationId: diff
       summary: Compares and returns the difference between 2 commits
-      security:
-        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -285,8 +278,6 @@ paths:
     get:
       operationId: getTable
       summary: Get a table object
-      security:
-        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -310,8 +301,6 @@ paths:
     get:
       operationId: getTableProfile
       summary: Get a table profile
-      security:
-        - oauth2: [read]
       responses:
         "200":
           description: OK
@@ -337,8 +326,6 @@ paths:
         is that here you get the blocks that belong to a table rather than a
         commit. A block always belongs to a table, which belongs to a commit.
         Getting blocks from a commit is merely more convenient in some cases.
-      security:
-        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/start"
         - $ref: "#/components/parameters/end"
@@ -366,8 +353,6 @@ paths:
         you get the rows that belong to a table rather than a commit. A row
         belongs to a block, which belongs to a table, which belongs to a commit.
         Getting rows from a commit is merely more convenient in some cases.
-      security:
-        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/offsets"
       responses:
@@ -389,8 +374,6 @@ paths:
         efficiently. This method returns blocks from `start` to `end`
         (exclusive). Each block is 255 rows. This is useful for paginating large
         CSV for example.
-      security:
-        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/head"
         - $ref: "#/components/parameters/start"
@@ -416,8 +399,6 @@ paths:
         using offsets from [diff payload](#diffSchema"). If `offsets` is not
         given then this method redirects to
         [/tables/{hash}/blocks](#getTableBlocks) path.
-      security:
-        - oauth2: [read]
       parameters:
         - $ref: "#/components/parameters/head"
         - $ref: "#/components/parameters/offsets"
@@ -435,8 +416,6 @@ paths:
     get:
       operationId: getObjects
       summary: Returns tables and blocks in packfile format
-      security:
-        - oauth2: [read]
       parameters:
         - in: query
           name: tables
@@ -465,23 +444,10 @@ paths:
           $ref: "#/components/responses/forbidden"
 components:
   securitySchemes:
-    oauth2:
-      type: oauth2
-      description: This API uses OAuth 2 with the authorization code flow.
-      flows:
-        authorizationCode:
-          authorizationUrl: "https://as.example.com/authorize"
-          tokenUrl: "https://as.example.com/token"
-          scopes:
-            read: Read data
-            write: Write data
-      x-uma-resource-types:
-        https://www.wrgl.co/rsrcs/repository:
-          description: A Wrgl repository
-          iconUri: https://www.wrgl.co/rsrcs/repository/icon.png
-          resourceScopes:
-            - read
-            - write
+    oidc:
+      type: openIdConnect
+      openIdConnectUrl: /.well-known/openid-configuration
+      x-uma-enabled: true
   schemas:
     objectHash:
       type: string
