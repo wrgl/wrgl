@@ -16,6 +16,7 @@ import (
 	objbadger "github.com/wrgl/wrgl/pkg/objects/badger"
 	"github.com/wrgl/wrgl/pkg/ref"
 	refsql "github.com/wrgl/wrgl/pkg/ref/sql"
+	umasql "github.com/wrgl/wrgl/pkg/uma/sql"
 )
 
 type RepoDir struct {
@@ -96,6 +97,10 @@ func (d *RepoDir) OpenRefStore() ref.Store {
 	return refsql.NewStore(d.db)
 }
 
+func (d *RepoDir) OpenUMAStore() *umasql.Store {
+	return umasql.NewStore(d.db)
+}
+
 func (d *RepoDir) Init() error {
 	if _, err := os.Stat(d.FullPath); os.IsNotExist(err) {
 		if err := os.Mkdir(d.FullPath, 0755); err != nil {
@@ -110,10 +115,7 @@ func (d *RepoDir) Init() error {
 
 func (d *RepoDir) Exist() bool {
 	_, err := os.Stat(d.KVPath())
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func FindWrglDir() (string, error) {

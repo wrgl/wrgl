@@ -1,5 +1,0 @@
-package: wrgloapiclient
-generate:
-  client: true
-  models: true
-output: client.gen.go

@@ -592,3 +592,15 @@ func (c *Client) ErrHTTP(resp *http.Response) error {
 	}
 	return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(b))
 }
+
+func (c *Client) GetAuthServer(opts ...RequestOption) (as *payload.AuthServer, err error) {
+	resp, err := c.Request(http.MethodGet, "/authorization-server/", nil, nil, opts...)
+	if err != nil {
+		return
+	}
+	as = &payload.AuthServer{}
+	if err = parseJSONPayload(resp, as); err != nil {
+		return nil, err
+	}
+	return
+}

@@ -92,50 +92,22 @@ type AuthClient struct {
 	RedirectURIs []string `yaml:"redirectURIs,omitempty" json:"redirectURIs,omitempty"`
 }
 
-type AuthorizationServiceType string
-
-const (
-	KeyCloak AuthorizationServiceType = "keycloak"
-)
-
-type AuthOAuth2 struct {
-	// // OIDCProvider contains configurations of OIDC provider
-	// OIDCProvider *AuthOIDCProvider `yaml:"oidcProvider,omitempty" json:"oidcProvider,omitempty"`
-
-	// // Clients contains OAuth 2 client configurations when Type is ATOauth2
-	// Clients []AuthClient `yaml:"clients,omitempty" json:"clients,omitempty"`
-
-	// issuer is the token issuer URI
-	Issuer string `json:"issuer,omitempty"`
-
-	// Realm is a string describes the user pool that can access this repository
-	Realm string `json:"realm,omitempty"`
-
-	// ClientID identifies this repository with the authorization server
-	ClientID string `json:"clientID,omitempty"`
-
-	// ClientSecret authenticates this repository with the authorization server
-	ClientSecret string `json:"clientSecret,omitempty"`
-
-	// ASType uniquely identifies the authorization service (and strategy that govern working with it)
-	ASType AuthorizationServiceType `json:"asType,omitempty"`
+type AuthKeycloak struct {
+	Issuer       string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	ClientID     string `json:"clientId,omitempty" yaml:"clientId,omitempty"`
+	ClientSecret string `json:"clientSecret,omitempty" yaml:"clientSecret,omitempty"`
 }
 
 type Auth struct {
-	// TokenDuration specifies how long before a JWT token given by the `/authenticate/`
-	// endpoint of Wrgld expire. This is a string in the format "72h3m0.5s". Tokens last for
-	// 90 days by default.
-	TokenDuration *Duration `yaml:"tokenDuration,omitempty" json:"tokenDuration,omitempty"`
-
-	// Types specifies how authorization work with wrgld API
-	Type AuthType `yaml:"type,omitempty" json:"type,omitempty"`
-
 	// AnonymousRead when set to true, allow anonymous users (users without an access token)
 	// to be assigned auth.ScopeRepoRead scope, thus are able to read the data from this repo.
 	AnonymousRead bool `yaml:"anonymousRead,omitempty" json:"anonymousRead,omitempty"`
 
-	// OAuth2 configurations that is effective when Type is ATOauth2
-	OAuth2 *AuthOAuth2 `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
+	// Keycloak contains Keycloak credentials of this repo as a resource server
+	Keycloak *AuthKeycloak `json:"keycloak,omitempty" yaml:"keycloak,omitempty"`
+
+	// RepositoryName is the UMA resource name of this repo
+	RepositoryName string `json:"repositoryName,omitempty" yaml:"repositoryName,omitempty"`
 }
 
 type Pack struct {
@@ -173,17 +145,11 @@ type Config struct {
 	Auth    *Auth              `yaml:"auth,omitempty" json:"auth,omitempty"`
 	Pack    *Pack              `yaml:"pack,omitempty" json:"pack,omitempty"`
 	Merge   *Merge             `yaml:"merge,omitempty" json:"merge,omitempty"`
+	BaseURL string             `json:"baseUrl,omitempty" yaml:"baseUrl,omitempty"`
 
 	// TransactionTTL is the maximum amount of time a transaction can exist before
 	// being garbage-collected. Defaults to 30 days
 	TransactionTTL Duration `yaml:"transactionTTL,omitempty" json:"transactionTTL,omitempty"`
-}
-
-func (c *Config) TokenDuration() time.Duration {
-	if c.Auth != nil && c.Auth.TokenDuration != nil {
-		return time.Duration(*c.Auth.TokenDuration)
-	}
-	return 0
 }
 
 func (c *Config) MaxPackFileSize() uint64 {

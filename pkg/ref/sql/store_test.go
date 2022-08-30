@@ -1,9 +1,7 @@
 package refsql
 
 import (
-	"database/sql"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,30 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/ref"
 	refhelpers "github.com/wrgl/wrgl/pkg/ref/helpers"
-	"github.com/wrgl/wrgl/pkg/sqlutil"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
-func testSqliteDB(t *testing.T) (*sql.DB, func()) {
-	t.Helper()
-	dir := t.TempDir()
-	db, err := sql.Open("sqlite3", filepath.Join(dir, "sqlite.db"))
-	require.NoError(t, err)
-	require.NoError(t, sqlutil.RunInTx(db, func(tx *sql.Tx) error {
-		for _, stmt := range CreateTableStmts {
-			if _, err := tx.Exec(stmt); err != nil {
-				return err
-			}
-		}
-		return nil
-	}))
-	return db, func() {
-		require.NoError(t, db.Close())
-	}
-}
-
 func TestStore(t *testing.T) {
-	db, cleanup := testSqliteDB(t)
+	db, cleanup := testutils.CreateSQLDB(t, CreateTableStmts)
 	defer cleanup()
 	s := NewStore(db)
 
@@ -128,7 +107,7 @@ func TestStore(t *testing.T) {
 }
 
 func TestCreateTransaction(t *testing.T) {
-	db, cleanup := testSqliteDB(t)
+	db, cleanup := testutils.CreateSQLDB(t, CreateTableStmts)
 	defer cleanup()
 	s := NewStore(db)
 
@@ -175,7 +154,7 @@ func TestCreateTransaction(t *testing.T) {
 }
 
 func TestTransactionLog(t *testing.T) {
-	db, cleanup := testSqliteDB(t)
+	db, cleanup := testutils.CreateSQLDB(t, CreateTableStmts)
 	defer cleanup()
 	s := NewStore(db)
 
@@ -206,7 +185,7 @@ func TestTransactionLog(t *testing.T) {
 }
 
 func TestListTransactions(t *testing.T) {
-	db, cleanup := testSqliteDB(t)
+	db, cleanup := testutils.CreateSQLDB(t, CreateTableStmts)
 	defer cleanup()
 	s := NewStore(db)
 
@@ -240,7 +219,7 @@ func TestListTransactions(t *testing.T) {
 }
 
 func TestCreateTransactionFromExisting(t *testing.T) {
-	db, cleanup := testSqliteDB(t)
+	db, cleanup := testutils.CreateSQLDB(t, CreateTableStmts)
 	defer cleanup()
 	s := NewStore(db)
 
