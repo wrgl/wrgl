@@ -33,8 +33,7 @@ type deviceFlowAuthServer struct {
 	issuer         string
 	deviceEndpoint string
 	tokenEndpoint  string
-	resourceID     string
-	audience       string
+	ticket         string
 }
 
 func postForm(cmd *cobra.Command, path string, form url.Values, respData interface{}) (err error) {
@@ -105,9 +104,7 @@ func (s *deviceFlowAuthServer) RequestRPT(cmd *cobra.Command, accessToken, clien
 		return "", err
 	}
 	return kc.RequestRPT(accessToken, rp.RPTRequest{
-		Permission: []string{s.resourceID},
-		Audience:   s.audience,
-		IssuedFor:  clientID,
+		Ticket: s.ticket,
 	})
 }
 
@@ -139,11 +136,12 @@ func discoverAuthServer(remoteURI string) (*deviceFlowAuthServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	as, err := cli.GetAuthServer()
-	if err != nil {
-		return nil, err
+	_, err = cli.GetRefs(nil, nil, apiclient.WithRequestAuthorization("invalid token"))
+	err401, ok := err.(*apiclient.ErrorUnauthorized)
+	if !ok {
+		return nil, fmt.Errorf("unable to get UMA ticket from repository: %v", err)
 	}
-	resp, err := http.Get(as.Issuer + "/.well-known/openid-configuration")
+	resp, err := http.Get(err401.AuthServerURI + "/.well-known/openid-configuration")
 	if err != nil {
 		return nil, err
 	}
@@ -158,10 +156,9 @@ func discoverAuthServer(remoteURI string) (*deviceFlowAuthServer, error) {
 		return nil, fmt.Errorf("authorization server does not support device grant flow")
 	}
 	return &deviceFlowAuthServer{
-		issuer:         as.Issuer,
+		issuer:         err401.AuthServerURI,
 		deviceEndpoint: cfg.DeviceAuthorizationEndpoint,
 		tokenEndpoint:  cfg.TokenEndpoint,
-		resourceID:     as.ResourceID,
-		audience:       as.Audience,
+		ticket:         err401.Ticket,
 	}, nil
 }

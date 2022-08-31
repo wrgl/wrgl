@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -138,6 +139,27 @@ func (s *Client) LogResponse(r *http.Response, payload interface{}) {
 	s.logger.Printf("%s %s receive %s", r.Request.Method, r.Request.URL, string(b))
 }
 
+var authHeaderRegex = regexp.MustCompile(`UMA\s+realm="([^"]+)",\s+as_uri="([^"]+)",\s+ticket="([^"]+)"`)
+
+func extractTicketFrom401(resp *http.Response) (asUri, ticket string) {
+	if http.StatusUnauthorized == resp.StatusCode {
+		matches := authHeaderRegex.FindStringSubmatch(resp.Header.Get("WWW-Authenticate"))
+		if matches != nil {
+			return matches[2], matches[3]
+		}
+	}
+	return "", ""
+}
+
+type ErrorUnauthorized struct {
+	AuthServerURI string
+	Ticket        string
+}
+
+func (err *ErrorUnauthorized) Error() string {
+	return fmt.Sprintf("Unauthorized, login at %s with ticket %q", err.AuthServerURI, err.Ticket)
+}
+
 func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {
 	defer resp.Body.Close()
 	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
@@ -167,6 +189,9 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 	resp, err = c.client.Do(req)
 	if err != nil {
 		return
+	}
+	if asURI, ticket := extractTicketFrom401(resp); ticket != "" {
+		return nil, &ErrorUnauthorized{asURI, ticket}
 	}
 	if resp.StatusCode >= 400 {
 		return nil, NewHTTPError(resp)
@@ -591,16 +616,4 @@ func (c *Client) ErrHTTP(resp *http.Response) error {
 		return err
 	}
 	return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(b))
-}
-
-func (c *Client) GetAuthServer(opts ...RequestOption) (as *payload.AuthServer, err error) {
-	resp, err := c.Request(http.MethodGet, "/authorization-server/", nil, nil, opts...)
-	if err != nil {
-		return
-	}
-	as = &payload.AuthServer{}
-	if err = parseJSONPayload(resp, as); err != nil {
-		return nil, err
-	}
-	return
 }
