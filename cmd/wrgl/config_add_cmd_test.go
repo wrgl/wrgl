@@ -67,11 +67,11 @@ func TestConfigAddCmd(t *testing.T) {
 
 	// add with json value
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "add", "auth.oauth2.clients", `{"id": "123", "redirectURIs": ["http://my-client.com"]}`})
+	cmd.SetArgs([]string{"config", "add", "branch.main.primaryKey", "mycolumn"})
 	require.NoError(t, cmd.Execute())
 
 	// get json value
 	cmd = rootCmd()
-	cmd.SetArgs([]string{"config", "get", "auth.oauth2.clients.0"})
-	assertCmdOutput(t, cmd, "{\"id\":\"123\",\"redirectURIs\":[\"http://my-client.com\"]}\n")
+	cmd.SetArgs([]string{"config", "get", "branch.main.primaryKey.0"})
+	assertCmdOutput(t, cmd, "mycolumn\n")
 }

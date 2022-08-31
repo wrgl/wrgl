@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/wrgl/wrgl/cmd/wrgl/auth"
 	"github.com/wrgl/wrgl/cmd/wrgl/branch"
 	"github.com/wrgl/wrgl/cmd/wrgl/config"
 	"github.com/wrgl/wrgl/cmd/wrgl/credentials"
@@ -101,7 +100,6 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(remote.RootCmd())
 	rootCmd.AddCommand(reflog.RootCmd())
 	rootCmd.AddCommand(credentials.RootCmd())
-	rootCmd.AddCommand(auth.RootCmd())
 	rootCmd.AddCommand(hub.RootCmd())
 	rootCmd.AddCommand(transaction.RootCmd())
 	rootCmd.AddCommand(gcCmd())

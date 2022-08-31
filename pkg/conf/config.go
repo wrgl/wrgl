@@ -81,17 +81,6 @@ type AuthOIDCProvider struct {
 	Address string `yaml:"address,omitempty" json:"address,omitempty"`
 }
 
-// AuthClient is the config of a public client of wrgld server
-type AuthClient struct {
-	// ID is the client id of a public client. To authorize against wrgld, the provided
-	// "client_id" param must match one of the registered ids.
-	ID string `yaml:"id,omitempty" json:"id,omitempty"`
-
-	// RedirectURIs are glob patterns that "redirect_uri" will be compared against.
-	// See https://github.com/gobwas/glob for supported format
-	RedirectURIs []string `yaml:"redirectURIs,omitempty" json:"redirectURIs,omitempty"`
-}
-
 type AuthKeycloak struct {
 	Issuer       string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 	ClientID     string `json:"clientId,omitempty" yaml:"clientId,omitempty"`
