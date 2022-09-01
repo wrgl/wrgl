@@ -49,11 +49,11 @@ func TestMarshalText(t *testing.T) {
 			ExpectedS: "123",
 		},
 		{
-			Obj: &conf.AuthOIDCProvider{
-				Issuer:   "http://oidc.google.com",
+			Obj: &conf.AuthKeycloak{
+				Issuer:   "http://keycloak",
 				ClientID: "123abc",
 			},
-			ExpectedS: `{"issuer":"http://oidc.google.com","clientID":"123abc"}`,
+			ExpectedS: `{"issuer":"http://keycloak","clientId":"123abc"}`,
 		},
 	} {
 		s, err := marshalText(reflect.ValueOf(c.Obj))
@@ -80,7 +80,7 @@ func TestFilterWithValuePattern(t *testing.T) {
 			ExpectedErr: errNotStringSlice,
 		},
 		{
-			Obj:         []conf.AuthClient{},
+			Obj:         []conf.Remote{},
 			Pattern:     "abc",
 			ExpectedErr: errNotStringSlice,
 		},

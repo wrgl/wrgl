@@ -39,14 +39,14 @@ func TestGetFieldValue(t *testing.T) {
 		},
 		{
 			Obj: &conf.Auth{
-				Type: conf.ATOauth2,
+				AnonymousRead: true,
 			},
-			Prop:          "type",
-			ExpectedValue: conf.ATOauth2,
+			Prop:          "anonymousRead",
+			ExpectedValue: true,
 		},
 		{
 			Obj: &conf.Auth{
-				Type: conf.ATOauth2,
+				AnonymousRead: true,
 			},
 			Prop:        "abc",
 			ExpectedErr: fmt.Errorf(`field "Abc" not found`),
@@ -54,15 +54,15 @@ func TestGetFieldValue(t *testing.T) {
 		{
 			Obj: &conf.Config{
 				Auth: &conf.Auth{
-					Type: conf.ATOauth2,
+					AnonymousRead: true,
 				},
 			},
-			Prop:          "auth.type",
-			ExpectedValue: conf.ATOauth2,
+			Prop:          "auth.anonymousRead",
+			ExpectedValue: true,
 		},
 		{
 			Obj:         &conf.Config{},
-			Prop:        "auth.type",
+			Prop:        "auth.anonymousRead",
 			ExpectedErr: fmt.Errorf(`field "Auth" is zero`),
 		},
 		{
@@ -73,9 +73,9 @@ func TestGetFieldValue(t *testing.T) {
 		},
 		{
 			Obj:           &conf.Config{},
-			Prop:          "auth.type",
+			Prop:          "auth.repositoryName",
 			CreateIfZero:  true,
-			ExpectedValue: conf.AuthType(""),
+			ExpectedValue: "",
 		},
 		{
 			Obj:           &conf.Config{},
@@ -95,20 +95,11 @@ func TestGetFieldValue(t *testing.T) {
 			ExpectedValue: false,
 		},
 		{
-			Obj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{},
+			Obj: &conf.Branch{
+				PrimaryKey: []string{},
 			},
-			Prop:        "clients.0.id",
+			Prop:        "primaryKey.0",
 			ExpectedErr: fmt.Errorf("index out of range: 0 >= 0"),
-		},
-		{
-			Obj: []conf.AuthClient{
-				{
-					ID: "abc",
-				},
-			},
-			Prop:          "0.id",
-			ExpectedValue: "abc",
 		},
 	} {
 		v, err := GetFieldValue(c.Obj, c.Prop, c.CreateIfZero)
@@ -154,19 +145,19 @@ func TestSetValue(t *testing.T) {
 	}{
 		{
 			Obj:   &conf.Auth{},
-			Prop:  "type",
-			Value: conf.ATOauth2.String(),
+			Prop:  "repositoryName",
+			Value: "my repo",
 			ExpectedObj: &conf.Auth{
-				Type: conf.ATOauth2,
+				RepositoryName: "my repo",
 			},
 		},
 		{
 			Obj:   &conf.Config{},
-			Prop:  "auth.tokenDuration",
-			Value: "7m",
+			Prop:  "auth.repositoryName",
+			Value: "my repo",
 			ExpectedObj: &conf.Config{
 				Auth: &conf.Auth{
-					TokenDuration: duration(420000000000),
+					RepositoryName: "my repo",
 				},
 			},
 		},
@@ -179,12 +170,12 @@ func TestSetValue(t *testing.T) {
 			},
 		},
 		{
-			Obj:   &conf.AuthOAuth2{},
-			Prop:  "oidcProvider",
-			Value: `{"issuer": "http://oidc.google.com"}`,
-			ExpectedObj: &conf.AuthOAuth2{
-				OIDCProvider: &conf.AuthOIDCProvider{
-					Issuer: "http://oidc.google.com",
+			Obj:   &conf.Auth{},
+			Prop:  "keycloak",
+			Value: `{"issuer": "http://keycloak"}`,
+			ExpectedObj: &conf.Auth{
+				Keycloak: &conf.AuthKeycloak{
+					Issuer: "http://keycloak",
 				},
 			},
 		},
@@ -221,53 +212,35 @@ func TestUnsetField(t *testing.T) {
 	}{
 		{
 			Obj: &conf.Auth{
-				Type:          conf.ATOauth2,
-				TokenDuration: duration(123456),
+				AnonymousRead:  true,
+				RepositoryName: "my repo",
 			},
-			Prop: "type",
+			Prop: "anonymousRead",
 			ExpectedObj: &conf.Auth{
-				TokenDuration: duration(123456),
+				RepositoryName: "my repo",
 			},
 		},
 		{
-			Obj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{
-						ID: "abc123",
-					},
-				},
+			Obj: &conf.Branch{
+				PrimaryKey: []string{"abc123"},
 			},
-			Prop:        "clients",
-			ExpectedObj: &conf.AuthOAuth2{},
+			Prop:        "primaryKey",
+			ExpectedObj: &conf.Branch{},
 		},
 		{
-			Obj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{
-						ID: "abc123",
-					},
-					{
-						ID: "def456",
-					},
-				},
+			Obj: &conf.Branch{
+				PrimaryKey: []string{"abc123", "def456"},
 			},
-			Prop:        "clients",
+			Prop:        "primaryKey",
 			ExpectedErr: fmt.Errorf("key contains multiple values"),
 		},
 		{
-			Obj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{
-						ID: "abc123",
-					},
-					{
-						ID: "def456",
-					},
-				},
+			Obj: &conf.Branch{
+				PrimaryKey: []string{"abc123", "def456"},
 			},
-			Prop:        "clients",
+			Prop:        "primaryKey",
 			All:         true,
-			ExpectedObj: &conf.AuthOAuth2{},
+			ExpectedObj: &conf.Branch{},
 		},
 		{
 			Obj: map[string]*conf.Remote{
@@ -286,62 +259,37 @@ func TestUnsetField(t *testing.T) {
 			},
 		},
 		{
-			Obj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{ID: "123"},
-					{ID: "456"},
-					{ID: "789"},
-				},
+			Obj: &conf.Branch{
+				PrimaryKey: []string{"123", "456", "789"},
 			},
-			Prop: "clients.1",
-			ExpectedObj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{ID: "123"},
-					{ID: "789"},
-				},
+			Prop: "primaryKey.1",
+			ExpectedObj: &conf.Branch{
+				PrimaryKey: []string{"123", "789"},
 			},
 		},
 		{
-			Obj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{ID: "123"},
-					{ID: "456"},
-					{ID: "789"},
-				},
+			Obj: &conf.Branch{
+				PrimaryKey: []string{"123", "456", "789"},
 			},
-			Prop: "clients.0",
-			ExpectedObj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{ID: "456"},
-					{ID: "789"},
-				},
+			Prop: "primaryKey.0",
+			ExpectedObj: &conf.Branch{
+				PrimaryKey: []string{"456", "789"},
 			},
 		},
 		{
-			Obj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{ID: "123"},
-					{ID: "456"},
-					{ID: "789"},
-				},
+			Obj: &conf.Branch{
+				PrimaryKey: []string{"123", "456", "789"},
 			},
-			Prop: "clients.2",
-			ExpectedObj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{ID: "123"},
-					{ID: "456"},
-				},
+			Prop: "primaryKey.2",
+			ExpectedObj: &conf.Branch{
+				PrimaryKey: []string{"123", "456"},
 			},
 		},
 		{
-			Obj: &conf.AuthOAuth2{
-				Clients: []conf.AuthClient{
-					{ID: "123"},
-					{ID: "456"},
-					{ID: "789"},
-				},
+			Obj: &conf.Branch{
+				PrimaryKey: []string{"123", "456", "789"},
 			},
-			Prop:        "clients.10",
+			Prop:        "primaryKey.10",
 			ExpectedErr: fmt.Errorf("index out of range: 10 >= 3"),
 		},
 	} {
@@ -363,13 +311,6 @@ func TestAppendSlice(t *testing.T) {
 	v = reflect.ValueOf(branch).Elem().FieldByName("PrimaryKey").Addr()
 	require.NoError(t, AppendSlice(v, "c", "d"))
 	assert.Equal(t, []string{"a", "b", "c", "d"}, branch.PrimaryKey)
-
-	auth := &conf.AuthOAuth2{}
-	v = reflect.ValueOf(auth).Elem().FieldByName("Clients").Addr()
-	require.NoError(t, AppendSlice(v, `{"id":"123"}`))
-	assert.Equal(t, []conf.AuthClient{
-		{ID: "123"},
-	}, auth.Clients)
 
 	rem := &conf.Remote{}
 	v = reflect.ValueOf(rem).Elem().FieldByName("Fetch").Addr()
