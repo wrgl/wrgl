@@ -76,7 +76,7 @@ func authenticateCmd() *cobra.Command {
 }
 
 func getCredentials(cmd *cobra.Command, cs *credentials.Store, uriS string, u *url.URL) (err error) {
-	s, err := discoverAuthServer(uriS)
+	s, err := discoverAuthServer(cmd, uriS)
 	if err != nil {
 		return
 	}

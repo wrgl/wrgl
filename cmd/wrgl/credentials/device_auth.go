@@ -131,17 +131,18 @@ func decodeJSONResponse(resp *http.Response, obj any) error {
 	return json.Unmarshal(b, obj)
 }
 
-func discoverAuthServer(remoteURI string) (*deviceFlowAuthServer, error) {
+func discoverAuthServer(cmd *cobra.Command, remoteURI string) (*deviceFlowAuthServer, error) {
 	cli, err := apiclient.NewClient(remoteURI)
 	if err != nil {
 		return nil, err
 	}
 	_, err = cli.GetRefs(nil, nil, apiclient.WithRequestAuthorization("invalid token"))
-	err401, ok := err.(*apiclient.ErrorUnauthorized)
+	err401, ok := err.(*apiclient.ErrUnauthorized)
 	if !ok {
 		return nil, fmt.Errorf("unable to get UMA ticket from repository: %v", err)
 	}
-	resp, err := http.Get(err401.AuthServerURI + "/.well-known/openid-configuration")
+	client := utils.GetClient(cmd.Context())
+	resp, err := client.Get(err401.AuthServerURI + "/.well-known/openid-configuration")
 	if err != nil {
 		return nil, err
 	}

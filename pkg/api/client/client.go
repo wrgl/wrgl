@@ -151,13 +151,13 @@ func extractTicketFrom401(resp *http.Response) (asUri, ticket string) {
 	return "", ""
 }
 
-type ErrorUnauthorized struct {
+type ErrUnauthorized struct {
 	AuthServerURI string
 	Ticket        string
 }
 
-func (err *ErrorUnauthorized) Error() string {
-	return fmt.Sprintf("Unauthorized, login at %s with ticket %q", err.AuthServerURI, err.Ticket)
+func (err *ErrUnauthorized) Error() string {
+	return fmt.Sprintf("unauthorized, login at %s with ticket %q", err.AuthServerURI, err.Ticket)
 }
 
 func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {
@@ -191,7 +191,7 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 		return
 	}
 	if asURI, ticket := extractTicketFrom401(resp); ticket != "" {
-		return nil, &ErrorUnauthorized{asURI, ticket}
+		return nil, &ErrUnauthorized{asURI, ticket}
 	}
 	if resp.StatusCode >= 400 {
 		return nil, NewHTTPError(resp)
