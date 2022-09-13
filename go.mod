@@ -35,7 +35,7 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/mattn/go-sqlite3 v1.14.14
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
-	github.com/pckhoi/uma v0.2.2
+	github.com/pckhoi/uma v0.3.0
 )
 
 require (
