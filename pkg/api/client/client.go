@@ -30,6 +30,7 @@ import (
 const (
 	CTJSON     = "application/json"
 	CTPackfile = "application/x-wrgl-packfile"
+	invalidRPT = "invalid rpt"
 )
 
 type ClientOption func(c *Client)
@@ -61,6 +62,12 @@ func WithUMATicketHandler(cb func(asURI, ticket, oldRPT string) (rpt string, err
 func WithRelyingPartyToken(rpt string) ClientOption {
 	return func(c *Client) {
 		c.rpt = rpt
+	}
+}
+
+func WithForceAuthenticate() ClientOption {
+	return func(c *Client) {
+		c.rpt = invalidRPT
 	}
 }
 
@@ -196,6 +203,9 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 	if asURI, ticket := extractTicketFrom401(resp); ticket != "" {
 		if c.umaTicketHandler == nil {
 			return nil, &ErrUnauthorized{asURI, ticket}
+		}
+		if c.rpt == invalidRPT {
+			c.rpt = ""
 		}
 		var rpt string
 		rpt, err = c.umaTicketHandler(asURI, ticket, c.rpt)

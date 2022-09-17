@@ -51,7 +51,7 @@ func printCmd() *cobra.Command {
 			}
 
 			cm := utils.NewClientMap(cs)
-			client, err := cm.GetClient(cmd, uriS, apiclient.WithRelyingPartyToken("invalid token"))
+			client, err := cm.GetClient(cmd, uriS, apiclient.WithForceAuthenticate())
 			if err != nil {
 				return err
 			}
