@@ -107,8 +107,6 @@ func (s *deviceFlowAuthServer) RequestRPT(cmd *cobra.Command, accessToken, clien
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("ticket: %s\n", s.ticket)
-	fmt.Printf("oldRPT: %s\n", oldRPT)
 	return kc.RequestRPT(accessToken, rp.RPTRequest{
 		Ticket: s.ticket,
 		RPT:    oldRPT,
