@@ -10,14 +10,26 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
 )
+
+func getRemoteURI(arg string, c *conf.Config) (uriS string, uri *url.URL, err error) {
+	uriS = arg
+	if v, ok := c.Remote[uriS]; ok {
+		uriS = v.URL
+	}
+	uriS = strings.TrimRight(uriS, "/")
+	uri, err = url.Parse(uriS)
+	return
+}
 
 func printCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "print { REMOTE_URI | REMOTE_NAME }",
 		Short: "Print access token for a remote, login if necessary",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := utils.MustWRGLDir(cmd)
 			cfs := conffs.NewStore(dir, conffs.LocalSource, "")
@@ -30,12 +42,7 @@ func printCmd() *cobra.Command {
 				return err
 			}
 
-			uriS := args[0]
-			if v, ok := c.Remote[uriS]; ok {
-				uriS = v.URL
-			}
-			uriS = strings.TrimRight(uriS, "/")
-			uri, err := url.Parse(uriS)
+			uriS, uri, err := getRemoteURI(args[0], c)
 			if err != nil {
 				return err
 			}
