@@ -61,12 +61,9 @@ func pushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			uri, tok, err := utils.GetCredentials(cmd, cs, rem.URL)
-			if err != nil {
-				return err
-			}
 			cmd.Printf("To %s\n", rem.URL)
-			client, err := apiclient.NewClient(rem.URL, apiclient.WithAuthorization(tok))
+			cm := utils.NewClientMap(cs)
+			client, err := cm.GetClient(cmd, rem.URL)
 			if err != nil {
 				return err
 			}
@@ -82,7 +79,7 @@ func pushCmd() *cobra.Command {
 			cmd.Printf("transaction %s created\n", tx.ID)
 			remoteRefs, err := client.GetRefs(nil, []string{ref.TransactionRefPrefix})
 			if err != nil {
-				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
+				return utils.HandleHTTPError(cmd, cs, rem.URL, err)
 			}
 			noP, err := cmd.Flags().GetBool("no-progress")
 			if err != nil {
@@ -96,7 +93,7 @@ func pushCmd() *cobra.Command {
 			}
 			ses, err := apiclient.NewReceivePackSession(db, rs, client, updates, remoteRefs, c.MaxPackFileSize())
 			if err != nil {
-				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
+				return utils.HandleHTTPError(cmd, cs, rem.URL, err)
 			}
 			var pbar *progressbar.ProgressBar
 			if !noP {

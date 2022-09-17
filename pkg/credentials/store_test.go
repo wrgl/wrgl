@@ -69,25 +69,23 @@ func TestStore(t *testing.T) {
 	s, err = NewStore()
 	require.NoError(t, err)
 	for rem, ts := range m {
-		uri, tok := s.GetTokenMatching(parseURL(t, rem))
-		require.NotNil(t, uri)
-		assert.Equal(t, rem, uri.String())
+		uri := parseURL(t, rem)
+		tok := s.GetTokenMatching(uri)
 		assert.Equal(t, ts, tok)
-		assert.True(t, s.Delete(*uri))
-		assert.False(t, s.Delete(*uri))
+		assert.True(t, s.Delete(uri))
+		assert.False(t, s.Delete(uri))
 	}
 	require.NoError(t, s.Flush())
 
 	s, err = NewStore()
 	require.NoError(t, err)
 	for rem := range m {
-		uri, tok := s.GetTokenMatching(parseURL(t, rem))
-		assert.Nil(t, uri)
+		tok := s.GetTokenMatching(parseURL(t, rem))
 		assert.Empty(t, tok)
 	}
 }
 
-func TestSelectLongestPrefix(t *testing.T) {
+func TestMatchURIExactly(t *testing.T) {
 	defer mockConfigHome(t)()
 	s, err := NewStore()
 	require.NoError(t, err)
@@ -102,23 +100,18 @@ func TestSelectLongestPrefix(t *testing.T) {
 	s.Set(parseURL(t, "https://my-host3.com"), tokens[3])
 	s.Set(parseURL(t, "https://my-host1.com"), tokens[4])
 
-	u, tok := s.GetTokenMatching(parseURL(t, "https://my-host1.com"))
-	assert.Equal(t, "https://my-host1.com", u.String())
+	tok := s.GetTokenMatching(parseURL(t, "https://my-host1.com"))
 	assert.Equal(t, tokens[4], tok)
 
-	u, tok = s.GetTokenMatching(parseURL(t, "https://my-host3.com/abc/edf/"))
-	assert.Equal(t, "https://my-host3.com", u.String())
-	assert.Equal(t, tokens[3], tok)
+	tok = s.GetTokenMatching(parseURL(t, "https://my-host3.com/abc/edf/"))
+	assert.Equal(t, "", tok)
 
-	u, tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo1"))
-	assert.Equal(t, "https://my-host2.com/repos/repo1", u.String())
+	tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo1"))
 	assert.Equal(t, tokens[1], tok)
 
-	u, tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo2/abc/"))
-	assert.Equal(t, "https://my-host2.com/repos/repo2", u.String())
-	assert.Equal(t, tokens[2], tok)
+	tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo2/abc/"))
+	assert.Equal(t, "", tok)
 
-	u, tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo3"))
-	assert.Equal(t, "https://my-host2.com", u.String())
-	assert.Equal(t, tokens[0], tok)
+	tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo3"))
+	assert.Equal(t, "", tok)
 }

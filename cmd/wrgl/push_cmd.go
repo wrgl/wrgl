@@ -19,6 +19,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/credentials"
 	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -100,10 +101,11 @@ func newPushCmd() *cobra.Command {
 				return err
 			}
 
-			clients, err := utils.NewClientMap()
+			cs, err := credentials.NewStore()
 			if err != nil {
 				return err
 			}
+			clients := utils.NewClientMap(cs)
 
 			if all {
 				names := []string{}
@@ -405,11 +407,11 @@ func pushSingleRepo(
 	if mirror {
 		force = true
 	}
-	client, uri, err := clients.GetClient(cmd, cr, apiclient.WithLogger(logger))
+	client, err := clients.GetClient(cmd, cr.URL, apiclient.WithLogger(logger))
 	if err != nil {
 		return err
 	}
-	remoteRefs, err := clients.GetRefs(cmd, cr, apiclient.WithLogger(logger))
+	remoteRefs, err := clients.GetRefs(cmd, cr.URL, apiclient.WithLogger(logger))
 	if err != nil {
 		return err
 	}
@@ -436,7 +438,7 @@ func pushSingleRepo(
 		}
 		ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, c.MaxPackFileSize())
 		if err != nil {
-			return utils.HandleHTTPError(cmd, clients.CredsStore, cr.URL, uri, err)
+			return utils.HandleHTTPError(cmd, clients.CredsStore, cr.URL, err)
 		}
 		var pbar *progressbar.ProgressBar
 		if !noP {

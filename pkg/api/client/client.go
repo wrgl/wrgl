@@ -46,15 +46,21 @@ func WithCookies(cookies []*http.Cookie) ClientOption {
 	}
 }
 
-func WithAuthorization(token string) ClientOption {
-	return func(c *Client) {
-		c.requestOptions = append(c.requestOptions, WithRequestAuthorization(token))
-	}
-}
-
 func WithTransport(transport http.RoundTripper) ClientOption {
 	return func(c *Client) {
 		c.client.Transport = transport
+	}
+}
+
+func WithUMATicketHandler(cb func(asURI, ticket, oldRPT string) (rpt string, err error)) ClientOption {
+	return func(c *Client) {
+		c.umaTicketHandler = cb
+	}
+}
+
+func WithRelyingPartyToken(rpt string) ClientOption {
+	return func(c *Client) {
+		c.rpt = rpt
 	}
 }
 
@@ -78,14 +84,6 @@ func WithRequestCookies(cookies []*http.Cookie) RequestOption {
 	}
 }
 
-func WithRequestAuthorization(token string) RequestOption {
-	return func(r *http.Request) {
-		if token != "" {
-			r.Header.Set("Authorization", "Bearer "+token)
-		}
-	}
-}
-
 func WithLogger(logger *log.Logger) ClientOption {
 	return func(c *Client) {
 		c.logger = logger
@@ -95,9 +93,11 @@ func WithLogger(logger *log.Logger) ClientOption {
 type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
-	origin         string
-	requestOptions []RequestOption
-	logger         *log.Logger
+	origin           string
+	requestOptions   []RequestOption
+	logger           *log.Logger
+	rpt              string
+	umaTicketHandler func(asURI, ticket, oldRPT string) (rpt string, err error)
 }
 
 func NewClient(origin string, opts ...ClientOption) (*Client, error) {
@@ -180,6 +180,9 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+	if c.rpt != "" {
+		req.Header.Set("Authorization", "Bearer "+c.rpt)
+	}
 	for _, opt := range c.requestOptions {
 		opt(req)
 	}
@@ -191,7 +194,20 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 		return
 	}
 	if asURI, ticket := extractTicketFrom401(resp); ticket != "" {
-		return nil, &ErrUnauthorized{asURI, ticket}
+		if c.umaTicketHandler == nil {
+			return nil, &ErrUnauthorized{asURI, ticket}
+		}
+		var rpt string
+		rpt, err = c.umaTicketHandler(asURI, ticket, c.rpt)
+		if err != nil {
+			return nil, err
+		}
+		c.rpt = rpt
+		req.Header.Set("Authorization", "Bearer "+c.rpt)
+		resp, err = c.client.Do(req)
+		if err != nil {
+			return
+		}
 	}
 	if resp.StatusCode >= 400 {
 		return nil, NewHTTPError(resp)

@@ -8,43 +8,30 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/wrgl/wrgl/cmd/wrgl/hub/api"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/credentials"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
-func PrintAuthCmd(cmd *cobra.Command, remoteURL string) {
-	if strings.HasPrefix(remoteURL, api.APIRoot) {
-		remoteURL = api.APIRoot
-	}
-	cmd.Printf("Run this command to authenticate:\n    wrgl credentials authenticate %s\n", remoteURL)
-}
-
-func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri *url.URL) error {
-	if uri == nil {
-		return nil
+func discardCredentials(cmd *cobra.Command, cs *credentials.Store, remoteURI string) error {
+	uri, err := url.Parse(remoteURI)
+	if err != nil {
+		return err
 	}
 	cmd.Printf("Discarding credentials for %s\n", uri.String())
 	cs.Delete(*uri)
 	return cs.Flush()
 }
 
-func HandleHTTPError(cmd *cobra.Command, cs *credentials.Store, remoteURL string, uri *url.URL, err error) error {
+func HandleHTTPError(cmd *cobra.Command, cs *credentials.Store, remoteURI string, err error) error {
 	if v := apiclient.UnwrapHTTPError(err); v != nil && (v.Code == http.StatusForbidden || v.Code == http.StatusUnauthorized) {
-		if uri != nil {
-			cmd.Println("Credentials are invalid")
-			if err := discardCredentials(cmd, cs, uri); err != nil {
-				return err
-			}
-		} else {
-			cmd.Println("Unauthorized.")
+		cmd.Println("Credentials are invalid")
+		if err := discardCredentials(cmd, cs, remoteURI); err != nil {
+			return err
 		}
-		PrintAuthCmd(cmd, remoteURL)
 	}
 	return err
 }

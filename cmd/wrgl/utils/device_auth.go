@@ -1,4 +1,7 @@
-package credentials
+// SPDX-License-Identifier: Apache-2.0
+// Copyright © 2022 Wrangle Ltd
+
+package utils
 
 import (
 	"context"
@@ -12,9 +15,10 @@ import (
 
 	"github.com/pckhoi/uma/pkg/rp"
 	"github.com/spf13/cobra"
-	"github.com/wrgl/wrgl/cmd/wrgl/utils"
-	apiclient "github.com/wrgl/wrgl/pkg/api/client"
+	"github.com/wrgl/wrgl/pkg/credentials"
 )
+
+const umaClientID = "wrgl"
 
 type DeviceCodeResponse struct {
 	DeviceCode      string `json:"device_code"`
@@ -37,7 +41,7 @@ type deviceFlowAuthServer struct {
 }
 
 func postForm(cmd *cobra.Command, path string, form url.Values, respData interface{}) (err error) {
-	cli := utils.GetClient(cmd.Context())
+	cli := GetClient(cmd.Context())
 	r, err := http.NewRequest(http.MethodPost, path, strings.NewReader(form.Encode()))
 	if err != nil {
 		return
@@ -98,13 +102,14 @@ func (s *deviceFlowAuthServer) Authenticate(cmd *cobra.Command, clientID string)
 	}
 }
 
-func (s *deviceFlowAuthServer) RequestRPT(cmd *cobra.Command, accessToken, clientID string) (rpt string, err error) {
-	kc, err := rp.NewKeycloakClient(s.issuer, clientID, "", utils.GetClient(cmd.Context()))
+func (s *deviceFlowAuthServer) RequestRPT(cmd *cobra.Command, accessToken, clientID, oldRPT string) (rpt string, err error) {
+	kc, err := rp.NewKeycloakClient(s.issuer, clientID, "", GetClient(cmd.Context()))
 	if err != nil {
 		return "", err
 	}
 	return kc.RequestRPT(accessToken, rp.RPTRequest{
 		Ticket: s.ticket,
+		RPT:    oldRPT,
 	})
 }
 
@@ -131,18 +136,9 @@ func decodeJSONResponse(resp *http.Response, obj any) error {
 	return json.Unmarshal(b, obj)
 }
 
-func discoverAuthServer(cmd *cobra.Command, remoteURI string) (*deviceFlowAuthServer, error) {
-	cli, err := apiclient.NewClient(remoteURI)
-	if err != nil {
-		return nil, err
-	}
-	_, err = cli.GetRefs(nil, nil, apiclient.WithRequestAuthorization("invalid token"))
-	err401, ok := err.(*apiclient.ErrUnauthorized)
-	if !ok {
-		return nil, fmt.Errorf("unable to get UMA ticket from repository: %v", err)
-	}
-	client := utils.GetClient(cmd.Context())
-	resp, err := client.Get(err401.AuthServerURI + "/.well-known/openid-configuration")
+func discoverAuthServer(cmd *cobra.Command, asURI, ticket string) (*deviceFlowAuthServer, error) {
+	client := GetClient(cmd.Context())
+	resp, err := client.Get(asURI + "/.well-known/openid-configuration")
 	if err != nil {
 		return nil, err
 	}
@@ -157,9 +153,30 @@ func discoverAuthServer(cmd *cobra.Command, remoteURI string) (*deviceFlowAuthSe
 		return nil, fmt.Errorf("authorization server does not support device grant flow")
 	}
 	return &deviceFlowAuthServer{
-		issuer:         err401.AuthServerURI,
+		issuer:         asURI,
 		deviceEndpoint: cfg.DeviceAuthorizationEndpoint,
 		tokenEndpoint:  cfg.TokenEndpoint,
-		ticket:         err401.Ticket,
+		ticket:         ticket,
 	}, nil
+}
+
+func handleUMATicket(cmd *cobra.Command, cs *credentials.Store, repoURI url.URL, asURI, ticket, oldRPT string) (rpt string, err error) {
+	s, err := discoverAuthServer(cmd, asURI, ticket)
+	if err != nil {
+		return
+	}
+	accessToken, err := s.Authenticate(cmd, umaClientID)
+	if err != nil {
+		return
+	}
+	rpt, err = s.RequestRPT(cmd, accessToken, umaClientID, oldRPT)
+	if err != nil {
+		return
+	}
+	cs.Set(repoURI, rpt)
+	if err = cs.Flush(); err != nil {
+		return
+	}
+	cmd.Printf("Saved credentials to %s\n", cs.Path())
+	return
 }

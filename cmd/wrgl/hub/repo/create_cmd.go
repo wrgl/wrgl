@@ -40,7 +40,7 @@ func createCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cs, uri, tok, err := getWrglHubCreds(cmd)
+			cs, tok, err := getWrglHubCreds(cmd)
 			if err != nil {
 				return err
 			}
@@ -51,7 +51,7 @@ func createCmd() *cobra.Command {
 			if username == "" {
 				user, err := api.GetMe(tok)
 				if err != nil {
-					return utils.HandleHTTPError(cmd, cs, api.APIRoot, uri, err)
+					return utils.HandleHTTPError(cmd, cs, api.APIRoot, err)
 				}
 				username = user.Username
 			}

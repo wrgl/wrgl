@@ -94,15 +94,12 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cm := utils.NewClientMap(cs)
 			if all {
 				for k, v := range c.Remote {
-					uri, tok, err := utils.GetCredentials(cmd, cs, v.URL)
+					err = Fetch(cmd, db, rs, c.User, cm, k, v, v.Fetch, force, depth, logger)
 					if err != nil {
-						return err
-					}
-					err = Fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force, depth, logger)
-					if err != nil {
-						return utils.HandleHTTPError(cmd, cs, v.URL, uri, err)
+						return utils.HandleHTTPError(cmd, cs, v.URL, err)
 					}
 				}
 				return nil
@@ -111,12 +108,8 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			uri, tok, err := utils.GetCredentials(cmd, cs, rem.URL)
-			if err != nil {
-				return err
-			}
-			if err := Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger); err != nil {
-				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
+			if err := Fetch(cmd, db, rs, c.User, cm, remote, rem, specs, force, depth, logger); err != nil {
+				return utils.HandleHTTPError(cmd, cs, rem.URL, err)
 			}
 			return nil
 		},
@@ -367,8 +360,20 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 	return ses.Start()
 }
 
-func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool, depth int32, logger *log.Logger) error {
-	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(token), apiclient.WithLogger(logger))
+func Fetch(
+	cmd *cobra.Command,
+	db objects.Store,
+	rs ref.Store,
+	u *conf.User,
+	cm *utils.ClientMap,
+	remote string,
+	cr *conf.Remote,
+	specs []*conf.Refspec,
+	force bool,
+	depth int32,
+	logger *log.Logger,
+) error {
+	client, err := cm.GetClient(cmd, cr.URL, apiclient.WithLogger(logger))
 	if err != nil {
 		return errors.Wrap("error creating new client", err)
 	}

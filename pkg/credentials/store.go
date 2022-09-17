@@ -31,7 +31,7 @@ func (u *URL) UnmarshalYAML(value *yaml.Node) error {
 }
 
 type Credentials struct {
-	URI   *URL   `yaml:"host,omitempty"`
+	URI   *URL   `yaml:"uri,omitempty"`
 	Token string `yaml:"token,omitempty"`
 }
 
@@ -52,8 +52,15 @@ func NewStore() (*Store, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := yaml.Unmarshal(b, &s.creds); err != nil {
+		creds := []*Credentials{}
+		if err := yaml.Unmarshal(b, &creds); err != nil {
 			return nil, err
+		}
+		for _, c := range creds {
+			if c.URI == nil {
+				continue
+			}
+			s.creds = append(s.creds, c)
 		}
 		sort.Sort(s)
 	} else {
@@ -104,34 +111,11 @@ func (s *Store) indexOfURI(uri url.URL) int {
 	return -1
 }
 
-func (s *Store) searchHost(uri url.URL) (int, int) {
-	start := sort.Search(len(s.creds), func(i int) bool {
-		return s.creds[i].URI.Host <= uri.Host
-	})
-	end := sort.Search(len(s.creds), func(i int) bool {
-		return s.creds[i].URI.Host < uri.Host
-	})
-	return start, end
-}
-
 func ensureTrailingSlash(p string) string {
 	if !strings.HasSuffix(p, "/") {
 		return p + "/"
 	}
 	return p
-}
-
-func (s *Store) indexOfMatchingPrefix(uri url.URL) int {
-	start, end := s.searchHost(uri)
-	for i := start; i < end; i++ {
-		if strings.HasPrefix(
-			ensureTrailingSlash(uri.Path),
-			ensureTrailingSlash(s.creds[i].URI.Path),
-		) {
-			return i
-		}
-	}
-	return -1
 }
 
 func (s *Store) Set(uri url.URL, token string) {
@@ -154,11 +138,11 @@ func (s *Store) Set(uri url.URL, token string) {
 
 // GetTokenMatching returns the (uri, token) pair with longest path that
 // is a prefix of input uri.
-func (s *Store) GetTokenMatching(uri url.URL) (*url.URL, string) {
-	if i := s.indexOfMatchingPrefix(uri); i != -1 {
-		return &s.creds[i].URI.URL, s.creds[i].Token
+func (s *Store) GetTokenMatching(uri url.URL) string {
+	if i := s.indexOfURI(uri); i != -1 {
+		return s.creds[i].Token
 	}
-	return nil, ""
+	return ""
 }
 
 func (s *Store) Delete(uri url.URL) bool {

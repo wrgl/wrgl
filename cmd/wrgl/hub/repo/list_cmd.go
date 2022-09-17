@@ -13,7 +13,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/credentials"
 )
 
-func getWrglHubCreds(cmd *cobra.Command) (cs *credentials.Store, uri *url.URL, token string, err error) {
+func getWrglHubCreds(cmd *cobra.Command) (cs *credentials.Store, token string, err error) {
 	cs, err = credentials.NewStore()
 	if err != nil {
 		return
@@ -22,9 +22,8 @@ func getWrglHubCreds(cmd *cobra.Command) (cs *credentials.Store, uri *url.URL, t
 	if err != nil {
 		return
 	}
-	uri, token = cs.GetTokenMatching(*u)
+	token = cs.GetTokenMatching(*u)
 	if token == "" {
-		utils.PrintAuthCmd(cmd, u.String())
 		err = fmt.Errorf("unauthenticated")
 		return
 	}
@@ -47,7 +46,7 @@ func listCmd() *cobra.Command {
 		}),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cs, uri, tok, err := getWrglHubCreds(cmd)
+			cs, tok, err := getWrglHubCreds(cmd)
 			if err != nil {
 				return err
 			}
@@ -57,7 +56,7 @@ func listCmd() *cobra.Command {
 			} else {
 				user, err := api.GetMe(tok)
 				if err != nil {
-					return utils.HandleHTTPError(cmd, cs, api.APIRoot, uri, err)
+					return utils.HandleHTTPError(cmd, cs, api.APIRoot, err)
 				}
 				username = user.Username
 			}
@@ -66,7 +65,7 @@ func listCmd() *cobra.Command {
 			for {
 				lr, err := api.ListRepos(tok, username, offset)
 				if err != nil {
-					return utils.HandleHTTPError(cmd, cs, api.APIRoot, uri, err)
+					return utils.HandleHTTPError(cmd, cs, api.APIRoot, err)
 				}
 				for _, obj := range lr.Repos {
 					if obj.Public {

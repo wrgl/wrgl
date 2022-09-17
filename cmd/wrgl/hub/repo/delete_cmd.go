@@ -19,13 +19,13 @@ func deleteCmd() *cobra.Command {
 		Long:  "Remote one or more repository. This also wipes the data completely.",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cs, uri, tok, err := getWrglHubCreds(cmd)
+			cs, tok, err := getWrglHubCreds(cmd)
 			if err != nil {
 				return err
 			}
 			user, err := api.GetMe(tok)
 			if err != nil {
-				return utils.HandleHTTPError(cmd, cs, api.APIRoot, uri, err)
+				return utils.HandleHTTPError(cmd, cs, api.APIRoot, err)
 			}
 			quiet, err := cmd.Flags().GetBool("quiet")
 			if err != nil {

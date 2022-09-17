@@ -75,16 +75,15 @@ func AddRemote(cmd *cobra.Command, name string, uri string) error {
 	return s.Save(c)
 }
 
-func GetCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (uri *url.URL, token string, err error) {
+func GetCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (token string, err error) {
 	u, err := url.Parse(remote)
 	if err != nil {
 		return
 	}
-	uri, token = cs.GetTokenMatching(*u)
-	if uri == nil {
+	token = cs.GetTokenMatching(*u)
+	if token == "" {
 		cmd.Printf("No credential found for %s\n", remote)
 		cmd.Println("Proceed as anonymous user...")
-		return
 	}
 	return
 }

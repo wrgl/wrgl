@@ -15,6 +15,7 @@ import (
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/credentials"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -55,10 +56,11 @@ func newTablesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cm, err := utils.NewClientMap()
+			cs, err := credentials.NewStore()
 			if err != nil {
 				return err
 			}
+			cm := utils.NewClientMap(cs)
 
 			if missing {
 				rs := rd.OpenRefStore()
@@ -128,13 +130,13 @@ func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c
 		if !ok {
 			return fmt.Errorf("remote %q not found", remote)
 		}
-		client, uri, err := cm.GetClient(cmd, rem)
+		client, err := cm.GetClient(cmd, rem.URL)
 		if err != nil {
 			return err
 		}
 		pr, err := client.GetObjects(sums)
 		if err != nil {
-			return utils.HandleHTTPError(cmd, cm.CredsStore, rem.URL, uri, err)
+			return utils.HandleHTTPError(cmd, cm.CredsStore, rem.URL, err)
 		}
 		defer pr.Close()
 		or := apiutils.NewObjectReceiver(db, nil)

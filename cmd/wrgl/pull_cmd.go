@@ -217,13 +217,10 @@ func pullSingleRepo(
 	if err != nil {
 		return err
 	}
-	uri, tok, err := utils.GetCredentials(cmd, cs, rem.URL)
+	cm := utils.NewClientMap(cs)
+	err = fetch.Fetch(cmd, db, rs, c.User, cm, remote, rem, specs, force, depth, logger)
 	if err != nil {
-		return err
-	}
-	err = fetch.Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger)
-	if err != nil {
-		return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
+		return utils.HandleHTTPError(cmd, cs, rem.URL, err)
 	}
 	if setUpstream && len(args) > 2 {
 		ref, err := conf.NewRefspec(name, strings.TrimPrefix(specs[0].Src(), "refs/"), false, false)
