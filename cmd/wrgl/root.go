@@ -15,7 +15,6 @@ import (
 	"github.com/wrgl/wrgl/cmd/wrgl/config"
 	"github.com/wrgl/wrgl/cmd/wrgl/credentials"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
-	"github.com/wrgl/wrgl/cmd/wrgl/hub"
 	"github.com/wrgl/wrgl/cmd/wrgl/reflog"
 	"github.com/wrgl/wrgl/cmd/wrgl/remote"
 	"github.com/wrgl/wrgl/cmd/wrgl/transaction"
@@ -100,7 +99,6 @@ func RootCmd() *cobra.Command {
 	rootCmd.AddCommand(remote.RootCmd())
 	rootCmd.AddCommand(reflog.RootCmd())
 	rootCmd.AddCommand(credentials.RootCmd())
-	rootCmd.AddCommand(hub.RootCmd())
 	rootCmd.AddCommand(transaction.RootCmd())
 	rootCmd.AddCommand(gcCmd())
 	rootCmd.AddCommand(reapplyCmd())
