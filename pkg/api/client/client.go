@@ -179,13 +179,16 @@ func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {
 	return json.Unmarshal(b, obj)
 }
 
-func (c *Client) Request(method, path string, body io.Reader, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {
-	req, err := http.NewRequest(method, c.origin+path, body)
-	if err != nil {
-		return
-	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
+func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http.Response, err error) {
+	body := bytes.NewBuffer(nil)
+	if req.Body != nil {
+		if _, err = io.Copy(body, req.Body); err != nil {
+			return
+		}
+		if err = req.Body.Close(); err != nil {
+			return
+		}
+		req.Body = io.NopCloser(bytes.NewReader(body.Bytes()))
 	}
 	if c.rpt != "" {
 		req.Header.Set("Authorization", "Bearer "+c.rpt)
@@ -213,11 +216,32 @@ func (c *Client) Request(method, path string, body io.Reader, headers map[string
 			return nil, err
 		}
 		c.rpt = rpt
+		oldHeader := req.Header
+		req, err = http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body.Bytes()))
+		if err != nil {
+			return nil, err
+		}
+		req.Header = oldHeader
 		req.Header.Set("Authorization", "Bearer "+c.rpt)
 		resp, err = c.client.Do(req)
 		if err != nil {
-			return
+			return nil, err
 		}
+	}
+	return resp, nil
+}
+
+func (c *Client) Request(method, path string, body io.Reader, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {
+	req, err := http.NewRequest(method, c.origin+path, body)
+	if err != nil {
+		return
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err = c.doRequest(req, opts...)
+	if err != nil {
+		return
 	}
 	if resp.StatusCode >= 400 {
 		return nil, NewHTTPError(resp)
@@ -260,13 +284,7 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 		return nil, err
 	}
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	for _, opt := range c.requestOptions {
-		opt(req)
-	}
-	for _, opt := range opts {
-		opt(req)
-	}
-	resp, err := c.client.Do(req)
+	resp, err := c.doRequest(req, opts...)
 	if err != nil {
 		return nil, err
 	}

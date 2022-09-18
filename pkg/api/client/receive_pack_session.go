@@ -9,7 +9,7 @@ import (
 	"container/list"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -81,7 +81,7 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 
 func parseReceivePackResponse(resp *http.Response) (rpr *payload.ReceivePackResponse, err error) {
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
