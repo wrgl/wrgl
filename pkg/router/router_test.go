@@ -43,40 +43,42 @@ func assertRedirect(t *testing.T, handler http.Handler, method, path string, sta
 }
 
 func TestRouter(t *testing.T) {
-	router := NewRouter(regexp.MustCompile(`^/my-root/`), &Routes{
-		Subs: []*Routes{
-			{http.MethodGet, regexp.MustCompile(`^/refs/`), mockHandler("get refs"), nil},
-			{http.MethodPost, regexp.MustCompile(`^/upload-pack/`), mockHandler("upload pack"), nil},
-			{http.MethodGet, regexp.MustCompile(`^/diff/[0-9a-z]{32}/[0-9a-z]{32}/`), mockHandler("diff"), nil},
-			{"", regexp.MustCompile(`^/commits/`), nil, []*Routes{
-				{http.MethodPost, nil, mockHandler("commit"), nil},
-				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), mockHandler("get commit"), nil},
-			}},
-			{"", regexp.MustCompile(`^/tables/`), nil, []*Routes{
-				{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), mockHandler("get table"), []*Routes{
-					{http.MethodGet, regexp.MustCompile(`^blocks/`), mockHandler("get blocks"), nil},
+	for _, root := range []string{`^/my-root/`, `^/my-root`} {
+		router := NewRouter(regexp.MustCompile(root), &Routes{
+			Subs: []*Routes{
+				{http.MethodGet, regexp.MustCompile(`^/refs/`), mockHandler("get refs"), nil},
+				{http.MethodPost, regexp.MustCompile(`^/upload-pack/`), mockHandler("upload pack"), nil},
+				{http.MethodGet, regexp.MustCompile(`^/diff/[0-9a-z]{32}/[0-9a-z]{32}/`), mockHandler("diff"), nil},
+				{"", regexp.MustCompile(`^/commits/`), nil, []*Routes{
+					{http.MethodPost, nil, mockHandler("commit"), nil},
+					{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), mockHandler("get commit"), nil},
 				}},
-			}},
-		},
-	})
+				{"", regexp.MustCompile(`^/tables/`), nil, []*Routes{
+					{http.MethodGet, regexp.MustCompile(`^[0-9a-z]{32}/`), mockHandler("get table"), []*Routes{
+						{http.MethodGet, regexp.MustCompile(`^blocks/`), mockHandler("get blocks"), nil},
+					}},
+				}},
+			},
+		})
 
-	assertResponse(t, router, http.MethodPost, "/", 404, "404 page not found\n")
-	assertResponse(t, router, http.MethodPost, "/refs/", 404, "404 page not found\n")
-	assertResponse(t, router, http.MethodPost, "/my-root/", 404, "404 page not found\n")
-	assertResponse(t, router, http.MethodGet, "/my-root/refs/", 200, "get refs")
-	assertResponse(t, router, http.MethodPost, "/my-root/refs/", 404, "404 page not found\n")
-	assertResponse(t, router, http.MethodPost, "/my-root/upload-pack/", 200, "upload pack")
-	assertResponse(t, router, http.MethodGet, fmt.Sprintf(
-		"/my-root/diff/%x/%x/", testutils.SecureRandomBytes(16), testutils.SecureRandomBytes(16),
-	), 200, "diff")
-	assertResponse(t, router, http.MethodPost, "/my-root/commits/", 200, "commit")
-	assertResponse(t, router, http.MethodGet, fmt.Sprintf("/my-root/commits/%x/", testutils.SecureRandomBytes(16)), 200, "get commit")
-	assertResponse(t, router, http.MethodGet, fmt.Sprintf("/my-root/tables/%x/", testutils.SecureRandomBytes(16)), 200, "get table")
-	assertResponse(t, router, http.MethodGet, fmt.Sprintf("/my-root/tables/%x/blocks/", testutils.SecureRandomBytes(16)), 200, "get blocks")
+		assertResponse(t, router, http.MethodPost, "/", 404, "404 page not found\n")
+		assertResponse(t, router, http.MethodPost, "/refs/", 404, "404 page not found\n")
+		assertResponse(t, router, http.MethodPost, "/my-root/", 404, "404 page not found\n")
+		assertResponse(t, router, http.MethodGet, "/my-root/refs/", 200, "get refs")
+		assertResponse(t, router, http.MethodPost, "/my-root/refs/", 404, "404 page not found\n")
+		assertResponse(t, router, http.MethodPost, "/my-root/upload-pack/", 200, "upload pack")
+		assertResponse(t, router, http.MethodGet, fmt.Sprintf(
+			"/my-root/diff/%x/%x/", testutils.SecureRandomBytes(16), testutils.SecureRandomBytes(16),
+		), 200, "diff")
+		assertResponse(t, router, http.MethodPost, "/my-root/commits/", 200, "commit")
+		assertResponse(t, router, http.MethodGet, fmt.Sprintf("/my-root/commits/%x/", testutils.SecureRandomBytes(16)), 200, "get commit")
+		assertResponse(t, router, http.MethodGet, fmt.Sprintf("/my-root/tables/%x/", testutils.SecureRandomBytes(16)), 200, "get table")
+		assertResponse(t, router, http.MethodGet, fmt.Sprintf("/my-root/tables/%x/blocks/", testutils.SecureRandomBytes(16)), 200, "get blocks")
 
-	// test redirect
-	p := fmt.Sprintf("/my-root/tables/%x/blocks", testutils.SecureRandomBytes(16))
-	assertRedirect(t, router, http.MethodGet, p, 301, p+"/")
+		// test redirect
+		p := fmt.Sprintf("/my-root/tables/%x/blocks", testutils.SecureRandomBytes(16))
+		assertRedirect(t, router, http.MethodGet, p, 301, p+"/")
+	}
 }
 
 func TestRouterWithPrefix(t *testing.T) {

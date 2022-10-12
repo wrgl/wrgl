@@ -37,7 +37,7 @@ func (router *Router) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			http.NotFound(rw, r)
 			return
 		} else {
-			path = "/" + strings.TrimPrefix(path, s)
+			path = "/" + strings.TrimPrefix(strings.TrimPrefix(path, s), "/")
 		}
 	}
 	redirect := !strings.HasSuffix(path, "/")
