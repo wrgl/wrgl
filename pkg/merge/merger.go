@@ -5,6 +5,7 @@ package merge
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -185,14 +186,14 @@ func (m *Merger) SaveResolvedRow(pk []byte, row []string) error {
 	return m.collector.SaveResolvedRow(pk, row)
 }
 
-func (m *Merger) SortedBlocks(removedCols map[int]struct{}) (<-chan *sorter.Block, error) {
+func (m *Merger) SortedBlocks(ctx context.Context, removedCols map[int]struct{}) (<-chan *sorter.Block, error) {
 	m.errChan = make(chan error, 1)
-	return m.collector.SortedBlocks(removedCols, m.errChan)
+	return m.collector.SortedBlocks(ctx, removedCols, m.errChan)
 }
 
-func (m *Merger) SortedRows(removedCols map[int]struct{}) (<-chan *sorter.Rows, error) {
+func (m *Merger) SortedRows(ctx context.Context, removedCols map[int]struct{}) (<-chan *sorter.Rows, error) {
 	m.errChan = make(chan error, 1)
-	return m.collector.SortedRows(removedCols, m.errChan)
+	return m.collector.SortedRows(ctx, removedCols, m.errChan)
 }
 
 func (m *Merger) Columns(removedCols map[int]struct{}) []string {

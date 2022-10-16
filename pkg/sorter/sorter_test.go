@@ -5,6 +5,7 @@ package sorter
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"io"
 	"math/rand"
@@ -33,7 +34,9 @@ func writeCSV(t *testing.T, rows [][]string, delimiter rune) *os.File {
 func sortedRows(t *testing.T, s *Sorter, rowsCount uint32, removeCols map[int]struct{}) []*Rows {
 	t.Helper()
 	errCh := make(chan error, 1)
-	rowsCh := s.SortedRows(removeCols, errCh)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rowsCh := s.SortedRows(ctx, removeCols, errCh)
 	rowBlocks := make([]*Rows, objects.BlocksCount(rowsCount))
 	for obj := range rowsCh {
 		rowBlocks[obj.Offset] = obj
@@ -48,7 +51,9 @@ func sortedRows(t *testing.T, s *Sorter, rowsCount uint32, removeCols map[int]st
 func sortedBlocks(t *testing.T, s *Sorter, rowsCount uint32) []*Block {
 	t.Helper()
 	errCh := make(chan error, 1)
-	blockCh := s.SortedBlocks(nil, errCh)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	blockCh := s.SortedBlocks(ctx, nil, errCh)
 	blocks := make([]*Block, objects.BlocksCount(rowsCount))
 	for obj := range blockCh {
 		blocks[obj.Offset] = obj

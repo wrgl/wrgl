@@ -4,6 +4,7 @@
 package merge
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -125,20 +126,20 @@ func (c *RowCollector) collectRowsThatStayedTheSame() error {
 	return nil
 }
 
-func (c *RowCollector) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error) (<-chan *sorter.Block, error) {
+func (c *RowCollector) SortedBlocks(ctx context.Context, removedCols map[int]struct{}, errChan chan<- error) (<-chan *sorter.Block, error) {
 	err := c.collectRowsThatStayedTheSame()
 	if err != nil {
 		return nil, err
 	}
-	return c.resolvedRows.SortedBlocks(removedCols, errChan), nil
+	return c.resolvedRows.SortedBlocks(ctx, removedCols, errChan), nil
 }
 
-func (c *RowCollector) SortedRows(removedCols map[int]struct{}, errChan chan<- error) (<-chan *sorter.Rows, error) {
+func (c *RowCollector) SortedRows(ctx context.Context, removedCols map[int]struct{}, errChan chan<- error) (<-chan *sorter.Rows, error) {
 	err := c.collectRowsThatStayedTheSame()
 	if err != nil {
 		return nil, err
 	}
-	return c.resolvedRows.SortedRows(removedCols, errChan), nil
+	return c.resolvedRows.SortedRows(ctx, removedCols, errChan), nil
 }
 
 func (c *RowCollector) Close() error {
