@@ -33,6 +33,18 @@ func NewTable(columns []string, pk []uint32) *Table {
 	}
 }
 
+func (t *Table) HasValidBlockIndices() bool {
+	if len(t.BlockIndices) != len(t.Blocks) {
+		return false
+	}
+	for _, b := range t.BlockIndices {
+		if b == nil {
+			return false
+		}
+	}
+	return true
+}
+
 func (t *Table) PrimaryKey() []string {
 	return slice.IndicesToValues(t.Columns, t.PK)
 }
