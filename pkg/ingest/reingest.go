@@ -30,7 +30,7 @@ func reingestTable(db objects.Store, s *sorter.Sorter, tbl *objects.Table, opts 
 		}
 	}
 	inserter := NewInserter(db, s, opts...)
-	return inserter.ingestTableFromSorter(s.Columns, s.PK)
+	return inserter.IngestTableFromSorter(s.Columns, s.PK)
 }
 
 // ReingestTable searchs for duplicated rows in a table. If duplicated rows are detected, it re-ingests the table and return the new table sum

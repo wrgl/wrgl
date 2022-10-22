@@ -24,31 +24,43 @@ type CommitsQueue struct {
 	mutex   sync.Mutex
 }
 
-func NewCommitsQueue(db objects.Store, initialSums [][]byte) (*CommitsQueue, error) {
+func (q *CommitsQueue) Reset(initialSums [][]byte) error {
 	n := len(initialSums)
-	sums := make([][]byte, 0, n)
-	commits := make([]*objects.Commit, 0, n)
-	seen := map[string]struct{}{}
+	if q.commits == nil {
+		q.commits = make([]*objects.Commit, 0, n)
+	} else {
+		q.commits = q.commits[:0]
+	}
+	if q.sums == nil {
+		q.sums = make([][]byte, 0, n)
+	} else {
+		q.sums = q.sums[:0]
+	}
+	q.seen = map[string]struct{}{}
 	for _, v := range initialSums {
-		if _, ok := seen[string(v)]; ok {
+		if _, ok := q.seen[string(v)]; ok {
 			continue
 		}
-		commit, err := objects.GetCommit(db, v)
+		commit, err := objects.GetCommit(q.db, v)
 		if err != nil {
-			return nil, fmt.Errorf("GetCommit %x error: %v", v, err)
+			return fmt.Errorf("GetCommit %x error: %v", v, err)
 		}
-		sums = append(sums, v)
-		commits = append(commits, commit)
-		seen[string(v)] = struct{}{}
-	}
-	q := &CommitsQueue{
-		db:      db,
-		sums:    sums,
-		commits: commits,
-		seen:    seen,
-		grow:    2,
+		q.sums = append(q.sums, v)
+		q.commits = append(q.commits, commit)
+		q.seen[string(v)] = struct{}{}
 	}
 	sort.Sort(q)
+	return nil
+}
+
+func NewCommitsQueue(db objects.Store, initialSums [][]byte) (*CommitsQueue, error) {
+	q := &CommitsQueue{
+		db:   db,
+		grow: 2,
+	}
+	if err := q.Reset(initialSums); err != nil {
+		return nil, err
+	}
 	return q, nil
 }
 

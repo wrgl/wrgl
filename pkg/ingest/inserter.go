@@ -138,7 +138,7 @@ func (o *Inserter) sortBlocks() (blkPKs [][]string) {
 	return
 }
 
-func (i *Inserter) ingestTableFromSorter(columns []string, pk []uint32) ([]byte, error) {
+func (i *Inserter) IngestTableFromSorter(columns []string, pk []uint32) ([]byte, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	sorterErrChan := make(chan error, 1)
@@ -251,5 +251,5 @@ func (i *Inserter) ingestTable(f io.ReadCloser, pk []string) ([]byte, error) {
 	if err := i.sorter.SortFile(f, pk); err != nil {
 		return nil, err
 	}
-	return i.ingestTableFromSorter(i.sorter.Columns, i.sorter.PK)
+	return i.IngestTableFromSorter(i.sorter.Columns, i.sorter.PK)
 }
