@@ -5,12 +5,14 @@ package factory
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
 	"strings"
 	"testing"
 
+	"github.com/pckhoi/meow"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -52,6 +54,45 @@ func ingestTable(t *testing.T, db objects.Store, rows [][]string, pk []uint32) [
 	return sum
 }
 
+func ingestTableFromRows(t *testing.T, db objects.Store, buf *bytes.Buffer, rows [][]string) ([]byte, *objects.Table) {
+	t.Helper()
+	hash := meow.New(0)
+	enc := objects.NewStrListEncoder(true)
+	buf.Reset()
+	blk := rows[1:]
+	cols := rows[0]
+	pk := []uint32{0}
+
+	_, err := objects.WriteBlockTo(enc, buf, blk)
+	require.NoError(t, err)
+	var bb []byte
+	blkSum, bb, err := objects.SaveBlock(db, bb, buf.Bytes())
+	require.NoError(t, err)
+
+	// save block index
+	idx, err := objects.IndexBlock(enc, hash, blk, pk)
+	require.NoError(t, err)
+	buf.Reset()
+	_, err = idx.WriteTo(buf)
+	require.NoError(t, err)
+	blkIdxSum, _, err := objects.SaveBlockIndex(db, bb, buf.Bytes())
+	require.NoError(t, err)
+
+	tbl := &objects.Table{
+		Columns:      cols,
+		PK:           pk,
+		RowsCount:    uint32(len(blk)),
+		Blocks:       [][]byte{blkSum},
+		BlockIndices: [][]byte{blkIdxSum},
+	}
+	buf.Reset()
+	_, err = tbl.WriteTo(buf)
+	require.NoError(t, err)
+	sum, err := objects.SaveTable(db, buf.Bytes())
+	require.NoError(t, err)
+	return sum, tbl
+}
+
 func BuildTable(t *testing.T, db objects.Store, rows []string, pk []uint32) []byte {
 	t.Helper()
 	records, pk := parseRows(rows, pk)
@@ -88,4 +129,22 @@ func SdumpTable(t *testing.T, db objects.Store, sum []byte, indent int) string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+func SaveTable(t *testing.T, ctx context.Context, db objects.Store, tbl *objects.Table) ([]byte, context.Context) {
+	t.Helper()
+	buf, ctx := getBuffer(ctx)
+	buf.Reset()
+	_, err := tbl.WriteTo(buf)
+	require.NoError(t, err)
+	sum, err := objects.SaveTable(db, buf.Bytes())
+	require.NoError(t, err)
+	return sum, ctx
+}
+
+func GetTable(t *testing.T, db objects.Store, sum []byte) *objects.Table {
+	t.Helper()
+	tbl, err := objects.GetTable(db, sum)
+	require.NoError(t, err)
+	return tbl
 }

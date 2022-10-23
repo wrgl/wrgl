@@ -30,22 +30,34 @@ func NewDoctor(db objects.Store, rs ref.Store, user conf.User, logger logr.Logge
 	return d
 }
 
+func strMap(sl []string) map[string]struct{} {
+	m := map[string]struct{}{}
+	for _, v := range sl {
+		m[v] = struct{}{}
+	}
+	return m
+}
+
 type RefIssues struct {
 	Ref    string
 	Issues []*Issue
 }
 
-func (d *Doctor) Diagnose(ctx context.Context, refPrefixes, refNonPrefixes []string) (issues chan *RefIssues, errCh chan error, err error) {
+func (d *Doctor) Diagnose(ctx context.Context, refPrefixes, refNonPrefixes, skips []string) (issues chan *RefIssues, errCh chan error, err error) {
 	refs, err := ref.ListLocalRefs(d.rs, refPrefixes, refNonPrefixes)
 	if err != nil {
 		return
 	}
 	issues = make(chan *RefIssues, len(refs))
 	errCh = make(chan error, 1)
+	skipsM := strMap(skips)
 	go func() {
 		defer close(issues)
 		defer close(errCh)
 		for name, sum := range refs {
+			if _, ok := skipsM[name]; ok {
+				continue
+			}
 			select {
 			case <-ctx.Done():
 				return

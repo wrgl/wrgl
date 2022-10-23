@@ -13,28 +13,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
-func getCommit(t *testing.T, db objects.Store, sum []byte) *objects.Commit {
-	t.Helper()
-	com, err := objects.GetCommit(db, sum)
-	require.NoError(t, err)
-	return com
-}
-
-func getParent(t *testing.T, db objects.Store, com *objects.Commit) *objects.Commit {
-	t.Helper()
-	if len(com.Parents) == 0 {
-		return nil
-	}
-	return getCommit(t, db, com.Parents[0])
-}
-
-func getTable(t *testing.T, db objects.Store, sum []byte) *objects.Table {
-	t.Helper()
-	tbl, err := objects.GetTable(db, sum)
-	require.NoError(t, err)
-	return tbl
-}
-
 func TestTree(t *testing.T) {
 	db := objmock.NewStore()
 	sum1, com1 := factory.CommitRandom(t, db, nil)
@@ -119,11 +97,11 @@ func TestTree_EditCommit(t *testing.T) {
 	}))
 	sum, err := tree.UpdateAllDescendants()
 	require.NoError(t, err)
-	com := getCommit(t, db, sum)
+	com := factory.GetCommit(t, db, sum)
 	assert.Equal(t, com3.Table, com.Table)
 	assert.NotEqual(t, com3.Parents, com.Parents)
 
-	com = getParent(t, db, com)
+	com = factory.GetParent(t, db, com)
 	assert.Equal(t, "John Doe", com.AuthorName)
 	assert.Equal(t, com2.Table, com.Table)
 	assert.Equal(t, com2.Parents, com.Parents)
@@ -145,7 +123,7 @@ func TestTree_EditCommit_remove(t *testing.T) {
 	}))
 	sum, err := tree.UpdateAllDescendants()
 	require.NoError(t, err)
-	com := getCommit(t, db, sum)
+	com := factory.GetCommit(t, db, sum)
 	assert.Equal(t, com3.Table, com.Table)
 	assert.Len(t, com.Parents, 0)
 }

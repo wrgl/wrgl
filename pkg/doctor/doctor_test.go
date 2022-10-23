@@ -2,51 +2,18 @@ package doctor
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/conf"
+	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
 	"github.com/wrgl/wrgl/pkg/ref"
 	refmock "github.com/wrgl/wrgl/pkg/ref/mock"
-	"github.com/wrgl/wrgl/pkg/slice"
 )
-
-func getRows(t *testing.T, db objects.Store, tbl *objects.Table) [][]string {
-	var rows [][]string
-	var bb []byte
-	var err error
-	var blk [][]string
-	for _, sum := range tbl.Blocks {
-		blk, bb, err = objects.GetBlock(db, bb, sum)
-		require.NoError(t, err)
-		rows = append(rows, blk...)
-	}
-	return rows
-}
-
-func indexRows(pk []uint32, rows [][]string) map[string][]string {
-	m := map[string][]string{}
-	for _, row := range rows {
-		m[strings.Join(slice.IndicesToValues(row, pk), "-")] = row
-	}
-	return m
-}
-
-func assertDuplicatedRowsRemoved(t *testing.T, db objects.Store, newTbl, oldTbl *objects.Table) {
-	t.Helper()
-	assert.Equal(t, newTbl.Columns, oldTbl.Columns)
-	assert.Equal(t, newTbl.PK, oldTbl.PK)
-	assert.Less(t, newTbl.RowsCount, oldTbl.RowsCount)
-	newRows := getRows(t, db, newTbl)
-	oldRows := getRows(t, db, oldTbl)
-	assert.Less(t, len(newRows), len(oldRows))
-	assert.Equal(t, indexRows(newTbl.PK, newRows), indexRows(oldTbl.PK, oldRows))
-}
 
 func TestResolve(t *testing.T) {
 	db := objmock.NewStore()
@@ -59,17 +26,17 @@ func TestResolve(t *testing.T) {
 
 	type resolveTestCase struct {
 		Branch    string
-		Factories []commitFactory
+		Factories []factory.CommitFactory
 		CheckTree func(t *testing.T, db objects.Store, newHead, oldHead *objects.Commit)
 	}
 
 	cases := []resolveTestCase{
 		{
 			Branch: "remove",
-			Factories: []commitFactory{
-				commitNormal(),
-				commitMissingTable(),
-				commitNormal(),
+			Factories: []factory.CommitFactory{
+				factory.CommitNormal(),
+				factory.CommitMissingTable(),
+				factory.CommitNormal(),
 			},
 			CheckTree: func(t *testing.T, db objects.Store, newHead, oldHead *objects.Commit) {
 				assert.Equal(t, newHead.Table, oldHead.Table)
@@ -78,55 +45,63 @@ func TestResolve(t *testing.T) {
 		},
 		{
 			Branch: "reingest",
-			Factories: []commitFactory{
-				commitNormal(),
-				commitWithDuplicatedRows(),
-				commitNormal(),
+			Factories: []factory.CommitFactory{
+				factory.CommitNormal(),
+				factory.CommitWithDuplicatedRows(),
+				factory.CommitNormal(),
 			},
 			CheckTree: func(t *testing.T, db objects.Store, newHead, oldHead *objects.Commit) {
 				assert.Equal(t, newHead.Table, oldHead.Table)
-				newCom := getParent(t, db, newHead)
-				oldCom := getParent(t, db, oldHead)
-				assertDuplicatedRowsRemoved(t, db, getTable(t, db, newCom.Table), getTable(t, db, oldCom.Table))
+				newCom := factory.GetParent(t, db, newHead)
+				oldCom := factory.GetParent(t, db, oldHead)
+				factory.AssertDuplicatedRowsRemoved(t, db, factory.GetTable(t, db, newCom.Table), factory.GetTable(t, db, oldCom.Table))
 				assert.Equal(t, newCom.Parents, oldCom.Parents)
 			},
 		},
 		{
 			Branch: "resetpk",
-			Factories: []commitFactory{
-				commitNormal(),
-				commitTableWithPKOutOfRange(),
-				commitNormal(),
+			Factories: []factory.CommitFactory{
+				factory.CommitNormal(),
+				factory.CommitTableWithPKOutOfRange(),
+				factory.CommitNormal(),
 			},
 			CheckTree: func(t *testing.T, db objects.Store, newHead, oldHead *objects.Commit) {
 				assert.Equal(t, newHead.Table, oldHead.Table)
-				newCom := getParent(t, db, newHead)
-				oldCom := getParent(t, db, oldHead)
-				newTbl := getTable(t, db, newCom.Table)
-				oldTbl := getTable(t, db, oldCom.Table)
+				newCom := factory.GetParent(t, db, newHead)
+				oldCom := factory.GetParent(t, db, oldHead)
+				newTbl := factory.GetTable(t, db, newCom.Table)
+				oldTbl := factory.GetTable(t, db, oldCom.Table)
 				assert.Len(t, newTbl.PK, 0)
 				assert.Equal(t, newTbl.Columns, oldTbl.Columns)
-				assert.Equal(t, getRows(t, db, newTbl), getRows(t, db, oldTbl))
+				assert.Equal(t, factory.GetRows(t, db, newTbl), factory.GetRows(t, db, oldTbl))
 				assert.Equal(t, newCom.Parents, oldCom.Parents)
 			},
 		},
 		{
 			Branch: "combined",
-			Factories: []commitFactory{
-				commitMissingTable(),
-				commitTableWithPKOutOfRange(),
-				commitWithDuplicatedRows(),
+			Factories: []factory.CommitFactory{
+				factory.CommitMissingTable(),
+				factory.CommitTableWithPKOutOfRange(),
+				factory.CommitWithDuplicatedRows(),
 			},
 			CheckTree: func(t *testing.T, db objects.Store, newHead, oldHead *objects.Commit) {
-				assertDuplicatedRowsRemoved(t, db, getTable(t, db, newHead.Table), getTable(t, db, oldHead.Table))
-				newCom := getParent(t, db, newHead)
-				oldCom := getParent(t, db, oldHead)
-				newTbl := getTable(t, db, newCom.Table)
-				oldTbl := getTable(t, db, oldCom.Table)
+				factory.AssertDuplicatedRowsRemoved(t, db, factory.GetTable(t, db, newHead.Table), factory.GetTable(t, db, oldHead.Table))
+				newCom := factory.GetParent(t, db, newHead)
+				oldCom := factory.GetParent(t, db, oldHead)
+				newTbl := factory.GetTable(t, db, newCom.Table)
+				oldTbl := factory.GetTable(t, db, oldCom.Table)
 				assert.Len(t, newTbl.PK, 0)
 				assert.Equal(t, newTbl.Columns, oldTbl.Columns)
-				assert.Equal(t, getRows(t, db, newTbl), getRows(t, db, oldTbl))
+				assert.Equal(t, factory.GetRows(t, db, newTbl), factory.GetRows(t, db, oldTbl))
 				assert.Empty(t, newCom.Parents)
+			},
+		},
+		{
+			Branch: "skipped",
+			Factories: []factory.CommitFactory{
+				factory.CommitMissingTable(),
+				factory.CommitTableWithPKOutOfRange(),
+				factory.CommitWithDuplicatedRows(),
 			},
 		},
 	}
@@ -136,13 +111,13 @@ func TestResolve(t *testing.T) {
 
 	oldHeads := map[string]*objects.Commit{}
 	for _, c := range cases {
-		com, _, _ := writeCommitTree(t, db, c.Factories...)
+		com, _, _ := factory.WriteCommitTree(t, db, c.Factories...)
 		require.NoError(t, ref.CommitHead(rs, c.Branch, com.Sum, com, nil))
 		oldHeads[c.Branch] = com
 		t.Logf("heads/%s: (old) %x", c.Branch, com.Sum)
 	}
 
-	ch, errCh, err := d.Diagnose(ctx, []string{"heads/"}, nil)
+	ch, errCh, err := d.Diagnose(ctx, []string{"heads/"}, nil, []string{"heads/skipped"})
 	require.NoError(t, err)
 
 	for refIssues := range ch {
@@ -160,6 +135,11 @@ func TestResolve(t *testing.T) {
 			}
 		}
 	}
+
+	// check skipped branch isn't processed
+	sum, err := ref.GetRef(rs, "heads/skipped")
+	require.NoError(t, err)
+	assert.Equal(t, oldHeads["skipped"].Sum, sum)
 
 	err, ok := <-errCh
 	assert.False(t, ok)

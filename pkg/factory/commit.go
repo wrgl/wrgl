@@ -169,3 +169,18 @@ func AssertCommitsShallowlyPersisted(t *testing.T, db objects.Store, commits [][
 		assert.True(t, objects.CommitExist(db, sum))
 	}
 }
+
+func GetCommit(t *testing.T, db objects.Store, sum []byte) *objects.Commit {
+	t.Helper()
+	com, err := objects.GetCommit(db, sum)
+	require.NoError(t, err)
+	return com
+}
+
+func GetParent(t *testing.T, db objects.Store, com *objects.Commit) *objects.Commit {
+	t.Helper()
+	if len(com.Parents) == 0 {
+		return nil
+	}
+	return GetCommit(t, db, com.Parents[0])
+}
