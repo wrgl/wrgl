@@ -5,12 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"sort"
 	"sync"
 
+	"github.com/go-logr/logr"
 	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/sorter"
@@ -34,7 +34,7 @@ type Inserter struct {
 	blocks      <-chan *sorter.Block
 	numWorkers  int
 	sorter      *sorter.Sorter
-	debugLogger *log.Logger
+	debugLogger *logr.Logger
 }
 
 type InserterOption func(*Inserter)
@@ -51,7 +51,7 @@ func WithNumWorkers(n int) InserterOption {
 	}
 }
 
-func WithDebugLogger(w *log.Logger) InserterOption {
+func WithDebugLogger(w *logr.Logger) InserterOption {
 	return func(i *Inserter) {
 		i.debugLogger = w
 	}
@@ -79,7 +79,6 @@ func (i *Inserter) insertBlock() {
 		dec       = objects.NewStrListDecoder(true)
 		hash      = meow.New(0)
 		e         = objects.NewStrListEditor(i.tbl.PK)
-		idxSum    = make([]byte, meow.Size)
 	)
 	defer i.wg.Done()
 	for blk := range i.blocks {
@@ -99,16 +98,13 @@ func (i *Inserter) insertBlock() {
 		}
 		buf.Reset()
 		idx.WriteTo(buf)
-		if i.debugLogger != nil {
-			hash.Reset()
-			hash.Write(buf.Bytes())
-			hash.SumTo(idxSum)
-			i.debugLogger.Printf("  block %x (indexSum %x)\n", sum, idxSum)
-		}
 		blkIdxSum, bb, err = objects.SaveBlockIndex(i.db, bb, buf.Bytes())
 		if err != nil {
 			i.errChan <- err
 			return
+		}
+		if i.debugLogger != nil {
+			i.debugLogger.Info("index block", "blockSum", sum, "indexSum", blkIdxSum)
 		}
 		i.asyncBlocks = append(i.asyncBlocks, asyncBlock{
 			Offset: blk.Offset,
@@ -195,7 +191,7 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32) ([]byte,
 		return nil, err
 	}
 	if i.debugLogger != nil {
-		i.debugLogger.Printf("Saved table %x\n", sum)
+		i.debugLogger.Info("saved table", "sum", sum)
 	}
 
 	// write and save table index

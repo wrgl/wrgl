@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
@@ -18,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/api/payload"
@@ -85,7 +85,7 @@ func WithRequestAuthorization(token string) RequestOption {
 	}
 }
 
-func WithLogger(logger *log.Logger) ClientOption {
+func WithLogger(logger *logr.Logger) ClientOption {
 	return func(c *Client) {
 		c.logger = logger
 	}
@@ -96,7 +96,7 @@ type Client struct {
 	// origin is the scheme + host name of remote server
 	origin         string
 	requestOptions []RequestOption
-	logger         *log.Logger
+	logger         *logr.Logger
 }
 
 func NewClient(origin string, opts ...ClientOption) (*Client, error) {
@@ -124,7 +124,7 @@ func (s *Client) LogRequest(r *http.Request, payload interface{}) {
 	if err != nil {
 		panic(err)
 	}
-	s.logger.Printf("%s %s request %s", r.Method, r.URL, string(b))
+	s.logger.Info("request", "method", r.Method, "url", r.URL, "body", string(b))
 }
 
 func (s *Client) LogResponse(r *http.Response, payload interface{}) {
@@ -135,7 +135,7 @@ func (s *Client) LogResponse(r *http.Response, payload interface{}) {
 	if err != nil {
 		panic(err)
 	}
-	s.logger.Printf("%s %s receive %s", r.Request.Method, r.Request.URL, string(b))
+	s.logger.Info("response", "method", r.Request.Method, "url", r.Request.URL, "body", string(b))
 }
 
 func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {

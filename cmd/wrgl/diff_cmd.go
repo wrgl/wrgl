@@ -8,7 +8,6 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/mitchellh/colorstring"
 	"github.com/rivo/tview"
@@ -515,7 +515,7 @@ func commitTitle(commitName, commitSum string) string {
 }
 
 func getDiffChan(
-	db1, db2 objects.Store, rs ref.Store, commit1, commit2 *objects.Commit, logger *log.Logger,
+	db1, db2 objects.Store, rs ref.Store, commit1, commit2 *objects.Commit, logger *logr.Logger,
 ) (tbl1, tbl2 *objects.Table, diffChan <-chan *objects.Diff, pt progress.Tracker, cd *diff.ColDiff, errChan chan error, err error) {
 	tbl1, err = utils.GetTable(db1, rs, commit1)
 	if err != nil {
@@ -723,7 +723,7 @@ func diffTableProfiles(db1, db2 objects.Store, commit1, commit2 *objects.Commit)
 
 func runDiff(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store, rs ref.Store,
-	pk []string, args []string, branchFile bool, logger *log.Logger, quiet bool,
+	pk []string, args []string, branchFile bool, logger *logr.Logger, quiet bool,
 	outputDiff func(
 		cmd *cobra.Command,
 		db1, db2 objects.Store,
@@ -781,7 +781,7 @@ type diffArgs struct {
 	Commits []string
 }
 
-func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, logger *log.Logger, dargs []diffArgs, branchFile, quiet bool) (err error) {
+func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, logger *logr.Logger, dargs []diffArgs, branchFile, quiet bool) (err error) {
 	var maxLen int
 	for _, darg := range dargs {
 		if len(darg.Branch) > maxLen {
@@ -817,7 +817,7 @@ func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.S
 	return nil
 }
 
-func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, logger *log.Logger, tid uuid.UUID) (err error) {
+func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, logger *logr.Logger, tid uuid.UUID) (err error) {
 	m, _, err := transaction.Diff(rs, tid)
 	if err != nil {
 		return
@@ -839,7 +839,7 @@ func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs re
 
 func diffAllBranches(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store,
-	pk []string, args []string, logger *log.Logger,
+	pk []string, args []string, logger *logr.Logger,
 ) error {
 	dargs := []diffArgs{}
 	for name, branch := range c.Branch {

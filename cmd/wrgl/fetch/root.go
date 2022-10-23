@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -367,7 +367,7 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 	return ses.Start()
 }
 
-func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool, depth int32, logger *log.Logger) error {
+func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool, depth int32, logger *logr.Logger) error {
 	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(token), apiclient.WithLogger(logger))
 	if err != nil {
 		return errors.Wrap("error creating new client", err)
