@@ -5,6 +5,7 @@ package sorter
 
 import (
 	"bufio"
+	"context"
 	"encoding/csv"
 	"io"
 	"os"
@@ -172,6 +173,11 @@ func (s *Sorter) AddRow(row []string) error {
 	return nil
 }
 
+func (s *Sorter) SetColumns(row []string) {
+	s.Columns = append(s.Columns, row...)
+	s.profiler = dprof.NewProfiler(s.Columns)
+}
+
 func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 	r := csv.NewReader(f)
 	if s.delimiter != 0 {
@@ -182,8 +188,7 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 	if err != nil {
 		return
 	}
-	s.Columns = append(s.Columns, row...)
-	s.profiler = dprof.NewProfiler(s.Columns)
+	s.SetColumns(row)
 	s.PK, err = slice.KeyIndices(s.Columns, pk)
 	if err != nil {
 		return
@@ -250,7 +255,7 @@ func (s *Sorter) pkIndices() []uint32 {
 	return sl
 }
 
-func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error) (blocks chan *Block) {
+func (s *Sorter) SortedBlocks(ctx context.Context, removedCols map[int]struct{}, errChan chan<- error) (blocks chan *Block) {
 	blocks = make(chan *Block, 10)
 	pkIndices := s.pkIndices()
 	go func() {
@@ -352,7 +357,12 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 					RowsCount: len(blk),
 				}
 				copy(b.PK, blkPK)
-				blocks <- b
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					blocks <- b
+				}
 				offset++
 				blk = blk[:0]
 				blkPK = blkPK[:0]
@@ -366,8 +376,12 @@ func (s *Sorter) SortedBlocks(removedCols map[int]struct{}, errChan chan<- error
 				RowsCount: len(blk),
 			}
 			copy(b.PK, blkPK)
-			blocks <- b
-			blkPK = blkPK[:0]
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				blocks <- b
+			}
 		}
 	}()
 	return
@@ -386,7 +400,7 @@ func pkIsDifferent(pk, prevPK []string) bool {
 	return true
 }
 
-func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) (rowsCh chan *Rows) {
+func (s *Sorter) SortedRows(ctx context.Context, removedCols map[int]struct{}, errChan chan<- error) (rowsCh chan *Rows) {
 	rowsCh = make(chan *Rows, 10)
 	pkIndices := s.pkIndices()
 	go func() {
@@ -468,18 +482,28 @@ func (s *Sorter) SortedRows(removedCols map[int]struct{}, errChan chan<- error) 
 				s.current = s.current[1:]
 			}
 			if len(rows) == 255 {
-				rowsCh <- &Rows{
-					Offset: offset,
-					Rows:   rows,
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					rowsCh <- &Rows{
+						Offset: offset,
+						Rows:   rows,
+					}
 				}
 				offset++
 				rows = make([][]string, 0, 255)
 			}
 		}
 		if len(rows) > 0 {
-			rowsCh <- &Rows{
-				Offset: offset,
-				Rows:   rows,
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				rowsCh <- &Rows{
+					Offset: offset,
+					Rows:   rows,
+				}
 			}
 		}
 	}()

@@ -33,6 +33,18 @@ func NewTable(columns []string, pk []uint32) *Table {
 	}
 }
 
+func (t *Table) HasValidBlockIndices() bool {
+	if len(t.BlockIndices) != len(t.Blocks) {
+		return false
+	}
+	for _, b := range t.BlockIndices {
+		if b == nil {
+			return false
+		}
+	}
+	return true
+}
+
 func (t *Table) PrimaryKey() []string {
 	return slice.IndicesToValues(t.Columns, t.PK)
 }
@@ -120,6 +132,9 @@ func (t *Table) readBlock(r io.Reader) (int, []byte, error) {
 func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 	n, err := t.readMeta(r)
 	if err != nil {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
 		return 0, err
 	}
 	total := int64(n)
@@ -129,6 +144,9 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 	for i := range t.Blocks {
 		n, b, err := t.readBlock(r)
 		if err != nil {
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
 			return 0, err
 		}
 		total += int64(n)
@@ -137,6 +155,9 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 	for i := range t.BlockIndices {
 		n, b, err := t.readBlock(r)
 		if err != nil {
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
+			}
 			return 0, err
 		}
 		total += int64(n)

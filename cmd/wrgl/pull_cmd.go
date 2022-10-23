@@ -7,11 +7,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"runtime"
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
@@ -190,7 +190,7 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 
 func pullSingleRepo(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, force, setUpstream bool,
-	noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string, depth int32, logger *log.Logger,
+	noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string, depth int32, logger *logr.Logger,
 ) error {
 	newBranch := false
 	name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)

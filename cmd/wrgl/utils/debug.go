@@ -7,11 +7,13 @@ import (
 	"log"
 	"os"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"github.com/spf13/cobra"
 )
 
 // SetupDebug open debug file (specified with --debug-file) for writing
-func SetupDebug(cmd *cobra.Command) (l *log.Logger, cleanup func(), err error) {
+func SetupDebug(cmd *cobra.Command) (l *logr.Logger, cleanup func(), err error) {
 	debug, err := cmd.Flags().GetBool("debug")
 	if err != nil {
 		return nil, nil, err
@@ -26,14 +28,16 @@ func SetupDebug(cmd *cobra.Command) (l *log.Logger, cleanup func(), err error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return log.New(f, "", 0), func() {
+		logger := stdr.New(log.New(f, "", 0))
+		return &logger, func() {
 			if f != nil {
 				f.Close()
 			}
 		}, nil
 	}
 	if debug {
-		return log.Default(), func() {}, nil
+		logger := stdr.New(log.Default())
+		return &logger, func() {}, nil
 	}
 	return nil, func() {}, nil
 }

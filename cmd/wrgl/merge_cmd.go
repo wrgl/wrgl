@@ -414,7 +414,9 @@ func outputConflicts(cmd *cobra.Command, db objects.Store, buf *diff.BlockBuffer
 	if err = merger.Error(); err != nil {
 		return err
 	}
-	rc, err := merger.SortedRows(nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rc, err := merger.SortedRows(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -466,7 +468,9 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	if err != nil {
 		return err
 	}
-	blocks, err := merger.SortedRows(removedCols)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	blocks, err := merger.SortedRows(ctx, removedCols)
 	if err != nil {
 		return err
 	}
@@ -509,7 +513,9 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
-	blocks, err := merger.SortedBlocks(removedCols)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	blocks, err := merger.SortedBlocks(ctx, removedCols)
 	if err != nil {
 		return err
 	}

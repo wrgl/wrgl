@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 
+	"github.com/go-logr/logr"
 	"github.com/klauspost/compress/s2"
 	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
@@ -20,14 +20,14 @@ type ObjectReceiver struct {
 	db              objects.Store
 	expectedCommits map[string]struct{}
 	ReceivedCommits [][]byte
-	debugLogger     *log.Logger
+	debugLogger     *logr.Logger
 	saveObjHook     func(objType int, sum []byte)
 	buf             []byte
 }
 
 type ObjectReceiveOption func(r *ObjectReceiver)
 
-func WithReceiverDebugLogger(out *log.Logger) ObjectReceiveOption {
+func WithReceiverDebugLogger(out *logr.Logger) ObjectReceiveOption {
 	return func(r *ObjectReceiver) {
 		r.debugLogger = out
 	}
@@ -75,6 +75,9 @@ func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
 		return
 	}
 	sum, err = objects.SaveTable(r.db, b)
+	if err != nil {
+		return
+	}
 	if err = ingest.IndexTable(r.db, sum, tbl, r.debugLogger); err != nil {
 		return
 	}
@@ -113,24 +116,24 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, pbar *progressbar.
 	for {
 		ot, b, err := pr.ReadObject()
 		if err != nil && err != io.EOF {
-			return false, err
+			return false, fmt.Errorf("pr.ReadObject error: %v", err)
 		}
 		var sum []byte
 		switch ot {
 		case packfile.ObjectBlock:
 			sum, err = r.saveBlock(b)
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("r.saveBlock error: %v", err)
 			}
 		case packfile.ObjectTable:
 			sum, err = r.saveTable(b)
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("pr.ReadObject error: %v", err)
 			}
 		case packfile.ObjectCommit:
 			sum, err = r.saveCommit(b)
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("r.saveTable error: %v", err)
 			}
 		default:
 			if ot != 0 || len(b) != 0 {
@@ -139,12 +142,12 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, pbar *progressbar.
 		}
 		if ot != 0 {
 			if err = pr.Info.AddObject(ot, sum); err != nil {
-				return false, err
+				return false, fmt.Errorf("pr.Info.AddObject error: %v", err)
 			}
 		}
 		if ot != 0 && pbar != nil {
 			if err = pbar.Add(1); err != nil {
-				return false, err
+				return false, fmt.Errorf("pbar.Add error: %v", err)
 			}
 		}
 		if err == io.EOF {

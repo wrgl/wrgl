@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -371,7 +371,7 @@ func Fetch(
 	specs []*conf.Refspec,
 	force bool,
 	depth int32,
-	logger *log.Logger,
+	logger *logr.Logger,
 ) error {
 	client, err := cm.GetClient(cmd, cr.URL, apiclient.WithLogger(logger))
 	if err != nil {

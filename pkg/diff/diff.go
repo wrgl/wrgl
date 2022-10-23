@@ -5,9 +5,9 @@ package diff
 
 import (
 	"bytes"
-	"log"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/progress"
 )
@@ -27,7 +27,7 @@ func strSliceEqual(s1, s2 []string) bool {
 type Differ struct {
 	progressInterval time.Duration
 	emitUnchangedRow bool
-	debugLogger      *log.Logger
+	debugLogger      *logr.Logger
 	db1, db2         objects.Store
 	tbl1, tbl2       *objects.Table
 	tblIdx1, tblIdx2 [][]string
@@ -52,7 +52,7 @@ func WithEmitUnchangedRow() DiffOption {
 }
 
 // WithDebugLogger tells DiffTables to write debug info into the provided writer
-func WithDebugLogger(r *log.Logger) DiffOption {
+func WithDebugLogger(r *logr.Logger) DiffOption {
 	return func(d *Differ) {
 		d.debugLogger = r
 	}

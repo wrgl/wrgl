@@ -8,13 +8,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -185,7 +185,7 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) error {
 
 func commit(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, message, branchName string, primaryKey []string,
-	numWorkers int, memLimit uint64, c *conf.Config, logger *log.Logger, quiet bool, tid *uuid.UUID, delim rune,
+	numWorkers int, memLimit uint64, c *conf.Config, logger *logr.Logger, quiet bool, tid *uuid.UUID, delim rune,
 ) ([]byte, error) {
 	if !ref.HeadPattern.MatchString(branchName) {
 		return nil, fmt.Errorf("invalid branch name, must consist of only alphanumeric letters, hyphen and underscore")

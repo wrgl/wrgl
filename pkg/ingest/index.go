@@ -6,14 +6,14 @@ package ingest
 import (
 	"bytes"
 	"fmt"
-	"log"
 
+	"github.com/go-logr/logr"
 	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/slice"
 )
 
-func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger *log.Logger) error {
+func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger *logr.Logger) error {
 	var (
 		tblIdx    = make([][]string, len(tbl.Blocks))
 		buf       = bytes.NewBuffer(nil)
@@ -25,9 +25,8 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger *log
 		blkIdxSum []byte
 	)
 	if logger != nil {
-		logger.Printf("Indexing table %x\n", tblSum)
+		logger.Info("indexing table", "sum", tblSum)
 	}
-	var idxSum = make([]byte, meow.Size)
 	for i, sum := range tbl.Blocks {
 		blk, bb, err = objects.GetBlock(db, bb, sum)
 		if err != nil {
@@ -48,15 +47,12 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger *log
 		if err != nil {
 			return fmt.Errorf("idx.WriteTo: %v", err)
 		}
-		if logger != nil {
-			hash.Reset()
-			hash.Write(buf.Bytes())
-			hash.SumTo(idxSum)
-			logger.Printf("  block %x (indexSum %x)\n", sum, idxSum)
-		}
 		blkIdxSum, bb, err = objects.SaveBlockIndex(db, bb, buf.Bytes())
 		if err != nil {
 			return fmt.Errorf("objects.SaveBlockIndex: %v", err)
+		}
+		if logger != nil {
+			logger.Info("indexed block", "sum", sum, "indexSum", blkIdxSum)
 		}
 		if !bytes.Equal(blkIdxSum, tbl.BlockIndices[i]) {
 			return fmt.Errorf("block index at offset %d has different sum: %x != %x", i, blkIdxSum, tbl.BlockIndices[i])

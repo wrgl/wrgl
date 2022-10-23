@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	lowerAlphaBytes = "abcdefghijklmnopqrstuvwxyz"
+	LowerAlphaBytes = "abcdefghijklmnopqrstuvwxyz"
 	letterBytes     = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" // 62 possibilities
 	letterIdxBits   = 6                                                                // 6 bits to represent 64 possibilities / indexes
 	letterIdxMask   = 1<<letterIdxBits - 1                                             // All 1-bits, as many as letterIdxBits
@@ -55,7 +55,7 @@ func BrokenRandomAlphaNumericString(length int) string {
 }
 
 func BrokenRandomLowerAlphaString(length int) string {
-	return brokenRandomString(length, lowerAlphaBytes)
+	return brokenRandomString(length, LowerAlphaBytes)
 }
 
 func RandomEmail() string {

@@ -4,6 +4,7 @@
 package mergehelpers
 
 import (
+	"context"
 	"sort"
 	"testing"
 
@@ -57,7 +58,9 @@ func CollectUnresolvedMerges(t *testing.T, merger *merge.Merger) []*merge.Merge 
 func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) []*sorter.Rows {
 	t.Helper()
 	rows := []*sorter.Rows{}
-	ch, err := merger.SortedRows(removedCols)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ch, err := merger.SortedRows(ctx, removedCols)
 	require.NoError(t, err)
 	for blk := range ch {
 		rows = append(rows, blk)
@@ -69,7 +72,9 @@ func CollectSortedRows(t *testing.T, merger *merge.Merger, removedCols map[int]s
 func CollectSortedBlocks(t *testing.T, merger *merge.Merger, removedCols map[int]struct{}) []*sorter.Block {
 	t.Helper()
 	rows := []*sorter.Block{}
-	ch, err := merger.SortedBlocks(removedCols)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ch, err := merger.SortedBlocks(ctx, removedCols)
 	require.NoError(t, err)
 	for blk := range ch {
 		rows = append(rows, blk)

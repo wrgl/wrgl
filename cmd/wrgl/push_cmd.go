@@ -6,10 +6,10 @@ package wrgl
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/mitchellh/colorstring"
 	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
@@ -395,7 +395,7 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*receivePackUpdate) {
 
 func pushSingleRepo(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, clients *utils.ClientMap,
-	args []string, mirror, force, setUpstream bool, wrglDir string, logger *log.Logger,
+	args []string, mirror, force, setUpstream bool, wrglDir string, logger *logr.Logger,
 ) error {
 	remote, cr, args, err := getRepoToPush(c, args)
 	if err != nil {
