@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/go-logr/logr"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/slice"
@@ -13,22 +14,22 @@ import (
 
 // resolver resolves all issues in a single ref
 type resolver struct {
-	db   objects.Store
-	tree *Tree
-	buf  *bytes.Buffer
-	srt  *sorter.Sorter
+	db     objects.Store
+	tree   *Tree
+	srt    *sorter.Sorter
+	logger logr.Logger
 }
 
-func newResolver(db objects.Store, tree *Tree) (*resolver, error) {
+func newResolver(db objects.Store, tree *Tree, logger logr.Logger) (*resolver, error) {
 	srt, err := sorter.NewSorter()
 	if err != nil {
 		return nil, err
 	}
 	return &resolver{
-		db:   db,
-		tree: tree,
-		buf:  bytes.NewBuffer(nil),
-		srt:  srt,
+		db:     db,
+		tree:   tree,
+		srt:    srt,
+		logger: logger,
 	}, nil
 }
 
@@ -102,18 +103,25 @@ func (r *resolver) remove(iss *Issue) error {
 }
 
 func (r *resolver) resolveIssue(iss *Issue) error {
+	var err error
 	switch iss.Resolution {
 	case UnknownResolution:
 		return fmt.Errorf("unknown resolution")
 	case ResetPKResolution:
-		return r.reingest(iss, true)
+		err = r.reingest(iss, true)
 	case ReingestResolution:
-		return r.reingest(iss, false)
+		err = r.reingest(iss, false)
 	case RemoveResolution:
-		return r.remove(iss)
+		err = r.remove(iss)
 	default:
 		return fmt.Errorf("unexpected resolution %q", iss.Resolution)
 	}
+	if err != nil {
+		r.logger.Error(err, "error resolving issue", "issue", iss)
+		return err
+	}
+	r.logger.Info("resolved issue", "issue", iss)
+	return nil
 }
 
 func (r *resolver) updateRestOfTree() ([]byte, error) {

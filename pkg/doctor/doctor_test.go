@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/conf"
@@ -54,7 +55,7 @@ func TestResolve(t *testing.T) {
 	d := NewDoctor(db, rs, conf.User{
 		Name:  "test user",
 		Email: "test@user.com",
-	})
+	}, testr.New(t))
 
 	type resolveTestCase struct {
 		Branch    string

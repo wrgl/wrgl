@@ -155,6 +155,7 @@ func (d *Doctor) diagnoseTree(refname string, headSum []byte) (issues []*Issue, 
 		}
 		iss.AncestorCount = ancestors
 		iss.DescendantCount = descendants
+		d.logger.Info("issue detected", "issue", iss)
 	}
 	return issues, nil
 }

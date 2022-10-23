@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/pckhoi/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -240,7 +241,7 @@ func TestDiagnoseTree(t *testing.T) {
 	d := NewDoctor(db, rs, conf.User{
 		Name:  "test user",
 		Email: "test@user.com",
-	})
+	}, testr.New(t))
 
 	headCommit, commits, tables := writeCommitTree(t, db,
 		commitMissingTable(),

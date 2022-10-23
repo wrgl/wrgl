@@ -25,6 +25,8 @@ type CommitsQueue struct {
 }
 
 func (q *CommitsQueue) Reset(initialSums [][]byte) error {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
 	n := len(initialSums)
 	if q.commits == nil {
 		q.commits = make([]*objects.Commit, 0, n)

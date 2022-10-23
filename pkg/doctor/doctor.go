@@ -5,24 +5,27 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/go-logr/logr"
 	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
 type Doctor struct {
-	db   objects.Store
-	rs   ref.Store
-	tree *Tree
-	user conf.User
+	db     objects.Store
+	rs     ref.Store
+	tree   *Tree
+	user   conf.User
+	logger logr.Logger
 }
 
-func NewDoctor(db objects.Store, rs ref.Store, user conf.User) *Doctor {
+func NewDoctor(db objects.Store, rs ref.Store, user conf.User, logger logr.Logger) *Doctor {
 	d := &Doctor{
-		db:   db,
-		rs:   rs,
-		tree: NewTree(db),
-		user: user,
+		db:     db,
+		rs:     rs,
+		tree:   NewTree(db),
+		user:   user,
+		logger: logger,
 	}
 	return d
 }
@@ -67,7 +70,7 @@ func (d *Doctor) Resolve(issues []*Issue) (err error) {
 		a, b := issues[i], issues[j]
 		return a.AncestorCount < b.AncestorCount
 	})
-	resolver, err := newResolver(d.db, d.tree)
+	resolver, err := newResolver(d.db, d.tree, d.logger)
 	if err != nil {
 		return err
 	}
