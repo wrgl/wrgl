@@ -44,6 +44,7 @@ type RefIssues struct {
 }
 
 func (d *Doctor) Diagnose(ctx context.Context, refPrefixes, refNonPrefixes, skips []string) (issues chan *RefIssues, errCh chan error, err error) {
+	tableIssues := map[string]Issue{}
 	refs, err := ref.ListLocalRefs(d.rs, refPrefixes, refNonPrefixes)
 	if err != nil {
 		return
@@ -62,7 +63,7 @@ func (d *Doctor) Diagnose(ctx context.Context, refPrefixes, refNonPrefixes, skip
 			case <-ctx.Done():
 				return
 			default:
-				sl, err := d.diagnoseTree(name, sum)
+				sl, err := d.diagnoseTree(tableIssues, name, sum)
 				if err != nil {
 					errCh <- err
 					return

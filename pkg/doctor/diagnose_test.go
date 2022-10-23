@@ -38,7 +38,9 @@ func TestDiagnoseTree(t *testing.T) {
 	)
 	require.NoError(t, ref.CommitHead(rs, "alpha", headCommit.Sum, headCommit, nil))
 
-	issues, err := d.diagnoseTree("alpha", headCommit.Sum)
+	tableIssues := map[string]Issue{}
+
+	issues, err := d.diagnoseTree(tableIssues, "alpha", headCommit.Sum)
 	require.NoError(t, err)
 	assert.Equal(t, []*Issue{
 		{
@@ -147,7 +149,7 @@ func TestDiagnoseTree(t *testing.T) {
 
 	headCommit, _, _ = factory.WriteCommitTree(t, db, factory.CommitNormal(), factory.CommitNormal())
 	require.NoError(t, ref.CommitHead(rs, "beta", headCommit.Sum, headCommit, nil))
-	issues, err = d.diagnoseTree("alpha", headCommit.Sum)
+	issues, err = d.diagnoseTree(tableIssues, "alpha", headCommit.Sum)
 	require.NoError(t, err)
 	assert.Len(t, issues, 0)
 }

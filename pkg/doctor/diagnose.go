@@ -115,7 +115,7 @@ func (d *Doctor) addIssueInfo(iss *Issue, refname string, com *objects.Commit) {
 	}
 }
 
-func (d *Doctor) diagnoseTree(refname string, headSum []byte) (issues []*Issue, err error) {
+func (d *Doctor) diagnoseTree(tableIssues map[string]Issue, refname string, headSum []byte) (issues []*Issue, err error) {
 	if err = d.tree.Reset(headSum); err != nil {
 		return
 	}
@@ -138,8 +138,13 @@ func (d *Doctor) diagnoseTree(refname string, headSum []byte) (issues []*Issue, 
 			break
 		}
 		if com != nil {
-			if iss := d.diagnoseCommit(com); iss != nil {
+			if v, ok := tableIssues[string(com.Table)]; ok {
+				iss := &Issue{}
+				*iss = v
+				issues = append(issues, iss)
+			} else if iss := d.diagnoseCommit(com); iss != nil {
 				d.addIssueInfo(iss, refname, com)
+				tableIssues[string(com.Table)] = *iss
 				issues = append(issues, iss)
 			}
 		}
