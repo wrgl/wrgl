@@ -7,19 +7,16 @@ import (
 
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
-	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
 // resolver resolves all issues in a single ref
 type resolver struct {
-	db       objects.Store
-	tree     *Tree
-	buf      *bytes.Buffer
-	srt      *sorter.Sorter
-	removals [][]byte
-	m        commitMap
+	db   objects.Store
+	tree *Tree
+	buf  *bytes.Buffer
+	srt  *sorter.Sorter
 }
 
 func newResolver(db objects.Store, tree *Tree) (*resolver, error) {
@@ -36,7 +33,6 @@ func newResolver(db objects.Store, tree *Tree) (*resolver, error) {
 }
 
 func (r *resolver) reset(iss *Issue, headCommit []byte) (err error) {
-	r.m = commitMap{}
 	if err = r.tree.Reset(headCommit); err != nil {
 		return err
 	}
@@ -69,7 +65,11 @@ func (r *resolver) reingest(iss *Issue, resetPK bool) error {
 	if err != nil {
 		return err
 	}
-	return r.updateCommitUntil(iss, tblSum)
+	return r.tree.EditCommit(iss.Commit, func(com *objects.Commit) (remove bool, update bool, err error) {
+		com.Table = tblSum
+		update = true
+		return
+	})
 }
 
 func (r *resolver) ingestTable(iss *Issue, tbl *objects.Table) (sum []byte, err error) {
@@ -94,91 +94,11 @@ func (r *resolver) ingestTable(iss *Issue, tbl *objects.Table) (sum []byte, err 
 	return inserter.IngestTableFromSorter(r.srt.Columns, r.srt.PK)
 }
 
-func (r *resolver) downTreeUntil(comSum []byte, each func(com *objects.Commit, equal bool) error) error {
-	for {
-		com, err := r.tree.Down()
-		if err != nil && err != io.EOF {
-			return err
-		}
-		if com != nil {
-			equal := bytes.Equal(com.Sum, comSum)
-			if err := each(com, equal); err != nil {
-				return err
-			}
-			if equal {
-				return nil
-			}
-		}
-		if err == io.EOF {
-			return fmt.Errorf("commit %x not found in tree: %v", comSum, io.ErrUnexpectedEOF)
-		}
-	}
-}
-
-func (r *resolver) updateCommit(com *objects.Commit) error {
-	oldSum := com.Sum
-	r.buf.Reset()
-	if _, err := com.WriteTo(r.buf); err != nil {
-		return err
-	}
-	sum, err := objects.SaveCommit(r.db, r.buf.Bytes())
-	if err != nil {
-		return err
-	}
-	r.m.update(oldSum, sum)
-	return nil
-}
-
-func (r *resolver) updateCommitUntil(iss *Issue, newTableSum []byte) error {
-	return r.downTreeUntil(iss.Commit, func(com *objects.Commit, equal bool) error {
-		if equal {
-			com.Table = newTableSum
-		}
-		if r.m.parentsUpdated(com) || equal {
-			return r.updateCommit(com)
-		}
-		return nil
-	})
-}
-
 func (r *resolver) remove(iss *Issue) error {
-	r.downTreeUntil(iss.Commit, func(com *objects.Commit, equal bool) error {
-		return nil
+	return r.tree.EditCommit(iss.Commit, func(com *objects.Commit) (remove bool, update bool, err error) {
+		remove = true
+		return
 	})
-	com, err := r.tree.Down()
-	if err != nil && err != io.EOF {
-		return err
-	}
-	if com != nil {
-		// remove commit from its child's parents
-		parents := make([][]byte, 0, len(com.Parents)-1)
-		for _, b := range com.Parents {
-			if !bytes.Equal(b, iss.Commit) {
-				parents = append(parents, b)
-			}
-		}
-		com.Parents = parents
-		if err = r.updateCommit(com); err != nil {
-			return err
-		}
-	}
-	// remove commit and its ancestors
-	q, err := ref.NewCommitsQueue(r.db, [][]byte{iss.Commit})
-	if err != nil {
-		return err
-	}
-	for {
-		_, com, err := q.PopInsertParents()
-		if err != nil && err != io.EOF {
-			return err
-		}
-		if com != nil {
-			r.removals = append(r.removals, com.Sum)
-		}
-		if err == io.EOF {
-			return nil
-		}
-	}
 }
 
 func (r *resolver) resolveIssue(iss *Issue) error {
@@ -194,4 +114,8 @@ func (r *resolver) resolveIssue(iss *Issue) error {
 	default:
 		return fmt.Errorf("unexpected resolution %q", iss.Resolution)
 	}
+}
+
+func (r *resolver) updateRestOfTree() ([]byte, error) {
+	return r.tree.UpdateAllDescendants()
 }

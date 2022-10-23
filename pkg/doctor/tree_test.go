@@ -7,21 +7,39 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/factory"
+	"github.com/wrgl/wrgl/pkg/objects"
 	objhelpers "github.com/wrgl/wrgl/pkg/objects/helpers"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
-	"github.com/wrgl/wrgl/pkg/ref"
-	refmock "github.com/wrgl/wrgl/pkg/ref/mock"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
 
+func getCommit(t *testing.T, db objects.Store, sum []byte) *objects.Commit {
+	t.Helper()
+	com, err := objects.GetCommit(db, sum)
+	require.NoError(t, err)
+	return com
+}
+
+func getParent(t *testing.T, db objects.Store, com *objects.Commit) *objects.Commit {
+	t.Helper()
+	if len(com.Parents) == 0 {
+		return nil
+	}
+	return getCommit(t, db, com.Parents[0])
+}
+
+func getTable(t *testing.T, db objects.Store, sum []byte) *objects.Table {
+	t.Helper()
+	tbl, err := objects.GetTable(db, sum)
+	require.NoError(t, err)
+	return tbl
+}
+
 func TestTree(t *testing.T) {
 	db := objmock.NewStore()
-	rs, close := refmock.NewStore(t)
-	defer close()
 	sum1, com1 := factory.CommitRandom(t, db, nil)
 	sum2, com2 := factory.CommitRandom(t, db, [][]byte{sum1})
 	sum3, com3 := factory.CommitRandom(t, db, [][]byte{sum2})
-	require.NoError(t, ref.CommitHead(rs, "alpha", sum3, com3, nil))
 
 	tree := NewTree(db)
 	require.NoError(t, tree.Reset(sum3))
@@ -73,4 +91,61 @@ func TestTree(t *testing.T) {
 
 	_, _, err = tree.Position(testutils.SecureRandomBytes(16))
 	assert.Error(t, err)
+}
+
+func upAllTheWay(tree *Tree) {
+	for {
+		_, err := tree.Up()
+		if err != nil {
+			break
+		}
+	}
+}
+
+func TestTree_EditCommit(t *testing.T) {
+	db := objmock.NewStore()
+	sum1, _ := factory.CommitRandom(t, db, nil)
+	sum2, com2 := factory.CommitRandom(t, db, [][]byte{sum1})
+	sum3, com3 := factory.CommitRandom(t, db, [][]byte{sum2})
+
+	tree := NewTree(db)
+	require.NoError(t, tree.Reset(sum3))
+	upAllTheWay(tree)
+
+	require.NoError(t, tree.EditCommit(sum2, func(com *objects.Commit) (remove bool, update bool, err error) {
+		com.AuthorName = "John Doe"
+		update = true
+		return
+	}))
+	sum, err := tree.UpdateAllDescendants()
+	require.NoError(t, err)
+	com := getCommit(t, db, sum)
+	assert.Equal(t, com3.Table, com.Table)
+	assert.NotEqual(t, com3.Parents, com.Parents)
+
+	com = getParent(t, db, com)
+	assert.Equal(t, "John Doe", com.AuthorName)
+	assert.Equal(t, com2.Table, com.Table)
+	assert.Equal(t, com2.Parents, com.Parents)
+}
+
+func TestTree_EditCommit_remove(t *testing.T) {
+	db := objmock.NewStore()
+	sum1, _ := factory.CommitRandom(t, db, nil)
+	sum2, _ := factory.CommitRandom(t, db, [][]byte{sum1})
+	sum3, com3 := factory.CommitRandom(t, db, [][]byte{sum2})
+
+	tree := NewTree(db)
+	require.NoError(t, tree.Reset(sum3))
+	upAllTheWay(tree)
+
+	require.NoError(t, tree.EditCommit(sum2, func(com *objects.Commit) (remove bool, update bool, err error) {
+		remove = true
+		return
+	}))
+	sum, err := tree.UpdateAllDescendants()
+	require.NoError(t, err)
+	com := getCommit(t, db, sum)
+	assert.Equal(t, com3.Table, com.Table)
+	assert.Len(t, com.Parents, 0)
 }

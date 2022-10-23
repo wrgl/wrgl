@@ -2,8 +2,10 @@ package doctor
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
+	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -12,13 +14,15 @@ type Doctor struct {
 	db   objects.Store
 	rs   ref.Store
 	tree *Tree
+	user conf.User
 }
 
-func NewDoctor(db objects.Store, rs ref.Store) *Doctor {
+func NewDoctor(db objects.Store, rs ref.Store, user conf.User) *Doctor {
 	d := &Doctor{
 		db:   db,
 		rs:   rs,
 		tree: NewTree(db),
+		user: user,
 	}
 	return d
 }
@@ -63,25 +67,28 @@ func (d *Doctor) Resolve(issues []*Issue) (err error) {
 		a, b := issues[i], issues[j]
 		return a.AncestorCount < b.AncestorCount
 	})
-	refname := ""
 	resolver, err := newResolver(d.db, d.tree)
 	if err != nil {
 		return err
 	}
+	sum, err := ref.GetRef(d.rs, issues[0].Ref)
+	if err != nil {
+		return err
+	}
+	if err = resolver.reset(issues[0], sum); err != nil {
+		return err
+	}
 	for _, iss := range issues {
-		if iss.Ref != refname {
-			refname = iss.Ref
-			sum, err := ref.GetRef(d.rs, refname)
-			if err != nil {
-				return err
-			}
-			if err = resolver.reset(iss, sum); err != nil {
-				return err
-			}
-		}
 		if err := resolver.resolveIssue(iss); err != nil {
 			return err
 		}
 	}
-	return nil
+	newSum, err := resolver.updateRestOfTree()
+	if err != nil {
+		return err
+	}
+	if newSum == nil {
+		return fmt.Errorf("new sum is nil")
+	}
+	return ref.SaveRef(d.rs, issues[0].Ref, newSum, d.user.Name, d.user.Email, "doctor", "resolve", nil)
 }

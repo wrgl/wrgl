@@ -10,6 +10,7 @@ import (
 	"github.com/pckhoi/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wrgl/wrgl/pkg/conf"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
@@ -128,6 +129,15 @@ func ingestTableFromRows(t *testing.T, db objects.Store, buf *bytes.Buffer, rows
 	return sum, tbl
 }
 
+func commitNormal() commitFactory {
+	return func(t *testing.T, ctx context.Context, db objects.Store) (context.Context, *objects.Commit, *objects.Table) {
+		_, com := factory.CommitRandomN(t, db, 4, 5, getParents(ctx))
+		setParents(ctx, [][]byte{com.Sum})
+		tbl := getTable(t, db, com.Table)
+		return ctx, com, tbl
+	}
+}
+
 func commitMissingTable() commitFactory {
 	return commitWithTable(testutils.SecureRandomBytes(16), nil)
 }
@@ -205,35 +215,34 @@ func commitWithWrongBlockIndexRowCount() commitFactory {
 
 func writeCommitTree(
 	t *testing.T,
-	ctx context.Context,
 	db objects.Store,
-	rs ref.Store,
-	branch string,
 	commitFactories ...commitFactory,
-) (headSum []byte, commits []*objects.Commit, tables []*objects.Table) {
+) (headCommit *objects.Commit, commits []*objects.Commit, tables []*objects.Table) {
 	t.Helper()
 	var com *objects.Commit
 	var tbl *objects.Table
 	commits = []*objects.Commit{}
 	tables = []*objects.Table{}
+	ctx := context.Background()
 	for _, fac := range commitFactories {
 		ctx, com, tbl = fac(t, ctx, db)
 		commits = append(commits, com)
 		tables = append(tables, tbl)
 	}
-	require.NoError(t, ref.CommitHead(rs, branch, com.Sum, com, nil))
-	return com.Sum, commits, tables
+	return com, commits, tables
 }
 
 func TestDiagnoseTree(t *testing.T) {
 	db := objmock.NewStore()
 	rs, close := refmock.NewStore(t)
 	defer close()
-	ctx := context.Background()
 
-	d := NewDoctor(db, rs)
+	d := NewDoctor(db, rs, conf.User{
+		Name:  "test user",
+		Email: "test@user.com",
+	})
 
-	headSum, commits, tables := writeCommitTree(t, ctx, db, rs, "alpha",
+	headCommit, commits, tables := writeCommitTree(t, db,
 		commitMissingTable(),
 		commitTableWithPKOutOfRange(),
 		commitTableWithEmptyPKColumn(),
@@ -246,24 +255,24 @@ func TestDiagnoseTree(t *testing.T) {
 		commitWithNonExistentBlockIndex(),
 		commitWithWrongBlockIndexRowCount(),
 	)
+	require.NoError(t, ref.CommitHead(rs, "alpha", headCommit.Sum, headCommit, nil))
 
-	issues, err := d.diagnoseTree("alpha", headSum)
+	issues, err := d.diagnoseTree("alpha", headCommit.Sum)
 	require.NoError(t, err)
 	assert.Equal(t, []*Issue{
 		{
 			Ref:             "alpha",
 			DescendantCount: 0,
-			AncestorCount:   0,
+			AncestorCount:   10,
 			Commit:          commits[10].Sum,
 			Table:           commits[10].Table,
-			Err:             "error getting block index: key not found",
-			BlockIndex:      tables[10].BlockIndices[0],
+			Err:             "index rows count does not match: 5 vs 10",
 			Resolution:      ReingestResolution,
 		},
 		{
 			Ref:             "alpha",
 			DescendantCount: 1,
-			AncestorCount:   0,
+			AncestorCount:   9,
 			Commit:          commits[9].Sum,
 			Table:           commits[9].Table,
 			BlockIndex:      tables[9].BlockIndices[0],
@@ -273,7 +282,7 @@ func TestDiagnoseTree(t *testing.T) {
 		{
 			Ref:             "alpha",
 			DescendantCount: 2,
-			AncestorCount:   0,
+			AncestorCount:   8,
 			Commit:          commits[8].Sum,
 			Table:           commits[8].Table,
 			Err:             "error fetching table: unexpected EOF",
@@ -282,7 +291,7 @@ func TestDiagnoseTree(t *testing.T) {
 		{
 			Ref:             "alpha",
 			DescendantCount: 3,
-			AncestorCount:   0,
+			AncestorCount:   7,
 			Commit:          commits[7].Sum,
 			Table:           commits[7].Table,
 			Err:             "error fetching table: unexpected EOF",
@@ -291,7 +300,7 @@ func TestDiagnoseTree(t *testing.T) {
 		{
 			Ref:             "alpha",
 			DescendantCount: 4,
-			AncestorCount:   0,
+			AncestorCount:   6,
 			Commit:          commits[6].Sum,
 			Table:           commits[6].Table,
 			Err:             "rows count does not match: 5 vs 3",
@@ -300,7 +309,7 @@ func TestDiagnoseTree(t *testing.T) {
 		{
 			Ref:             "alpha",
 			DescendantCount: 5,
-			AncestorCount:   0,
+			AncestorCount:   5,
 			Commit:          commits[5].Sum,
 			Table:           commits[5].Table,
 			Block:           tables[5].Blocks[0],
@@ -310,7 +319,7 @@ func TestDiagnoseTree(t *testing.T) {
 		{
 			Ref:             "alpha",
 			DescendantCount: 6,
-			AncestorCount:   0,
+			AncestorCount:   4,
 			Commit:          commits[4].Sum,
 			Table:           commits[4].Table,
 			Block:           tables[4].Blocks[0],
@@ -320,7 +329,7 @@ func TestDiagnoseTree(t *testing.T) {
 		{
 			Ref:             "alpha",
 			DescendantCount: 7,
-			AncestorCount:   0,
+			AncestorCount:   3,
 			Commit:          commits[3].Sum,
 			Table:           commits[3].Table,
 			Err:             "error fetching table: unexpected EOF",
@@ -329,7 +338,7 @@ func TestDiagnoseTree(t *testing.T) {
 		{
 			Ref:             "alpha",
 			DescendantCount: 8,
-			AncestorCount:   0,
+			AncestorCount:   2,
 			Commit:          commits[2].Sum,
 			Table:           commits[2].Table,
 			Err:             "primary key column is empty: 0",
@@ -338,7 +347,7 @@ func TestDiagnoseTree(t *testing.T) {
 		{
 			Ref:             "alpha",
 			DescendantCount: 9,
-			AncestorCount:   0,
+			AncestorCount:   1,
 			Commit:          commits[1].Sum,
 			Table:           commits[1].Table,
 			Err:             "pk index greater than columns count: [0]: 10",
@@ -354,4 +363,10 @@ func TestDiagnoseTree(t *testing.T) {
 			Resolution:      RemoveResolution,
 		},
 	}, issues)
+
+	headCommit, _, _ = writeCommitTree(t, db, commitNormal(), commitNormal())
+	require.NoError(t, ref.CommitHead(rs, "beta", headCommit.Sum, headCommit, nil))
+	issues, err = d.diagnoseTree("alpha", headCommit.Sum)
+	require.NoError(t, err)
+	assert.Len(t, issues, 0)
 }

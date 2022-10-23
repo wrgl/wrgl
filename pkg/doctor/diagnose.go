@@ -78,6 +78,7 @@ func (d *Doctor) diagnoseCommit(com *objects.Commit) *Issue {
 		}
 	}
 	indicesRowsCount := 0
+	var idx *objects.BlockIndex
 	for i, sum := range tbl.BlockIndices {
 		if len(sum) == 0 {
 			return &Issue{
@@ -86,7 +87,7 @@ func (d *Doctor) diagnoseCommit(com *objects.Commit) *Issue {
 				BlockIndex: sum,
 			}
 		}
-		blk, bb, err = objects.GetBlock(d.db, bb, sum)
+		idx, bb, err = objects.GetBlockIndex(d.db, bb, sum)
 		if err != nil {
 			return &Issue{
 				Err:        fmt.Sprintf("error getting block index: %v", err),
@@ -94,7 +95,7 @@ func (d *Doctor) diagnoseCommit(com *objects.Commit) *Issue {
 				BlockIndex: sum,
 			}
 		}
-		indicesRowsCount += len(blk)
+		indicesRowsCount += idx.Len()
 	}
 	if indicesRowsCount != int(tbl.RowsCount) {
 		return &Issue{
@@ -105,20 +106,13 @@ func (d *Doctor) diagnoseCommit(com *objects.Commit) *Issue {
 	return nil
 }
 
-func (d *Doctor) addIssueInfo(iss *Issue, refname string, com *objects.Commit) error {
-	ancestors, descendants, err := d.tree.Position(com.Sum)
-	if err != nil {
-		return err
-	}
-	iss.AncestorCount = ancestors
-	iss.DescendantCount = descendants
+func (d *Doctor) addIssueInfo(iss *Issue, refname string, com *objects.Commit) {
 	iss.Commit = com.Sum
 	iss.Table = com.Table
 	iss.Ref = refname
 	if iss.Resolution == "" {
 		iss.Resolution = UnknownResolution
 	}
-	return nil
 }
 
 func (d *Doctor) diagnoseTree(refname string, headSum []byte) (issues []*Issue, err error) {
@@ -136,9 +130,7 @@ func (d *Doctor) diagnoseTree(refname string, headSum []byte) (issues []*Issue, 
 				Ref:        refname,
 			}
 			if com != nil {
-				if err := d.addIssueInfo(iss, refname, com); err != nil {
-					return nil, err
-				}
+				d.addIssueInfo(iss, refname, com)
 			} else if prevCom != nil {
 				iss.PreviousCommit = prevCom.Sum
 			}
@@ -147,9 +139,7 @@ func (d *Doctor) diagnoseTree(refname string, headSum []byte) (issues []*Issue, 
 		}
 		if com != nil {
 			if iss := d.diagnoseCommit(com); iss != nil {
-				if err := d.addIssueInfo(iss, refname, com); err != nil {
-					return nil, err
-				}
+				d.addIssueInfo(iss, refname, com)
 				issues = append(issues, iss)
 			}
 		}
@@ -157,6 +147,14 @@ func (d *Doctor) diagnoseTree(refname string, headSum []byte) (issues []*Issue, 
 			break
 		}
 		prevCom = com
+	}
+	for _, iss := range issues {
+		ancestors, descendants, err := d.tree.Position(iss.Commit)
+		if err != nil {
+			return nil, err
+		}
+		iss.AncestorCount = ancestors
+		iss.DescendantCount = descendants
 	}
 	return issues, nil
 }
