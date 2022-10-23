@@ -141,10 +141,11 @@ func (d *Doctor) diagnoseTree(tableIssues map[string]Issue, refname string, head
 			if v, ok := tableIssues[string(com.Table)]; ok {
 				iss := &Issue{}
 				*iss = v
+				d.addIssueInfo(iss, refname, com)
 				issues = append(issues, iss)
 			} else if iss := d.diagnoseCommit(com); iss != nil {
-				d.addIssueInfo(iss, refname, com)
 				tableIssues[string(com.Table)] = *iss
+				d.addIssueInfo(iss, refname, com)
 				issues = append(issues, iss)
 			}
 		}

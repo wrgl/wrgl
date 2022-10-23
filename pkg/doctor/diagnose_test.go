@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"context"
 	"testing"
 
 	"github.com/go-logr/logr/testr"
@@ -152,4 +153,16 @@ func TestDiagnoseTree(t *testing.T) {
 	issues, err = d.diagnoseTree(tableIssues, "alpha", headCommit.Sum)
 	require.NoError(t, err)
 	assert.Len(t, issues, 0)
+
+	// Test table cache does not affect returned issues
+	_, com1, _ := factory.CommitWithDuplicatedRows()(t, context.Background(), db)
+	_, com2 := factory.CommitRandomWithTable(t, db, com1.Table, [][]byte{com1.Sum})
+	require.NoError(t, ref.CommitHead(rs, "cached", com2.Sum, com2, nil))
+	issues, err = d.diagnoseTree(tableIssues, "cached", com2.Sum)
+	require.NoError(t, err)
+	require.Len(t, issues, 2)
+	assert.Equal(t, issues[0].Table, issues[1].Table)
+	assert.Equal(t, issues[0].Err, issues[1].Err)
+	assert.Equal(t, issues[0].Resolution, issues[1].Resolution)
+	assert.NotEqual(t, issues[0].Commit, issues[1].Commit)
 }
