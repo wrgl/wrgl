@@ -123,7 +123,7 @@ func pullCmd() *cobra.Command {
 						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
 							cmd.Println("Repository not found, skipping.")
 						} else {
-							cmd.PrintErrf("error: %v\n", err)
+							return err
 						}
 					}
 				}
