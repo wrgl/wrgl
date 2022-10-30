@@ -4,7 +4,6 @@
 package apiclient
 
 import (
-	"bytes"
 	"compress/gzip"
 	"container/list"
 	"encoding/json"
@@ -16,6 +15,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
+	"github.com/wrgl/wrgl/pkg/misc"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -152,7 +152,7 @@ func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 }
 
 func (s *ReceivePackSession) sendObjects() (stateFn, error) {
-	reqBody := bytes.NewBuffer(nil)
+	reqBody := misc.NewBuffer(nil)
 	gzw := gzip.NewWriter(reqBody)
 	done, info, err := s.sender.WriteObjects(gzw, s.pbar)
 	if err != nil {

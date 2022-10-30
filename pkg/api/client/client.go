@@ -4,7 +4,6 @@
 package apiclient
 
 import (
-	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,12 +15,14 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
+	"github.com/wrgl/wrgl/pkg/misc"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"golang.org/x/net/publicsuffix"
 )
@@ -104,6 +105,7 @@ type Client struct {
 	logger           *logr.Logger
 	rpt              string
 	umaTicketHandler func(asURI, ticket, oldRPT string) (rpt string, err error)
+	bufPool          *sync.Pool
 }
 
 func NewClient(origin string, opts ...ClientOption) (*Client, error) {
@@ -116,6 +118,11 @@ func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 			Jar: jar,
 		},
 		origin: origin,
+		bufPool: &sync.Pool{
+			New: func() any {
+				return misc.NewBuffer(nil)
+			},
+		},
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -123,26 +130,18 @@ func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 	return c, nil
 }
 
+func (s *Client) info(msg string, args ...any) {
+	if s.logger != nil {
+		s.logger.Info(msg, args...)
+	}
+}
+
 func (s *Client) LogRequest(r *http.Request, payload interface{}) {
-	if s.logger == nil {
-		return
-	}
-	b, err := json.MarshalIndent(payload, "  ", "  ")
-	if err != nil {
-		panic(err)
-	}
-	s.logger.Info("request", "method", r.Method, "url", r.URL, "body", string(b))
+	s.info("request", "method", r.Method, "url", r.URL, "body", payload)
 }
 
 func (s *Client) LogResponse(r *http.Response, payload interface{}) {
-	if s.logger == nil {
-		return
-	}
-	b, err := json.MarshalIndent(payload, "  ", "  ")
-	if err != nil {
-		panic(err)
-	}
-	s.logger.Info("response", "method", r.Request.Method, "url", r.Request.URL, "body", string(b))
+	s.info("response", "method", r.Request.Method, "url", r.Request.URL, "body", payload)
 }
 
 var authHeaderRegex = regexp.MustCompile(`UMA\s+realm="([^"]+)",\s+as_uri="([^"]+)",\s+ticket="([^"]+)"`)
@@ -179,16 +178,6 @@ func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {
 }
 
 func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http.Response, err error) {
-	body := bytes.NewBuffer(nil)
-	if req.Body != nil {
-		if _, err = io.Copy(body, req.Body); err != nil {
-			return
-		}
-		if err = req.Body.Close(); err != nil {
-			return
-		}
-		req.Body = io.NopCloser(bytes.NewReader(body.Bytes()))
-	}
 	if c.rpt != "" {
 		req.Header.Set("Authorization", "Bearer "+c.rpt)
 	}
@@ -216,7 +205,9 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 		}
 		c.rpt = rpt
 		oldHeader := req.Header
-		req, err = http.NewRequest(req.Method, req.URL.String(), bytes.NewReader(body.Bytes()))
+		body := req.Body.(*misc.Buffer)
+		body.Seek(0, io.SeekStart)
+		req, err = http.NewRequest(req.Method, req.URL.String(), body)
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +221,7 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 	return resp, nil
 }
 
-func (c *Client) Request(method, path string, body io.Reader, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) Request(method, path string, body *misc.Buffer, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {
 	req, err := http.NewRequest(method, c.origin+path, body)
 	if err != nil {
 		return
@@ -254,8 +245,10 @@ type formFile struct {
 }
 
 func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]formFile, opts ...RequestOption) (*http.Response, error) {
-	buf := bytes.NewBuffer(nil)
-	w := multipart.NewWriter(buf)
+	body := c.bufPool.Get().(*misc.Buffer)
+	defer c.bufPool.Put(body)
+	body.Reset()
+	w := multipart.NewWriter(body)
 	for k, sl := range value {
 		for _, v := range sl {
 			err := w.WriteField(k, v)
@@ -278,7 +271,7 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodPost, c.origin+path, bytes.NewReader(buf.Bytes()))
+	req, err := http.NewRequest(http.MethodPost, c.origin+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -541,14 +534,20 @@ func (c *Client) GetObjects(tables [][]byte, opts ...RequestOption) (pr *packfil
 }
 
 func (c *Client) CreateTransaction(req *payload.CreateTransactionRequest, opts ...RequestOption) (ctr *payload.CreateTransactionResponse, err error) {
-	var body io.Reader
+	var body *misc.Buffer
 	var header map[string]string
 	if req != nil {
 		b, err := json.Marshal(req)
 		if err != nil {
 			return nil, err
 		}
-		body = bytes.NewReader(b)
+		body = c.bufPool.Get().(*misc.Buffer)
+		defer c.bufPool.Put(body)
+		body.Reset()
+		_, err = body.Write(b)
+		if err != nil {
+			return nil, err
+		}
 		header = map[string]string{
 			"Content-Type": CTJSON,
 		}
@@ -576,14 +575,25 @@ func (c *Client) GetTransaction(id uuid.UUID, opts ...RequestOption) (gtr *paylo
 	return
 }
 
-func (c *Client) updateTransaction(id uuid.UUID, req *payload.UpdateTransactionRequest, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) JsonRequest(method, path string, req any, opts ...RequestOption) (*http.Response, error) {
 	b, err := json.Marshal(req)
 	if err != nil {
-		return
+		return nil, err
 	}
-	return c.Request(http.MethodPost, fmt.Sprintf("/transactions/%s/", id.String()), bytes.NewReader(b), map[string]string{
+	body := c.bufPool.Get().(*misc.Buffer)
+	defer c.bufPool.Put(body)
+	body.Reset()
+	_, err = body.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	return c.Request(method, path, body, map[string]string{
 		"Content-Type": api.CTJSON,
 	}, opts...)
+}
+
+func (c *Client) updateTransaction(id uuid.UUID, req *payload.UpdateTransactionRequest, opts ...RequestOption) (resp *http.Response, err error) {
+	return c.JsonRequest(http.MethodPost, fmt.Sprintf("/transactions/%s/", id.String()), req, opts...)
 }
 
 func (c *Client) DiscardTransaction(id uuid.UUID, opts ...RequestOption) (resp *http.Response, err error) {
@@ -603,13 +613,7 @@ func (c *Client) GarbageCollect(opts ...RequestOption) (resp *http.Response, err
 }
 
 func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestOption) (upr *payload.UploadPackResponse, pr *packfile.PackfileReader, logPayload func(), err error) {
-	b, err := json.Marshal(req)
-	if err != nil {
-		return
-	}
-	resp, err := c.Request(http.MethodPost, "/upload-pack/", bytes.NewReader(b), map[string]string{
-		"Content-Type": CTJSON,
-	}, opts...)
+	resp, err := c.JsonRequest(http.MethodPost, "/upload-pack/", req, opts...)
 	if err != nil {
 		return
 	}
@@ -640,21 +644,13 @@ func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestO
 }
 
 func (c *Client) PostReceivePack(updates map[string]*payload.Update, tableHaves [][]byte, opts ...RequestOption) (*http.Response, error) {
-	req := &payload.ReceivePackRequest{
+	resp, err := c.JsonRequest(http.MethodPost, "/receive-pack/", &payload.ReceivePackRequest{
 		Updates:    updates,
 		TableHaves: payload.BytesSliceToHexSlice(tableHaves),
-	}
-	b, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.Request(http.MethodPost, "/receive-pack/", bytes.NewReader(b), map[string]string{
-		"Content-Type": CTJSON,
 	}, opts...)
 	if err != nil {
 		return nil, err
 	}
-	c.LogRequest(resp.Request, req)
 	return resp, nil
 }
 
