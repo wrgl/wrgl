@@ -16,13 +16,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/wrgl/wrgl/pkg/api"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
-	"github.com/wrgl/wrgl/pkg/misc"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"golang.org/x/net/publicsuffix"
 )
@@ -93,7 +93,8 @@ func WithRequestCookies(cookies []*http.Cookie) RequestOption {
 
 func WithLogger(logger *logr.Logger) ClientOption {
 	return func(c *Client) {
-		c.logger = logger
+		l := logger.WithName("apiclient")
+		c.logger = &l
 	}
 }
 
@@ -120,7 +121,7 @@ func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 		origin: origin,
 		bufPool: &sync.Pool{
 			New: func() any {
-				return misc.NewBuffer(nil)
+				return NewReplayableBuffer()
 			},
 		},
 	}
@@ -134,14 +135,6 @@ func (s *Client) info(msg string, args ...any) {
 	if s.logger != nil {
 		s.logger.Info(msg, args...)
 	}
-}
-
-func (s *Client) LogRequest(r *http.Request, payload interface{}) {
-	s.info("request", "method", r.Method, "url", r.URL, "body", payload)
-}
-
-func (s *Client) LogResponse(r *http.Response, payload interface{}) {
-	s.info("response", "method", r.Request.Method, "url", r.Request.URL, "body", payload)
 }
 
 var authHeaderRegex = regexp.MustCompile(`UMA\s+realm="([^"]+)",\s+as_uri="([^"]+)",\s+ticket="([^"]+)"`)
@@ -187,10 +180,17 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 	for _, opt := range opts {
 		opt(req)
 	}
+	start := time.Now()
 	resp, err = c.client.Do(req)
 	if err != nil {
 		return
 	}
+	c.info("response",
+		"method", req.Method,
+		"path", req.URL.Path,
+		"code", resp.StatusCode,
+		"elapsed", time.Since(start),
+	)
 	if asURI, ticket := extractTicketFrom401(resp); ticket != "" {
 		if c.umaTicketHandler == nil {
 			return nil, &ErrUnauthorized{asURI, ticket}
@@ -199,29 +199,47 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 			c.rpt = ""
 		}
 		var rpt string
+		start := time.Now()
 		rpt, err = c.umaTicketHandler(asURI, ticket, c.rpt)
 		if err != nil {
 			return nil, err
 		}
+		c.info("fetched new rpt",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"elapsed", time.Since(start),
+		)
 		c.rpt = rpt
 		oldHeader := req.Header
-		body := req.Body.(*misc.Buffer)
-		body.Seek(0, io.SeekStart)
+		body := req.Body.(*ReplayableBuffer)
+		if body != nil {
+			body.Seek(0, io.SeekStart)
+		}
 		req, err = http.NewRequest(req.Method, req.URL.String(), body)
 		if err != nil {
 			return nil, err
 		}
 		req.Header = oldHeader
 		req.Header.Set("Authorization", "Bearer "+c.rpt)
+		start = time.Now()
 		resp, err = c.client.Do(req)
 		if err != nil {
 			return nil, err
 		}
+		c.info("retry response",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"code", resp.StatusCode,
+			"elapsed", time.Since(start),
+		)
 	}
 	return resp, nil
 }
 
-func (c *Client) Request(method, path string, body *misc.Buffer, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {
+func (c *Client) Request(method, path string, body *ReplayableBuffer, headers map[string]string, opts ...RequestOption) (resp *http.Response, err error) {
+	if body != nil {
+		body.Seek(0, io.SeekStart)
+	}
 	req, err := http.NewRequest(method, c.origin+path, body)
 	if err != nil {
 		return
@@ -245,7 +263,7 @@ type formFile struct {
 }
 
 func (c *Client) PostMultipartForm(path string, value map[string][]string, files map[string]formFile, opts ...RequestOption) (*http.Response, error) {
-	body := c.bufPool.Get().(*misc.Buffer)
+	body := c.bufPool.Get().(*ReplayableBuffer)
 	defer c.bufPool.Put(body)
 	body.Reset()
 	w := multipart.NewWriter(body)
@@ -271,6 +289,7 @@ func (c *Client) PostMultipartForm(path string, value map[string][]string, files
 	if err != nil {
 		return nil, err
 	}
+	body.Seek(0, io.SeekStart)
 	req, err := http.NewRequest(http.MethodPost, c.origin+path, body)
 	if err != nil {
 		return nil, err
@@ -357,7 +376,6 @@ func (c *Client) GetRefs(prefixes, notPrefixes []string, opts ...RequestOption) 
 	if err = parseJSONPayload(resp, rr); err != nil {
 		return nil, err
 	}
-	c.LogResponse(resp, rr)
 	m = map[string][]byte{}
 	for k, v := range rr.Refs {
 		m[k] = (*v)[:]
@@ -534,20 +552,21 @@ func (c *Client) GetObjects(tables [][]byte, opts ...RequestOption) (pr *packfil
 }
 
 func (c *Client) CreateTransaction(req *payload.CreateTransactionRequest, opts ...RequestOption) (ctr *payload.CreateTransactionResponse, err error) {
-	var body *misc.Buffer
+	var body *ReplayableBuffer
 	var header map[string]string
 	if req != nil {
 		b, err := json.Marshal(req)
 		if err != nil {
 			return nil, err
 		}
-		body = c.bufPool.Get().(*misc.Buffer)
+		body = c.bufPool.Get().(*ReplayableBuffer)
 		defer c.bufPool.Put(body)
 		body.Reset()
 		_, err = body.Write(b)
 		if err != nil {
 			return nil, err
 		}
+		body.Seek(0, io.SeekStart)
 		header = map[string]string{
 			"Content-Type": CTJSON,
 		}
@@ -580,13 +599,14 @@ func (c *Client) JsonRequest(method, path string, req any, opts ...RequestOption
 	if err != nil {
 		return nil, err
 	}
-	body := c.bufPool.Get().(*misc.Buffer)
+	body := c.bufPool.Get().(*ReplayableBuffer)
 	defer c.bufPool.Put(body)
 	body.Reset()
 	_, err = body.Write(b)
 	if err != nil {
 		return nil, err
 	}
+	body.Seek(0, io.SeekStart)
 	return c.Request(method, path, body, map[string]string{
 		"Content-Type": api.CTJSON,
 	}, opts...)
@@ -612,12 +632,11 @@ func (c *Client) GarbageCollect(opts ...RequestOption) (resp *http.Response, err
 	return c.Request(http.MethodPost, "/gc/", nil, nil, opts...)
 }
 
-func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestOption) (upr *payload.UploadPackResponse, pr *packfile.PackfileReader, logPayload func(), err error) {
+func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestOption) (upr *payload.UploadPackResponse, pr *packfile.PackfileReader, err error) {
 	resp, err := c.JsonRequest(http.MethodPost, "/upload-pack/", req, opts...)
 	if err != nil {
 		return
 	}
-	c.LogRequest(resp.Request, req)
 	switch resp.Header.Get("Content-Type") {
 	case CTPackfile:
 		pr, err = packfile.NewPackfileReader(resp.Body)
@@ -625,16 +644,10 @@ func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestO
 			resp.Body.Close()
 			return
 		}
-		logPayload = func() {
-			c.LogResponse(resp, pr.Info)
-		}
 	case CTJSON:
 		upr, err = parseUploadPackResult(resp.Body)
 		if err != nil {
 			return
-		}
-		logPayload = func() {
-			c.LogResponse(resp, upr)
 		}
 	default:
 		resp.Body.Close()

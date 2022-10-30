@@ -127,7 +127,7 @@ func (n *UploadPackSession) negotiate() (stateFn, error) {
 	if err != nil {
 		return nil, errors.Wrap("error poping haves", err)
 	}
-	upr, pr, logPayload, err := n.c.PostUploadPack(&payload.UploadPackRequest{
+	upr, pr, err := n.c.PostUploadPack(&payload.UploadPackRequest{
 		Wants: payload.BytesSliceToHexSlice(n.wants),
 		Haves: payload.BytesSliceToHexSlice(haves),
 		Done:  done,
@@ -138,10 +138,8 @@ func (n *UploadPackSession) negotiate() (stateFn, error) {
 	}
 	n.wants = nil
 	if pr != nil {
-		defer logPayload()
 		return n.receiveObjects(pr)
 	} else if len(upr.TableHaves) > 0 {
-		logPayload()
 		return n.negotiateTables(upr)
 	}
 	if err = n.q.RemoveAncestors(payload.HexSliceToBytesSlice(upr.ACKs)); err != nil {
@@ -158,25 +156,22 @@ func (n *UploadPackSession) negotiateTables(upr *payload.UploadPackResponse) (st
 			acks = append(acks, b)
 		}
 	}
-	upr, pr, logPayload, err := n.c.PostUploadPack(&payload.UploadPackRequest{
+	upr, pr, err := n.c.PostUploadPack(&payload.UploadPackRequest{
 		TableACKs: payload.BytesSliceToHexSlice(acks),
 	}, n.opts...)
 	if err != nil {
 		return nil, errors.Wrap("error requesting upload pack (state=negotiateTables)", err)
 	}
 	if pr != nil {
-		defer logPayload()
 		return n.receiveObjects(pr)
 	}
-	logPayload()
 	return n.negotiateTables(upr)
 }
 
 func (n *UploadPackSession) receiveObjects(pr *packfile.PackfileReader) (stateFn, error) {
 	var err error
-	var logPayload func()
 	if pr == nil {
-		_, pr, logPayload, err = n.c.PostUploadPack(&payload.UploadPackRequest{}, n.opts...)
+		_, pr, err = n.c.PostUploadPack(&payload.UploadPackRequest{}, n.opts...)
 		if err != nil {
 			return nil, errors.Wrap("error requesting upload pack (state=receiveObjects)", err)
 		}
@@ -185,9 +180,6 @@ func (n *UploadPackSession) receiveObjects(pr *packfile.PackfileReader) (stateFn
 	doneReceiving, err := n.receiver.Receive(pr, n.pbar)
 	if err != nil {
 		return nil, errors.Wrap("error receiving objects", err)
-	}
-	if logPayload != nil {
-		logPayload()
 	}
 	if doneReceiving {
 		return nil, nil

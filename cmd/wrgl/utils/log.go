@@ -23,27 +23,10 @@ func SetLogger(ctx context.Context, logger *logr.Logger) context.Context {
 func GetLogger(cmd *cobra.Command) *logr.Logger {
 	if v := cmd.Context().Value(loggerKey{}); v != nil {
 		logger := v.(*logr.Logger)
-		names := getCommandNames(cmd)
-		for _, name := range names {
-			*logger = logger.WithName(name)
-		}
-		return logger
+		l := logger.WithName(cmd.CommandPath())
+		return &l
 	}
 	return nil
-}
-
-func getCommandNames(cmd *cobra.Command) []string {
-	_names := []string{cmd.Name()}
-	for cmd.HasParent() {
-		cmd = cmd.Parent()
-		_names = append(_names, cmd.Name())
-	}
-	n := len(_names)
-	names := make([]string, n)
-	for i, s := range _names {
-		names[n-i-1] = s
-	}
-	return names
 }
 
 func AddLoggerFlags(flags *pflag.FlagSet) {

@@ -15,7 +15,6 @@ import (
 	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
-	"github.com/wrgl/wrgl/pkg/misc"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -50,7 +49,7 @@ func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates ma
 	finder := apiutils.NewClosedSetsFinder(db, rs, 0)
 	_, err := finder.Process(wants, haves, true)
 	if err != nil {
-		return nil, fmt.Errorf("finder.Process error: %v", err)
+		return nil, fmt.Errorf("finder.Process error: %w", err)
 	}
 	coms, err := finder.CommitsToSend()
 	if err != nil {
@@ -118,7 +117,6 @@ func (s *ReceivePackSession) negotiate(updates map[string]*payload.Update) (stat
 	if err != nil {
 		return nil, err
 	}
-	s.c.LogResponse(resp, rpr)
 	if len(rpr.Updates) > 0 {
 		s.updates = rpr.Updates
 		return nil, nil
@@ -146,15 +144,14 @@ func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.c.LogResponse(resp, r)
 	s.updates = r.Updates
 	return nil, nil
 }
 
 func (s *ReceivePackSession) sendObjects() (stateFn, error) {
-	reqBody := misc.NewBuffer(nil)
+	reqBody := NewReplayableBuffer()
 	gzw := gzip.NewWriter(reqBody)
-	done, info, err := s.sender.WriteObjects(gzw, s.pbar)
+	done, _, err := s.sender.WriteObjects(gzw, s.pbar)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +166,6 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.c.LogRequest(resp.Request, info)
 	if resp.StatusCode != http.StatusOK {
 		return nil, s.c.ErrHTTP(resp)
 	}
