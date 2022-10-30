@@ -73,11 +73,7 @@ func RootCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
-			logger, cleanup, err := utils.SetupDebug(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
+			logger := utils.GetLogger(cmd)
 			all, err := cmd.Flags().GetBool("all")
 			if err != nil {
 				return err

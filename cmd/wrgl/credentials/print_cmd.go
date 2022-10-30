@@ -4,6 +4,7 @@
 package credentials
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -35,16 +36,16 @@ func printCmd() *cobra.Command {
 			cfs := conffs.NewStore(dir, conffs.LocalSource, "")
 			c, err := cfs.Open()
 			if err != nil {
-				return err
+				return fmt.Errorf("cfs.Open err: %w", err)
 			}
 			cs, err := credentials.NewStore()
 			if err != nil {
-				return err
+				return fmt.Errorf("credentials.NewStore err: %w", err)
 			}
 
 			uriS, uri, err := getRemoteURI(args[0], c)
 			if err != nil {
-				return err
+				return fmt.Errorf("getRemoteURI err: %w", err)
 			}
 			if tok := cs.GetTokenMatching(*uri); tok != "" {
 				cmd.Println(tok)
@@ -53,10 +54,10 @@ func printCmd() *cobra.Command {
 			cm := utils.NewClientMap(cs)
 			client, err := cm.GetClient(cmd, uriS, apiclient.WithForceAuthenticate())
 			if err != nil {
-				return err
+				return fmt.Errorf("cm.GetClient err: %w", err)
 			}
 			if _, err = client.GetRefs(nil, nil); err != nil {
-				return err
+				return fmt.Errorf("client.GetRefs err: %w", err)
 			}
 			return nil
 		},

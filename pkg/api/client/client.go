@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/http/cookiejar"
@@ -172,7 +171,7 @@ func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {
 	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, CTJSON) {
 		return fmt.Errorf("unrecognized content type: %q", ct)
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
@@ -512,7 +511,7 @@ func (c *Client) GetTable(sum []byte, opts ...RequestOption) (tr *payload.GetTab
 
 func parseUploadPackResult(r io.ReadCloser) (upr *payload.UploadPackResponse, err error) {
 	defer r.Close()
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return
 	}
@@ -660,7 +659,7 @@ func (c *Client) PostReceivePack(updates map[string]*payload.Update, tableHaves 
 }
 
 func (c *Client) ErrHTTP(resp *http.Response) error {
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

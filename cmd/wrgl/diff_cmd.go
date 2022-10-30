@@ -75,11 +75,7 @@ func newDiffCmd() *cobra.Command {
 		}, "\n"),
 		Args: cobra.RangeArgs(0, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger, cleanup, err := utils.SetupDebug(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
+			logger := utils.GetLogger(cmd)
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
 			var db objects.Store

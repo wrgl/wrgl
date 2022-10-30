@@ -64,11 +64,7 @@ func newCommitCmd() *cobra.Command {
 		}),
 		Args: cobra.MaximumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger, cleanup, err := utils.SetupDebug(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
+			logger := utils.GetLogger(cmd)
 			numWorkers, err := cmd.Flags().GetInt("num-workers")
 			if err != nil {
 				return err

@@ -79,11 +79,7 @@ func newPushCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
-			logger, cleanup, err := utils.SetupDebug(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
+			logger := utils.GetLogger(cmd)
 			force, err := cmd.Flags().GetBool("force")
 			if err != nil {
 				return err

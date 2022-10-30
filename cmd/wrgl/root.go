@@ -18,6 +18,7 @@ import (
 	"github.com/wrgl/wrgl/cmd/wrgl/reflog"
 	"github.com/wrgl/wrgl/cmd/wrgl/remote"
 	"github.com/wrgl/wrgl/cmd/wrgl/transaction"
+	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 )
 
 //go:embed VERSION
@@ -28,6 +29,7 @@ func init() {
 }
 
 func RootCmd() *cobra.Command {
+	var cleanupLogger func()
 	rootCmd := &cobra.Command{
 		Use:     "wrgl",
 		Short:   "Git-like data versioning",
@@ -44,9 +46,16 @@ func RootCmd() *cobra.Command {
 				}
 				pprof.StartCPUProfile(f)
 			}
+			cleanupLogger, err = utils.SetupLogger(cmd)
+			if err != nil {
+				return err
+			}
 			return nil
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			if cleanupLogger != nil {
+				cleanupLogger()
+			}
 			pprof.StopCPUProfile()
 			heapprofile, err := cmd.Flags().GetString("heapprofile")
 			if err != nil {
@@ -76,10 +85,9 @@ func RootCmd() *cobra.Command {
 	viper.BindEnv("wrgl_dir")
 	viper.BindPFlag("wrgl_dir", rootCmd.PersistentFlags().Lookup("wrgl-dir"))
 	rootCmd.PersistentFlags().String("badger-log", "", `set Badger log level, valid options are "error", "warning", "debug", and "info" (defaults to "error")`)
-	rootCmd.PersistentFlags().Bool("debug", false, "print debug logs to stdout")
-	rootCmd.PersistentFlags().String("debug-file", "", "print debug logs to the given file instead")
 	rootCmd.PersistentFlags().String("cpuprofile", "", "write cpu profile to file")
 	rootCmd.PersistentFlags().String("heapprofile", "", "write heap profile to file")
+	utils.AddLoggerFlags(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newCommitCmd())
 	rootCmd.AddCommand(newLogCmd())
