@@ -76,11 +76,11 @@ func TestIngestTable(t *testing.T) {
 	}
 }
 
-func TestRejectEmptyColumnName(t *testing.T) {
+func TestFillEmptyColumnName(t *testing.T) {
 	rows := [][]string{
-		{"", "a", "b"},
-		{"1", "q", "w"},
-		{"2", "a", "s"},
+		{"", "a", "", "b"},
+		{"1", "q", "w", "e"},
+		{"2", "a", "s", "d"},
 	}
 	f := writeCSV(t, rows)
 	defer os.Remove(f.Name())
@@ -88,11 +88,11 @@ func TestRejectEmptyColumnName(t *testing.T) {
 	s, err := sorter.NewSorter()
 	require.NoError(t, err)
 
-	_, err = IngestTable(db, s, f, rows[0][1:2])
-	assert.Equal(t, `column name at position 0 is empty`, err.Error())
-
-	_, err = IngestTableFromBlocks(db, s, []string{"", "a", "b"}, []uint32{1}, make(<-chan *sorter.Block))
-	assert.Equal(t, `column name at position 0 is empty`, err.Error())
+	sum, err := IngestTable(db, s, f, rows[0][1:2])
+	require.NoError(t, err)
+	tbl, err := objects.GetTable(db, sum)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"unnamed__1", "a", "unnamed__2", "b"}, tbl.Columns)
 }
 
 func BenchmarkIngestTable(b *testing.B) {

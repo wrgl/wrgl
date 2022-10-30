@@ -97,6 +97,18 @@ func TestResolve(t *testing.T) {
 			},
 		},
 		{
+			Branch: "cached",
+			Factories: []factory.CommitFactory{
+				factory.CommitWithDuplicatedRows(),
+				factory.CommitWithParentTable(),
+			},
+			CheckTree: func(t *testing.T, db objects.Store, newHead, oldHead *objects.Commit) {
+				factory.AssertDuplicatedRowsRemoved(t, db, factory.GetTable(t, db, newHead.Table), factory.GetTable(t, db, oldHead.Table))
+				newCom := factory.GetParent(t, db, newHead)
+				assert.Equal(t, newHead.Table, newCom.Table)
+			},
+		},
+		{
 			Branch: "skipped",
 			Factories: []factory.CommitFactory{
 				factory.CommitMissingTable(),

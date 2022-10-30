@@ -29,7 +29,7 @@ var typeStrs = map[int]string{
 }
 
 func encodeObjTypeAndLen(buf encoding.Bufferer, objType int, u uint64) []byte {
-	bits := int(math.Ceil(math.Log2(float64(u))))
+	bits := int(math.Floor(math.Log2(float64(u)) + 1))
 	numBytes := (bits-4)/7 + 1
 	if (bits-4)%7 > 0 {
 		numBytes += 1

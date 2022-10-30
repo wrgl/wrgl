@@ -59,3 +59,15 @@ func TestPackfileReaderPutBackBytesIfNotAPackfile(t *testing.T) {
 	_, err := NewPackfileReader(io.NopCloser(bytes.NewReader(b)))
 	assert.Error(t, err, "not a packfile")
 }
+
+func TestPackfileLenEncode(t *testing.T) {
+	buf := misc.NewBuffer(nil)
+	for _, l := range []uint64{8, 10, 30, 128, 512, 2047, 2048, 2049} {
+		buf.Reset()
+		b := encodeObjTypeAndLen(buf, ObjectBlock, l)
+		ot, n, err := decodeObjTypeAndLen(bytes.NewReader(b))
+		require.NoError(t, err)
+		assert.Equal(t, ObjectBlock, ot)
+		assert.Equal(t, l, n)
+	}
+}

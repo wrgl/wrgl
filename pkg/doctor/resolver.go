@@ -14,10 +14,11 @@ import (
 
 // resolver resolves all issues in a single ref
 type resolver struct {
-	db     objects.Store
-	tree   *Tree
-	srt    *sorter.Sorter
-	logger logr.Logger
+	db            objects.Store
+	tree          *Tree
+	srt           *sorter.Sorter
+	logger        logr.Logger
+	resolvedTable map[string][]byte
 }
 
 func newResolver(db objects.Store, tree *Tree, logger logr.Logger) (*resolver, error) {
@@ -26,10 +27,11 @@ func newResolver(db objects.Store, tree *Tree, logger logr.Logger) (*resolver, e
 		return nil, err
 	}
 	return &resolver{
-		db:     db,
-		tree:   tree,
-		srt:    srt,
-		logger: logger,
+		db:            db,
+		tree:          tree,
+		srt:           srt,
+		logger:        logger,
+		resolvedTable: map[string][]byte{},
 	}, nil
 }
 
@@ -55,16 +57,20 @@ func (r *resolver) reset(iss *Issue, headCommit []byte) (err error) {
 }
 
 func (r *resolver) reingest(iss *Issue, resetPK bool) error {
-	tbl, err := objects.GetTable(r.db, iss.Table)
-	if err != nil {
-		return err
-	}
-	if resetPK {
-		tbl.PK = nil
-	}
-	tblSum, err := r.ingestTable(iss, tbl)
-	if err != nil {
-		return err
+	tblSum, ok := r.resolvedTable[string(iss.Table)]
+	if !ok {
+		tbl, err := objects.GetTable(r.db, iss.Table)
+		if err != nil {
+			return err
+		}
+		if resetPK {
+			tbl.PK = nil
+		}
+		tblSum, err = r.ingestTable(iss, tbl)
+		if err != nil {
+			return err
+		}
+		r.resolvedTable[string(iss.Table)] = tblSum
 	}
 	return r.tree.EditCommit(iss.Commit, func(com *objects.Commit) (remove bool, update bool, err error) {
 		com.Table = tblSum

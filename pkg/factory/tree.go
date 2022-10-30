@@ -48,6 +48,14 @@ func CommitTableWithPKOutOfRange() CommitFactory {
 	})
 }
 
+func CommitWithParentTable() CommitFactory {
+	return func(t *testing.T, ctx context.Context, db objects.Store) (context.Context, *objects.Commit, *objects.Table) {
+		parents := getParents(ctx)
+		parentCom := GetCommit(t, db, parents[0])
+		return CommitWithTable(parentCom.Table, GetTable(t, db, parentCom.Table))(t, ctx, db)
+	}
+}
+
 func CommitTableWithEmptyPKColumn() CommitFactory {
 	return CommitWithEditedTable(func(t *testing.T, ctx context.Context, db objects.Store, tbl *objects.Table) {
 		tbl.Columns[0] = ""

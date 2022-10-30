@@ -615,15 +615,17 @@ func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestO
 		return
 	}
 	c.LogRequest(resp.Request, req)
-	if resp.Header.Get("Content-Type") == CTPackfile {
+	switch resp.Header.Get("Content-Type") {
+	case CTPackfile:
 		pr, err = packfile.NewPackfileReader(resp.Body)
 		if err != nil {
+			resp.Body.Close()
 			return
 		}
 		logPayload = func() {
 			c.LogResponse(resp, pr.Info)
 		}
-	} else if resp.Header.Get("Content-Type") == CTJSON {
+	case CTJSON:
 		upr, err = parseUploadPackResult(resp.Body)
 		if err != nil {
 			return
@@ -631,6 +633,9 @@ func (c *Client) PostUploadPack(req *payload.UploadPackRequest, opts ...RequestO
 		logPayload = func() {
 			c.LogResponse(resp, upr)
 		}
+	default:
+		resp.Body.Close()
+		err = fmt.Errorf("unrecognized content-type %q", resp.Header.Get("Content-Type"))
 	}
 	return
 }

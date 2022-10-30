@@ -150,16 +150,37 @@ func (i *Inserter) IngestTableFromSorter(columns []string, pk []uint32) ([]byte,
 	return sum, nil
 }
 
+func ensureColumnNamesAreNotEmpty(columns []string) []string {
+	m := map[string]struct{}{}
+	for _, s := range columns {
+		m[s] = struct{}{}
+	}
+	j := 1
+	sl := make([]string, len(columns))
+	for i, s := range columns {
+		if s == "" {
+			for {
+				name := fmt.Sprintf("unnamed__%d", j)
+				if _, ok := m[name]; !ok {
+					sl[i] = name
+					m[name] = struct{}{}
+					break
+				}
+				j += 1
+			}
+		} else {
+			sl[i] = s
+		}
+	}
+	return sl
+}
+
 func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32) ([]byte, error) {
 	i.numWorkers -= 2
 	if i.numWorkers <= 0 {
 		i.numWorkers = 1
 	}
-	for i, s := range columns {
-		if s == "" {
-			return nil, &Error{fmt.Sprintf("column name at position %d is empty", i)}
-		}
-	}
+	columns = ensureColumnNamesAreNotEmpty(columns)
 	i.tbl = objects.NewTable(columns, pk)
 	i.errChan = make(chan error, i.numWorkers)
 	for j := 0; j < i.numWorkers; j++ {
