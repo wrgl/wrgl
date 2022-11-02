@@ -33,7 +33,7 @@ $(call check_defined, VERSION)
 define binary_rule =
 echo "\$$(BUILD_DIR)/wrgl-$(2)-$(1)/bin/wrgl: \$$(MD5_DIR)/go.sum.md5 \$$(wrgl_SOURCES)" >> $(3) && \
 echo -e "\t@-mkdir -p \$$(dir \$$@) 2>/dev/null" >> $(3) && \
-echo -e "\techo -n $(VERSION) > cmd/wrgl/VERSION" >> $(3) && \
+echo -e "\techo -n \$$(VERSION) > cmd/wrgl/VERSION" >> $(3) && \
 (if [ "$(2)" == "linux" ]; then \
   echo -e "\tenv CC=x86_64-linux-musl-gcc CXX=x86_64-linux-musl-g++ GOARCH=amd64 GOOS=linux CGO_ENABLED=1 go build -ldflags \"-linkmode external -extldflags -static\" -a -o \$$@ github.com/wrgl/wrgl" >> $(3); \
 else \
