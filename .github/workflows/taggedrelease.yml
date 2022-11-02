@@ -21,6 +21,11 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - name: Checkout code
         uses: actions/checkout@v2
+      - id: get_version
+        uses: battila7/get-version-action@v2
+      - id: create VERSION file
+        run: |
+          echo -n ${{ steps.get_version.outputs.version }} > cmd/wrgl/VERSION
       - name: Test all packages except csvgen
         run: |
           go test $(go list ./... | grep -v csvgen)
