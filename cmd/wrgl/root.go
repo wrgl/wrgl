@@ -4,10 +4,8 @@
 package wrgl
 
 import (
-	_ "embed"
 	"os"
 	"runtime/pprof"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -22,12 +20,7 @@ import (
 	"github.com/wrgl/wrgl/cmd/wrgl/transaction"
 )
 
-//go:embed VERSION
 var version string
-
-func init() {
-	version = strings.TrimSpace(version)
-}
 
 func RootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
