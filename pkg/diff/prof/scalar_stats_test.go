@@ -71,4 +71,15 @@ func TestFloat64Stat(t *testing.T) {
 	assert.Equal(t, "{\"name\":\"Mean\",\"shortName\":\"mean\",\"old\":20,\"new\":10}", string(b))
 	assert.Nil(t, f(nil, nil, nil, nil))
 	assert.Nil(t, f(nil, nil, &objects.ColumnProfile{}, &objects.ColumnProfile{}))
+
+	fs := &Float64Stat{}
+	assert.True(t, fs.Unchanged())
+	fs = &Float64Stat{Old: floatPtr(10)}
+	assert.False(t, fs.Unchanged())
+	fs = &Float64Stat{New: floatPtr(5)}
+	assert.False(t, fs.Unchanged())
+	fs = &Float64Stat{Old: floatPtr(10), New: floatPtr(5)}
+	assert.False(t, fs.Unchanged())
+	fs = &Float64Stat{Old: floatPtr(10), New: floatPtr(10)}
+	assert.True(t, fs.Unchanged())
 }

@@ -4,10 +4,10 @@
 package wrgl
 
 import (
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/prune"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
@@ -38,20 +38,20 @@ func newPruneCmd() *cobra.Command {
 
 func runPrune(cmd *cobra.Command, db objects.Store, rs ref.Store) error {
 	return prune.Prune(db, rs, &prune.PruneOptions{
-		FindCommitsPbar: func() *progressbar.ProgressBar {
-			return utils.PBar(-1, "finding commits to remove", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		FindCommitsPbar: func() pbar.Bar {
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "finding commits to remove")
 		},
-		PruneTablesPbar: func() *progressbar.ProgressBar {
-			return utils.PBar(-1, "removing small tables", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		PruneTablesPbar: func() pbar.Bar {
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing small tables")
 		},
-		PruneBlocksPbar: func() *progressbar.ProgressBar {
-			return utils.PBar(-1, "removing blocks", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		PruneBlocksPbar: func() pbar.Bar {
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing blocks")
 		},
-		PruneBlockIndicesPbar: func() *progressbar.ProgressBar {
-			return utils.PBar(-1, "removing block indices", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		PruneBlockIndicesPbar: func() pbar.Bar {
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing block indices")
 		},
-		PruneCommitsPbar: func() *progressbar.ProgressBar {
-			return utils.PBar(-1, "removing commits", cmd.OutOrStdout(), cmd.ErrOrStderr())
+		PruneCommitsPbar: func() pbar.Bar {
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing commits")
 		},
 	})
 }

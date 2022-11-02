@@ -10,10 +10,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/klauspost/compress/s2"
-	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 )
 
 type ObjectReceiver struct {
@@ -112,7 +112,7 @@ func (r *ObjectReceiver) saveCommit(b []byte) (sum []byte, err error) {
 	return
 }
 
-func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, pbar *progressbar.ProgressBar) (done bool, err error) {
+func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, bar pbar.Bar) (done bool, err error) {
 	for {
 		ot, b, err := pr.ReadObject()
 		if err != nil && err != io.EOF {
@@ -145,10 +145,8 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, pbar *progressbar.
 				return false, fmt.Errorf("pr.Info.AddObject error: %v", err)
 			}
 		}
-		if ot != 0 && pbar != nil {
-			if err = pbar.Add(1); err != nil {
-				return false, fmt.Errorf("pbar.Add error: %v", err)
-			}
+		if ot != 0 && bar != nil {
+			bar.Incr()
 		}
 		if err == io.EOF {
 			break

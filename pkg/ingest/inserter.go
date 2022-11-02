@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pckhoi/meow"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/sorter"
 )
 
@@ -25,7 +26,7 @@ type asyncBlock struct {
 
 type Inserter struct {
 	db          objects.Store
-	pt          ProgressBar
+	pt          pbar.Bar
 	tbl         *objects.Table
 	asyncBlocks []asyncBlock
 	rowsCount   uint32
@@ -39,7 +40,7 @@ type Inserter struct {
 
 type InserterOption func(*Inserter)
 
-func WithProgressBar(pt ProgressBar) InserterOption {
+func WithProgressBar(pt pbar.Bar) InserterOption {
 	return func(i *Inserter) {
 		i.pt = pt
 	}
@@ -113,7 +114,7 @@ func (i *Inserter) insertBlock() {
 			PK:     blk.PK,
 		})
 		if i.pt != nil {
-			i.pt.Add(1)
+			i.pt.Incr()
 		}
 	}
 }
@@ -194,9 +195,7 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32) ([]byte,
 		return nil, err
 	}
 	if i.pt != nil {
-		if err := i.pt.Finish(); err != nil {
-			return nil, err
-		}
+		i.pt.Done()
 	}
 	tblIdx := i.sortBlocks()
 	i.tbl.RowsCount = i.rowsCount

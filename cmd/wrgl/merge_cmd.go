@@ -18,7 +18,6 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
@@ -27,6 +26,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/merge"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/sorter"
@@ -474,25 +474,23 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	if err != nil {
 		return err
 	}
-	bar := utils.PBar(-1, fmt.Sprintf("saving merge result to %s", name), cmd.OutOrStdout(), cmd.ErrOrStderr())
+	bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, fmt.Sprintf("saving merge result to %s", name))
+	defer bar.Done()
 	for blk := range blocks {
 		for _, row := range blk.Rows {
 			err = w.Write(row)
 			if err != nil {
 				return err
 			}
-			err = bar.Add(1)
-			if err != nil {
-				return err
-			}
+			bar.Incr()
 		}
 	}
-	return bar.Finish()
+	return nil
 }
 
-func displayCommitProgress(cmd *cobra.Command) (sortPT, blkPT *progressbar.ProgressBar) {
-	sortPT = utils.PBar(-1, "sorting", cmd.OutOrStdout(), cmd.OutOrStderr())
-	blkPT = utils.PBar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
+func displayCommitProgress(cmd *cobra.Command) (sortPT, blkPT pbar.Bar) {
+	sortPT = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "sorting")
+	blkPT = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "saving blocks")
 	return
 }
 
@@ -519,7 +517,8 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
-	blkPT := utils.PBar(-1, "saving blocks", cmd.OutOrStdout(), cmd.OutOrStderr())
+	blkPT := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "saving blocks")
+	defer blkPT.Done()
 	s, err := sorter.NewSorter()
 	if err != nil {
 		return err
@@ -591,7 +590,7 @@ func redrawEvery(app *tview.Application, d time.Duration) (cancel func()) {
 }
 
 func collectMergeConflicts(cmd *cobra.Command, merger *merge.Merger) (*diff.ColDiff, []*merge.Merge, error) {
-	var bar *progressbar.ProgressBar
+	var bar pbar.Bar
 	mch, err := merger.Start()
 	if err != nil {
 		return nil, nil, err
@@ -603,9 +602,10 @@ mainLoop:
 		select {
 		case p := <-pch:
 			if bar == nil {
-				bar = utils.PBar(p.Total, "collecting merge conflicts", cmd.OutOrStdout(), cmd.OutOrStderr())
+				bar = pbar.NewProgressBar(cmd.OutOrStdout(), p.Total, "collecting merge conflicts")
+				defer bar.Done()
 			}
-			bar.Set64(p.Progress)
+			bar.SetCurrent(p.Progress)
 		case m, ok := <-mch:
 			if !ok {
 				break mainLoop
@@ -614,11 +614,6 @@ mainLoop:
 		}
 	}
 	merger.Progress.Stop()
-	if bar != nil {
-		if err = bar.Finish(); err != nil {
-			return nil, nil, err
-		}
-	}
 	if err = merger.Error(); err != nil {
 		return nil, nil, err
 	}

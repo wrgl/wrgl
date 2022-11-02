@@ -7,8 +7,8 @@ import (
 	"io"
 	"sort"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -105,24 +105,24 @@ func pruneTables(db objects.Store, survivingCommits [][]byte, allBlockKeys, allB
 }
 
 type PruneOptions struct {
-	FindCommitsPbar       func() *progressbar.ProgressBar
-	PruneTablesPbar       func() *progressbar.ProgressBar
-	PruneBlocksPbar       func() *progressbar.ProgressBar
-	PruneBlockIndicesPbar func() *progressbar.ProgressBar
-	PruneCommitsPbar      func() *progressbar.ProgressBar
+	FindCommitsPbar       func() pbar.Bar
+	PruneTablesPbar       func() pbar.Bar
+	PruneBlocksPbar       func() pbar.Bar
+	PruneBlockIndicesPbar func() pbar.Bar
+	PruneCommitsPbar      func() pbar.Bar
 }
 
 type runProgressFunc func(pbarAdd func()) (err error)
 
-func runWithPbar(getPbar func() *progressbar.ProgressBar, run runProgressFunc) error {
-	var pbar *progressbar.ProgressBar
+func runWithPbar(getPbar func() pbar.Bar, run runProgressFunc) error {
+	var pbar pbar.Bar
 	if getPbar != nil {
 		pbar = getPbar()
-		defer pbar.Finish()
+		defer pbar.Done()
 	}
 	return run(func() {
 		if pbar != nil {
-			pbar.Add(1)
+			pbar.Incr()
 		}
 	})
 }
