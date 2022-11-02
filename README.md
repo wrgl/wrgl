@@ -2,9 +2,14 @@
 
 Git-like data versioning. It can handle files up to 10s of Gigabytes.
 
+## Installation
+
+```bash
+sudo bash -c 'curl -L https://github.com/wrgl/wrgl/releases/latest/download/install.sh | bash'
+```
+
 ## Documentation
 
-- [Installation](https://www.wrgl.co/doc/guides/installation)
 - [Quickstart](https://www.wrgl.co/doc/guides/quickstart)
 
 ## Version compatibility

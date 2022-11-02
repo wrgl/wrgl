@@ -81,10 +81,5 @@ func GetCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (u
 		return
 	}
 	uri, token = cs.GetTokenMatching(*u)
-	if uri == nil {
-		cmd.Printf("No credential found for %s\n", remote)
-		cmd.Println("Proceed as anonymous user...")
-		return
-	}
 	return
 }

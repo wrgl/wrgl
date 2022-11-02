@@ -99,13 +99,17 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cm, err := utils.NewClientMap()
+			if err != nil {
+				return err
+			}
 			if all {
 				for k, v := range c.Remote {
 					uri, tok, err := utils.GetCredentials(cmd, cs, v.URL)
 					if err != nil {
 						return err
 					}
-					err = Fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force, depth, logger, pbarContainer)
+					err = Fetch(cmd, db, rs, cm, c.User, k, tok, v, v.Fetch, force, depth, logger, pbarContainer)
 					if err != nil {
 						return utils.HandleHTTPError(cmd, cs, v.URL, uri, err)
 					}
@@ -120,7 +124,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger, pbarContainer); err != nil {
+			if err := Fetch(cmd, db, rs, cm, c.User, remote, tok, rem, specs, force, depth, logger, pbarContainer); err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
 			return nil
@@ -160,8 +164,8 @@ func ParseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, ar
 	return remote, rem, specs, nil
 }
 
-func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs []*conf.Refspec, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
-	m, err := client.GetRefs(nil, []string{ref.TransactionRefPrefix})
+func identifyRefsToFetch(cmd *cobra.Command, cm *utils.ClientMap, cr *conf.Remote, specs []*conf.Refspec) (refs []*conf.Refspec, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
+	m, err := cm.GetRefs(cmd, cr)
 	if err != nil {
 		return
 	}
@@ -378,6 +382,7 @@ func Fetch(
 	cmd *cobra.Command,
 	db objects.Store,
 	rs ref.Store,
+	cm *utils.ClientMap,
 	u *conf.User,
 	remote,
 	token string,
@@ -392,7 +397,7 @@ func Fetch(
 	if err != nil {
 		return errors.Wrap("error creating new client", err)
 	}
-	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(client, specs)
+	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(cmd, cm, cr, specs)
 	if err != nil {
 		return errors.Wrap("error fetching refs", err)
 	}

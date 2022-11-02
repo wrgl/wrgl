@@ -110,6 +110,10 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			cm, err := utils.NewClientMap()
+			if err != nil {
+				return err
+			}
 
 			if all {
 				names := []string{}
@@ -121,7 +125,7 @@ func pullCmd() *cobra.Command {
 				}
 				sort.Strings(names)
 				total := len(names)
-				bar := pbarContainer.NewBar(int64(total), "Pulling repos")
+				bar := pbarContainer.NewBar(int64(total), "Pulling branches")
 				defer bar.Abort()
 				var updatesCh = make(chan string)
 				var updateStrs = []string{}
@@ -136,7 +140,7 @@ func pullCmd() *cobra.Command {
 				var reposNotFound = []string{}
 				for _, name := range names {
 					if err := pullSingleRepo(
-						cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI,
+						cmd, c, db, rs, cm, []string{name}, force, false, noCommit, noGUI,
 						wrglDir, ff, numWorkers, message, depth, logger, pbarContainer, updatesCh,
 					); err != nil {
 						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
@@ -169,7 +173,7 @@ func pullCmd() *cobra.Command {
 			}
 
 			return pullSingleRepo(
-				cmd, c, db, rs, args, force, setUpstream, noCommit, noGUI,
+				cmd, c, db, rs, cm, args, force, setUpstream, noCommit, noGUI,
 				wrglDir, ff, numWorkers, message, depth, logger, pbarContainer, nil,
 			)
 		},
@@ -185,6 +189,7 @@ func pullCmd() *cobra.Command {
 	cmd.Flags().Bool("no-ff", false, "always create a merge commit, even when a simple fast-forward is possible. This is the default when merge.fastFoward is set to \"never\".")
 	cmd.Flags().Bool("ff-only", false, "only allow fast-forward merges. This is the default when merge.fastForward is set to \"only\".")
 	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
+	cmd.Flags().Bool("ignore-non-existent", false, "ignore branches that cannot be found on remote")
 	utils.SetupProgressBarFlags(cmd.Flags())
 	return cmd
 }
@@ -227,9 +232,24 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 }
 
 func pullSingleRepo(
-	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, force, setUpstream bool,
-	noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string, depth int32,
-	logger *logr.Logger, pbarContainer pbar.Container, updatesCh chan string,
+	cmd *cobra.Command,
+	c *conf.Config,
+	db objects.Store,
+	rs ref.Store,
+	cm *utils.ClientMap,
+	args []string,
+	force,
+	setUpstream bool,
+	noCommit,
+	noGUI bool,
+	wrglDir string,
+	ff conf.FastForward,
+	numWorkers int,
+	message string,
+	depth int32,
+	logger *logr.Logger,
+	pbarContainer pbar.Container,
+	updatesCh chan string,
 ) (err error) {
 	newBranch := false
 	name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
@@ -260,7 +280,7 @@ func pullSingleRepo(
 	if err != nil {
 		return err
 	}
-	err = fetch.Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger, pbarContainer)
+	err = fetch.Fetch(cmd, db, rs, cm, c.User, remote, tok, rem, specs, force, depth, logger, pbarContainer)
 	if err != nil {
 		return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 	}
@@ -283,7 +303,13 @@ func pullSingleRepo(
 		if len(mergeHeads) > 1 {
 			return fmt.Errorf("can't merge more than one reference into a non-existant branch")
 		} else if len(mergeHeads) == 0 {
-			return fmt.Errorf("nothing to create ref %q from. Make sure the remote branch exists", name)
+			ignoreNonExistent, err := cmd.Flags().GetBool("ignore-non-existent")
+			if err != nil {
+				return err
+			}
+			if !ignoreNonExistent {
+				return fmt.Errorf("nothing to create ref %q from. Make sure the remote branch exists", name)
+			}
 		}
 		_, sum, com, err := ref.InterpretCommitName(db, rs, mergeHeads[0], true)
 		if err != nil {

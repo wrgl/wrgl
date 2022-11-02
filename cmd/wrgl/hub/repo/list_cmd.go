@@ -24,8 +24,7 @@ func getWrglHubCreds(cmd *cobra.Command) (cs *credentials.Store, uri *url.URL, t
 	}
 	uri, token = cs.GetTokenMatching(*u)
 	if token == "" {
-		utils.PrintAuthCmd(cmd, u.String())
-		err = fmt.Errorf("unauthenticated")
+		err = utils.CmdAuthError(cmd, u.String(), fmt.Errorf("Unauthenticated"))
 		return
 	}
 	return

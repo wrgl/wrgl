@@ -41,7 +41,7 @@ func (p *container) NewBar(total int64, name string) Bar {
 	}
 	if total > 0 {
 		options = append(options,
-			mpb.AppendDecorators(decor.Percentage(decor.WC{W: 5}), decor.Elapsed(decor.ET_STYLE_GO)),
+			mpb.AppendDecorators(decor.Percentage(decor.WC{W: 5, C: decor.DidentRight}), decor.Elapsed(decor.ET_STYLE_GO)),
 		)
 	} else {
 		options = append(options,

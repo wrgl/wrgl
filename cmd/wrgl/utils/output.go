@@ -18,11 +18,11 @@ import (
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
-func PrintAuthCmd(cmd *cobra.Command, remoteURL string) {
+func CmdAuthError(cmd *cobra.Command, remoteURL string, err error) error {
 	if strings.HasPrefix(remoteURL, api.APIRoot) {
 		remoteURL = api.APIRoot
 	}
-	cmd.Printf("Run this command to authenticate:\n    wrgl credentials authenticate %s\n", remoteURL)
+	return fmt.Errorf("%w\nRun this command to authenticate:\n    wrgl credentials authenticate %s", err, remoteURL)
 }
 
 func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri *url.URL) error {
@@ -37,14 +37,11 @@ func discardCredentials(cmd *cobra.Command, cs *credentials.Store, uri *url.URL)
 func HandleHTTPError(cmd *cobra.Command, cs *credentials.Store, remoteURL string, uri *url.URL, err error) error {
 	if v := apiclient.UnwrapHTTPError(err); v != nil && (v.Code == http.StatusForbidden || v.Code == http.StatusUnauthorized) {
 		if uri != nil {
-			cmd.Println("Credentials are invalid")
 			if err := discardCredentials(cmd, cs, uri); err != nil {
 				return err
 			}
-		} else {
-			cmd.Println("Unauthorized.")
 		}
-		PrintAuthCmd(cmd, remoteURL)
+		return CmdAuthError(cmd, remoteURL, err)
 	}
 	return err
 }
