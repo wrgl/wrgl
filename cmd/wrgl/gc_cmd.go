@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/transaction"
 )
 
@@ -34,9 +35,11 @@ func gcCmd() *cobra.Command {
 				return err
 			}
 
+			bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Discarding expired transactions")
+			defer bar.Done()
 			if err = transaction.GarbageCollect(
 				db, rs, c.GetTransactionTTL(),
-				utils.PBar(-1, "discarding expired transactions", cmd.OutOrStdout(), cmd.ErrOrStderr()),
+				bar,
 			); err != nil {
 				return err
 			}

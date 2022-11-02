@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
@@ -16,6 +15,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -55,6 +55,11 @@ func newTablesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			pbarContainer, err := utils.GetProgressBarContainer(cmd)
+			if err != nil {
+				return err
+			}
+			defer pbarContainer.Wait()
 			cm, err := utils.NewClientMap()
 			if err != nil {
 				return err
@@ -85,7 +90,7 @@ func newTablesCmd() *cobra.Command {
 						}
 					}
 					if shallowErr := apiclient.NewShallowCommitError(db, rs, coms); shallowErr != nil {
-						if err = fetchTableSums(cmd, db, cm, c, shallowErr.TableSums); err != nil {
+						if err = fetchTableSums(cmd, db, cm, c, shallowErr.TableSums, pbarContainer); err != nil {
 							return err
 						}
 					}
@@ -100,11 +105,10 @@ func newTablesCmd() *cobra.Command {
 						return fmt.Errorf("error decoding hex string %q: %v", s, err)
 					}
 				}
-				return fetchTableSums(cmd, db, cm, c, map[string][][]byte{remote: sums})
+				return fetchTableSums(cmd, db, cm, c, map[string][][]byte{remote: sums}, pbarContainer)
 			}
 		},
 	}
-	cmd.Flags().Bool("no-progress", false, "Don't display progress bar")
 	cmd.Flags().Bool("missing", false, "Fetch all missing tables that could be reached from a branch")
 	return cmd
 }
@@ -121,7 +125,7 @@ func deduplicateSums(sums [][]byte) [][]byte {
 	return sl
 }
 
-func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c *conf.Config, tblSums map[string][][]byte) (err error) {
+func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c *conf.Config, tblSums map[string][][]byte, pbarContainer pbar.Container) (err error) {
 	for remote, sums := range tblSums {
 		sums = deduplicateSums(sums)
 		rem, ok := c.Remote[remote]
@@ -138,22 +142,13 @@ func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c
 		}
 		defer pr.Close()
 		or := apiutils.NewObjectReceiver(db, nil)
-		noP, err := cmd.Flags().GetBool("no-progress")
+		bar := pbarContainer.NewBar(-1, "Fetching objects")
+		defer bar.Done()
+		_, err = or.Receive(pr, bar)
 		if err != nil {
 			return err
 		}
-		var pbar *progressbar.ProgressBar
-		if !noP {
-			pbar = utils.PBar(-1, "fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-			defer pbar.Finish()
-		}
-		_, err = or.Receive(pr, pbar)
-		if err != nil {
-			return err
-		}
-		if pbar != nil {
-			pbar.Finish()
-		}
+		bar.Done()
 		for _, b := range sums {
 			cmd.Printf("Table %x persisted\n", b)
 		}

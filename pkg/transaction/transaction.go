@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -98,10 +98,7 @@ func Discard(rs ref.Store, id uuid.UUID) (err error) {
 	return rs.DeleteTransaction(id)
 }
 
-func GarbageCollect(db objects.Store, rs ref.Store, ttl time.Duration, pbar *progressbar.ProgressBar) (err error) {
-	if pbar != nil {
-		defer pbar.Finish()
-	}
+func GarbageCollect(db objects.Store, rs ref.Store, ttl time.Duration, bar pbar.Bar) (err error) {
 	ids, err := rs.GCTransactions(ttl)
 	if err != nil {
 		return err
@@ -109,6 +106,9 @@ func GarbageCollect(db objects.Store, rs ref.Store, ttl time.Duration, pbar *pro
 	for _, id := range ids {
 		if err = ref.DeleteTransactionRefs(rs, id); err != nil {
 			return
+		}
+		if bar != nil {
+			bar.Incr()
 		}
 	}
 	return nil

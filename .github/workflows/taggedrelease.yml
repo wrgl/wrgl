@@ -39,10 +39,10 @@ jobs:
       - name: Install cross-compiler
         run: brew install FiloSottile/musl-cross/musl-cross
       - uses: actions/checkout@v2
-      - name: Build
-        run: gmake
       - id: get_version
         uses: battila7/get-version-action@v2
+      - name: Build
+        run: "gmake VERSION=${{ steps.get_version.outputs.version }}"
       - name: Put version number in wrgl installer
         uses: bluwy/substitute-string-action@v1
         id: sub-wrgl-installer

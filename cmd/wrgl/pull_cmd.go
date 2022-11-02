@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -21,6 +20,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/credentials"
 	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -100,6 +100,11 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			pbarContainer, err := utils.GetProgressBarContainer(cmd)
+			if err != nil {
+				return err
+			}
+			defer pbarContainer.Wait()
 			ff, err := getFastForward(cmd, c)
 			if err != nil {
 				return err
@@ -114,26 +119,49 @@ func pullCmd() *cobra.Command {
 					names = append(names, name)
 				}
 				sort.Strings(names)
+				total := len(names)
+				bar := pbarContainer.NewBar(int64(total), "Pulling repos")
+				defer bar.Abort()
+				var updates int
+				var reposNotFound = []string{}
 				for _, name := range names {
-					colorstring.Fprintf(cmd.OutOrStdout(), "pulling [bold]%s[reset]...\n", name)
-					if err := pullSingleRepo(
+					if updated, err := pullSingleRepo(
 						cmd, c, db, rs, []string{name}, force, false, noCommit, noGUI,
-						wrglDir, ff, numWorkers, message, depth, logger,
+						wrglDir, ff, numWorkers, message, depth, logger, pbarContainer, false,
 					); err != nil {
 						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
-							cmd.Println("Repository not found, skipping.")
+							reposNotFound = append(reposNotFound, name)
 						} else {
 							return err
 						}
+					} else if updated {
+						updates += 1
 					}
+					bar.Incr()
+				}
+				bar.Done()
+				for _, name := range reposNotFound {
+					cmd.Printf("Skipped repository %q: not found\n", name)
+				}
+				if updates > 0 {
+					cmd.Printf("%d out of %d repos updated\n", updates, total)
+				} else {
+					cmd.Println("All repos are up-to-date")
 				}
 				return nil
 			}
 
-			return pullSingleRepo(
+			if len(args) == 0 {
+				return fmt.Errorf("invalid number of arguments. add --help flag to see example usage")
+			}
+
+			if _, err := pullSingleRepo(
 				cmd, c, db, rs, args, force, setUpstream, noCommit, noGUI,
-				wrglDir, ff, numWorkers, message, depth, logger,
-			)
+				wrglDir, ff, numWorkers, message, depth, logger, pbarContainer, true,
+			); err != nil {
+				return err
+			}
+			return nil
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update local branch in certain conditions.")
@@ -147,7 +175,7 @@ func pullCmd() *cobra.Command {
 	cmd.Flags().Bool("no-ff", false, "always create a merge commit, even when a simple fast-forward is possible. This is the default when merge.fastFoward is set to \"never\".")
 	cmd.Flags().Bool("ff-only", false, "only allow fast-forward merges. This is the default when merge.fastForward is set to \"only\".")
 	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
-	cmd.Flags().Bool("no-progress", false, "Don't display progress bar")
+	utils.SetupProgressBarFlags(cmd.Flags())
 	return cmd
 }
 
@@ -190,8 +218,9 @@ func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name stri
 
 func pullSingleRepo(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, args []string, force, setUpstream bool,
-	noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string, depth int32, logger *logr.Logger,
-) error {
+	noCommit, noGUI bool, wrglDir string, ff conf.FastForward, numWorkers int, message string, depth int32,
+	logger *logr.Logger, pbarContainer pbar.Container, printResult bool,
+) (updated bool, err error) {
 	newBranch := false
 	name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
 	if err != nil {
@@ -202,7 +231,7 @@ func pullSingleRepo(
 				name = "heads/" + name
 			}
 		} else {
-			return err
+			return false, err
 		}
 	}
 	if !strings.HasPrefix(name, "heads/") {
@@ -211,53 +240,61 @@ func pullSingleRepo(
 	}
 	remote, rem, specs, err := fetch.ParseRemoteAndRefspec(cmd, c, name[6:], args[1:])
 	if err != nil {
-		return err
+		return false, err
 	}
 	cs, err := credentials.NewStore()
 	if err != nil {
-		return err
+		return false, err
 	}
 	uri, tok, err := utils.GetCredentials(cmd, cs, rem.URL)
 	if err != nil {
-		return err
+		return false, err
 	}
-	err = fetch.Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger)
+	err = fetch.Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger, pbarContainer)
 	if err != nil {
-		return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
+		return false, utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 	}
 	if setUpstream && len(args) > 2 {
 		ref, err := conf.NewRefspec(name, strings.TrimPrefix(specs[0].Src(), "refs/"), false, false)
 		if err != nil {
-			return err
+			return false, err
 		}
 		err = setBranchUpstream(cmd, wrglDir, remote, []*conf.Refspec{ref})
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	mergeHeads, err := extractMergeHeads(db, rs, c, name, args, specs, newBranch)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if newBranch {
 		if len(mergeHeads) > 1 {
-			return fmt.Errorf("can't merge more than one reference into a non-existant branch")
+			return false, fmt.Errorf("can't merge more than one reference into a non-existant branch")
 		} else if len(mergeHeads) == 0 {
-			return fmt.Errorf("nothing to create this branch from")
+			return false, fmt.Errorf("nothing to create ref %q from. Make sure the remote branch exists", name)
 		}
 		_, sum, com, err := ref.InterpretCommitName(db, rs, mergeHeads[0], true)
 		if err != nil {
-			return fmt.Errorf("can't get merge head ref: %v", err)
+			return false, fmt.Errorf("can't get merge head ref: %v", err)
 		}
 		if err = ref.SaveRef(rs, name, sum, c.User.Name, c.User.Email, "pull", "created from "+mergeHeads[0], nil); err != nil {
-			return err
+			return false, err
 		}
-		cmd.Printf("[%s %s] %s\n", strings.TrimPrefix(name, "heads/"), hex.EncodeToString(sum)[:7], com.Message)
-		return nil
+		if printResult {
+			cmd.Printf("[%s %s] %s\n", strings.TrimPrefix(name, "heads/"), hex.EncodeToString(sum)[:7], com.Message)
+		}
+		updated = true
+		return updated, nil
 	} else if len(mergeHeads) == 0 {
-		cmd.Println("Already up to date.")
-		return nil
+		if printResult {
+			cmd.Println("Already up to date.")
+		}
+		return updated, nil
 	}
-	return runMerge(cmd, c, db, rs, append(args[:1], mergeHeads...), noCommit, noGUI, ff, "", numWorkers, message, nil)
+	if err := runMerge(cmd, c, db, rs, append(args[:1], mergeHeads...), noCommit, noGUI, ff, "", numWorkers, message, nil); err != nil {
+		return false, err
+	}
+	return updated, nil
 }

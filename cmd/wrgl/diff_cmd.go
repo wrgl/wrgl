@@ -21,7 +21,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/colorstring"
 	"github.com/rivo/tview"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	"github.com/wrgl/wrgl/pkg/conf"
@@ -31,6 +30,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/objects"
 	objmock "github.com/wrgl/wrgl/pkg/objects/mock"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/progress"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/slice"
@@ -165,7 +165,7 @@ func getSecondCommit(
 }
 
 func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File, quiet bool, delim rune) (hash []byte, commit *objects.Commit, err error) {
-	var sortPT, blkPT *progressbar.ProgressBar
+	var sortPT, blkPT pbar.Bar
 	if !quiet {
 		sortPT, blkPT = displayCommitProgress(cmd)
 	}
@@ -290,21 +290,19 @@ func collectDiffObjects(
 		progChan = pt.Start()
 		defer pt.Stop()
 	}
-	var bar *progressbar.ProgressBar
-	if !quiet {
-		bar = utils.PBar(-1, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
-		defer bar.Finish()
+	var bar pbar.Bar
+	if quiet {
+		bar = pbar.NewNoopBar()
+	} else {
+		bar = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Collecting changes")
 	}
+	defer bar.Done()
 mainLoop:
 	for {
 		select {
 		case e := <-progChan:
-			if bar != nil {
-				if bar.GetMax() == 0 {
-					bar.ChangeMax64(e.Total)
-				}
-				bar.Set64(e.Progress)
-			}
+			bar.SetTotal(e.Total)
+			bar.SetCurrent(e.Progress)
 		case d, ok := <-diffChan:
 			if !ok {
 				break mainLoop
@@ -363,15 +361,14 @@ func writeRowChanges(
 	}
 	progChan := pt.Start()
 	defer pt.Stop()
-	bar := utils.PBar(-1, "Collecting changes", cmd.OutOrStdout(), cmd.ErrOrStderr())
+	bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Collecting changes")
+	defer bar.Done()
 mainLoop:
 	for {
 		select {
 		case e := <-progChan:
-			if bar.GetMax() == 0 {
-				bar.ChangeMax64(e.Total)
-			}
-			bar.Set64(e.Progress)
+			bar.SetTotal(e.Total)
+			bar.SetCurrent(e.Progress)
 		case d, ok := <-diffChan:
 			if !ok {
 				break mainLoop

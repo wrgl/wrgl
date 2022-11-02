@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -15,6 +14,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -98,19 +98,17 @@ func pushCmd() *cobra.Command {
 			if err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
-			var pbar *progressbar.ProgressBar
+			var pb pbar.Bar
 			if !noP {
-				pbar = utils.PBar(-1, "Pushing objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-				defer pbar.Finish()
+				pb = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Pushing objects")
+				defer pb.Done()
 			}
-			updates, err = ses.Start(pbar)
+			updates, err = ses.Start(pb)
 			if err != nil {
 				return err
 			}
-			if pbar != nil {
-				if err = pbar.Finish(); err != nil {
-					return err
-				}
+			if pb != nil {
+				pb.Done()
 			}
 			for k, u := range updates {
 				if u.ErrMsg != "" {

@@ -26,7 +26,7 @@ csvgen $FILE -f $FRACTION --rename-cols --preserve-cols col_a | wrgl commit test
 csvgen $FILE -f $FRACTION --addrem-cols | wrgl commit test-diff-col-change - "first commit"
 csvgen $FILE -f $FRACTION --mod-rows --preserve-cols col_a | wrgl commit test-diff-no-stat - "first commit" -p col_a
 csvgen $FILE -f $FRACTION --mod-rows --move-cols --addrem-cols --preserve-cols col_a | wrgl commit test-diff-stat - "first commit" -p col_a
-wrgl branch -c test-merge-1 test-base
-wrgl branch -c test-merge-2 test-base
+wrgl branch create -c test-merge-1 test-base
+wrgl branch create -c test-merge-2 test-base
 csvgen $FILE -f $FRACTION --mod-rows --move-cols --addrem-cols --preserve-cols col_a | wrgl commit test-merge-1 - "second commit" -p col_a
 csvgen $FILE -f $FRACTION --mod-rows --move-cols --addrem-cols --preserve-cols col_a | wrgl commit test-merge-2 - "second commit" -p col_a

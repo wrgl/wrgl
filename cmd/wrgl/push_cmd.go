@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/mitchellh/colorstring"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -21,6 +20,7 @@ import (
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -438,12 +438,12 @@ func pushSingleRepo(
 		if err != nil {
 			return utils.HandleHTTPError(cmd, clients.CredsStore, cr.URL, uri, err)
 		}
-		var pbar *progressbar.ProgressBar
+		var pb pbar.Bar
 		if !noP {
-			pbar = utils.PBar(-1, "Pushing objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-			defer pbar.Finish()
+			pb = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Pushing objects")
+			defer pb.Done()
 		}
-		um, err = ses.Start(pbar)
+		um, err = ses.Start(pb)
 		if err != nil {
 			return err
 		}
@@ -454,10 +454,8 @@ func pushSingleRepo(
 				u.ErrMsg = "remote failed to report status"
 			}
 		}
-		if pbar != nil {
-			if err = pbar.Finish(); err != nil {
-				return err
-			}
+		if pb != nil {
+			pb.Done()
 		}
 		reportUpdateStatus(cmd, updates)
 		if username, reponame, ok := utils.IsWrglhubRemote(cr.URL); ok {

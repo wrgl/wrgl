@@ -99,5 +99,5 @@ func float64StatFactory(name, sname string, getField func(col *objects.ColumnPro
 }
 
 func (s *Float64Stat) Unchanged() bool {
-	return (s.Old == nil && s.New == nil) || *s.Old == *s.New
+	return (s.Old == nil && s.New == nil) || (s.Old != nil && s.New != nil && *s.Old == *s.New)
 }

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
 	apiclient "github.com/wrgl/wrgl/pkg/api/client"
@@ -20,6 +19,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/credentials"
 	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -90,6 +90,11 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			pbarContainer, err := utils.GetProgressBarContainer(cmd)
+			if err != nil {
+				return err
+			}
+			defer pbarContainer.Wait()
 			cs, err := credentials.NewStore()
 			if err != nil {
 				return err
@@ -100,7 +105,7 @@ func RootCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					err = Fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force, depth, logger)
+					err = Fetch(cmd, db, rs, c.User, k, tok, v, v.Fetch, force, depth, logger, pbarContainer)
 					if err != nil {
 						return utils.HandleHTTPError(cmd, cs, v.URL, uri, err)
 					}
@@ -115,7 +120,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger); err != nil {
+			if err := Fetch(cmd, db, rs, c.User, remote, tok, rem, specs, force, depth, logger, pbarContainer); err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
 			return nil
@@ -124,7 +129,7 @@ func RootCmd() *cobra.Command {
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
 	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history, you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
-	cmd.Flags().Bool("no-progress", false, "Don't display progress bar")
+	utils.SetupProgressBarFlags(cmd.PersistentFlags())
 	cmd.AddCommand(newTablesCmd())
 	return cmd
 }
@@ -342,19 +347,20 @@ func saveFetchedRefs(
 	return savedRefs, nil
 }
 
-func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *apiclient.Client, advertised [][]byte, depth int32) (fetchedCommits [][]byte, err error) {
-	var pbar *progressbar.ProgressBar
-	noP, err := cmd.Flags().GetBool("no-progress")
-	if err != nil {
-		return
-	}
-	if !noP {
-		pbar = utils.PBar(-1, "Fetching objects", cmd.OutOrStdout(), cmd.ErrOrStderr())
-		defer pbar.Finish()
-	}
+func fetchObjects(
+	cmd *cobra.Command,
+	db objects.Store,
+	rs ref.Store,
+	client *apiclient.Client,
+	advertised [][]byte,
+	depth int32,
+	container pbar.Container,
+) (fetchedCommits [][]byte, err error) {
+	bar := container.NewBar(-1, "Fetching objects")
+	defer bar.Abort()
 	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised,
 		apiclient.WithUploadPackDepth(int(depth)),
-		apiclient.WithUploadPackProgressBar(pbar),
+		apiclient.WithUploadPackProgressBar(bar),
 	)
 	if err != nil {
 		if err.Error() == "nothing wanted" {
@@ -364,10 +370,24 @@ func fetchObjects(cmd *cobra.Command, db objects.Store, rs ref.Store, client *ap
 		err = errors.Wrap("error creating new upload pack session", err)
 		return
 	}
+	bar.Done()
 	return ses.Start()
 }
 
-func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, remote, token string, cr *conf.Remote, specs []*conf.Refspec, force bool, depth int32, logger *logr.Logger) error {
+func Fetch(
+	cmd *cobra.Command,
+	db objects.Store,
+	rs ref.Store,
+	u *conf.User,
+	remote,
+	token string,
+	cr *conf.Remote,
+	specs []*conf.Refspec,
+	force bool,
+	depth int32,
+	logger *logr.Logger,
+	container pbar.Container,
+) error {
 	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(token), apiclient.WithLogger(logger))
 	if err != nil {
 		return errors.Wrap("error creating new client", err)
@@ -376,7 +396,7 @@ func Fetch(cmd *cobra.Command, db objects.Store, rs ref.Store, u *conf.User, rem
 	if err != nil {
 		return errors.Wrap("error fetching refs", err)
 	}
-	fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised, depth)
+	fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised, depth, container)
 	if err != nil {
 		return errors.Wrap("error fetching objects", err)
 	}

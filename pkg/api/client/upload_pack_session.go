@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -28,7 +28,7 @@ type UploadPackSession struct {
 	havesPerRoundTrip int
 	depth             int
 	opts              []RequestOption
-	pbar              *progressbar.ProgressBar
+	bar               pbar.Bar
 	receiverOpts      []apiutils.ObjectReceiveOption
 	stateFn           stateFn
 }
@@ -47,9 +47,9 @@ func WithUploadPackDepth(n int) UploadPackOption {
 	}
 }
 
-func WithUploadPackProgressBar(bar *progressbar.ProgressBar) UploadPackOption {
+func WithUploadPackProgressBar(bar pbar.Bar) UploadPackOption {
 	return func(ses *UploadPackSession) {
-		ses.pbar = bar
+		ses.bar = bar
 	}
 }
 
@@ -182,7 +182,7 @@ func (n *UploadPackSession) receiveObjects(pr *packfile.PackfileReader) (stateFn
 		}
 	}
 	defer pr.Close()
-	doneReceiving, err := n.receiver.Receive(pr, n.pbar)
+	doneReceiving, err := n.receiver.Receive(pr, n.bar)
 	if err != nil {
 		return nil, errors.Wrap("error receiving objects", err)
 	}

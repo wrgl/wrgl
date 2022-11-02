@@ -6,10 +6,10 @@ package repo
 import (
 	"fmt"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/hub/api"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	"github.com/wrgl/wrgl/pkg/pbar"
 )
 
 func deleteCmd() *cobra.Command {
@@ -32,10 +32,10 @@ func deleteCmd() *cobra.Command {
 				return err
 			}
 			n := len(args)
-			var pb *progressbar.ProgressBar
+			var pb pbar.Bar
 			if n > 1 {
-				pb = utils.PBar(int64(n), "Removing repositories", cmd.OutOrStdout(), cmd.ErrOrStderr())
-				defer pb.Finish()
+				pb = pbar.NewProgressBar(cmd.OutOrStdout(), int64(n), "Removing repositories")
+				defer pb.Done()
 			}
 			for _, repo := range args {
 				if !quiet {
@@ -51,7 +51,7 @@ func deleteCmd() *cobra.Command {
 					return err
 				}
 				if n > 1 {
-					pb.Add(1)
+					pb.Incr()
 				} else {
 					cmd.Printf("Deleted repository %q\n", repo)
 				}

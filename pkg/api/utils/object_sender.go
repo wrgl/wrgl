@@ -8,9 +8,9 @@ import (
 	"container/list"
 	"io"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 )
 
 const defaultMaxPackfileSize uint64 = 1024 * 1024 * 1024 * 2
@@ -139,7 +139,7 @@ func (s *ObjectSender) enqueueTable(sum []byte) (err error) {
 	return nil
 }
 
-func (s *ObjectSender) WriteObjects(w io.Writer, pbar *progressbar.ProgressBar) (done bool, info *packfile.PackfileInfo, err error) {
+func (s *ObjectSender) WriteObjects(w io.Writer, pb pbar.Bar) (done bool, info *packfile.PackfileInfo, err error) {
 	pw, err := packfile.NewPackfileWriter(w)
 	if err != nil {
 		return
@@ -164,10 +164,8 @@ func (s *ObjectSender) WriteObjects(w io.Writer, pbar *progressbar.ProgressBar) 
 		if err = pw.Info.AddObject(obj.Type, obj.Sum); err != nil {
 			return
 		}
-		if pbar != nil {
-			if err = pbar.Add(1); err != nil {
-				return false, nil, err
-			}
+		if pb != nil {
+			pb.Incr()
 		}
 		size += uint64(n)
 		if s.objs.Len() == 0 {

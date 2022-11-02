@@ -13,10 +13,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/schollz/progressbar/v3"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 )
 
@@ -27,7 +27,7 @@ type ReceivePackSession struct {
 	c               *Client
 	updates         map[string]*payload.Update
 	state           stateFn
-	pbar            *progressbar.ProgressBar
+	pb              pbar.Bar
 	opts            []RequestOption
 	finder          *apiutils.ClosedSetsFinder
 	candidateTables *list.List
@@ -154,7 +154,7 @@ func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	reqBody := bytes.NewBuffer(nil)
 	gzw := gzip.NewWriter(reqBody)
-	done, info, err := s.sender.WriteObjects(gzw, s.pbar)
+	done, info, err := s.sender.WriteObjects(gzw, s.pb)
 	if err != nil {
 		return nil, err
 	}
@@ -179,8 +179,8 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	return s.readReport(resp)
 }
 
-func (s *ReceivePackSession) Start(pbar *progressbar.ProgressBar) (updates map[string]*payload.Update, err error) {
-	s.pbar = pbar
+func (s *ReceivePackSession) Start(pb pbar.Bar) (updates map[string]*payload.Update, err error) {
+	s.pb = pb
 	for s.state != nil {
 		s.state, err = s.state()
 		if err != nil {

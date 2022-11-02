@@ -23,6 +23,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/sorter"
@@ -204,7 +205,7 @@ func commit(
 		f = file
 	}
 
-	var sortPT, blkPT sorter.ProgressBar
+	var sortPT, blkPT pbar.Bar
 	if !quiet {
 		sortPT, blkPT = displayCommitProgress(cmd)
 	}

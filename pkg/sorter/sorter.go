@@ -14,15 +14,10 @@ import (
 	"github.com/wrgl/wrgl/pkg/dprof"
 	"github.com/wrgl/wrgl/pkg/mem"
 	"github.com/wrgl/wrgl/pkg/objects"
+	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/testutils"
 )
-
-type ProgressBar interface {
-	Add(int) error
-	Finish() error
-	Reset()
-}
 
 func getRunSize() (uint64, error) {
 	total, err := mem.GetTotalMem()
@@ -65,7 +60,7 @@ type Sorter struct {
 	PK        []uint32
 	runSize   uint64
 	size      uint64
-	pt        ProgressBar
+	pt        pbar.Bar
 	chunks    []io.Reader
 	profiler  *dprof.Profiler
 	current   [][]string
@@ -88,7 +83,7 @@ func WithRunSize(runSize uint64) SorterOption {
 	}
 }
 
-func WithProgressBar(pt ProgressBar) SorterOption {
+func WithProgressBar(pt pbar.Bar) SorterOption {
 	return func(s *Sorter) {
 		s.pt = pt
 	}
@@ -123,7 +118,7 @@ func (s *Sorter) Reset() {
 	}
 	s.size = 0
 	if s.pt != nil {
-		s.pt.Reset()
+		s.pt = nil
 	}
 	if s.chunks != nil {
 		s.chunks = s.chunks[:0]
@@ -139,7 +134,7 @@ func (s *Sorter) AddRow(row []string) error {
 		s.size += uint64(len(str)) + 2
 	}
 	if s.pt != nil {
-		s.pt.Add(1)
+		s.pt.Incr()
 	}
 	l := len(s.current)
 	if l == cap(s.current) {
@@ -204,9 +199,7 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 		s.AddRow(row)
 	}
 	if s.pt != nil {
-		if err := s.pt.Finish(); err != nil {
-			return err
-		}
+		s.pt.Done()
 	}
 	return f.Close()
 }
