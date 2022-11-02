@@ -371,6 +371,9 @@ func commitAllBranches(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, message string, numWorkers int, memLimit uint64, quiet bool, tid *uuid.UUID,
 ) error {
 	for name, branch := range c.Branch {
+		if tid != nil && strings.TrimPrefix(branch.Merge, "refs/heads/") != name {
+			return fmt.Errorf("branch merge %q must end with %q", branch.Merge, name)
+		}
 		if branch.File == "" {
 			continue
 		}

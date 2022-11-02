@@ -309,6 +309,8 @@ func pullSingleRepo(
 			}
 			if !ignoreNonExistent {
 				return fmt.Errorf("nothing to create ref %q from. Make sure the remote branch exists", name)
+			} else {
+				return nil
 			}
 		}
 		_, sum, com, err := ref.InterpretCommitName(db, rs, mergeHeads[0], true)
