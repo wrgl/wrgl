@@ -300,7 +300,7 @@ func pullSingleRepo(
 		}
 		return nil
 	} else if len(mergeHeads) == 0 {
-		if updatesCh != nil {
+		if updatesCh == nil {
 			cmd.Println("Already up to date.")
 		}
 		return nil
