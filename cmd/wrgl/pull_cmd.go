@@ -153,7 +153,7 @@ func pullCmd() *cobra.Command {
 				}
 				close(updatesCh)
 				wg.Wait()
-				bar.Done()
+				pbarContainer.Wait()
 				for _, name := range reposNotFound {
 					cmd.Printf("Skipped repository %q: not found\n", name)
 				}
