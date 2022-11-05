@@ -16,10 +16,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
+	apiclient "github.com/wrgl/wrgl/pkg/api/client"
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
-	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -140,7 +140,7 @@ func pullCmd() *cobra.Command {
 						cmd, c, db, rs, cs, cm, []string{name}, force, false, noCommit, noGUI,
 						wrglDir, ff, numWorkers, message, depth, logger, pbarContainer, updatesCh,
 					); err != nil {
-						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
+						if apiclient.IsHTTPError(err, 404, "Not Found") {
 							reposNotFound = append(reposNotFound, name)
 						} else {
 							return err

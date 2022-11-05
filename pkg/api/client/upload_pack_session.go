@@ -10,7 +10,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
-	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -125,7 +124,7 @@ func (n *UploadPackSession) popHaves() (haves [][]byte, done bool, err error) {
 func (n *UploadPackSession) negotiate() (stateFn, error) {
 	haves, done, err := n.popHaves()
 	if err != nil {
-		return nil, errors.Wrap("error poping haves", err)
+		return nil, fmt.Errorf("error poping haves: %w", err)
 	}
 	upr, pr, err := n.c.PostUploadPack(&payload.UploadPackRequest{
 		Wants: payload.BytesSliceToHexSlice(n.wants),
@@ -134,7 +133,7 @@ func (n *UploadPackSession) negotiate() (stateFn, error) {
 		Depth: n.depth,
 	}, n.opts...)
 	if err != nil {
-		return nil, errors.Wrap("error requesting upload pack (state=negotiate)", err)
+		return nil, fmt.Errorf("error requesting upload pack (state=negotiate): %w", err)
 	}
 	n.wants = nil
 	if pr != nil {
@@ -160,7 +159,7 @@ func (n *UploadPackSession) negotiateTables(upr *payload.UploadPackResponse) (st
 		TableACKs: payload.BytesSliceToHexSlice(acks),
 	}, n.opts...)
 	if err != nil {
-		return nil, errors.Wrap("error requesting upload pack (state=negotiateTables)", err)
+		return nil, fmt.Errorf("error requesting upload pack (state=negotiateTables): %w", err)
 	}
 	if pr != nil {
 		return n.receiveObjects(pr)
@@ -173,13 +172,13 @@ func (n *UploadPackSession) receiveObjects(pr *packfile.PackfileReader) (stateFn
 	if pr == nil {
 		_, pr, err = n.c.PostUploadPack(&payload.UploadPackRequest{}, n.opts...)
 		if err != nil {
-			return nil, errors.Wrap("error requesting upload pack (state=receiveObjects)", err)
+			return nil, fmt.Errorf("error requesting upload pack (state=receiveObjects): %w", err)
 		}
 	}
 	defer pr.Close()
 	doneReceiving, err := n.receiver.Receive(pr, n.bar)
 	if err != nil {
-		return nil, errors.Wrap("error receiving objects", err)
+		return nil, fmt.Errorf("error receiving objects: %w", err)
 	}
 	if doneReceiving {
 		return nil, nil

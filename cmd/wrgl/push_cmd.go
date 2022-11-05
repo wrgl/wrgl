@@ -19,7 +19,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
-	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -119,7 +118,7 @@ func newPushCmd() *cobra.Command {
 						cmd, c, db, rs, clients, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
 						mirror, force, false, wrglDir, logger,
 					); err != nil {
-						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
+						if apiclient.IsHTTPError(err, 404, "Not Found") {
 							cmd.Println("Repository not found, skipping.")
 						} else {
 							return err

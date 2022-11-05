@@ -9,6 +9,15 @@ type CSVLocation struct {
 	Column    int `json:"column"`    // Column (1-based byte index) where the error occurred
 }
 
+func (a *CSVLocation) Equal(b *CSVLocation) bool {
+	if a == nil {
+		return b == nil
+	} else if b == nil {
+		return false
+	}
+	return a.StartLine == b.StartLine && a.Line == b.Line && a.Column == b.Column
+}
+
 type Error struct {
 	// Message is always present if there's an error. Otherwise this object
 	// will be empty.
@@ -16,4 +25,13 @@ type Error struct {
 
 	// CSV appears when the error is a CSV parsing error
 	CSV *CSVLocation `json:"csv,omitempty"`
+}
+
+func (a *Error) Equal(b *Error) bool {
+	if a == nil {
+		return b == nil
+	} else if b == nil {
+		return false
+	}
+	return a.Message == b.Message && a.CSV.Equal(b.CSV)
 }

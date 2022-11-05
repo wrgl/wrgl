@@ -4,6 +4,7 @@
 package apiclient
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,16 @@ type HTTPError struct {
 	Code    int
 	RawBody []byte
 	Body    *payload.Error
+}
+
+func (err *HTTPError) Is(target error) bool {
+	if v, ok := target.(*HTTPError); ok {
+		if v.Code != err.Code || !bytes.Equal(v.RawBody, err.RawBody) {
+			return false
+		}
+		return v.Body.Equal(err.Body)
+	}
+	return false
 }
 
 func NewHTTPError(resp *http.Response) *HTTPError {
@@ -131,4 +142,12 @@ func UnwrapHTTPError(err error) *HTTPError {
 			return nil
 		}
 	}
+}
+
+func IsHTTPError(err error, statusCode int, message string) bool {
+	var herr *HTTPError
+	if errors.As(err, &herr) {
+		return herr.Code == statusCode && herr.Body.Message == message
+	}
+	return false
 }

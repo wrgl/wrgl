@@ -17,7 +17,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/conf"
 	conffs "github.com/wrgl/wrgl/pkg/conf/fs"
 	"github.com/wrgl/wrgl/pkg/credentials"
-	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -356,7 +355,7 @@ func fetchObjects(
 			err = nil
 			return
 		}
-		err = errors.Wrap("error creating new upload pack session", err)
+		err = fmt.Errorf("error creating new upload pack session: %w", err)
 		return
 	}
 	bar.Done()
@@ -379,15 +378,15 @@ func Fetch(
 ) error {
 	client, err := cm.GetClient(cmd, cr.URL, apiclient.WithLogger(logger))
 	if err != nil {
-		return errors.Wrap("error creating new client", err)
+		return fmt.Errorf("error creating new client: %w", err)
 	}
 	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(cmd, cm, cr, specs)
 	if err != nil {
-		return errors.Wrap("error fetching refs", err)
+		return fmt.Errorf("error fetching refs: %w", err)
 	}
 	fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised, depth, container)
 	if err != nil {
-		return errors.Wrap("error fetching objects", err)
+		return fmt.Errorf("error fetching objects: %w", err)
 	}
 	_, err = saveFetchedRefs(cmd, u, db, rs, remote, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
 	return err

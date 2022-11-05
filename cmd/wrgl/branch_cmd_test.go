@@ -6,6 +6,7 @@ package wrgl
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/wrgl/wrgl/pkg/errors"
 	"github.com/wrgl/wrgl/pkg/factory"
 	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/ref"
@@ -56,7 +56,7 @@ func assertCmdFailed(t *testing.T, cmd *cobra.Command, output string, err error)
 	buf := bytes.NewBufferString("")
 	cmd.SetOut(buf)
 	exErr := cmd.Execute()
-	assert.True(t, errors.Contains(exErr, err), "expecting error %v to contain error %v", exErr, err)
+	assert.True(t, errors.Is(exErr, err) || exErr.Error() == err.Error(), "expecting error %q to contain error %q", exErr.Error(), err.Error())
 	assert.Equal(t, output, buf.String())
 }
 
