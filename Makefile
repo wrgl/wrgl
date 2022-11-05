@@ -9,6 +9,7 @@ MD5_DIR := $(BUILD_DIR)/md5
 OS_ARCHS := linux-amd64 darwin-amd64 darwin-arm64
 BINARIES := $(foreach osarch,$(OS_ARCHS),$(BUILD_DIR)/wrgl-$(osarch)/bin/wrgl)
 WRGL_TAR_FILES := $(foreach osarch,$(OS_ARCHS),$(BUILD_DIR)/wrgl-$(osarch).tar.gz)
+COMMON_LDFLAGS = -X github.com/wrgl/wrgl/cmd/wrgl.version=$(VERSION)
 
 .PHONY: all clean
 all: $(WRGL_TAR_FILES)
@@ -33,11 +34,10 @@ $(call check_defined, VERSION)
 define binary_rule =
 echo "\$$(BUILD_DIR)/wrgl-$(2)-$(1)/bin/wrgl: \$$(MD5_DIR)/go.sum.md5 \$$(wrgl_SOURCES)" >> $(3) && \
 echo -e "\t@-mkdir -p \$$(dir \$$@) 2>/dev/null" >> $(3) && \
-echo -e "\techo -n $(VERSION) > cmd/wrgl/VERSION" >> $(3) && \
 (if [ "$(2)" == "linux" ]; then \
-  echo -e "\tenv CC=x86_64-linux-musl-gcc CXX=x86_64-linux-musl-g++ GOARCH=amd64 GOOS=linux CGO_ENABLED=1 go build -ldflags \"-linkmode external -extldflags -static\" -a -o \$$@ github.com/wrgl/wrgl" >> $(3); \
+  echo -e "\tenv CC=x86_64-linux-musl-gcc CXX=x86_64-linux-musl-g++ GOARCH=amd64 GOOS=linux CGO_ENABLED=1 go build -ldflags \"-linkmode external -extldflags -static \$$(COMMON_LDFLAGS)\" -a -o \$$@ github.com/wrgl/wrgl" >> $(3); \
 else \
-  echo -e "\tCGO_ENABLED=1 GOARCH=$(1) GOOS=$(2) go build -a -o \$$@ github.com/wrgl/wrgl" >> $(3); \
+  echo -e "\tCGO_ENABLED=1 GOARCH=$(1) GOOS=$(2) go build -ldflags \"\$$(COMMON_LDFLAGS)\" -a -o \$$@ github.com/wrgl/wrgl" >> $(3); \
 fi) && \
 echo "" >> $(3)
 

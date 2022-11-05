@@ -48,8 +48,10 @@ func (b *bar) Done() {
 }
 
 func (b *bar) Abort() {
-	b.b.Abort(true)
-	b.b.Wait()
+	if b.b.IsRunning() {
+		b.b.Abort(true)
+		b.b.Wait()
+	}
 	if b.p != nil {
 		b.p.Wait()
 	}

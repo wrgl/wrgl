@@ -98,7 +98,7 @@ func RootCmd() *cobra.Command {
 			cm := utils.NewClientMap(cs)
 			if all {
 				for k, v := range c.Remote {
-					err = Fetch(cmd, db, rs, c.User, cm, k, v, v.Fetch, force, depth, logger, pbarContainer)
+					err = Fetch(cmd, db, rs, cm, c.User, k, v, v.Fetch, force, depth, logger, pbarContainer)
 					if err != nil {
 						return utils.HandleHTTPError(cmd, cs, v.URL, err)
 					}
@@ -109,7 +109,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := Fetch(cmd, db, rs, c.User, cm, remote, rem, specs, force, depth, logger, pbarContainer); err != nil {
+			if err := Fetch(cmd, db, rs, cm, c.User, remote, rem, specs, force, depth, logger, pbarContainer); err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, err)
 			}
 			return nil
@@ -149,8 +149,8 @@ func ParseRemoteAndRefspec(cmd *cobra.Command, c *conf.Config, branch string, ar
 	return remote, rem, specs, nil
 }
 
-func identifyRefsToFetch(client *apiclient.Client, specs []*conf.Refspec) (refs []*conf.Refspec, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
-	m, err := client.GetRefs(nil, []string{ref.TransactionRefPrefix})
+func identifyRefsToFetch(cmd *cobra.Command, cm *utils.ClientMap, cr *conf.Remote, specs []*conf.Refspec) (refs []*conf.Refspec, dstRefs, maybeSaveTags map[string][]byte, advertised [][]byte, err error) {
+	m, err := cm.GetRefs(cmd, cr.URL)
 	if err != nil {
 		return
 	}
@@ -367,8 +367,8 @@ func Fetch(
 	cmd *cobra.Command,
 	db objects.Store,
 	rs ref.Store,
-	u *conf.User,
 	cm *utils.ClientMap,
+	u *conf.User,
 	remote string,
 	cr *conf.Remote,
 	specs []*conf.Refspec,
@@ -381,7 +381,7 @@ func Fetch(
 	if err != nil {
 		return errors.Wrap("error creating new client", err)
 	}
-	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(client, specs)
+	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(cmd, cm, cr, specs)
 	if err != nil {
 		return errors.Wrap("error fetching refs", err)
 	}
