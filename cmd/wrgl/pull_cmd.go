@@ -324,6 +324,7 @@ func pullSingleRepo(
 		if updatesCh != nil {
 			updatesCh <- update
 		} else {
+			cmd.Println()
 			cmd.Println(update)
 		}
 		return nil
