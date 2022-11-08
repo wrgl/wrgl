@@ -3,14 +3,18 @@
 
 package confmock
 
-import "github.com/wrgl/wrgl/pkg/conf"
+import (
+	"github.com/wrgl/wrgl/pkg/conf"
+)
 
 type Store struct {
 	c conf.Config
 }
 
 func (s *Store) Open() (*conf.Config, error) {
-	return &s.c, nil
+	cfg := &conf.Config{}
+	*cfg = s.c
+	return cfg, nil
 }
 
 func (s *Store) Save(c *conf.Config) error {

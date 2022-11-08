@@ -93,8 +93,10 @@ func WithRequestCookies(cookies []*http.Cookie) RequestOption {
 
 func WithLogger(logger *logr.Logger) ClientOption {
 	return func(c *Client) {
-		l := logger.WithName("apiclient")
-		c.logger = &l
+		if logger != nil {
+			l := logger.WithName("apiclient")
+			c.logger = &l
+		}
 	}
 }
 

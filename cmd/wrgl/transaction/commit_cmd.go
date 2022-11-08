@@ -4,6 +4,7 @@
 package transaction
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -30,8 +31,12 @@ func commitCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("error parsing transaction id: %v", err)
 			}
-			if err = transaction.Commit(db, rs, id); err != nil {
+			commits, err := transaction.Commit(db, rs, id)
+			if err != nil {
 				return fmt.Errorf("error committing transaction: %v", err)
+			}
+			for refname, com := range commits {
+				cmd.Printf("[%s %s] %s\n", refname, hex.EncodeToString(com.Sum)[:7], com.Message)
 			}
 			return nil
 		},

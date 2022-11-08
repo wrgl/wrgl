@@ -50,20 +50,21 @@ func Diff(rs ref.Store, id uuid.UUID) (map[string][2][]byte, *ref.Transaction, e
 	return result, tx, nil
 }
 
-func Commit(db objects.Store, rs ref.Store, id uuid.UUID) (err error) {
+func Commit(db objects.Store, rs ref.Store, id uuid.UUID) (commits map[string]*objects.Commit, err error) {
 	tx, err := rs.GetTransaction(id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	m, err := ref.ListTransactionRefs(rs, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	commits = map[string]*objects.Commit{}
 	buf := bytes.NewBuffer(nil)
 	for branch, sum := range m {
 		com, err := objects.GetCommit(db, sum)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		oldSum, err := ref.GetHead(rs, branch)
 		if err == nil {
@@ -76,19 +77,23 @@ func Commit(db objects.Store, rs ref.Store, id uuid.UUID) (err error) {
 		buf.Reset()
 		_, err = com.WriteTo(buf)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		newSum, err := objects.SaveCommit(db, buf.Bytes())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if err = ref.SaveRef(rs, ref.HeadRef(branch), newSum, com.AuthorName, com.AuthorEmail, "commit", firstLine, &id); err != nil {
-			return err
+			return nil, err
 		}
+		commits[ref.HeadRef(branch)] = com
 	}
 	tx.End = time.Now()
 	tx.Status = ref.TSCommitted
-	return rs.UpdateTransaction(tx)
+	if err = rs.UpdateTransaction(tx); err != nil {
+		return nil, err
+	}
+	return
 }
 
 func Discard(rs ref.Store, id uuid.UUID) (err error) {

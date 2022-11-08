@@ -40,7 +40,11 @@ func TestTransaction(t *testing.T) {
 	}, m)
 	assert.Equal(t, ref.TSInProgress, tx.Status)
 
-	require.NoError(t, Commit(db, rs, *id))
+	commits, err := Commit(db, rs, *id)
+	require.NoError(t, err)
+	assert.Len(t, commits, 2)
+	assert.Equal(t, sum1, commits["heads/alpha"].Sum)
+	assert.Equal(t, sum3, commits["heads/beta"].Sum)
 
 	sum4, err := ref.GetHead(rs, "alpha")
 	require.NoError(t, err)

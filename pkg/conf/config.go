@@ -108,6 +108,9 @@ type Config struct {
 	// TransactionTTL is the maximum amount of time a transaction can exist before
 	// being garbage-collected. Defaults to 30 days
 	TransactionTTL Duration `yaml:"transactionTTL,omitempty" json:"transactionTTL,omitempty"`
+
+	// wrgld send events to Webhooks according to registered event types
+	Webhooks []Webhook `yaml:"webhooks,omitempty" json:"webhooks,omitempty"`
 }
 
 func (c *Config) MaxPackFileSize() uint64 {
