@@ -125,7 +125,7 @@ func pullCmd() *cobra.Command {
 				}
 				sort.Strings(names)
 				total := len(names)
-				bar := pbarContainer.NewBar(int64(total), "Pulling branches")
+				bar := pbarContainer.NewBar(int64(total), "Pulling branches", 0)
 				defer bar.Abort()
 				var updatesCh = make(chan string)
 				var updateStrs = []string{}

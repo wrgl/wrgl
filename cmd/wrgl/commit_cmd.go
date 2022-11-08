@@ -280,7 +280,7 @@ func ensureTempCommit(
 	tmpBranch := branch + "-tmp"
 	com, tbl, err := getCommitTable(db, rs, tmpBranch)
 	if err != nil {
-		if errors.Is(err, objects.ErrKeyNotFound) || errors.Is(err, ref.ErrKeyNotFound) {
+		if errors.Is(err, objects.ErrKeyNotFound) || errors.Is(err, ref.ErrKeyNotFound) || errors.Is(err, io.ErrUnexpectedEOF) {
 			sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet, delim)
 			if err != nil {
 				return nil, err

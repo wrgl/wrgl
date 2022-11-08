@@ -39,19 +39,19 @@ func newPruneCmd() *cobra.Command {
 func runPrune(cmd *cobra.Command, db objects.Store, rs ref.Store) error {
 	return prune.Prune(db, rs, &prune.PruneOptions{
 		FindCommitsPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "finding commits to remove")
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "finding commits to remove", 0)
 		},
 		PruneTablesPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing small tables")
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing small tables", 0)
 		},
 		PruneBlocksPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing blocks")
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing blocks", 0)
 		},
 		PruneBlockIndicesPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing block indices")
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing block indices", 0)
 		},
 		PruneCommitsPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing commits")
+			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing commits", 0)
 		},
 	})
 }

@@ -34,7 +34,7 @@ func deleteCmd() *cobra.Command {
 			n := len(args)
 			var pb pbar.Bar
 			if n > 1 {
-				pb = pbar.NewProgressBar(cmd.OutOrStdout(), int64(n), "Removing repositories")
+				pb = pbar.NewProgressBar(cmd.OutOrStdout(), int64(n), "Removing repositories", 0)
 				defer pb.Done()
 			}
 			for _, repo := range args {

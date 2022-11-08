@@ -360,7 +360,7 @@ func fetchObjects(
 	depth int32,
 	container pbar.Container,
 ) (fetchedCommits [][]byte, err error) {
-	bar := container.NewBar(-1, "Fetching objects")
+	bar := container.NewBar(-1, "Fetching objects", 0)
 	defer bar.Abort()
 	ses, err := apiclient.NewUploadPackSession(db, rs, client, advertised,
 		apiclient.WithUploadPackDepth(int(depth)),
