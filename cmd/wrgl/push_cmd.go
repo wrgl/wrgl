@@ -437,7 +437,7 @@ func pushSingleRepo(
 		}
 		var pb pbar.Bar
 		if !noP {
-			pb = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Pushing objects")
+			pb = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Pushing objects", 0)
 			defer pb.Done()
 		}
 		um, err = ses.Start(pb)

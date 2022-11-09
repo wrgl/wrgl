@@ -35,7 +35,7 @@ func gcCmd() *cobra.Command {
 				return err
 			}
 
-			bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Discarding expired transactions")
+			bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Discarding expired transactions",0)
 			defer bar.Done()
 			if err = transaction.GarbageCollect(
 				db, rs, c.GetTransactionTTL(),

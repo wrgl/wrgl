@@ -144,7 +144,7 @@ func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c
 		}
 		defer pr.Close()
 		or := apiutils.NewObjectReceiver(db, nil)
-		bar := pbarContainer.NewBar(-1, "Fetching objects")
+		bar := pbarContainer.NewBar(-1, "Fetching objects", 0)
 		defer bar.Done()
 		_, err = or.Receive(pr, bar)
 		if err != nil {

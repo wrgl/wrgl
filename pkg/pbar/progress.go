@@ -7,14 +7,19 @@ import (
 	"github.com/vbauerster/mpb/v8/decor"
 )
 
+const (
+	UnitKiB int = decor.UnitKiB
+	UnitKB  int = decor.UnitKB
+)
+
 type Container interface {
-	NewBar(total int64, name string) Bar
+	NewBar(total int64, name string, unit int) Bar
 	Wait()
 }
 
 type noopContainer struct{}
 
-func (p *noopContainer) NewBar(total int64, name string) Bar {
+func (p *noopContainer) NewBar(total int64, name string, unit int) Bar {
 	return &noopBar{}
 }
 func (p *noopContainer) Wait() {}
@@ -34,9 +39,9 @@ func NewContainer(out io.Writer) Container {
 	return p
 }
 
-func (p *container) NewBar(total int64, name string) Bar {
+func (p *container) NewBar(total int64, name string, unit int) Bar {
 	options := []mpb.BarOption{
-		mpb.PrependDecorators(decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}), decor.CountersNoUnit("%d / %d")),
+		mpb.PrependDecorators(decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}), decor.Counters(unit, "%d / %d")),
 		mpb.BarRemoveOnComplete(),
 	}
 	if total > 0 {
@@ -65,10 +70,10 @@ func (p *container) Wait() {
 
 // NewProgressBar not only combines NewContainer and NewBar but also
 // ensure that when bar.Done is called, container.Wait is also called.
-func NewProgressBar(out io.Writer, total int64, name string) Bar {
+func NewProgressBar(out io.Writer, total int64, name string, unit int) Bar {
 	c := NewContainer(out)
 	_c := c.(*container)
-	b := c.NewBar(total, name)
+	b := c.NewBar(total, name, unit)
 	_b := b.(*bar)
 	_b.p = _c.p
 	return _b

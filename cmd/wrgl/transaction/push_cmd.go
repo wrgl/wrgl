@@ -97,7 +97,7 @@ func pushCmd() *cobra.Command {
 			}
 			var pb pbar.Bar
 			if !noP {
-				pb = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Pushing objects")
+				pb = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Pushing objects", 0)
 				defer pb.Done()
 			}
 			updates, err = ses.Start(pb)

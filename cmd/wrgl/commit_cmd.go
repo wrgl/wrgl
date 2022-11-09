@@ -6,6 +6,7 @@ package wrgl
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -255,20 +256,17 @@ func commitTempBranch(
 	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, numWorkers, memLimit, c, nil, quiet, nil, delim)
 }
 
-func isBranchPrimaryKeyEqual(db objects.Store, rs ref.Store, branch string, primaryKey []string) (bool, error) {
+func getCommitTable(db objects.Store, rs ref.Store, branch string) (com *objects.Commit, tbl *objects.Table, err error) {
 	sum, err := ref.GetHead(rs, branch)
-	if err == nil {
-		com, err := objects.GetCommit(db, sum)
-		if err != nil {
-			return false, fmt.Errorf("commit not found: %x", sum)
-		}
-		tbl, err := objects.GetTable(db, com.Table)
-		if err != nil {
-			return false, fmt.Errorf("table not found: %x", com.Table)
-		}
-		return slice.StringSliceEqual(tbl.PrimaryKey(), primaryKey), nil
+	if err != nil {
+		return
 	}
-	return false, nil
+	com, err = objects.GetCommit(db, sum)
+	if err != nil {
+		return
+	}
+	tbl, err = objects.GetTable(db, com.Table)
+	return
 }
 
 func ensureTempCommit(
@@ -276,32 +274,29 @@ func ensureTempCommit(
 	primaryKey []string, numWorkers int, memLimit uint64, quiet bool, delim rune,
 ) (sum []byte, err error) {
 	tmpBranch := branch + "-tmp"
-	sum, err = ref.GetHead(rs, tmpBranch)
-	if err == ref.ErrKeyNotFound {
-		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet, delim)
-		if err != nil {
-			return nil, err
-		}
-		return sum, nil
-	}
-	com, err := objects.GetCommit(db, sum)
+	com, tbl, err := getCommitTable(db, rs, tmpBranch)
 	if err != nil {
+		if errors.Is(err, objects.ErrKeyNotFound) || errors.Is(err, ref.ErrKeyNotFound) || errors.Is(err, io.ErrUnexpectedEOF) {
+			sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet, delim)
+			if err != nil {
+				return nil, err
+			}
+			return sum, nil
+		}
 		return nil, err
 	}
 	fd, err := os.Stat(csvFilePath)
 	if err != nil {
 		return nil, err
 	}
-	if pkEqual, err := isBranchPrimaryKeyEqual(db, rs, tmpBranch, primaryKey); err != nil {
-		return nil, fmt.Errorf("isBranchPrimaryKeyEqual err: %v", err)
-	} else if com.Message != fd.Name() || com.Time.Before(fd.ModTime()) || !pkEqual {
+	if com.Message != fd.Name() || com.Time.Before(fd.ModTime()) || !slice.StringSliceEqual(tbl.PrimaryKey(), primaryKey) {
 		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, numWorkers, memLimit, quiet, delim)
 		if err != nil {
 			return nil, err
 		}
 		return sum, nil
 	}
-	return sum, nil
+	return com.Sum, nil
 }
 
 func commitWithTable(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, branch string, tableSum []byte, message string, tid *uuid.UUID) ([]byte, error) {
