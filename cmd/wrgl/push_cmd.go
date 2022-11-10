@@ -434,7 +434,7 @@ func pushSingleRepo(
 		if err != nil {
 			return utils.HandleHTTPError(cmd, clients.CredsStore, cr.URL, uri, err)
 		}
-		if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) (err error) {
+		if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) (err error) {
 			um, err = ses.Start(barContainer)
 			return err
 		}); err != nil {

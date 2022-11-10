@@ -89,7 +89,7 @@ func pullCmd() *cobra.Command {
 				return fmt.Errorf("invalid number of arguments. add --help flag to see example usage")
 			}
 
-			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 				return pullSingleRepo(
 					cmd, c, db, rs, cm, args, setUpstream,
 					wrglDir, logger, barContainer, nil,
@@ -133,7 +133,7 @@ func pullAll(
 	var reposNotFound = []string{}
 	var updateStrs = []string{}
 	total := len(names)
-	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 		bar := barContainer.NewBar(int64(total), "Pulling branches", 0)
 		defer bar.Abort()
 		var updatesCh = make(chan string)
@@ -225,7 +225,7 @@ func pullSingleRepo(
 	setUpstream bool,
 	wrglDir string,
 	logger *logr.Logger,
-	pbarContainer pbar.Container,
+	pbarContainer *pbar.Container,
 	updatesCh chan string,
 ) (err error) {
 	depth, err := cmd.Flags().GetInt32("depth")

@@ -37,7 +37,7 @@ func newPruneCmd() *cobra.Command {
 }
 
 func runPrune(cmd *cobra.Command, db objects.Store, rs ref.Store) error {
-	return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+	return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 		findCommitsBar := barContainer.NewBar(-1, "finding commits to remove", 0)
 		pruneTablesBar := barContainer.NewBar(-1, "removing small tables", 0)
 		pruneBlocksBar := barContainer.NewBar(-1, "removing blocks", 0)

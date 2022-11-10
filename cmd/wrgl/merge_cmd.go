@@ -468,7 +468,7 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	if err != nil {
 		return err
 	}
-	return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+	return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 		bar := barContainer.NewBar(-1, fmt.Sprintf("saving merge result to %s", name), 0)
 		defer bar.Done()
 		for blk := range blocks {
@@ -493,7 +493,7 @@ func ingestTable(
 	sorterOpts []sorter.SorterOption,
 	inserterOpts []ingest.InserterOption,
 ) (tableSum []byte, err error) {
-	err = utils.WithProgressBar(cmd, quiet, func(cmd *cobra.Command, barContainer pbar.Container) error {
+	err = utils.WithProgressBar(cmd, quiet, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 		sortPT := barContainer.NewBar(-1, "sorting", 0)
 		blkPT := barContainer.NewBar(-1, "saving blocks", 0)
 		defer sortPT.Done()
@@ -536,7 +536,7 @@ func commitMergeResult(
 		return err
 	}
 	var sum []byte
-	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 		blkPT := barContainer.NewBar(-1, "saving blocks", 0)
 		defer blkPT.Done()
 		s, err := sorter.NewSorter()
@@ -617,7 +617,7 @@ func collectMergeConflicts(cmd *cobra.Command, merger *merge.Merger) (*diff.ColD
 	}
 	pch := merger.Progress.Start()
 	merges := []*merge.Merge{}
-	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 		var bar pbar.Bar
 	mainLoop:
 		for {

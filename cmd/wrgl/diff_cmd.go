@@ -144,6 +144,7 @@ func newDiffCmd() *cobra.Command {
 	cmd.Flags().String("txid", "", "show diff summary for all changes with specified transaction id")
 	cmd.Flags().String("delimiter-1", "", "CSV delimiter of the first argument if the first argument is an external file. Defaults to comma.")
 	cmd.Flags().String("delimiter-2", "", "CSV delimiter of the second argument if the second argument is an external file. Defaults to comma.")
+	registerCommitFlags(cmd.Flags())
 	return cmd
 }
 
@@ -239,7 +240,7 @@ func getCommit(
 			return
 		} else {
 			var tmpSum []byte
-			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, 1, 0, quiet, delim)
+			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, quiet, delim)
 			if err != nil {
 				return
 			}
@@ -283,7 +284,7 @@ func collectDiffObjects(
 		progChan = pt.Start()
 		defer pt.Stop()
 	}
-	if err = utils.WithProgressBar(cmd, quiet, func(cmd *cobra.Command, barContainer pbar.Container) (err error) {
+	if err = utils.WithProgressBar(cmd, quiet, func(cmd *cobra.Command, barContainer *pbar.Container) (err error) {
 		bar := barContainer.NewBar(-1, "Collecting changes", 0)
 		defer bar.Done()
 	mainLoop:
@@ -354,7 +355,7 @@ func writeRowChanges(
 	}
 	progChan := pt.Start()
 	defer pt.Stop()
-	if err = utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) (err error) {
+	if err = utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) (err error) {
 		bar := barContainer.NewBar(-1, "Collecting changes", 0)
 		defer bar.Done()
 	mainLoop:
@@ -858,7 +859,7 @@ func diffAllBranches(
 		})
 	}
 	if len(dargs) == 0 {
-		return fmt.Errorf("no branch with file configured. To track a file with a branch, set --set-file and --set-primary-key during commit.")
+		return fmt.Errorf("no branch with file configured. To track a file with a branch, set --set-file and --set-primary-key during commit")
 	}
 	return diffMultiple(cmd, c, db, rs, logger, dargs, true, true)
 }

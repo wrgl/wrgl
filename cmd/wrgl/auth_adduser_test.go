@@ -6,7 +6,6 @@ package wrgl
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -25,7 +24,7 @@ func execPrintDebug(t *testing.T, cmd *cobra.Command, ctx context.Context, args 
 	defer os.Remove(f.Name())
 	cmd.SetArgs(append(args, "--debug-file", f.Name()))
 	require.NoError(t, cmd.ExecuteContext(ctx))
-	b, err := ioutil.ReadFile(f.Name())
+	b, err := os.ReadFile(f.Name())
 	require.NoError(t, err)
 	t.Logf("debug file content:\n%s", string(b))
 }

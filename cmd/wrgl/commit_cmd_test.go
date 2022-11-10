@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -35,7 +34,7 @@ func TestCommitCmd(t *testing.T) {
 	defer os.Remove(fp)
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"commit", "my-other-branch", fp, "initial commit", "-n", "1", "--delimiter", "|"})
-	cmd.SetOut(ioutil.Discard)
+	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	_, fp = createCSVFile(t, []string{
@@ -47,7 +46,7 @@ func TestCommitCmd(t *testing.T) {
 	defer os.Remove(fp)
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", fp, "initial commit", "-n", "1"})
-	cmd.SetOut(ioutil.Discard)
+	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	rs := rd.OpenRefStore()
@@ -76,7 +75,7 @@ func TestCommitCmd(t *testing.T) {
 	require.NoError(t, db.Close())
 
 	cmd.SetArgs([]string{"export", "my-branch"})
-	b, err := ioutil.ReadFile(fp)
+	b, err := os.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
 }
@@ -98,12 +97,12 @@ func TestCommitFromStdin(t *testing.T) {
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", "-", "initial commit", "-n", "1"})
 	cmd.SetIn(f)
-	cmd.SetOut(ioutil.Discard)
+	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 	require.NoError(t, f.Close())
 
 	cmd.SetArgs([]string{"export", "my-branch"})
-	b, err := ioutil.ReadFile(fp)
+	b, err := os.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
 }
@@ -166,7 +165,7 @@ func TestCommitSetFile(t *testing.T) {
 		"--set-file",
 		"--set-primary-key",
 	})
-	cmd.SetOut(ioutil.Discard)
+	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	// append a single line to fp
@@ -175,7 +174,7 @@ func TestCommitSetFile(t *testing.T) {
 	// commit reading file and pk from config
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"commit", "my-branch", "second commit", "-n", "1"})
-	cmd.SetOut(ioutil.Discard)
+	cmd.SetOut(io.Discard)
 	require.NoError(t, cmd.Execute())
 
 	// check that second commit is correct
@@ -281,7 +280,6 @@ func TestCommitCmdAll(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
 	cmd.SetOut(buf)
 	require.NoError(t, cmd.Execute())
-	assert.Contains(t, buf.String(), "branch \"branch-2\" is up-to-date.\n")
 	assert.Contains(t, buf.String(), `File "non-existent.csv" does not exist, skipping branch "branch-4".`)
 
 	sum, err := ref.GetHead(rs, "branch-2")

@@ -33,7 +33,7 @@ type ReceivePackSession struct {
 	tablesToSend    map[string]struct{}
 	db              objects.Store
 	maxPackfileSize uint64
-	barContainer    pbar.Container
+	barContainer    *pbar.Container
 	objectsBar      pbar.Bar
 	buf             *bytes.Buffer
 }
@@ -176,6 +176,7 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	s.c.LogRequest(resp.Request, info)
 	if resp.StatusCode != http.StatusOK {
 		return nil, s.c.ErrHTTP(resp)
@@ -186,7 +187,7 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	return s.readReport(resp)
 }
 
-func (s *ReceivePackSession) Start(pc pbar.Container) (updates map[string]*payload.Update, err error) {
+func (s *ReceivePackSession) Start(pc *pbar.Container) (updates map[string]*payload.Update, err error) {
 	s.barContainer = pc
 	s.objectsBar = s.barContainer.NewBar(-1, "Pushing objects", 0)
 	defer s.objectsBar.Done()

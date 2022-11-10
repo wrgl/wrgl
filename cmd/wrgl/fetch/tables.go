@@ -66,7 +66,7 @@ func newTablesCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+				if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 					for _, sum := range heads {
 						q, err := ref.NewCommitsQueue(db, [][]byte{sum})
 						if err != nil {
@@ -105,7 +105,7 @@ func newTablesCmd() *cobra.Command {
 						return fmt.Errorf("error decoding hex string %q: %v", s, err)
 					}
 				}
-				return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+				return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 					return fetchTableSums(cmd, db, cm, c, map[string][][]byte{remote: sums}, barContainer)
 				})
 			}
@@ -127,7 +127,7 @@ func deduplicateSums(sums [][]byte) [][]byte {
 	return sl
 }
 
-func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c *conf.Config, tblSums map[string][][]byte, pbarContainer pbar.Container) (err error) {
+func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c *conf.Config, tblSums map[string][][]byte, pbarContainer *pbar.Container) (err error) {
 	for remote, sums := range tblSums {
 		sums = deduplicateSums(sums)
 		rem, ok := c.Remote[remote]

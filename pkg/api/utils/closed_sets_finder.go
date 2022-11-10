@@ -112,9 +112,7 @@ func (f *ClosedSetsFinder) ensureWantsAreReachable(queue *ref.CommitsQueue, want
 			break
 		}
 	}
-	if len(confirmed) == len(wants) {
-		return nil
-	}
+
 	sums := [][]byte{}
 	for _, want := range wants {
 		if _, ok := confirmed[string(want)]; ok {
@@ -122,7 +120,10 @@ func (f *ClosedSetsFinder) ensureWantsAreReachable(queue *ref.CommitsQueue, want
 		}
 		sums = append(sums, want)
 	}
-	return &UnrecognizedWantsError{sums: sums}
+	if len(sums) > 0 {
+		return &UnrecognizedWantsError{sums: sums}
+	}
+	return nil
 }
 
 func (f *ClosedSetsFinder) findCommons(queue *ref.CommitsQueue, haves [][]byte) (commons [][]byte, err error) {
@@ -244,7 +245,7 @@ wantsLoop:
 func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]byte, err error) {
 	m, err := ref.ListAllRefs(f.rs)
 	if err != nil {
-		return nil, fmt.Errorf("ListAllRefs error: %v", err)
+		return nil, fmt.Errorf("ListAllRefs error: %w", err)
 	}
 	sl := make([][]byte, 0, len(m))
 	for _, v := range m {
@@ -252,12 +253,12 @@ func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]b
 	}
 	queue, err := ref.NewCommitsQueue(f.db, sl)
 	if err != nil {
-		return nil, fmt.Errorf("NewCommitsQueue error: %v", err)
+		return nil, fmt.Errorf("NewCommitsQueue error: %w", err)
 	}
 	if len(wants) > 0 {
 		err = f.ensureWantsAreReachable(queue, wants)
 		if err != nil {
-			return nil, fmt.Errorf("ensureWantsAreReachable error: %v", err)
+			return nil, fmt.Errorf("ensureWantsAreReachable error: %w", err)
 		}
 		for _, b := range wants {
 			f.Wants[string(b)] = struct{}{}
@@ -265,7 +266,7 @@ func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]b
 	}
 	commons, err := f.findCommons(queue, haves)
 	if err != nil {
-		return nil, fmt.Errorf("findCommons error: %v", err)
+		return nil, fmt.Errorf("findCommons error: %w", err)
 	}
 	f.acks = f.acks[:0]
 	for _, b := range commons {
@@ -274,7 +275,7 @@ func (f *ClosedSetsFinder) Process(wants, haves [][]byte, done bool) (acks [][]b
 	}
 	err = f.findClosedSetOfObjects(done)
 	if err != nil {
-		return nil, fmt.Errorf("findClosedSetOfObjects error: %v", err)
+		return nil, fmt.Errorf("findClosedSetOfObjects error: %w", err)
 	}
 	return f.acks, nil
 }

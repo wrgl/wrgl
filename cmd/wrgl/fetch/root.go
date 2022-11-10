@@ -98,7 +98,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 				if all {
 					for k, v := range c.Remote {
 						uri, tok, err := utils.GetCredentials(cmd, cs, v.URL)
@@ -354,7 +354,7 @@ func fetchObjects(
 	client *apiclient.Client,
 	advertised [][]byte,
 	depth int32,
-	container pbar.Container,
+	container *pbar.Container,
 ) (fetchedCommits [][]byte, err error) {
 	bar := container.NewBar(-1, "Fetching objects", 0)
 	defer bar.Abort()
@@ -387,7 +387,7 @@ func Fetch(
 	force bool,
 	depth int32,
 	logger *logr.Logger,
-	container pbar.Container,
+	container *pbar.Container,
 ) error {
 	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(token), apiclient.WithLogger(logger))
 	if err != nil {

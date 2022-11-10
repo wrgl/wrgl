@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -61,7 +60,7 @@ func TestMergeCmdCommitCSV(t *testing.T) {
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"export", "branch-1", "--delimiter", "|"})
-	b, err := ioutil.ReadFile(fp)
+	b, err := os.ReadFile(fp)
 	require.NoError(t, err)
 	assertCmdOutput(t, cmd, string(b))
 

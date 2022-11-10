@@ -10,9 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -69,7 +69,7 @@ func authenticateCmd() *cobra.Command {
 				return err
 			}
 			if tokLoc != "" {
-				token, err := ioutil.ReadFile(tokLoc)
+				token, err := os.ReadFile(tokLoc)
 				if err != nil {
 					return err
 				}

@@ -32,7 +32,7 @@ func deleteCmd() *cobra.Command {
 				return err
 			}
 			n := len(args)
-			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 				var pb pbar.Bar
 				if n > 1 {
 					if !quiet {
