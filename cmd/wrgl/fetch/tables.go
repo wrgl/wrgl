@@ -66,7 +66,7 @@ func newTablesCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+				if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
 					for _, sum := range heads {
 						q, err := ref.NewCommitsQueue(db, [][]byte{sum})
 						if err != nil {
@@ -105,7 +105,7 @@ func newTablesCmd() *cobra.Command {
 						return fmt.Errorf("error decoding hex string %q: %v", s, err)
 					}
 				}
-				return utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+				return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
 					return fetchTableSums(cmd, db, cm, c, map[string][][]byte{remote: sums}, barContainer)
 				})
 			}

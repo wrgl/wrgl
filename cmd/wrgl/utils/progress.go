@@ -16,22 +16,22 @@ func SetupProgressBarFlags(flags *pflag.FlagSet) {
 	flags.Bool("no-progress", false, "don't display progress bar")
 }
 
-func getProgressBarContainer(cmd *cobra.Command) (pbar.Container, error) {
+func getProgressBarContainer(cmd *cobra.Command, quiet bool) (pbar.Container, error) {
 	noP, err := cmd.Flags().GetBool("no-progress")
 	if err != nil {
 		return nil, err
 	}
-	if noP {
+	if noP || quiet {
 		return pbar.NewNoopContainer(), nil
 	}
 	return pbar.NewContainer(cmd.OutOrStdout()), nil
 }
 
 // WithProgressBar creates a progress bar container while buffering all cmd.Print invocations
-func WithProgressBar(cmd *cobra.Command, run func(cmd *cobra.Command, barContainer pbar.Container) error) error {
+func WithProgressBar(cmd *cobra.Command, quiet bool, run func(cmd *cobra.Command, barContainer pbar.Container) error) error {
 	progressBarMutex.Lock()
 	defer progressBarMutex.Unlock()
-	barContainer, err := getProgressBarContainer(cmd)
+	barContainer, err := getProgressBarContainer(cmd, quiet)
 	if err != nil {
 		return err
 	}

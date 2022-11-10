@@ -24,7 +24,6 @@ import (
 	"github.com/wrgl/wrgl/pkg/ingest"
 	"github.com/wrgl/wrgl/pkg/local"
 	"github.com/wrgl/wrgl/pkg/objects"
-	"github.com/wrgl/wrgl/pkg/pbar"
 	"github.com/wrgl/wrgl/pkg/ref"
 	"github.com/wrgl/wrgl/pkg/slice"
 	"github.com/wrgl/wrgl/pkg/sorter"
@@ -206,23 +205,20 @@ func commit(
 		f = file
 	}
 
-	var sortPT, blkPT pbar.Bar
-	if !quiet {
-		sortPT, blkPT = displayCommitProgress(cmd)
-	}
-	s, err := sorter.NewSorter(
-		sorter.WithRunSize(memLimit),
-		sorter.WithProgressBar(sortPT),
-		sorter.WithDelimiter(delim),
+	sum, err := ingestTable(
+		cmd, db, f, primaryKey, quiet,
+		[]sorter.SorterOption{
+			sorter.WithRunSize(memLimit),
+			sorter.WithDelimiter(delim),
+		},
+		[]ingest.InserterOption{
+			ingest.WithNumWorkers(numWorkers),
+			ingest.WithDebugLogger(logger),
+		},
 	)
 	if err != nil {
 		return nil, err
 	}
-	sum, err := ingest.IngestTable(db, s, f, primaryKey,
-		ingest.WithNumWorkers(numWorkers),
-		ingest.WithProgressBar(blkPT),
-		ingest.WithDebugLogger(logger),
-	)
 	if err != nil {
 		return nil, err
 	}

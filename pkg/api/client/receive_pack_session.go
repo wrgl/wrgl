@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/vbauerster/mpb/v8/decor"
 	"github.com/wrgl/wrgl/pkg/api/payload"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -166,9 +165,10 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	if err != nil {
 		return nil, err
 	}
-	bar := s.barContainer.NewBar(int64(s.buf.Len()), "Sending packfile", decor.UnitKiB)
+	bar := s.barContainer.NewBar(int64(s.buf.Len()), "Sending packfile", pbar.UnitKiB)
 	defer bar.Abort()
-	body := pbar.NewReader(bar, s.buf)
+	body := bar.ProxyReader(s.buf)
+	defer body.Close()
 	resp, err := s.c.Request(http.MethodPost, "/receive-pack/", body, map[string]string{
 		"Content-Type":     CTPackfile,
 		"Content-Encoding": "gzip",

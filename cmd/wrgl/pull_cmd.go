@@ -89,7 +89,7 @@ func pullCmd() *cobra.Command {
 				return fmt.Errorf("invalid number of arguments. add --help flag to see example usage")
 			}
 
-			return utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
 				return pullSingleRepo(
 					cmd, c, db, rs, cm, args, setUpstream,
 					wrglDir, logger, barContainer, nil,
@@ -109,7 +109,6 @@ func pullCmd() *cobra.Command {
 	cmd.Flags().Bool("ff-only", false, "only allow fast-forward merges. This is the default when merge.fastForward is set to \"only\".")
 	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
 	cmd.Flags().Bool("ignore-non-existent", false, "ignore branches that cannot be found on remote")
-	utils.SetupProgressBarFlags(cmd.Flags())
 	return cmd
 }
 
@@ -134,7 +133,7 @@ func pullAll(
 	var reposNotFound = []string{}
 	var updateStrs = []string{}
 	total := len(names)
-	if err := utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
 		bar := barContainer.NewBar(int64(total), "Pulling branches", 0)
 		defer bar.Abort()
 		var updatesCh = make(chan string)

@@ -98,7 +98,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
 				if all {
 					for k, v := range c.Remote {
 						uri, tok, err := utils.GetCredentials(cmd, cs, v.URL)
@@ -130,7 +130,6 @@ func RootCmd() *cobra.Command {
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
 	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history, you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
-	utils.SetupProgressBarFlags(cmd.PersistentFlags())
 	cmd.AddCommand(newTablesCmd())
 	return cmd
 }

@@ -32,31 +32,36 @@ func deleteCmd() *cobra.Command {
 				return err
 			}
 			n := len(args)
-			var pb pbar.Bar
-			if n > 1 {
-				pb = pbar.NewProgressBar(cmd.OutOrStdout(), int64(n), "Removing repositories", 0)
-				defer pb.Done()
-			}
-			for _, repo := range args {
-				if !quiet {
-					val, err := utils.Prompt(cmd, fmt.Sprintf("Type repo name (%s) for confirmation", repo))
-					if err != nil {
+			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) error {
+				var pb pbar.Bar
+				if n > 1 {
+					if !quiet {
+						return fmt.Errorf("removing more than one repository. Use flag --quiet to suppress prompt")
+					}
+					pb = barContainer.NewBar(int64(n), "Removing repositories", 0)
+					defer pb.Done()
+				}
+				for _, repo := range args {
+					if !quiet {
+						val, err := utils.Prompt(cmd, fmt.Sprintf("Type repo name (%s) for confirmation", repo))
+						if err != nil {
+							return err
+						}
+						if val != repo {
+							return fmt.Errorf("input mismatch %q != %q", val, repo)
+						}
+					}
+					if err = api.DeleteRepo(tok, user.Username, repo); err != nil {
 						return err
 					}
-					if val != repo {
-						return fmt.Errorf("input mismatch %q != %q", val, repo)
+					if n > 1 {
+						pb.Incr()
+					} else {
+						cmd.Printf("Deleted repository %q\n", repo)
 					}
 				}
-				if err = api.DeleteRepo(tok, user.Username, repo); err != nil {
-					return err
-				}
-				if n > 1 {
-					pb.Incr()
-				} else {
-					cmd.Printf("Deleted repository %q\n", repo)
-				}
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().BoolP("quiet", "q", false, "don't ask for confirmation")

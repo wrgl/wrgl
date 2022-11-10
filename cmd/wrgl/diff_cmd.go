@@ -165,19 +165,12 @@ func getSecondCommit(
 }
 
 func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File, quiet bool, delim rune) (hash []byte, commit *objects.Commit, err error) {
-	var sortPT, blkPT pbar.Bar
-	if !quiet {
-		sortPT, blkPT = displayCommitProgress(cmd)
-	}
-	s, err := sorter.NewSorter(
-		sorter.WithProgressBar(sortPT),
-		sorter.WithDelimiter(delim),
-	)
-	if err != nil {
-		return
-	}
-	sum, err := ingest.IngestTable(db, s, file, pk,
-		ingest.WithProgressBar(blkPT),
+	sum, err := ingestTable(
+		cmd, db, file, pk, quiet,
+		[]sorter.SorterOption{
+			sorter.WithDelimiter(delim),
+		},
+		[]ingest.InserterOption{},
 	)
 	if err != nil {
 		return
@@ -290,49 +283,49 @@ func collectDiffObjects(
 		progChan = pt.Start()
 		defer pt.Stop()
 	}
-	var bar pbar.Bar
-	if quiet {
-		bar = pbar.NewNoopBar()
-	} else {
-		bar = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Collecting changes", 0)
-	}
-	defer bar.Done()
-mainLoop:
-	for {
-		select {
-		case e := <-progChan:
-			bar.SetTotal(e.Total)
-			bar.SetCurrent(e.Progress)
-		case d, ok := <-diffChan:
-			if !ok {
-				break mainLoop
-			}
-			if d.OldSum == nil {
-				if addedRowReader == nil {
-					addedRowReader, err = diff.NewRowListReader(db1, tbl1)
-					if err != nil {
-						return
-					}
+	if err = utils.WithProgressBar(cmd, quiet, func(cmd *cobra.Command, barContainer pbar.Container) (err error) {
+		bar := barContainer.NewBar(-1, "Collecting changes", 0)
+		defer bar.Done()
+	mainLoop:
+		for {
+			select {
+			case e := <-progChan:
+				bar.SetTotal(e.Total)
+				bar.SetCurrent(e.Progress)
+			case d, ok := <-diffChan:
+				if !ok {
+					break mainLoop
 				}
-				addedRowReader.Add(d.Offset)
-			} else if d.Sum == nil {
-				if removedRowReader == nil {
-					removedRowReader, err = diff.NewRowListReader(db2, tbl2)
-					if err != nil {
-						return
+				if d.OldSum == nil {
+					if addedRowReader == nil {
+						addedRowReader, err = diff.NewRowListReader(db1, tbl1)
+						if err != nil {
+							return
+						}
 					}
-				}
-				removedRowReader.Add(d.OldOffset)
-			} else {
-				if rowChangeReader == nil {
-					rowChangeReader, err = diff.NewRowChangeReader(db1, db2, tbl1, tbl2, colDiff)
-					if err != nil {
-						return
+					addedRowReader.Add(d.Offset)
+				} else if d.Sum == nil {
+					if removedRowReader == nil {
+						removedRowReader, err = diff.NewRowListReader(db2, tbl2)
+						if err != nil {
+							return
+						}
 					}
+					removedRowReader.Add(d.OldOffset)
+				} else {
+					if rowChangeReader == nil {
+						rowChangeReader, err = diff.NewRowChangeReader(db1, db2, tbl1, tbl2, colDiff)
+						if err != nil {
+							return
+						}
+					}
+					rowChangeReader.AddRowDiff(d)
 				}
-				rowChangeReader.AddRowDiff(d)
 			}
 		}
+		return nil
+	}); err != nil {
+		return
 	}
 	return
 }
@@ -361,69 +354,74 @@ func writeRowChanges(
 	}
 	progChan := pt.Start()
 	defer pt.Stop()
-	bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Collecting changes", 0)
-	defer bar.Done()
-mainLoop:
-	for {
-		select {
-		case e := <-progChan:
-			bar.SetTotal(e.Total)
-			bar.SetCurrent(e.Progress)
-		case d, ok := <-diffChan:
-			if !ok {
-				break mainLoop
-			}
-			var row, oldRow []string
-			if d.Sum != nil {
-				blk, off := diff.RowToBlockAndOffset(d.Offset)
-				row, err = buf.GetRow(0, blk, off)
-				if err != nil {
-					return err
+	if err = utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) (err error) {
+		bar := barContainer.NewBar(-1, "Collecting changes", 0)
+		defer bar.Done()
+	mainLoop:
+		for {
+			select {
+			case e := <-progChan:
+				bar.SetTotal(e.Total)
+				bar.SetCurrent(e.Progress)
+			case d, ok := <-diffChan:
+				if !ok {
+					break mainLoop
 				}
-				row = colDiff.RearrangeRow(0, row)
-			}
-			if d.OldSum != nil {
-				blk, off := diff.RowToBlockAndOffset(d.OldOffset)
-				oldRow, err = buf.GetRow(1, blk, off)
-				if err != nil {
-					return err
+				var row, oldRow []string
+				if d.Sum != nil {
+					blk, off := diff.RowToBlockAndOffset(d.Offset)
+					row, err = buf.GetRow(0, blk, off)
+					if err != nil {
+						return err
+					}
+					row = colDiff.RearrangeRow(0, row)
 				}
-				oldRow = colDiff.RearrangeBaseRow(oldRow)
-			}
+				if d.OldSum != nil {
+					blk, off := diff.RowToBlockAndOffset(d.OldOffset)
+					oldRow, err = buf.GetRow(1, blk, off)
+					if err != nil {
+						return err
+					}
+					oldRow = colDiff.RearrangeBaseRow(oldRow)
+				}
 
-			if d.OldSum == nil {
-				err = w.Write(append(
-					[]string{rowLabel("ADDED IN", name1, commitHash1)},
-					row...,
-				))
-				if err != nil {
-					return err
-				}
-			} else if d.Sum == nil {
-				err = w.Write(append(
-					[]string{rowLabel("REMOVED IN", name1, commitHash1)},
-					oldRow...,
-				))
-				if err != nil {
-					return err
-				}
-			} else {
-				err = w.Write(append(
-					[]string{rowLabel("BASE ROW FROM", name2, commitHash2)},
-					oldRow...,
-				))
-				if err != nil {
-					return err
-				}
-				err = w.Write(append(
-					[]string{rowLabel("MODIFIED IN", name1, commitHash1)},
-					row...,
-				))
-				if err != nil {
-					return err
+				if d.OldSum == nil {
+					err = w.Write(append(
+						[]string{rowLabel("ADDED IN", name1, commitHash1)},
+						row...,
+					))
+					if err != nil {
+						return err
+					}
+				} else if d.Sum == nil {
+					err = w.Write(append(
+						[]string{rowLabel("REMOVED IN", name1, commitHash1)},
+						oldRow...,
+					))
+					if err != nil {
+						return err
+					}
+				} else {
+					err = w.Write(append(
+						[]string{rowLabel("BASE ROW FROM", name2, commitHash2)},
+						oldRow...,
+					))
+					if err != nil {
+						return err
+					}
+					err = w.Write(append(
+						[]string{rowLabel("MODIFIED IN", name1, commitHash1)},
+						row...,
+					))
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }

@@ -1,12 +1,15 @@
 package pbar
 
 import (
+	"io"
+
 	"github.com/vbauerster/mpb/v8"
 )
 
 type Bar interface {
 	Incr()
 	IncrBy(n int)
+	ProxyReader(r io.Reader) io.ReadCloser
 	Done()
 	Abort()
 	SetTotal(total int64)
@@ -21,6 +24,9 @@ func (b *noopBar) Done()                {}
 func (b *noopBar) Abort()               {}
 func (b *noopBar) SetTotal(total int64) {}
 func (b *noopBar) SetCurrent(cur int64) {}
+func (b *noopBar) ProxyReader(r io.Reader) io.ReadCloser {
+	return io.NopCloser(r)
+}
 
 func NewNoopBar() Bar {
 	return &noopBar{}
@@ -71,4 +77,8 @@ func (b *bar) SetTotal(total int64) {
 }
 func (b *bar) SetCurrent(cur int64) {
 	b.b.SetCurrent(cur)
+}
+
+func (b *bar) ProxyReader(r io.Reader) io.ReadCloser {
+	return b.b.ProxyReader(r)
 }

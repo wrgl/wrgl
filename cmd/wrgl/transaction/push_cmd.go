@@ -94,7 +94,7 @@ func pushCmd() *cobra.Command {
 			if err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 			}
-			if err := utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) (err error) {
+			if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer pbar.Container) (err error) {
 				updates, err = ses.Start(barContainer)
 				return err
 			}); err != nil {
