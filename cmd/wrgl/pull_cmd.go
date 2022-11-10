@@ -329,13 +329,13 @@ func pullSingleRepo(
 		if updatesCh != nil {
 			updatesCh <- update
 		}
-		if pbarContainer == nil {
+		if updatesCh == nil {
 			cmd.Println()
 			cmd.Println(update)
 		}
 		return nil
 	} else if len(mergeHeads) == 0 {
-		if pbarContainer == nil {
+		if updatesCh == nil {
 			cmd.Println("Already up to date.")
 		}
 		return nil
