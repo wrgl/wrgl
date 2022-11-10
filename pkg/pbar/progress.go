@@ -22,6 +22,7 @@ type noopContainer struct{}
 func (p *noopContainer) NewBar(total int64, name string, unit int) Bar {
 	return &noopBar{}
 }
+
 func (p *noopContainer) Wait() {}
 
 func NewNoopContainer() Container {

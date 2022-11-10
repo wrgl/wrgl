@@ -90,11 +90,6 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pbarContainer, err := utils.GetProgressBarContainer(cmd)
-			if err != nil {
-				return err
-			}
-			defer pbarContainer.Wait()
 			cs, err := credentials.NewStore()
 			if err != nil {
 				return err
@@ -103,31 +98,33 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if all {
-				for k, v := range c.Remote {
-					uri, tok, err := utils.GetCredentials(cmd, cs, v.URL)
-					if err != nil {
-						return err
+			return utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+				if all {
+					for k, v := range c.Remote {
+						uri, tok, err := utils.GetCredentials(cmd, cs, v.URL)
+						if err != nil {
+							return err
+						}
+						err = Fetch(cmd, db, rs, cm, c.User, k, tok, v, v.Fetch, force, depth, logger, barContainer)
+						if err != nil {
+							return utils.HandleHTTPError(cmd, cs, v.URL, uri, err)
+						}
 					}
-					err = Fetch(cmd, db, rs, cm, c.User, k, tok, v, v.Fetch, force, depth, logger, pbarContainer)
-					if err != nil {
-						return utils.HandleHTTPError(cmd, cs, v.URL, uri, err)
-					}
+					return nil
+				}
+				remote, rem, specs, err := ParseRemoteAndRefspec(cmd, c, "", args)
+				if err != nil {
+					return err
+				}
+				uri, tok, err := utils.GetCredentials(cmd, cs, rem.URL)
+				if err != nil {
+					return err
+				}
+				if err := Fetch(cmd, db, rs, cm, c.User, remote, tok, rem, specs, force, depth, logger, barContainer); err != nil {
+					return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
 				}
 				return nil
-			}
-			remote, rem, specs, err := ParseRemoteAndRefspec(cmd, c, "", args)
-			if err != nil {
-				return err
-			}
-			uri, tok, err := utils.GetCredentials(cmd, cs, rem.URL)
-			if err != nil {
-				return err
-			}
-			if err := Fetch(cmd, db, rs, cm, c.User, remote, tok, rem, specs, force, depth, logger, pbarContainer); err != nil {
-				return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)
-			}
-			return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")

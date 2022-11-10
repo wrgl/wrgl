@@ -5,7 +5,7 @@ package conffs
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -46,7 +46,7 @@ func (s *Store) readConfig(fp string) (*conf.Config, error) {
 	f, err := os.Open(fp)
 	if err == nil {
 		defer f.Close()
-		b, err := ioutil.ReadAll(f)
+		b, err := io.ReadAll(f)
 		if err != nil {
 			return nil, err
 		}

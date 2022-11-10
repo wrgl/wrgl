@@ -6,6 +6,7 @@ import (
 
 type Bar interface {
 	Incr()
+	IncrBy(n int)
 	Done()
 	Abort()
 	SetTotal(total int64)
@@ -15,6 +16,7 @@ type Bar interface {
 type noopBar struct{}
 
 func (b *noopBar) Incr()                {}
+func (b *noopBar) IncrBy(n int)         {}
 func (b *noopBar) Done()                {}
 func (b *noopBar) Abort()               {}
 func (b *noopBar) SetTotal(total int64) {}
@@ -32,6 +34,13 @@ type bar struct {
 
 func (b *bar) Incr() {
 	b.b.IncrBy(1)
+	if b.total == 0 {
+		b.b.SetTotal(-1, false)
+	}
+}
+
+func (b *bar) IncrBy(n int) {
+	b.b.IncrBy(n)
 	if b.total == 0 {
 		b.b.SetTotal(-1, false)
 	}

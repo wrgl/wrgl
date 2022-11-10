@@ -4,7 +4,7 @@
 package credentials
 
 import (
-	"io/ioutil"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -48,7 +48,7 @@ func NewStore() (*Store, error) {
 	f, err := os.Open(fp)
 	if err == nil {
 		defer f.Close()
-		b, err := ioutil.ReadAll(f)
+		b, err := io.ReadAll(f)
 		if err != nil {
 			return nil, err
 		}

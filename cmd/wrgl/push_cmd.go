@@ -430,21 +430,14 @@ func pushSingleRepo(
 				OldSum: payload.BytesToHex(u.OldSum),
 			}
 		}
-		noP, err := cmd.Flags().GetBool("no-progress")
-		if err != nil {
-			return err
-		}
 		ses, err := apiclient.NewReceivePackSession(db, rs, client, um, remoteRefs, c.MaxPackFileSize())
 		if err != nil {
 			return utils.HandleHTTPError(cmd, clients.CredsStore, cr.URL, uri, err)
 		}
-		var pb pbar.Bar
-		if !noP {
-			pb = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Pushing objects", 0)
-			defer pb.Done()
-		}
-		um, err = ses.Start(pb)
-		if err != nil {
+		if err := utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) (err error) {
+			um, err = ses.Start(barContainer)
+			return err
+		}); err != nil {
 			return err
 		}
 		for _, u := range updates {
@@ -453,9 +446,6 @@ func pushSingleRepo(
 			} else {
 				u.ErrMsg = "remote failed to report status"
 			}
-		}
-		if pb != nil {
-			pb.Done()
 		}
 		reportUpdateStatus(cmd, updates)
 		if username, reponame, ok := utils.IsWrglhubRemote(cr.URL); ok {

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -41,7 +41,7 @@ func parseJSON(resp *http.Response, target interface{}) error {
 	if resp.StatusCode != http.StatusOK {
 		return apiclient.NewHTTPError(resp)
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

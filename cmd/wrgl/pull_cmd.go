@@ -68,45 +68,11 @@ func pullCmd() *cobra.Command {
 				return err
 			}
 			defer cleanup()
-
-			force, err := cmd.Flags().GetBool("force")
-			if err != nil {
-				return err
-			}
-			noCommit, err := cmd.Flags().GetBool("no-commit")
-			if err != nil {
-				return err
-			}
-			noGUI, err := cmd.Flags().GetBool("no-gui")
-			if err != nil {
-				return err
-			}
-			numWorkers, err := cmd.Flags().GetInt("num-workers")
-			if err != nil {
-				return err
-			}
-			message, err := cmd.Flags().GetString("message")
-			if err != nil {
-				return err
-			}
 			setUpstream, err := cmd.Flags().GetBool("set-upstream")
 			if err != nil {
 				return err
 			}
 			all, err := cmd.Flags().GetBool("all")
-			if err != nil {
-				return err
-			}
-			depth, err := cmd.Flags().GetInt32("depth")
-			if err != nil {
-				return err
-			}
-			pbarContainer, err := utils.GetProgressBarContainer(cmd)
-			if err != nil {
-				return err
-			}
-			defer pbarContainer.Wait()
-			ff, err := getFastForward(cmd, c)
 			if err != nil {
 				return err
 			}
@@ -116,66 +82,19 @@ func pullCmd() *cobra.Command {
 			}
 
 			if all {
-				names := []string{}
-				for name, branch := range c.Branch {
-					if branch.Remote == "" {
-						continue
-					}
-					names = append(names, name)
-				}
-				sort.Strings(names)
-				total := len(names)
-				bar := pbarContainer.NewBar(int64(total), "Pulling branches", 0)
-				defer bar.Abort()
-				var updatesCh = make(chan string)
-				var updateStrs = []string{}
-				wg := sync.WaitGroup{}
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for s := range updatesCh {
-						updateStrs = append(updateStrs, s)
-					}
-				}()
-				var reposNotFound = []string{}
-				for _, name := range names {
-					if err := pullSingleRepo(
-						cmd, c, db, rs, cm, []string{name}, force, false, noCommit, noGUI,
-						wrglDir, ff, numWorkers, message, depth, logger, pbarContainer, updatesCh,
-					); err != nil {
-						if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
-							reposNotFound = append(reposNotFound, name)
-						} else {
-							return err
-						}
-					}
-					bar.Incr()
-				}
-				close(updatesCh)
-				wg.Wait()
-				pbarContainer.Wait()
-				for _, name := range reposNotFound {
-					cmd.Printf("Skipped repository %q: not found\n", name)
-				}
-				if n := len(updateStrs); n > 0 {
-					cmd.Printf("%d out of %d branches updated\n", n, total)
-					for _, update := range updateStrs {
-						cmd.Println(update)
-					}
-				} else {
-					cmd.Println("All branches are up-to-date")
-				}
-				return nil
+				return pullAll(cmd, c, db, rs, cm, wrglDir, logger)
 			}
 
 			if len(args) == 0 {
 				return fmt.Errorf("invalid number of arguments. add --help flag to see example usage")
 			}
 
-			return pullSingleRepo(
-				cmd, c, db, rs, cm, args, force, setUpstream, noCommit, noGUI,
-				wrglDir, ff, numWorkers, message, depth, logger, pbarContainer, nil,
-			)
+			return utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+				return pullSingleRepo(
+					cmd, c, db, rs, cm, args, setUpstream,
+					wrglDir, logger, barContainer, nil,
+				)
+			})
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update local branch in certain conditions.")
@@ -192,6 +111,72 @@ func pullCmd() *cobra.Command {
 	cmd.Flags().Bool("ignore-non-existent", false, "ignore branches that cannot be found on remote")
 	utils.SetupProgressBarFlags(cmd.Flags())
 	return cmd
+}
+
+func pullAll(
+	cmd *cobra.Command,
+	c *conf.Config,
+	db objects.Store,
+	rs ref.Store,
+	cm *utils.ClientMap,
+	wrglDir string,
+	logger *logr.Logger,
+) error {
+
+	names := []string{}
+	for name, branch := range c.Branch {
+		if branch.Remote == "" {
+			continue
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var reposNotFound = []string{}
+	var updateStrs = []string{}
+	total := len(names)
+	if err := utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+		bar := barContainer.NewBar(int64(total), "Pulling branches", 0)
+		defer bar.Abort()
+		var updatesCh = make(chan string)
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for s := range updatesCh {
+				updateStrs = append(updateStrs, s)
+			}
+		}()
+		for _, name := range names {
+			if err := pullSingleRepo(
+				cmd, c, db, rs, cm, []string{name}, false,
+				wrglDir, logger, barContainer, updatesCh,
+			); err != nil {
+				if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
+					reposNotFound = append(reposNotFound, name)
+				} else {
+					return err
+				}
+			}
+			bar.Incr()
+		}
+		close(updatesCh)
+		wg.Wait()
+		return nil
+	}); err != nil {
+		return err
+	}
+	for _, name := range reposNotFound {
+		cmd.Printf("Skipped repository %q: not found\n", name)
+	}
+	if n := len(updateStrs); n > 0 {
+		cmd.Printf("%d out of %d branches updated\n", n, total)
+		for _, update := range updateStrs {
+			cmd.Println(update)
+		}
+	} else {
+		cmd.Println("All branches are up-to-date")
+	}
+	return nil
 }
 
 func extractMergeHeads(db objects.Store, rs ref.Store, c *conf.Config, name string, args []string, specs []*conf.Refspec, newBranch bool) (mergeHeads []string, err error) {
@@ -238,19 +223,40 @@ func pullSingleRepo(
 	rs ref.Store,
 	cm *utils.ClientMap,
 	args []string,
-	force,
 	setUpstream bool,
-	noCommit,
-	noGUI bool,
 	wrglDir string,
-	ff conf.FastForward,
-	numWorkers int,
-	message string,
-	depth int32,
 	logger *logr.Logger,
 	pbarContainer pbar.Container,
 	updatesCh chan string,
 ) (err error) {
+	depth, err := cmd.Flags().GetInt32("depth")
+	if err != nil {
+		return err
+	}
+	ff, err := getFastForward(cmd, c)
+	if err != nil {
+		return err
+	}
+	force, err := cmd.Flags().GetBool("force")
+	if err != nil {
+		return err
+	}
+	noCommit, err := cmd.Flags().GetBool("no-commit")
+	if err != nil {
+		return err
+	}
+	noGUI, err := cmd.Flags().GetBool("no-gui")
+	if err != nil {
+		return err
+	}
+	numWorkers, err := cmd.Flags().GetInt("num-workers")
+	if err != nil {
+		return err
+	}
+	message, err := cmd.Flags().GetString("message")
+	if err != nil {
+		return err
+	}
 	newBranch := false
 	name, _, _, err := ref.InterpretCommitName(db, rs, args[0], true)
 	if err != nil {
@@ -308,7 +314,7 @@ func pullSingleRepo(
 				return err
 			}
 			if !ignoreNonExistent {
-				return fmt.Errorf("nothing to create ref %q from. Make sure the remote branch exists", name)
+				return fmt.Errorf("nothing to create ref %q from. Make sure the remote branch exists, or use flag --ignore-non-existent to ignore this error", name)
 			} else {
 				return nil
 			}
@@ -323,13 +329,14 @@ func pullSingleRepo(
 		update := fmt.Sprintf("[%s %s] %s", strings.TrimPrefix(name, "heads/"), hex.EncodeToString(sum)[:7], com.Message)
 		if updatesCh != nil {
 			updatesCh <- update
-		} else {
+		}
+		if pbarContainer == nil {
 			cmd.Println()
 			cmd.Println(update)
 		}
 		return nil
 	} else if len(mergeHeads) == 0 {
-		if updatesCh == nil {
+		if pbarContainer == nil {
 			cmd.Println("Already up to date.")
 		}
 		return nil

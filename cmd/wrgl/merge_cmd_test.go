@@ -216,7 +216,7 @@ func readCSV(t *testing.T, filename string) ([]byte, [][]string) {
 	t.Helper()
 	f, err := os.Open(filename)
 	require.NoError(t, err)
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 	reader := csv.NewReader(bytes.NewReader(b))

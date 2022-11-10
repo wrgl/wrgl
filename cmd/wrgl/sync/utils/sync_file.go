@@ -5,6 +5,7 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -76,7 +77,7 @@ func ReadSyncFile(cmd *cobra.Command) (sf *SyncFile, err error) {
 	if err != nil {
 		return
 	}
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return
 	}

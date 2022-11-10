@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -99,7 +100,7 @@ func detectAuthType(cmd *cobra.Command, uriStr string) (authType conf.AuthType, 
 		cmd.Printf("Detected auth type %q\n", conf.ATLegacy)
 		return conf.ATLegacy, nil
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
@@ -136,7 +137,7 @@ func authenticate(uri, email, password string) (token string, err error) {
 	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
 		return "", fmt.Errorf("unrecognized content type: %q", ct)
 	}
-	b, err = ioutil.ReadAll(resp.Body)
+	b, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
@@ -178,7 +179,7 @@ func postForm(path string, form url.Values, respData interface{}) (err error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
@@ -187,7 +188,7 @@ func postForm(path string, form url.Values, respData interface{}) (err error) {
 	if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
 		return fmt.Errorf("unrecognized content type: %q", ct)
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}

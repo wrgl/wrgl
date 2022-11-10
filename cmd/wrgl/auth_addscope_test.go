@@ -5,7 +5,7 @@ package wrgl
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +23,7 @@ func logAuthnContent(t *testing.T, rd *local.RepoDir) {
 	t.Helper()
 	f, err := os.Open(filepath.Join(rd.FullPath, "authn.csv"))
 	require.NoError(t, err)
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	require.NoError(t, err)
 	t.Logf("data from authn.csv:\n%s", string(b))
 	require.NoError(t, f.Close())

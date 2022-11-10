@@ -55,11 +55,6 @@ func newTablesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pbarContainer, err := utils.GetProgressBarContainer(cmd)
-			if err != nil {
-				return err
-			}
-			defer pbarContainer.Wait()
 			cm, err := utils.NewClientMap()
 			if err != nil {
 				return err
@@ -71,29 +66,34 @@ func newTablesCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				for _, sum := range heads {
-					q, err := ref.NewCommitsQueue(db, [][]byte{sum})
-					if err != nil {
-						return err
-					}
-					coms := []*objects.Commit{}
-					for {
-						_, com, err := q.PopInsertParents()
-						if com != nil {
-							coms = append(coms, com)
-						}
+				if err := utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+					for _, sum := range heads {
+						q, err := ref.NewCommitsQueue(db, [][]byte{sum})
 						if err != nil {
-							if err == io.EOF {
-								break
+							return err
+						}
+						coms := []*objects.Commit{}
+						for {
+							_, com, err := q.PopInsertParents()
+							if com != nil {
+								coms = append(coms, com)
 							}
-							return err
+							if err != nil {
+								if err == io.EOF {
+									break
+								}
+								return err
+							}
+						}
+						if shallowErr := apiclient.NewShallowCommitError(db, rs, coms); shallowErr != nil {
+							if err = fetchTableSums(cmd, db, cm, c, shallowErr.TableSums, barContainer); err != nil {
+								return err
+							}
 						}
 					}
-					if shallowErr := apiclient.NewShallowCommitError(db, rs, coms); shallowErr != nil {
-						if err = fetchTableSums(cmd, db, cm, c, shallowErr.TableSums, pbarContainer); err != nil {
-							return err
-						}
-					}
+					return nil
+				}); err != nil {
+					return err
 				}
 				return nil
 			} else {
@@ -105,7 +105,9 @@ func newTablesCmd() *cobra.Command {
 						return fmt.Errorf("error decoding hex string %q: %v", s, err)
 					}
 				}
-				return fetchTableSums(cmd, db, cm, c, map[string][][]byte{remote: sums}, pbarContainer)
+				return utils.WithProgressBar(cmd, func(cmd *cobra.Command, barContainer pbar.Container) error {
+					return fetchTableSums(cmd, db, cm, c, map[string][][]byte{remote: sums}, barContainer)
+				})
 			}
 		},
 	}
