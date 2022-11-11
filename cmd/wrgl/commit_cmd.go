@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -67,11 +66,6 @@ func newCommitCmd() *cobra.Command {
 		}),
 		Args: cobra.MaximumNArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger, cleanup, err := utils.SetupDebug(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
 			setFile, err := cmd.Flags().GetBool("set-file")
 			if err != nil {
 				return err
@@ -131,7 +125,7 @@ func newCommitCmd() *cobra.Command {
 					return nil
 				}
 			} else {
-				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, c, logger, false, tid, delim)
+				sum, err = commit(cmd, db, rs, csvFilePath, message, branchName, primaryKey, c, false, tid, delim)
 				if err != nil {
 					return err
 				}
@@ -184,7 +178,7 @@ func quitIfRepoDirNotExist(cmd *cobra.Command, rd *local.RepoDir) error {
 
 func commit(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, csvFilePath, message, branchName string, primaryKey []string,
-	c *conf.Config, logger *logr.Logger, quiet bool, tid *uuid.UUID, delim rune,
+	c *conf.Config, quiet bool, tid *uuid.UUID, delim rune,
 ) ([]byte, error) {
 	numWorkers, err := cmd.Flags().GetInt("num-workers")
 	if err != nil {
@@ -211,15 +205,15 @@ func commit(
 		f = file
 	}
 
+	logger := utils.GetLogger()
 	sum, err := ingestTable(
-		cmd, db, f, primaryKey, quiet,
+		cmd, db, f, primaryKey, quiet, logger,
 		[]sorter.SorterOption{
 			sorter.WithRunSize(memLimit),
 			sorter.WithDelimiter(delim),
 		},
 		[]ingest.InserterOption{
 			ingest.WithNumWorkers(numWorkers),
-			ingest.WithDebugLogger(logger),
 		},
 	)
 	if err != nil {
@@ -259,7 +253,7 @@ func commitTempBranch(
 	primaryKey []string, quiet bool, delim rune,
 ) (sum []byte, err error) {
 	ref.DeleteHead(rs, tmpBranch)
-	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, c, nil, quiet, nil, delim)
+	return commit(cmd, db, rs, csvFilePath, filepath.Base(csvFilePath), tmpBranch, primaryKey, c, quiet, nil, delim)
 }
 
 func getCommitTable(db objects.Store, rs ref.Store, branch string) (com *objects.Commit, tbl *objects.Table, err error) {

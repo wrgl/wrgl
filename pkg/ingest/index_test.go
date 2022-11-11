@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -20,6 +21,7 @@ func TestIndexTable(t *testing.T) {
 	f := writeCSV(t, rows)
 	require.NoError(t, f.Close())
 	defer os.Remove(f.Name())
+	logger := testr.New(t)
 
 	for _, pk := range [][]string{rows[0][:1], nil} {
 		db := objmock.NewStore()
@@ -27,7 +29,7 @@ func TestIndexTable(t *testing.T) {
 		require.NoError(t, err)
 		f, err = os.Open(f.Name())
 		require.NoError(t, err)
-		sum, err := IngestTable(db, s, f, pk)
+		sum, err := IngestTable(db, s, f, pk, logger)
 		require.NoError(t, err)
 		tbl, err := objects.GetTable(db, sum)
 		require.NoError(t, err)
@@ -47,7 +49,7 @@ func TestIndexTable(t *testing.T) {
 			require.NoError(t, objects.DeleteBlockIndex(db, sum))
 		}
 
-		require.NoError(t, IndexTable(db, sum, tbl, nil))
+		require.NoError(t, IndexTable(db, sum, tbl, testr.New(t)))
 		tblIdx2, err := objects.GetTableIndex(db, sum)
 		require.NoError(t, err)
 		assert.Equal(t, tblIdx, tblIdx2)

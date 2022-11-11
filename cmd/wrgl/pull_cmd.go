@@ -12,7 +12,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -63,11 +62,6 @@ func pullCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
-			logger, cleanup, err := utils.SetupDebug(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
 			setUpstream, err := cmd.Flags().GetBool("set-upstream")
 			if err != nil {
 				return err
@@ -82,7 +76,7 @@ func pullCmd() *cobra.Command {
 			}
 
 			if all {
-				return pullAll(cmd, c, db, rs, cm, wrglDir, logger)
+				return pullAll(cmd, c, db, rs, cm, wrglDir)
 			}
 
 			if len(args) == 0 {
@@ -92,7 +86,7 @@ func pullCmd() *cobra.Command {
 			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 				return pullSingleRepo(
 					cmd, c, db, rs, cm, args, setUpstream,
-					wrglDir, logger, barContainer, nil,
+					wrglDir, barContainer, nil,
 				)
 			})
 		},
@@ -119,7 +113,6 @@ func pullAll(
 	rs ref.Store,
 	cm *utils.ClientMap,
 	wrglDir string,
-	logger *logr.Logger,
 ) error {
 
 	names := []string{}
@@ -148,7 +141,7 @@ func pullAll(
 		for _, name := range names {
 			if err := pullSingleRepo(
 				cmd, c, db, rs, cm, []string{name}, false,
-				wrglDir, logger, barContainer, updatesCh,
+				wrglDir, barContainer, updatesCh,
 			); err != nil {
 				if errors.Contains(err, `status 404: {"message":"Not Found"}`) {
 					reposNotFound = append(reposNotFound, name)
@@ -224,7 +217,6 @@ func pullSingleRepo(
 	args []string,
 	setUpstream bool,
 	wrglDir string,
-	logger *logr.Logger,
 	pbarContainer *pbar.Container,
 	updatesCh chan string,
 ) (err error) {
@@ -285,6 +277,7 @@ func pullSingleRepo(
 	if err != nil {
 		return err
 	}
+	logger := utils.GetLogger()
 	err = fetch.Fetch(cmd, db, rs, cm, c.User, remote, tok, rem, specs, force, depth, logger, pbarContainer)
 	if err != nil {
 		return utils.HandleHTTPError(cmd, cs, rem.URL, uri, err)

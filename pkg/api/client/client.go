@@ -84,21 +84,15 @@ func WithRequestAuthorization(token string) RequestOption {
 	}
 }
 
-func WithLogger(logger *logr.Logger) ClientOption {
-	return func(c *Client) {
-		c.logger = logger
-	}
-}
-
 type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
 	origin         string
 	requestOptions []RequestOption
-	logger         *logr.Logger
+	logger         logr.Logger
 }
 
-func NewClient(origin string, opts ...ClientOption) (*Client, error) {
+func NewClient(origin string, logger logr.Logger, opts ...ClientOption) (*Client, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, err
@@ -108,6 +102,7 @@ func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 			Jar: jar,
 		},
 		origin: origin,
+		logger: logger,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -116,9 +111,6 @@ func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 }
 
 func (s *Client) LogRequest(r *http.Request, payload interface{}) {
-	if s.logger == nil {
-		return
-	}
 	b, err := json.MarshalIndent(payload, "  ", "  ")
 	if err != nil {
 		panic(err)
@@ -127,9 +119,6 @@ func (s *Client) LogRequest(r *http.Request, payload interface{}) {
 }
 
 func (s *Client) LogResponse(r *http.Response, payload interface{}) {
-	if s.logger == nil {
-		return
-	}
 	b, err := json.MarshalIndent(payload, "  ", "  ")
 	if err != nil {
 		panic(err)

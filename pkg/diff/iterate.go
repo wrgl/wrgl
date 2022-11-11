@@ -82,16 +82,14 @@ func getBlockIndices(db objects.Store, tbl *objects.Table, bb []byte, start, end
 }
 
 // iterateAndMatch iterates through a single table while trying to match its rows with another table
-func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, logger *logr.Logger, cb func(pk, row1, row2 []byte, off1, off2 uint32)) error {
+func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, logger logr.Logger, cb func(pk, row1, row2 []byte, off1, off2 uint32)) error {
 	var prevStart, prevEnd int
 	var indices2 []*objects.BlockIndex
 	var bb []byte
 	var idx1 *objects.BlockIndex
 	var err error
 	for i, sum := range tbl1.Blocks {
-		if logger != nil {
-			logger.Info("iterating block", "sum", sum)
-		}
+		logger.Info("iterating block", "sum", sum)
 		idx1, bb, err = objects.GetBlockIndex(db1, bb, tbl1.BlockIndices[i])
 		if err != nil {
 			return err
@@ -104,9 +102,7 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 		prevStart, prevEnd = start, end
 
 		for rowOff1, b := range idx1.Rows {
-			if logger != nil {
-				logger.Info("row from 1st index", "pk", b[:16], "blk", i, "off", rowOff1, "row", b[16:])
-			}
+			logger.Info("row from 1st index", "pk", b[:16], "blk", i, "off", rowOff1, "row", b[16:])
 			var row2 []byte
 			var rowOff2 byte
 			var blkOff2 uint32
@@ -115,9 +111,7 @@ func iterateAndMatch(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1,
 					row2 = sum
 					rowOff2 = off
 					blkOff2 = uint32(k + start)
-					if logger != nil {
-						logger.Info("row from 2nd index", "blk", blkOff2, "off", rowOff2, "row", row2)
-					}
+					logger.Info("row from 2nd index", "blk", blkOff2, "off", rowOff2, "row", row2)
 					break
 				}
 			}

@@ -9,6 +9,8 @@ import (
 	"io"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/factory"
@@ -40,6 +42,7 @@ func getTable(t testing.TB, db objects.Store, sum []byte) (*objects.Table, [][]s
 
 func TestDiffTables(t *testing.T) {
 	db := objmock.NewStore()
+	logger := testr.New(t)
 	cases := []struct {
 		Sum1, Sum2 []byte
 		Events     []*objects.Diff
@@ -218,7 +221,7 @@ func TestDiffTables(t *testing.T) {
 		errChan := make(chan error, 10)
 		tbl1, tblIdx1 := getTable(t, db, c.Sum1)
 		tbl2, tblIdx2 := getTable(t, db, c.Sum2)
-		diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan)
+		diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan, logger)
 		events := []*objects.Diff{}
 		for e := range diffChan {
 			events = append(events, e)
@@ -232,6 +235,7 @@ func TestDiffTables(t *testing.T) {
 
 func TestDiffEmitUnchangedRow(t *testing.T) {
 	db := objmock.NewStore()
+	logger := testr.New(t)
 	sum1 := factory.BuildTable(t, db, []string{
 		"a,b",
 		"1,q",
@@ -247,7 +251,7 @@ func TestDiffEmitUnchangedRow(t *testing.T) {
 	errChan := make(chan error, 10)
 	tbl1, tblIdx1 := getTable(t, db, sum1)
 	tbl2, tblIdx2 := getTable(t, db, sum2)
-	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan, WithEmitUnchangedRow())
+	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan, logger, WithEmitUnchangedRow())
 	close(errChan)
 	_, ok := <-errChan
 	assert.False(t, ok)
@@ -280,6 +284,7 @@ func TestDiffEmitUnchangedRow(t *testing.T) {
 
 func TestDiffSameBlockDifferentPK(t *testing.T) {
 	db := objmock.NewStore()
+	logger := testr.New(t)
 	sum1 := factory.BuildTable(t, db, []string{
 		"a,b",
 		"1,q",
@@ -303,7 +308,7 @@ func TestDiffSameBlockDifferentPK(t *testing.T) {
 	errChan := make(chan error, 10)
 	tbl1, tblIdx1 := getTable(t, db, sum1)
 	tbl2, tblIdx2 := getTable(t, db, sum2)
-	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan)
+	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan, logger)
 	close(errChan)
 	_, ok := <-errChan
 	assert.False(t, ok)
@@ -322,7 +327,7 @@ func ingestRawCSV(b *testing.B, db objects.Store, rows [][]string) (*objects.Tab
 	require.NoError(b, csv.NewWriter(buf).WriteAll(rows))
 	s, err := sorter.NewSorter()
 	require.NoError(b, err)
-	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), nil)
+	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), nil, logr.Discard())
 	require.NoError(b, err)
 	return getTable(b, db, sum)
 }
@@ -335,7 +340,7 @@ func BenchmarkDiffRows(b *testing.B) {
 	tbl2, tblIdx2 := ingestRawCSV(b, db, rawCSV2)
 	errChan := make(chan error, 1000)
 	b.ResetTimer()
-	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan)
+	diffChan, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errChan, logr.Discard())
 	for d := range diffChan {
 		assert.NotNil(b, d)
 	}

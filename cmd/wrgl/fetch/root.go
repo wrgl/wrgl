@@ -73,11 +73,7 @@ func RootCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
-			logger, cleanup, err := utils.SetupDebug(cmd)
-			if err != nil {
-				return err
-			}
-			defer cleanup()
+			logger := utils.GetLogger()
 			all, err := cmd.Flags().GetBool("all")
 			if err != nil {
 				return err
@@ -386,10 +382,10 @@ func Fetch(
 	specs []*conf.Refspec,
 	force bool,
 	depth int32,
-	logger *logr.Logger,
+	logger logr.Logger,
 	container *pbar.Container,
 ) error {
-	client, err := apiclient.NewClient(cr.URL, apiclient.WithAuthorization(token), apiclient.WithLogger(logger))
+	client, err := utils.GetClient(cmd, cr.URL, apiclient.WithAuthorization(token))
 	if err != nil {
 		return errors.Wrap("error creating new client", err)
 	}

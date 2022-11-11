@@ -27,7 +27,7 @@ func strSliceEqual(s1, s2 []string) bool {
 type Differ struct {
 	progressInterval time.Duration
 	emitUnchangedRow bool
-	debugLogger      *logr.Logger
+	logger           logr.Logger
 	db1, db2         objects.Store
 	tbl1, tbl2       *objects.Table
 	tblIdx1, tblIdx2 [][]string
@@ -51,13 +51,6 @@ func WithEmitUnchangedRow() DiffOption {
 	}
 }
 
-// WithDebugLogger tells DiffTables to write debug info into the provided writer
-func WithDebugLogger(r *logr.Logger) DiffOption {
-	return func(d *Differ) {
-		d.debugLogger = r
-	}
-}
-
 func (d *Differ) diffTables() (<-chan *objects.Diff, progress.Tracker) {
 	diffChan := make(chan *objects.Diff)
 	pt := progress.NewSingleTracker(d.progressInterval, 0)
@@ -78,7 +71,7 @@ func (d *Differ) diffTables() (<-chan *objects.Diff, progress.Tracker) {
 	return diffChan, pt
 }
 
-func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, errChan chan<- error, opts ...DiffOption) (<-chan *objects.Diff, progress.Tracker) {
+func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblIdx2 [][]string, errChan chan<- error, logger logr.Logger, opts ...DiffOption) (<-chan *objects.Diff, progress.Tracker) {
 	d := &Differ{
 		db1:     db1,
 		db2:     db2,
@@ -87,6 +80,7 @@ func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblI
 		tblIdx1: tblIdx1,
 		tblIdx2: tblIdx2,
 		errChan: errChan,
+		logger:  logger,
 	}
 	for _, opt := range opts {
 		opt(d)
@@ -97,7 +91,7 @@ func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblI
 func (d *Differ) diffRows(diffChan chan<- *objects.Diff, pt *progress.SingleTracker, colsEqual bool) error {
 	pt.SetTotal(int64(d.tbl1.RowsCount + d.tbl2.RowsCount))
 	var current int64
-	err := iterateAndMatch(d.db1, d.db2, d.tbl1, d.tbl2, d.tblIdx1, d.tblIdx2, d.debugLogger, func(pk, row1, row2 []byte, off1, off2 uint32) {
+	err := iterateAndMatch(d.db1, d.db2, d.tbl1, d.tbl2, d.tblIdx1, d.tblIdx2, d.logger, func(pk, row1, row2 []byte, off1, off2 uint32) {
 		current++
 		pt.SetCurrent(current)
 		if row2 != nil {
@@ -122,7 +116,7 @@ func (d *Differ) diffRows(diffChan chan<- *objects.Diff, pt *progress.SingleTrac
 	if err != nil {
 		return err
 	}
-	return iterateAndMatch(d.db2, d.db1, d.tbl2, d.tbl1, d.tblIdx2, d.tblIdx1, d.debugLogger, func(pk, row1, row2 []byte, off1, off2 uint32) {
+	return iterateAndMatch(d.db2, d.db1, d.tbl2, d.tbl1, d.tblIdx2, d.tblIdx1, d.logger, func(pk, row1, row2 []byte, off1, off2 uint32) {
 		current++
 		pt.SetCurrent(current)
 		if row2 == nil {

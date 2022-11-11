@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/go-logr/logr"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -232,6 +233,7 @@ func runMerge(
 		pk = otherTs[0].PrimaryKey()
 	}
 
+	logger := utils.GetLogger()
 	if commitCSV != "" {
 		file, err := os.Open(commitCSV)
 		if err != nil {
@@ -242,7 +244,7 @@ func runMerge(
 			return err
 		}
 		sum, err := ingestTable(
-			cmd, db, file, pk, false,
+			cmd, db, file, pk, false, logger.WithName("ingest"),
 			[]sorter.SorterOption{sorter.WithDelimiter(delim)},
 			[]ingest.InserterOption{ingest.WithNumWorkers(numWorkers)},
 		)
@@ -261,7 +263,7 @@ func runMerge(
 		return err
 	}
 	defer cleanup()
-	merger, err := merge.NewMerger(db, rowCollector, buf, 65*time.Millisecond, baseT, otherTs, baseSum, otherSums)
+	merger, err := merge.NewMerger(db, rowCollector, buf, 65*time.Millisecond, baseT, otherTs, baseSum, otherSums, logger.WithName("merge"))
 	if err != nil {
 		return err
 	}
@@ -490,6 +492,7 @@ func ingestTable(
 	file io.ReadCloser,
 	pk []string,
 	quiet bool,
+	logger logr.Logger,
 	sorterOpts []sorter.SorterOption,
 	inserterOpts []ingest.InserterOption,
 ) (tableSum []byte, err error) {
@@ -504,7 +507,7 @@ func ingestTable(
 		if err != nil {
 			return err
 		}
-		tableSum, err = ingest.IngestTable(db, s, file, pk,
+		tableSum, err = ingest.IngestTable(db, s, file, pk, logger,
 			append(inserterOpts, ingest.WithProgressBar(blkPT))...,
 		)
 		return err
@@ -535,6 +538,7 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
+	logger := utils.GetLogger()
 	var sum []byte
 	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 		blkPT := barContainer.NewBar(-1, "saving blocks", 0)
@@ -543,7 +547,7 @@ func commitMergeResult(
 		if err != nil {
 			return err
 		}
-		sum, err = ingest.IngestTableFromBlocks(db, s, columns, pk, blocks,
+		sum, err = ingest.IngestTableFromBlocks(db, s, columns, pk, blocks, logger,
 			ingest.WithNumWorkers(numWorkers),
 			ingest.WithProgressBar(blkPT),
 		)

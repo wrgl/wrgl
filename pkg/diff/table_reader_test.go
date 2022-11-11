@@ -8,6 +8,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/ingest"
@@ -28,7 +29,8 @@ func ingestRows(t *testing.T, db objects.Store, rows [][]string) *objects.Table 
 	require.NoError(t, err)
 	s, err := sorter.NewSorter()
 	require.NoError(t, err)
-	sum, err := ingest.IngestTable(db, s, f, rows[0][:1])
+	logger := testr.New(t)
+	sum, err := ingest.IngestTable(db, s, f, rows[0][:1], logger)
 	require.NoError(t, err)
 	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)

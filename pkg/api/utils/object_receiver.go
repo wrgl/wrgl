@@ -20,18 +20,12 @@ type ObjectReceiver struct {
 	db              objects.Store
 	expectedCommits map[string]struct{}
 	ReceivedCommits [][]byte
-	debugLogger     *logr.Logger
+	logger          logr.Logger
 	saveObjHook     func(objType int, sum []byte)
 	buf             []byte
 }
 
 type ObjectReceiveOption func(r *ObjectReceiver)
-
-func WithReceiverDebugLogger(out *logr.Logger) ObjectReceiveOption {
-	return func(r *ObjectReceiver) {
-		r.debugLogger = out
-	}
-}
 
 // WithReceiverSaveObjectHook registers a hook that run right after an object is persisted successfully
 func WithReceiverSaveObjectHook(hook func(objType int, sum []byte)) ObjectReceiveOption {
@@ -40,9 +34,10 @@ func WithReceiverSaveObjectHook(hook func(objType int, sum []byte)) ObjectReceiv
 	}
 }
 
-func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, opts ...ObjectReceiveOption) *ObjectReceiver {
+func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, logger logr.Logger, opts ...ObjectReceiveOption) *ObjectReceiver {
 	r := &ObjectReceiver{
 		db:              db,
+		logger:          logger,
 		expectedCommits: map[string]struct{}{},
 	}
 	for _, opt := range opts {
@@ -78,7 +73,7 @@ func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
 	if err != nil {
 		return
 	}
-	if err = ingest.IndexTable(r.db, sum, tbl, r.debugLogger); err != nil {
+	if err = ingest.IndexTable(r.db, sum, tbl, r.logger); err != nil {
 		return
 	}
 	if err = ingest.ProfileTable(r.db, sum, tbl); err != nil {

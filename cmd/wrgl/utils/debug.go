@@ -12,32 +12,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// SetupDebug open debug file (specified with --debug-file) for writing
-func SetupDebug(cmd *cobra.Command) (l *logr.Logger, cleanup func(), err error) {
+var logger logr.Logger
+
+func GetLogger() logr.Logger {
+	return logger
+}
+
+func SetupLogger(cmd *cobra.Command) (cleanup func(), err error) {
+	logger = logr.Discard()
 	debug, err := cmd.Flags().GetBool("debug")
 	if err != nil {
-		return nil, nil, err
+		return func() {}, err
 	}
 	name, err := cmd.Flags().GetString("debug-file")
 	if err != nil {
-		return nil, nil, err
+		return func() {}, err
 	}
 	var f *os.File
 	if name != "" {
 		f, err = os.Create(name)
 		if err != nil {
-			return nil, nil, err
+			return func() {}, err
 		}
-		logger := stdr.New(log.New(f, "", 0))
-		return &logger, func() {
+		logger = stdr.New(log.New(f, "", 0))
+		return func() {
 			if f != nil {
 				f.Close()
 			}
 		}, nil
 	}
 	if debug {
-		logger := stdr.New(log.Default())
-		return &logger, func() {}, nil
+		logger = stdr.New(log.Default())
+		return func() {}, nil
 	}
-	return nil, func() {}, nil
+	return func() {}, nil
 }

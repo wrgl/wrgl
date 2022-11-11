@@ -43,7 +43,7 @@ func (m *ClientMap) GetClient(cmd *cobra.Command, cr *conf.Remote, opts ...apicl
 	}
 	m.uris[cr.URL] = uri
 	opts = append(opts, apiclient.WithAuthorization(tok))
-	client, err = apiclient.NewClient(cr.URL, opts...)
+	client, err = GetClient(cmd, cr.URL, opts...)
 	if err != nil {
 		return nil, nil, err
 	}

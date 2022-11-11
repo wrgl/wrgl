@@ -24,6 +24,7 @@ import (
 var version string
 
 func RootCmd() *cobra.Command {
+	var cleanupLogger func()
 	rootCmd := &cobra.Command{
 		Use:     "wrgl",
 		Short:   "Git-like data versioning",
@@ -40,9 +41,11 @@ func RootCmd() *cobra.Command {
 				}
 				pprof.StartCPUProfile(f)
 			}
-			return nil
+			cleanupLogger, err = utils.SetupLogger(cmd)
+			return err
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			cleanupLogger()
 			pprof.StopCPUProfile()
 			heapprofile, err := cmd.Flags().GetString("heapprofile")
 			if err != nil {

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/pckhoi/meow"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/ingest"
@@ -49,7 +50,7 @@ func ingestTable(t *testing.T, db objects.Store, rows [][]string, pk []uint32) [
 	require.NoError(t, w.WriteAll(rows))
 	s, err := sorter.NewSorter()
 	require.NoError(t, err)
-	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), slice.IndicesToValues(rows[0], pk))
+	sum, err := ingest.IngestTable(db, s, io.NopCloser(bytes.NewReader(buf.Bytes())), slice.IndicesToValues(rows[0], pk), testr.New(t))
 	require.NoError(t, err)
 	return sum
 }

@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/wrgl/wrgl/pkg/diff"
 	"github.com/wrgl/wrgl/pkg/objects"
 	"github.com/wrgl/wrgl/pkg/progress"
@@ -27,9 +28,10 @@ type Merger struct {
 	otherSums      [][]byte
 	buf            *diff.BlockBuffer
 	collector      *RowCollector
+	logger         logr.Logger
 }
 
-func NewMerger(db objects.Store, collector *RowCollector, buf *diff.BlockBuffer, progressPeriod time.Duration, baseT *objects.Table, otherTs []*objects.Table, baseSum []byte, otherSums [][]byte) (m *Merger, err error) {
+func NewMerger(db objects.Store, collector *RowCollector, buf *diff.BlockBuffer, progressPeriod time.Duration, baseT *objects.Table, otherTs []*objects.Table, baseSum []byte, otherSums [][]byte, logger logr.Logger) (m *Merger, err error) {
 	m = &Merger{
 		db:             db,
 		errChan:        make(chan error, len(otherTs)),
@@ -40,6 +42,7 @@ func NewMerger(db objects.Store, collector *RowCollector, buf *diff.BlockBuffer,
 		otherSums:      otherSums,
 		collector:      collector,
 		buf:            buf,
+		logger:         logger,
 	}
 	return
 }
@@ -168,7 +171,7 @@ func (m *Merger) Start() (ch <-chan *Merge, err error) {
 			return nil, err
 		}
 		diffChan, progTracker := diff.DiffTables(
-			m.db, m.db, t, m.baseT, idx, baseIdx, m.errChan,
+			m.db, m.db, t, m.baseT, idx, baseIdx, m.errChan, m.logger,
 			diff.WithProgressInterval(m.progressPeriod*time.Duration(n)),
 			diff.WithEmitUnchangedRow(),
 		)

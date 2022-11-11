@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/pckhoi/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,6 +24,7 @@ func TestReingest(t *testing.T) {
 	bb := []byte{}
 	cols := []string{"q", "w", "e"}
 	pk := []uint32{0}
+	logger := testr.New(t)
 
 	// save block
 	blk := [][]string{
@@ -54,7 +56,7 @@ func TestReingest(t *testing.T) {
 			Blocks:       [][]byte{blkSum},
 			BlockIndices: [][]byte{blkIdxSum},
 		}
-		newSum, err := ReingestTable(db, s, tbl, useBlockIndex)
+		newSum, err := ReingestTable(db, s, tbl, useBlockIndex, logger)
 		require.NoError(t, err)
 		newTbl, err := objects.GetTable(db, newSum)
 		require.NoError(t, err)

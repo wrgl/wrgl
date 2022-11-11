@@ -8,6 +8,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/diff"
 	"github.com/wrgl/wrgl/pkg/index"
@@ -103,7 +104,7 @@ func CreateMerger(t *testing.T, db objects.Store, commits ...[]byte) (*merge.Mer
 	collector := CreateCollector(t, db, baseCom)
 	buf, err := diff.BlockBufferWithSingleStore(db, append([]*objects.Table{baseT}, otherTs...))
 	require.NoError(t, err)
-	merger, err := merge.NewMerger(db, collector, buf, 0, baseT, otherTs, baseCom.Table, otherSums)
+	merger, err := merge.NewMerger(db, collector, buf, 0, baseT, otherTs, baseCom.Table, otherSums, testr.New(t))
 	require.NoError(t, err)
 	return merger, buf
 }

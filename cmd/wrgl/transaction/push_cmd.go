@@ -66,7 +66,7 @@ func pushCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("To %s\n", rem.URL)
-			client, err := apiclient.NewClient(rem.URL, apiclient.WithAuthorization(tok))
+			client, err := utils.GetClient(cmd, rem.URL, apiclient.WithAuthorization(tok))
 			if err != nil {
 				return err
 			}

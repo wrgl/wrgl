@@ -9,6 +9,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -36,8 +38,9 @@ func TestIngestTable(t *testing.T) {
 	db := objmock.NewStore()
 	s, err := sorter.NewSorter()
 	require.NoError(t, err)
+	logger := testr.New(t)
 
-	sum, err := IngestTable(db, s, f, rows[0][:1])
+	sum, err := IngestTable(db, s, f, rows[0][:1], logger)
 	require.NoError(t, err)
 
 	tbl, err := objects.GetTable(db, sum)
@@ -87,8 +90,9 @@ func TestFillEmptyColumnName(t *testing.T) {
 	db := objmock.NewStore()
 	s, err := sorter.NewSorter()
 	require.NoError(t, err)
+	logger := testr.New(t)
 
-	sum, err := IngestTable(db, s, f, rows[0][1:2])
+	sum, err := IngestTable(db, s, f, rows[0][1:2], logger)
 	require.NoError(t, err)
 	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)
@@ -103,6 +107,6 @@ func BenchmarkIngestTable(b *testing.B) {
 	s, err := sorter.NewSorter()
 	require.NoError(b, err)
 	b.ResetTimer()
-	_, err = IngestTable(db, s, f, rows[0][:1])
+	_, err = IngestTable(db, s, f, rows[0][:1], logr.Discard())
 	require.NoError(b, err)
 }

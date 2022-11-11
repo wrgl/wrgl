@@ -143,7 +143,8 @@ func fetchTableSums(cmd *cobra.Command, db objects.Store, cm *utils.ClientMap, c
 			return utils.HandleHTTPError(cmd, cm.CredsStore, rem.URL, uri, err)
 		}
 		defer pr.Close()
-		or := apiutils.NewObjectReceiver(db, nil)
+		logger := utils.GetLogger()
+		or := apiutils.NewObjectReceiver(db, nil, logger)
 		bar := pbarContainer.NewBar(-1, "Fetching objects", 0)
 		defer bar.Done()
 		_, err = or.Receive(pr, bar)
