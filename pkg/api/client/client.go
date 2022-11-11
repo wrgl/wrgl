@@ -102,7 +102,7 @@ func NewClient(origin string, logger logr.Logger, opts ...ClientOption) (*Client
 			Jar: jar,
 		},
 		origin: origin,
-		logger: logger,
+		logger: logger.WithName("Client"),
 	}
 	for _, opt := range opts {
 		opt(c)

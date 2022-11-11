@@ -57,7 +57,7 @@ func NewInserter(db objects.Store, sorter *sorter.Sorter, logger logr.Logger, op
 		db:         db,
 		sorter:     sorter,
 		numWorkers: 1,
-		logger:     logger,
+		logger:     logger.WithName("Inserter"),
 	}
 	for _, opt := range opts {
 		opt(i)

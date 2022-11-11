@@ -25,7 +25,7 @@ func NewDoctor(db objects.Store, rs ref.Store, user conf.User, logger logr.Logge
 		rs:     rs,
 		tree:   NewTree(db),
 		user:   user,
-		logger: logger,
+		logger: logger.WithName("Doctor"),
 	}
 	return d
 }

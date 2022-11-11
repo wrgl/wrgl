@@ -80,7 +80,7 @@ func DiffTables(db1, db2 objects.Store, tbl1, tbl2 *objects.Table, tblIdx1, tblI
 		tblIdx1: tblIdx1,
 		tblIdx2: tblIdx2,
 		errChan: errChan,
-		logger:  logger,
+		logger:  logger.WithName("Differ"),
 	}
 	for _, opt := range opts {
 		opt(d)

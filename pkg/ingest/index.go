@@ -24,6 +24,7 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger logr
 		bb        []byte
 		blkIdxSum []byte
 	)
+	logger = logger.WithName("IndexTable")
 	logger.Info("indexing table", "sum", tblSum)
 	for i, sum := range tbl.Blocks {
 		blk, bb, err = objects.GetBlock(db, bb, sum)

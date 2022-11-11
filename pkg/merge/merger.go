@@ -31,7 +31,17 @@ type Merger struct {
 	logger         logr.Logger
 }
 
-func NewMerger(db objects.Store, collector *RowCollector, buf *diff.BlockBuffer, progressPeriod time.Duration, baseT *objects.Table, otherTs []*objects.Table, baseSum []byte, otherSums [][]byte, logger logr.Logger) (m *Merger, err error) {
+func NewMerger(
+	db objects.Store,
+	collector *RowCollector,
+	buf *diff.BlockBuffer,
+	progressPeriod time.Duration,
+	baseT *objects.Table,
+	otherTs []*objects.Table,
+	baseSum []byte,
+	otherSums [][]byte,
+	logger logr.Logger,
+) (m *Merger, err error) {
 	m = &Merger{
 		db:             db,
 		errChan:        make(chan error, len(otherTs)),
@@ -42,7 +52,7 @@ func NewMerger(db objects.Store, collector *RowCollector, buf *diff.BlockBuffer,
 		otherSums:      otherSums,
 		collector:      collector,
 		buf:            buf,
-		logger:         logger,
+		logger:         logger.WithName("Merger"),
 	}
 	return
 }

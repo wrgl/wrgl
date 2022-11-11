@@ -30,7 +30,7 @@ func newResolver(db objects.Store, tree *Tree, logger logr.Logger) (*resolver, e
 		db:            db,
 		tree:          tree,
 		srt:           srt,
-		logger:        logger,
+		logger:        logger.WithName("resolver"),
 		resolvedTable: map[string][]byte{},
 	}, nil
 }
