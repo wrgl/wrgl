@@ -372,7 +372,7 @@ func Fetch(
 	logger logr.Logger,
 	container *pbar.Container,
 ) error {
-	client, err := utils.GetAPIClient(cmd, cr.URL)
+	client, err := cm.GetClient(cmd, cr.URL)
 	if err != nil {
 		return fmt.Errorf("error creating new client: %w", err)
 	}

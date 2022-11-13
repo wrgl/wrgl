@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"fmt"
 	"net/url"
 
 	"github.com/spf13/cobra"
@@ -42,9 +43,10 @@ func (m *ClientMap) GetClient(cmd *cobra.Command, remoteURI string, opts ...apic
 	} else if tok != "" {
 		opts = append(opts, apiclient.WithRelyingPartyToken(tok))
 	}
-	client, err = GetAPIClient(cmd, remoteURI, opts...)
+	logger := GetLogger(cmd)
+	client, err = apiclient.NewClient(remoteURI, *logger, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating new client: %w", err)
 	}
 	m.clients[remoteURI] = client
 	return
