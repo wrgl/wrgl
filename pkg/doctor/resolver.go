@@ -30,7 +30,7 @@ func newResolver(db objects.Store, tree *Tree, logger logr.Logger) (*resolver, e
 		db:            db,
 		tree:          tree,
 		srt:           srt,
-		logger:        logger,
+		logger:        logger.WithName("resolver"),
 		resolvedTable: map[string][]byte{},
 	}, nil
 }
@@ -97,7 +97,7 @@ func (r *resolver) ingestTable(iss *Issue, tbl *objects.Table) (sum []byte, err 
 			r.srt.AddRow(row)
 		}
 	}
-	inserter := ingest.NewInserter(r.db, r.srt)
+	inserter := ingest.NewInserter(r.db, r.srt, r.logger)
 	return inserter.IngestTableFromSorter(r.srt.Columns, r.srt.PK)
 }
 

@@ -32,7 +32,6 @@ func printCmd() *cobra.Command {
 		Short: "Print access token for a remote, login if necessary",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := utils.GetLogger(cmd)
 			dir := utils.MustWRGLDir(cmd)
 			cfs := conffs.NewStore(dir, conffs.LocalSource, "")
 			c, err := cfs.Open()
@@ -55,7 +54,6 @@ func printCmd() *cobra.Command {
 			cm := utils.NewClientMap(cs)
 			client, err := cm.GetClient(cmd, uriS,
 				apiclient.WithForceAuthenticate(),
-				apiclient.WithLogger(logger),
 			)
 			if err != nil {
 				return fmt.Errorf("cm.GetClient err: %w", err)

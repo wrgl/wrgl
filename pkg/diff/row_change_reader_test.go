@@ -7,6 +7,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/factory"
@@ -16,6 +17,7 @@ import (
 
 func TestRowChangeReader(t *testing.T) {
 	db := objmock.NewStore()
+	logger := testr.New(t)
 	sum1 := factory.BuildTable(t, db, []string{
 		"a,b,c,d",
 		"1,2,3,4",
@@ -31,7 +33,7 @@ func TestRowChangeReader(t *testing.T) {
 	tbl1, tblIdx1 := getTable(t, db, sum1)
 	tbl2, tblIdx2 := getTable(t, db, sum2)
 	errCh := make(chan error, 1)
-	diffCh, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errCh)
+	diffCh, _ := DiffTables(db, db, tbl1, tbl2, tblIdx1, tblIdx2, errCh, logger)
 	close(errCh)
 	err, ok := <-errCh
 	assert.False(t, ok)

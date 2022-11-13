@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/objects"
@@ -22,8 +23,9 @@ func TestProfileTable(t *testing.T) {
 	db := objmock.NewStore()
 	s, err := sorter.NewSorter()
 	require.NoError(t, err)
+	logger := testr.New(t)
 
-	sum, err := IngestTable(db, s, f, rows[0][:1])
+	sum, err := IngestTable(db, s, f, rows[0][:1], logger)
 	require.NoError(t, err)
 	tbl, err := objects.GetTable(db, sum)
 	require.NoError(t, err)

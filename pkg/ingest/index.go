@@ -13,7 +13,7 @@ import (
 	"github.com/wrgl/wrgl/pkg/slice"
 )
 
-func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger *logr.Logger) error {
+func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger logr.Logger) error {
 	var (
 		tblIdx    = make([][]string, len(tbl.Blocks))
 		buf       = bytes.NewBuffer(nil)
@@ -24,9 +24,8 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger *log
 		bb        []byte
 		blkIdxSum []byte
 	)
-	if logger != nil {
-		logger.Info("indexing table", "sum", tblSum)
-	}
+	logger = logger.WithName("IndexTable")
+	logger.Info("indexing table", "sum", tblSum)
 	for i, sum := range tbl.Blocks {
 		blk, bb, err = objects.GetBlock(db, bb, sum)
 		if err != nil {
@@ -51,9 +50,7 @@ func IndexTable(db objects.Store, tblSum []byte, tbl *objects.Table, logger *log
 		if err != nil {
 			return fmt.Errorf("objects.SaveBlockIndex: %v", err)
 		}
-		if logger != nil {
-			logger.Info("indexed block", "sum", sum, "indexSum", blkIdxSum)
-		}
+		logger.Info("indexed block", "sum", sum, "indexSum", blkIdxSum)
 		if !bytes.Equal(blkIdxSum, tbl.BlockIndices[i]) {
 			return fmt.Errorf("block index at offset %d has different sum: %x != %x", i, blkIdxSum, tbl.BlockIndices[i])
 		}

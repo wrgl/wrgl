@@ -55,6 +55,10 @@ func (b *ReplayableBuffer) Reset() {
 	b.len = 0
 }
 
+func (b *ReplayableBuffer) Len() int64 {
+	return b.len
+}
+
 func (b *ReplayableBuffer) Write(p []byte) (n int, err error) {
 	n = len(p)
 	b.maybeGrow(n + int(b.off))

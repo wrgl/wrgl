@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"runtime"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/go-logr/logr"
 	"github.com/rivo/tview"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/utils"
@@ -231,26 +233,20 @@ func runMerge(
 		pk = otherTs[0].PrimaryKey()
 	}
 
+	logger := utils.GetLogger(cmd)
 	if commitCSV != "" {
 		file, err := os.Open(commitCSV)
 		if err != nil {
 			return err
 		}
-		sortPT, blkPT := displayCommitProgress(cmd)
 		delim, err := utils.GetRuneFromFlag(cmd, "delimiter")
 		if err != nil {
 			return err
 		}
-		s, err := sorter.NewSorter(
-			sorter.WithProgressBar(sortPT),
-			sorter.WithDelimiter(delim),
-		)
-		if err != nil {
-			return err
-		}
-		sum, err := ingest.IngestTable(db, s, file, pk,
-			ingest.WithNumWorkers(numWorkers),
-			ingest.WithProgressBar(blkPT),
+		sum, err := ingestTable(
+			cmd, db, file, pk, false, *logger,
+			[]sorter.SorterOption{sorter.WithDelimiter(delim)},
+			[]ingest.InserterOption{ingest.WithNumWorkers(numWorkers)},
 		)
 		if err != nil {
 			return err
@@ -267,7 +263,7 @@ func runMerge(
 		return err
 	}
 	defer cleanup()
-	merger, err := merge.NewMerger(db, rowCollector, buf, 65*time.Millisecond, baseT, otherTs, baseSum, otherSums)
+	merger, err := merge.NewMerger(db, rowCollector, buf, 65*time.Millisecond, baseT, otherTs, baseSum, otherSums, *logger)
 	if err != nil {
 		return err
 	}
@@ -474,23 +470,48 @@ func saveMergeResultToCSV(cmd *cobra.Command, merger *merge.Merger, removedCols 
 	if err != nil {
 		return err
 	}
-	bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, fmt.Sprintf("saving merge result to %s", name), 0)
-	defer bar.Done()
-	for blk := range blocks {
-		for _, row := range blk.Rows {
-			err = w.Write(row)
-			if err != nil {
-				return err
+	return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
+		bar := barContainer.NewBar(-1, fmt.Sprintf("saving merge result to %s", name), 0)
+		defer bar.Done()
+		for blk := range blocks {
+			for _, row := range blk.Rows {
+				err = w.Write(row)
+				if err != nil {
+					return err
+				}
+				bar.Incr()
 			}
-			bar.Incr()
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
-func displayCommitProgress(cmd *cobra.Command) (sortPT, blkPT pbar.Bar) {
-	sortPT = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "sorting", 0)
-	blkPT = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "saving blocks", 0)
+func ingestTable(
+	cmd *cobra.Command,
+	db objects.Store,
+	file io.ReadCloser,
+	pk []string,
+	quiet bool,
+	logger logr.Logger,
+	sorterOpts []sorter.SorterOption,
+	inserterOpts []ingest.InserterOption,
+) (tableSum []byte, err error) {
+	err = utils.WithProgressBar(cmd, quiet, func(cmd *cobra.Command, barContainer *pbar.Container) error {
+		sortPT := barContainer.NewBar(-1, "sorting", 0)
+		blkPT := barContainer.NewBar(-1, "saving blocks", 0)
+		defer sortPT.Done()
+		defer blkPT.Done()
+		s, err := sorter.NewSorter(
+			append(sorterOpts, sorter.WithProgressBar(sortPT))...,
+		)
+		if err != nil {
+			return err
+		}
+		tableSum, err = ingest.IngestTable(db, s, file, pk, logger,
+			append(inserterOpts, ingest.WithProgressBar(blkPT))...,
+		)
+		return err
+	})
 	return
 }
 
@@ -517,17 +538,21 @@ func commitMergeResult(
 	if err != nil {
 		return err
 	}
-	blkPT := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "saving blocks", 0)
-	defer blkPT.Done()
-	s, err := sorter.NewSorter()
-	if err != nil {
+	logger := utils.GetLogger(cmd)
+	var sum []byte
+	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
+		blkPT := barContainer.NewBar(-1, "saving blocks", 0)
+		defer blkPT.Done()
+		s, err := sorter.NewSorter()
+		if err != nil {
+			return err
+		}
+		sum, err = ingest.IngestTableFromBlocks(db, s, columns, pk, blocks, *logger,
+			ingest.WithNumWorkers(numWorkers),
+			ingest.WithProgressBar(blkPT),
+		)
 		return err
-	}
-	sum, err := ingest.IngestTableFromBlocks(db, s, columns, pk, blocks,
-		ingest.WithNumWorkers(numWorkers),
-		ingest.WithProgressBar(blkPT),
-	)
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 	tbl, err := objects.GetTable(db, sum)
@@ -590,28 +615,33 @@ func redrawEvery(app *tview.Application, d time.Duration) (cancel func()) {
 }
 
 func collectMergeConflicts(cmd *cobra.Command, merger *merge.Merger) (*diff.ColDiff, []*merge.Merge, error) {
-	var bar pbar.Bar
 	mch, err := merger.Start()
 	if err != nil {
 		return nil, nil, err
 	}
 	pch := merger.Progress.Start()
 	merges := []*merge.Merge{}
-mainLoop:
-	for {
-		select {
-		case p := <-pch:
-			if bar == nil {
-				bar = pbar.NewProgressBar(cmd.OutOrStdout(), p.Total, "collecting merge conflicts", 0)
-				defer bar.Done()
+	if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
+		var bar pbar.Bar
+	mainLoop:
+		for {
+			select {
+			case p := <-pch:
+				if bar == nil {
+					bar = barContainer.NewBar(p.Total, "collecting merge conflicts", 0)
+					defer bar.Done()
+				}
+				bar.SetCurrent(p.Progress)
+			case m, ok := <-mch:
+				if !ok {
+					break mainLoop
+				}
+				merges = append(merges, m)
 			}
-			bar.SetCurrent(p.Progress)
-		case m, ok := <-mch:
-			if !ok {
-				break mainLoop
-			}
-			merges = append(merges, m)
 		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
 	}
 	merger.Progress.Stop()
 	if err = merger.Error(); err != nil {

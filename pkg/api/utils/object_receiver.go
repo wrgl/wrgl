@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/klauspost/compress/s2"
@@ -20,18 +21,12 @@ type ObjectReceiver struct {
 	db              objects.Store
 	expectedCommits map[string]struct{}
 	ReceivedCommits [][]byte
-	debugLogger     *logr.Logger
+	logger          logr.Logger
 	saveObjHook     func(objType int, sum []byte)
 	buf             []byte
 }
 
 type ObjectReceiveOption func(r *ObjectReceiver)
-
-func WithReceiverDebugLogger(out *logr.Logger) ObjectReceiveOption {
-	return func(r *ObjectReceiver) {
-		r.debugLogger = out
-	}
-}
 
 // WithReceiverSaveObjectHook registers a hook that run right after an object is persisted successfully
 func WithReceiverSaveObjectHook(hook func(objType int, sum []byte)) ObjectReceiveOption {
@@ -40,9 +35,10 @@ func WithReceiverSaveObjectHook(hook func(objType int, sum []byte)) ObjectReceiv
 	}
 }
 
-func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, opts ...ObjectReceiveOption) *ObjectReceiver {
+func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, logger logr.Logger, opts ...ObjectReceiveOption) *ObjectReceiver {
 	r := &ObjectReceiver{
 		db:              db,
+		logger:          logger.WithName("ObjectReceiver"),
 		expectedCommits: map[string]struct{}{},
 	}
 	for _, opt := range opts {
@@ -54,7 +50,15 @@ func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, opts ...Objec
 	return r
 }
 
+func (r *ObjectReceiver) logDuration(msg string) func() {
+	start := time.Now()
+	return func() {
+		r.logger.Info(msg, "duration", time.Since(start))
+	}
+}
+
 func (r *ObjectReceiver) saveBlock(b []byte) (sum []byte, err error) {
+	defer r.logDuration("save block")()
 	r.buf, err = s2.Decode(r.buf, b)
 	if err != nil {
 		return
@@ -70,6 +74,7 @@ func (r *ObjectReceiver) saveBlock(b []byte) (sum []byte, err error) {
 }
 
 func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
+	defer r.logDuration("save table")()
 	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
 	if err != nil {
 		return
@@ -78,7 +83,7 @@ func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
 	if err != nil {
 		return
 	}
-	if err = ingest.IndexTable(r.db, sum, tbl, r.debugLogger); err != nil {
+	if err = ingest.IndexTable(r.db, sum, tbl, r.logger); err != nil {
 		return
 	}
 	if err = ingest.ProfileTable(r.db, sum, tbl); err != nil {
@@ -91,6 +96,7 @@ func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
 }
 
 func (r *ObjectReceiver) saveCommit(b []byte) (sum []byte, err error) {
+	defer r.logDuration("save commit")()
 	_, com, err := objects.ReadCommitFrom(bytes.NewReader(b))
 	if err != nil {
 		return
@@ -116,24 +122,24 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, bar pbar.Bar) (don
 	for {
 		ot, b, err := pr.ReadObject()
 		if err != nil && err != io.EOF {
-			return false, fmt.Errorf("pr.ReadObject error: %v", err)
+			return false, fmt.Errorf("pr.ReadObject error: %w", err)
 		}
 		var sum []byte
 		switch ot {
 		case packfile.ObjectBlock:
 			sum, err = r.saveBlock(b)
 			if err != nil {
-				return false, fmt.Errorf("r.saveBlock error: %v", err)
+				return false, fmt.Errorf("r.saveBlock error: %w", err)
 			}
 		case packfile.ObjectTable:
 			sum, err = r.saveTable(b)
 			if err != nil {
-				return false, fmt.Errorf("pr.ReadObject error: %v", err)
+				return false, fmt.Errorf("pr.ReadObject error: %w", err)
 			}
 		case packfile.ObjectCommit:
 			sum, err = r.saveCommit(b)
 			if err != nil {
-				return false, fmt.Errorf("r.saveTable error: %v", err)
+				return false, fmt.Errorf("r.saveTable error: %w", err)
 			}
 		default:
 			if ot != 0 || len(b) != 0 {
@@ -142,7 +148,7 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, bar pbar.Bar) (don
 		}
 		if ot != 0 {
 			if err = pr.Info.AddObject(ot, sum); err != nil {
-				return false, fmt.Errorf("pr.Info.AddObject error: %v", err)
+				return false, fmt.Errorf("pr.Info.AddObject error: %w", err)
 			}
 		}
 		if ot != 0 && bar != nil {

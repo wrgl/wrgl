@@ -40,10 +40,7 @@ func RootCmd() *cobra.Command {
 				pprof.StartCPUProfile(f)
 			}
 			cleanupLogger, err = utils.SetupLogger(cmd)
-			if err != nil {
-				return err
-			}
-			return nil
+			return err
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
 			if cleanupLogger != nil {
@@ -81,6 +78,7 @@ func RootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().String("cpuprofile", "", "write cpu profile to file")
 	rootCmd.PersistentFlags().String("heapprofile", "", "write heap profile to file")
 	utils.AddLoggerFlags(rootCmd.PersistentFlags())
+	utils.SetupProgressBarFlags(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newCommitCmd())
 	rootCmd.AddCommand(newLogCmd())

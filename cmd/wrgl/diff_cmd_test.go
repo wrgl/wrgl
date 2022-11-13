@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -67,7 +66,7 @@ func assertDiffCSVEqual(t *testing.T, args []string, cb func(sum1, sum2 string) 
 	pat := regexp.MustCompile(`DIFF_(.+)_(.+)\.csv`)
 	submatch := pat.FindStringSubmatch(buf.String())
 	defer os.Remove(submatch[0])
-	b, err := ioutil.ReadFile(submatch[0])
+	b, err := os.ReadFile(submatch[0])
 	require.NoError(t, err)
 	assert.Equal(t, cb(submatch[1], submatch[2]), string(b))
 }
@@ -198,7 +197,7 @@ func TestDiffCmdAll(t *testing.T) {
 
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"diff"})
-	assertCmdFailed(t, cmd, "", fmt.Errorf("no branch with file configured. To track a file with a branch, set --set-file and --set-primary-key during commit."))
+	assertCmdFailed(t, cmd, "", fmt.Errorf("no branch with file configured. To track a file with a branch, set --set-file and --set-primary-key during commit"))
 
 	_, fp1 := createCSVFile(t, []string{
 		"a,b,c",

@@ -71,47 +71,18 @@ func WithForceAuthenticate() ClientOption {
 	}
 }
 
-type RequestOption func(r *http.Request)
-
-func WithRequestHeader(header http.Header) RequestOption {
-	return func(r *http.Request) {
-		for k, sl := range header {
-			for _, v := range sl {
-				r.Header.Add(k, v)
-			}
-		}
-	}
-}
-
-func WithRequestCookies(cookies []*http.Cookie) RequestOption {
-	return func(r *http.Request) {
-		for _, c := range cookies {
-			r.AddCookie(c)
-		}
-	}
-}
-
-func WithLogger(logger *logr.Logger) ClientOption {
-	return func(c *Client) {
-		if logger != nil {
-			l := logger.WithName("apiclient")
-			c.logger = &l
-		}
-	}
-}
-
 type Client struct {
 	client *http.Client
 	// origin is the scheme + host name of remote server
 	origin           string
 	requestOptions   []RequestOption
-	logger           *logr.Logger
+	logger           logr.Logger
 	rpt              string
 	umaTicketHandler func(asURI, ticket, oldRPT string) (rpt string, err error)
 	bufPool          *sync.Pool
 }
 
-func NewClient(origin string, opts ...ClientOption) (*Client, error) {
+func NewClient(origin string, logger logr.Logger, opts ...ClientOption) (*Client, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	if err != nil {
 		return nil, err
@@ -126,17 +97,12 @@ func NewClient(origin string, opts ...ClientOption) (*Client, error) {
 				return NewReplayableBuffer()
 			},
 		},
+		logger: logger.WithName("Client"),
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
 	return c, nil
-}
-
-func (s *Client) info(msg string, args ...any) {
-	if s.logger != nil {
-		s.logger.Info(msg, args...)
-	}
 }
 
 var authHeaderRegex = regexp.MustCompile(`UMA\s+realm="([^"]+)",\s+as_uri="([^"]+)",\s+ticket="([^"]+)"`)
@@ -187,7 +153,7 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 	if err != nil {
 		return
 	}
-	c.info("response",
+	c.logger.Info("response",
 		"method", req.Method,
 		"path", req.URL.Path,
 		"code", resp.StatusCode,
@@ -206,7 +172,7 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 		if err != nil {
 			return nil, err
 		}
-		c.info("fetched new rpt",
+		c.logger.Info("fetched new rpt",
 			"method", req.Method,
 			"path", req.URL.Path,
 			"elapsed", time.Since(start),
@@ -228,7 +194,7 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 		if err != nil {
 			return nil, err
 		}
-		c.info("retry response",
+		c.logger.Info("retry response",
 			"method", req.Method,
 			"path", req.URL.Path,
 			"code", resp.StatusCode,

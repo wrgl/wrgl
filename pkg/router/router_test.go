@@ -5,7 +5,7 @@ package router
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -28,7 +28,7 @@ func assertResponse(t *testing.T, handler http.Handler, method, path string, sta
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	require.Equal(t, status, rec.Result().StatusCode)
-	b, err := ioutil.ReadAll(rec.Result().Body)
+	b, err := io.ReadAll(rec.Result().Body)
 	require.NoError(t, err)
 	assert.Equal(t, resp, string(b))
 }

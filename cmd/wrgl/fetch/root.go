@@ -85,39 +85,35 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			pbarContainer, err := utils.GetProgressBarContainer(cmd)
-			if err != nil {
-				return err
-			}
-			defer pbarContainer.Wait()
 			cs, err := credentials.NewStore()
 			if err != nil {
 				return err
 			}
 			cm := utils.NewClientMap(cs)
-			if all {
-				for k, v := range c.Remote {
-					err = Fetch(cmd, db, rs, cm, c.User, k, v, v.Fetch, force, depth, logger, pbarContainer)
-					if err != nil {
-						return utils.HandleHTTPError(cmd, cs, v.URL, err)
+			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
+				if all {
+					for k, v := range c.Remote {
+						err = Fetch(cmd, db, rs, cm, c.User, k, v, v.Fetch, force, depth, *logger, barContainer)
+						if err != nil {
+							return utils.HandleHTTPError(cmd, cs, v.URL, err)
+						}
 					}
+					return nil
+				}
+				remote, rem, specs, err := ParseRemoteAndRefspec(cmd, c, "", args)
+				if err != nil {
+					return err
+				}
+				if err := Fetch(cmd, db, rs, cm, c.User, remote, rem, specs, force, depth, *logger, barContainer); err != nil {
+					return utils.HandleHTTPError(cmd, cs, rem.URL, err)
 				}
 				return nil
-			}
-			remote, rem, specs, err := ParseRemoteAndRefspec(cmd, c, "", args)
-			if err != nil {
-				return err
-			}
-			if err := Fetch(cmd, db, rs, cm, c.User, remote, rem, specs, force, depth, logger, pbarContainer); err != nil {
-				return utils.HandleHTTPError(cmd, cs, rem.URL, err)
-			}
-			return nil
+			})
 		},
 	}
 	cmd.Flags().Bool("all", false, "Fetch all remotes.")
 	cmd.Flags().BoolP("force", "f", false, "Force update local branch in certain conditions.")
 	cmd.Flags().Int32P("depth", "d", 0, "The maximum depth pass which commits will be fetched shallowly. Shallow commits only have the metadata but not the data itself. In other words, while you can still see the commit history, you cannot access its data. If depth is set to 0 then all missing commits will be fetched in full.")
-	utils.SetupProgressBarFlags(cmd.PersistentFlags())
 	cmd.AddCommand(newTablesCmd())
 	return cmd
 }
@@ -342,7 +338,7 @@ func fetchObjects(
 	client *apiclient.Client,
 	advertised [][]byte,
 	depth int32,
-	container pbar.Container,
+	container *pbar.Container,
 ) (fetchedCommits [][]byte, err error) {
 	bar := container.NewBar(-1, "Fetching objects", 0)
 	defer bar.Abort()
@@ -373,10 +369,10 @@ func Fetch(
 	specs []*conf.Refspec,
 	force bool,
 	depth int32,
-	logger *logr.Logger,
-	container pbar.Container,
+	logger logr.Logger,
+	container *pbar.Container,
 ) error {
-	client, err := cm.GetClient(cmd, cr.URL, apiclient.WithLogger(logger))
+	client, err := utils.GetAPIClient(cmd, cr.URL)
 	if err != nil {
 		return fmt.Errorf("error creating new client: %w", err)
 	}

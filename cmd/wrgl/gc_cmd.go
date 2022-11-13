@@ -34,16 +34,16 @@ func gcCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Discarding expired transactions",0)
-			defer bar.Done()
-			if err = transaction.GarbageCollect(
-				db, rs, c.GetTransactionTTL(),
-				bar,
-			); err != nil {
+			if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
+				bar := barContainer.NewBar(-1, "Discarding expired transactions", 0)
+				defer bar.Done()
+				return transaction.GarbageCollect(
+					db, rs, c.GetTransactionTTL(),
+					bar,
+				)
+			}); err != nil {
 				return err
 			}
-
 			return runPrune(cmd, db, rs)
 		},
 	}

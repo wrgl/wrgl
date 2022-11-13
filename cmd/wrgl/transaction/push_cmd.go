@@ -81,10 +81,6 @@ func pushCmd() *cobra.Command {
 			if err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, err)
 			}
-			noP, err := cmd.Flags().GetBool("no-progress")
-			if err != nil {
-				return err
-			}
 			updates := map[string]*payload.Update{}
 			for branch, sum := range txRefs {
 				updates[ref.TransactionRef(txid, branch)] = &payload.Update{
@@ -95,17 +91,11 @@ func pushCmd() *cobra.Command {
 			if err != nil {
 				return utils.HandleHTTPError(cmd, cs, rem.URL, err)
 			}
-			var pb pbar.Bar
-			if !noP {
-				pb = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Pushing objects", 0)
-				defer pb.Done()
-			}
-			updates, err = ses.Start(pb)
-			if err != nil {
+			if err := utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) (err error) {
+				updates, err = ses.Start(barContainer)
 				return err
-			}
-			if pb != nil {
-				pb.Done()
+			}); err != nil {
+				return err
 			}
 			for k, u := range updates {
 				if u.ErrMsg != "" {

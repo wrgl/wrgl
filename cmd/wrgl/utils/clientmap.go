@@ -42,7 +42,7 @@ func (m *ClientMap) GetClient(cmd *cobra.Command, remoteURI string, opts ...apic
 	} else if tok != "" {
 		opts = append(opts, apiclient.WithRelyingPartyToken(tok))
 	}
-	client, err = apiclient.NewClient(remoteURI, opts...)
+	client, err = GetAPIClient(cmd, remoteURI, opts...)
 	if err != nil {
 		return nil, err
 	}

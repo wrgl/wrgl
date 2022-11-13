@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/pckhoi/meow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -216,7 +217,7 @@ func TestIterateAndMatch(t *testing.T) {
 		off1, off2     uint32
 	}
 	rows := []*row{}
-	err := iterateAndMatch(db, db, tbl1, tbl2, tblIdx1, tblIdx2, nil, func(pk, row1, row2 []byte, off1, off2 uint32) {
+	err := iterateAndMatch(db, db, tbl1, tbl2, tblIdx1, tblIdx2, testr.New(t), func(pk, row1, row2 []byte, off1, off2 uint32) {
 		rows = append(rows, &row{
 			pk, row1, row2, off1, off2,
 		})

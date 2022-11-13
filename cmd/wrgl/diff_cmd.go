@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/mitchellh/colorstring"
 	"github.com/rivo/tview"
@@ -75,7 +74,6 @@ func newDiffCmd() *cobra.Command {
 		}, "\n"),
 		Args: cobra.RangeArgs(0, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := utils.GetLogger(cmd)
 			rd := utils.GetRepoDir(cmd)
 			defer rd.Close()
 			var db objects.Store
@@ -120,17 +118,17 @@ func newDiffCmd() *cobra.Command {
 			}
 
 			if tid != nil {
-				return diffTransaction(cmd, c, db, rs, logger, *tid)
+				return diffTransaction(cmd, c, db, rs, *tid)
 			}
 
 			if all {
-				return diffAllBranches(cmd, c, db, rs, pk, args, logger)
+				return diffAllBranches(cmd, c, db, rs, pk, args)
 			}
 
 			if noGUI {
-				return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, logger, false, outputDiffToCSV)
+				return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, false, outputDiffToCSV)
 			}
-			return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, logger, false, outputDiffToTerminal)
+			return runDiff(cmd, c, db, memStore, rs, pk, args, branchFile, false, outputDiffToTerminal)
 		},
 	}
 	cmd.Flags().Bool("no-gui", false, "don't show the diff table, instead output changes to file DIFF_SUM1_SUM2.csv")
@@ -140,6 +138,7 @@ func newDiffCmd() *cobra.Command {
 	cmd.Flags().String("txid", "", "show diff summary for all changes with specified transaction id")
 	cmd.Flags().String("delimiter-1", "", "CSV delimiter of the first argument if the first argument is an external file. Defaults to comma.")
 	cmd.Flags().String("delimiter-2", "", "CSV delimiter of the second argument if the second argument is an external file. Defaults to comma.")
+	registerCommitFlags(cmd.Flags())
 	return cmd
 }
 
@@ -161,19 +160,13 @@ func getSecondCommit(
 }
 
 func createInMemCommit(cmd *cobra.Command, db *objmock.Store, pk []string, file *os.File, quiet bool, delim rune) (hash []byte, commit *objects.Commit, err error) {
-	var sortPT, blkPT pbar.Bar
-	if !quiet {
-		sortPT, blkPT = displayCommitProgress(cmd)
-	}
-	s, err := sorter.NewSorter(
-		sorter.WithProgressBar(sortPT),
-		sorter.WithDelimiter(delim),
-	)
-	if err != nil {
-		return
-	}
-	sum, err := ingest.IngestTable(db, s, file, pk,
-		ingest.WithProgressBar(blkPT),
+	logger := utils.GetLogger(cmd)
+	sum, err := ingestTable(
+		cmd, db, file, pk, quiet, *logger,
+		[]sorter.SorterOption{
+			sorter.WithDelimiter(delim),
+		},
+		[]ingest.InserterOption{},
 	)
 	if err != nil {
 		return
@@ -242,7 +235,7 @@ func getCommit(
 			return
 		} else {
 			var tmpSum []byte
-			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, 1, 0, quiet, delim)
+			tmpSum, err = ensureTempCommit(cmd, db, rs, c, branchName, branch.File, branch.PrimaryKey, quiet, delim)
 			if err != nil {
 				return
 			}
@@ -286,49 +279,49 @@ func collectDiffObjects(
 		progChan = pt.Start()
 		defer pt.Stop()
 	}
-	var bar pbar.Bar
-	if quiet {
-		bar = pbar.NewNoopBar()
-	} else {
-		bar = pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Collecting changes", 0)
-	}
-	defer bar.Done()
-mainLoop:
-	for {
-		select {
-		case e := <-progChan:
-			bar.SetTotal(e.Total)
-			bar.SetCurrent(e.Progress)
-		case d, ok := <-diffChan:
-			if !ok {
-				break mainLoop
-			}
-			if d.OldSum == nil {
-				if addedRowReader == nil {
-					addedRowReader, err = diff.NewRowListReader(db1, tbl1)
-					if err != nil {
-						return
-					}
+	if err = utils.WithProgressBar(cmd, quiet, func(cmd *cobra.Command, barContainer *pbar.Container) (err error) {
+		bar := barContainer.NewBar(-1, "Collecting changes", 0)
+		defer bar.Done()
+	mainLoop:
+		for {
+			select {
+			case e := <-progChan:
+				bar.SetTotal(e.Total)
+				bar.SetCurrent(e.Progress)
+			case d, ok := <-diffChan:
+				if !ok {
+					break mainLoop
 				}
-				addedRowReader.Add(d.Offset)
-			} else if d.Sum == nil {
-				if removedRowReader == nil {
-					removedRowReader, err = diff.NewRowListReader(db2, tbl2)
-					if err != nil {
-						return
+				if d.OldSum == nil {
+					if addedRowReader == nil {
+						addedRowReader, err = diff.NewRowListReader(db1, tbl1)
+						if err != nil {
+							return
+						}
 					}
-				}
-				removedRowReader.Add(d.OldOffset)
-			} else {
-				if rowChangeReader == nil {
-					rowChangeReader, err = diff.NewRowChangeReader(db1, db2, tbl1, tbl2, colDiff)
-					if err != nil {
-						return
+					addedRowReader.Add(d.Offset)
+				} else if d.Sum == nil {
+					if removedRowReader == nil {
+						removedRowReader, err = diff.NewRowListReader(db2, tbl2)
+						if err != nil {
+							return
+						}
 					}
+					removedRowReader.Add(d.OldOffset)
+				} else {
+					if rowChangeReader == nil {
+						rowChangeReader, err = diff.NewRowChangeReader(db1, db2, tbl1, tbl2, colDiff)
+						if err != nil {
+							return
+						}
+					}
+					rowChangeReader.AddRowDiff(d)
 				}
-				rowChangeReader.AddRowDiff(d)
 			}
 		}
+		return nil
+	}); err != nil {
+		return
 	}
 	return
 }
@@ -357,69 +350,74 @@ func writeRowChanges(
 	}
 	progChan := pt.Start()
 	defer pt.Stop()
-	bar := pbar.NewProgressBar(cmd.OutOrStdout(), -1, "Collecting changes", 0)
-	defer bar.Done()
-mainLoop:
-	for {
-		select {
-		case e := <-progChan:
-			bar.SetTotal(e.Total)
-			bar.SetCurrent(e.Progress)
-		case d, ok := <-diffChan:
-			if !ok {
-				break mainLoop
-			}
-			var row, oldRow []string
-			if d.Sum != nil {
-				blk, off := diff.RowToBlockAndOffset(d.Offset)
-				row, err = buf.GetRow(0, blk, off)
-				if err != nil {
-					return err
+	if err = utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) (err error) {
+		bar := barContainer.NewBar(-1, "Collecting changes", 0)
+		defer bar.Done()
+	mainLoop:
+		for {
+			select {
+			case e := <-progChan:
+				bar.SetTotal(e.Total)
+				bar.SetCurrent(e.Progress)
+			case d, ok := <-diffChan:
+				if !ok {
+					break mainLoop
 				}
-				row = colDiff.RearrangeRow(0, row)
-			}
-			if d.OldSum != nil {
-				blk, off := diff.RowToBlockAndOffset(d.OldOffset)
-				oldRow, err = buf.GetRow(1, blk, off)
-				if err != nil {
-					return err
+				var row, oldRow []string
+				if d.Sum != nil {
+					blk, off := diff.RowToBlockAndOffset(d.Offset)
+					row, err = buf.GetRow(0, blk, off)
+					if err != nil {
+						return err
+					}
+					row = colDiff.RearrangeRow(0, row)
 				}
-				oldRow = colDiff.RearrangeBaseRow(oldRow)
-			}
+				if d.OldSum != nil {
+					blk, off := diff.RowToBlockAndOffset(d.OldOffset)
+					oldRow, err = buf.GetRow(1, blk, off)
+					if err != nil {
+						return err
+					}
+					oldRow = colDiff.RearrangeBaseRow(oldRow)
+				}
 
-			if d.OldSum == nil {
-				err = w.Write(append(
-					[]string{rowLabel("ADDED IN", name1, commitHash1)},
-					row...,
-				))
-				if err != nil {
-					return err
-				}
-			} else if d.Sum == nil {
-				err = w.Write(append(
-					[]string{rowLabel("REMOVED IN", name1, commitHash1)},
-					oldRow...,
-				))
-				if err != nil {
-					return err
-				}
-			} else {
-				err = w.Write(append(
-					[]string{rowLabel("BASE ROW FROM", name2, commitHash2)},
-					oldRow...,
-				))
-				if err != nil {
-					return err
-				}
-				err = w.Write(append(
-					[]string{rowLabel("MODIFIED IN", name1, commitHash1)},
-					row...,
-				))
-				if err != nil {
-					return err
+				if d.OldSum == nil {
+					err = w.Write(append(
+						[]string{rowLabel("ADDED IN", name1, commitHash1)},
+						row...,
+					))
+					if err != nil {
+						return err
+					}
+				} else if d.Sum == nil {
+					err = w.Write(append(
+						[]string{rowLabel("REMOVED IN", name1, commitHash1)},
+						oldRow...,
+					))
+					if err != nil {
+						return err
+					}
+				} else {
+					err = w.Write(append(
+						[]string{rowLabel("BASE ROW FROM", name2, commitHash2)},
+						oldRow...,
+					))
+					if err != nil {
+						return err
+					}
+					err = w.Write(append(
+						[]string{rowLabel("MODIFIED IN", name1, commitHash1)},
+						row...,
+					))
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }
@@ -508,7 +506,7 @@ func commitTitle(commitName, commitSum string) string {
 }
 
 func getDiffChan(
-	db1, db2 objects.Store, rs ref.Store, commit1, commit2 *objects.Commit, logger *logr.Logger,
+	cmd *cobra.Command, db1, db2 objects.Store, rs ref.Store, commit1, commit2 *objects.Commit,
 ) (tbl1, tbl2 *objects.Table, diffChan <-chan *objects.Diff, pt progress.Tracker, cd *diff.ColDiff, errChan chan error, err error) {
 	tbl1, err = utils.GetTable(db1, rs, commit1)
 	if err != nil {
@@ -536,10 +534,8 @@ func getDiffChan(
 	errChan = make(chan error, 10)
 	opts := []diff.DiffOption{}
 	opts = append(opts, diff.WithProgressInterval(65*time.Millisecond))
-	if logger != nil {
-		opts = append(opts, diff.WithDebugLogger(logger))
-	}
-	diffChan, pt = diff.DiffTables(db1, db2, tbl1, tbl2, tblIdx1, tblIdx2, errChan, opts...)
+	logger := utils.GetLogger(cmd)
+	diffChan, pt = diff.DiffTables(db1, db2, tbl1, tbl2, tblIdx1, tblIdx2, errChan, *logger, opts...)
 	return tbl1, tbl2, diffChan, pt, cd, errChan, nil
 }
 
@@ -716,7 +712,7 @@ func diffTableProfiles(db1, db2 objects.Store, commit1, commit2 *objects.Commit)
 
 func runDiff(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, memStore *objmock.Store, rs ref.Store,
-	pk []string, args []string, branchFile bool, logger *logr.Logger, quiet bool,
+	pk []string, args []string, branchFile bool, quiet bool,
 	outputDiff func(
 		cmd *cobra.Command,
 		db1, db2 objects.Store,
@@ -747,7 +743,7 @@ func runDiff(
 		return err
 	}
 
-	tbl1, tbl2, diffChan, pt, cd, errChan, err := getDiffChan(db1, db2, rs, commit1, commit2, logger)
+	tbl1, tbl2, diffChan, pt, cd, errChan, err := getDiffChan(cmd, db1, db2, rs, commit1, commit2)
 	if err != nil {
 		return err
 	}
@@ -774,7 +770,7 @@ type diffArgs struct {
 	Commits []string
 }
 
-func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, logger *logr.Logger, dargs []diffArgs, branchFile, quiet bool) (err error) {
+func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, dargs []diffArgs, branchFile, quiet bool) (err error) {
 	var maxLen int
 	for _, darg := range dargs {
 		if len(darg.Branch) > maxLen {
@@ -786,7 +782,7 @@ func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.S
 	})
 	for _, darg := range dargs {
 		var diffSum string
-		if err := runDiff(cmd, c, db, nil, rs, darg.PK, darg.Commits, branchFile, logger, quiet,
+		if err := runDiff(cmd, c, db, nil, rs, darg.PK, darg.Commits, branchFile, quiet,
 			func(
 				cmd *cobra.Command, db1, db2 objects.Store, name1, name2, commitHash1, commitHash2 string,
 				tbl1, tbl2 *objects.Table, diffChan <-chan *objects.Diff, pt progress.Tracker,
@@ -810,7 +806,7 @@ func diffMultiple(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.S
 	return nil
 }
 
-func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, logger *logr.Logger, tid uuid.UUID) (err error) {
+func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, tid uuid.UUID) (err error) {
 	m, _, err := transaction.Diff(rs, tid)
 	if err != nil {
 		return
@@ -827,12 +823,12 @@ func diffTransaction(cmd *cobra.Command, c *conf.Config, db objects.Store, rs re
 			Commits: []string{hex.EncodeToString(sums[0]), hex.EncodeToString(sums[1])},
 		})
 	}
-	return diffMultiple(cmd, c, db, rs, logger, dargs, false, true)
+	return diffMultiple(cmd, c, db, rs, dargs, false, true)
 }
 
 func diffAllBranches(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store,
-	pk []string, args []string, logger *logr.Logger,
+	pk []string, args []string,
 ) error {
 	dargs := []diffArgs{}
 	for name, branch := range c.Branch {
@@ -856,7 +852,7 @@ func diffAllBranches(
 		})
 	}
 	if len(dargs) == 0 {
-		return fmt.Errorf("no branch with file configured. To track a file with a branch, set --set-file and --set-primary-key during commit.")
+		return fmt.Errorf("no branch with file configured. To track a file with a branch, set --set-file and --set-primary-key during commit")
 	}
-	return diffMultiple(cmd, c, db, rs, logger, dargs, true, true)
+	return diffMultiple(cmd, c, db, rs, dargs, true, true)
 }

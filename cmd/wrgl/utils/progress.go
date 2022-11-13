@@ -1,22 +1,54 @@
 package utils
 
 import (
+	"bytes"
+	"io"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/wrgl/wrgl/pkg/pbar"
 )
 
+var barContainer *pbar.Container
+
 func SetupProgressBarFlags(flags *pflag.FlagSet) {
 	flags.Bool("no-progress", false, "don't display progress bar")
 }
 
-func GetProgressBarContainer(cmd *cobra.Command) (pbar.Container, error) {
+func getProgressBarContainer(cmd *cobra.Command, quiet bool) (*pbar.Container, error) {
 	noP, err := cmd.Flags().GetBool("no-progress")
 	if err != nil {
 		return nil, err
 	}
-	if noP {
-		return pbar.NewNoopContainer(), nil
+	return pbar.NewContainer(cmd.OutOrStdout(), noP || quiet), nil
+}
+
+// WithProgressBar creates a progress bar container while buffering all cmd.Print invocations
+func WithProgressBar(cmd *cobra.Command, quiet bool, run func(cmd *cobra.Command, barContainer *pbar.Container) error) (err error) {
+	if barContainer == nil {
+		barContainer, err = getProgressBarContainer(cmd, quiet)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			barContainer.Wait()
+			barContainer = nil
+		}()
+		origOut := cmd.OutOrStdout()
+		origErr := cmd.ErrOrStderr()
+		outW := bytes.NewBuffer(nil)
+		errW := bytes.NewBuffer(nil)
+		cmd.SetOut(outW)
+		cmd.SetErr(errW)
+		defer func() {
+			io.Copy(origOut, outW)
+			io.Copy(origErr, errW)
+			cmd.SetOut(origOut)
+			cmd.SetErr(origErr)
+		}()
+	} else {
+		restore := barContainer.OverideQuiet(quiet)
+		defer restore()
 	}
-	return pbar.NewContainer(cmd.OutOrStdout()), nil
+	return run(cmd, barContainer)
 }

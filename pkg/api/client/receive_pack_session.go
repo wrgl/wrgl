@@ -26,13 +26,14 @@ type ReceivePackSession struct {
 	c               *Client
 	updates         map[string]*payload.Update
 	state           stateFn
-	pb              pbar.Bar
 	opts            []RequestOption
 	finder          *apiutils.ClosedSetsFinder
 	candidateTables *list.List
 	tablesToSend    map[string]struct{}
 	db              objects.Store
 	maxPackfileSize uint64
+	barContainer    *pbar.Container
+	objectsBar      pbar.Bar
 }
 
 func NewReceivePackSession(db objects.Store, rs ref.Store, c *Client, updates map[string]*payload.Update, remoteRefs map[string][]byte, maxPackfileSize uint64, opts ...RequestOption) (*ReceivePackSession, error) {
@@ -151,7 +152,7 @@ func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	reqBody := NewReplayableBuffer()
 	gzw := gzip.NewWriter(reqBody)
-	done, _, err := s.sender.WriteObjects(gzw, s.pb)
+	done, _, err := s.sender.WriteObjects(gzw, s.objectsBar)
 	if err != nil {
 		return nil, err
 	}
@@ -162,10 +163,13 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	resp, err := s.c.Request(http.MethodPost, "/receive-pack/", reqBody, map[string]string{
 		"Content-Type":     CTPackfile,
 		"Content-Encoding": "gzip",
-	}, s.opts...)
+	}, append([]RequestOption{
+		WithRequestProgressBar(*s.barContainer, reqBody.Len(), "Sending packfile"),
+	}, s.opts...)...)
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, s.c.ErrHTTP(resp)
 	}
@@ -175,8 +179,10 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	return s.readReport(resp)
 }
 
-func (s *ReceivePackSession) Start(pb pbar.Bar) (updates map[string]*payload.Update, err error) {
-	s.pb = pb
+func (s *ReceivePackSession) Start(pc *pbar.Container) (updates map[string]*payload.Update, err error) {
+	s.barContainer = pc
+	s.objectsBar = s.barContainer.NewBar(-1, "Pushing objects", 0)
+	defer s.objectsBar.Done()
 	for s.state != nil {
 		s.state, err = s.state()
 		if err != nil {

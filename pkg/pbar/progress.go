@@ -12,36 +12,29 @@ const (
 	UnitKB  int = decor.UnitKB
 )
 
-type Container interface {
-	NewBar(total int64, name string, unit int) Bar
-	Wait()
+type Container struct {
+	p     *mpb.Progress
+	quiet bool
 }
 
-type noopContainer struct{}
-
-func (p *noopContainer) NewBar(total int64, name string, unit int) Bar {
-	return &noopBar{}
-}
-func (p *noopContainer) Wait() {}
-
-func NewNoopContainer() Container {
-	return &noopContainer{}
-}
-
-type container struct {
-	p *mpb.Progress
-}
-
-func NewContainer(out io.Writer) Container {
-	p := &container{
-		p: mpb.New(mpb.WithOutput(out)),
+func NewContainer(out io.Writer, quiet bool) *Container {
+	p := &Container{
+		p:     mpb.New(mpb.WithOutput(out)),
+		quiet: quiet,
 	}
 	return p
 }
 
-func (p *container) NewBar(total int64, name string, unit int) Bar {
+func (p *Container) NewBar(total int64, name string, unit int) Bar {
+	if p.quiet {
+		return &noopBar{}
+	}
+	pairFmt := "%d / %d"
+	if unit != 0 {
+		pairFmt = "% .2f / % .2f"
+	}
 	options := []mpb.BarOption{
-		mpb.PrependDecorators(decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}), decor.Counters(unit, "%d / %d")),
+		mpb.PrependDecorators(decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}), decor.Counters(unit, pairFmt)),
 		mpb.BarRemoveOnComplete(),
 	}
 	if total > 0 {
@@ -64,17 +57,14 @@ func (p *container) NewBar(total int64, name string, unit int) Bar {
 	}
 }
 
-func (p *container) Wait() {
+func (p *Container) Wait() {
 	p.p.Wait()
 }
 
-// NewProgressBar not only combines NewContainer and NewBar but also
-// ensure that when bar.Done is called, container.Wait is also called.
-func NewProgressBar(out io.Writer, total int64, name string, unit int) Bar {
-	c := NewContainer(out)
-	_c := c.(*container)
-	b := c.NewBar(total, name, unit)
-	_b := b.(*bar)
-	_b.p = _c.p
-	return _b
+func (p *Container) OverideQuiet(quiet bool) (restore func()) {
+	orig := p.quiet
+	p.quiet = quiet
+	return func() {
+		p.quiet = orig
+	}
 }

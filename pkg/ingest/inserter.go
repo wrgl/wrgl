@@ -35,7 +35,7 @@ type Inserter struct {
 	blocks      <-chan *sorter.Block
 	numWorkers  int
 	sorter      *sorter.Sorter
-	debugLogger *logr.Logger
+	logger      logr.Logger
 }
 
 type InserterOption func(*Inserter)
@@ -52,17 +52,12 @@ func WithNumWorkers(n int) InserterOption {
 	}
 }
 
-func WithDebugLogger(w *logr.Logger) InserterOption {
-	return func(i *Inserter) {
-		i.debugLogger = w
-	}
-}
-
-func NewInserter(db objects.Store, sorter *sorter.Sorter, opts ...InserterOption) *Inserter {
+func NewInserter(db objects.Store, sorter *sorter.Sorter, logger logr.Logger, opts ...InserterOption) *Inserter {
 	i := &Inserter{
 		db:         db,
 		sorter:     sorter,
 		numWorkers: 1,
+		logger:     logger.WithName("Inserter"),
 	}
 	for _, opt := range opts {
 		opt(i)
@@ -104,9 +99,7 @@ func (i *Inserter) insertBlock() {
 			i.errChan <- err
 			return
 		}
-		if i.debugLogger != nil {
-			i.debugLogger.Info("index block", "blockSum", sum, "indexSum", blkIdxSum)
-		}
+		i.logger.Info("index block", "blockSum", sum, "indexSum", blkIdxSum)
 		i.asyncBlocks = append(i.asyncBlocks, asyncBlock{
 			Offset: blk.Offset,
 			Sum:    sum,
@@ -210,9 +203,7 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	if i.debugLogger != nil {
-		i.debugLogger.Info("saved table", "sum", sum)
-	}
+	i.logger.Info("saved table", "sum", sum)
 
 	// write and save table index
 	buf.Reset()

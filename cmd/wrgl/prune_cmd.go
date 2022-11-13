@@ -37,21 +37,28 @@ func newPruneCmd() *cobra.Command {
 }
 
 func runPrune(cmd *cobra.Command, db objects.Store, rs ref.Store) error {
-	return prune.Prune(db, rs, &prune.PruneOptions{
-		FindCommitsPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "finding commits to remove", 0)
-		},
-		PruneTablesPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing small tables", 0)
-		},
-		PruneBlocksPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing blocks", 0)
-		},
-		PruneBlockIndicesPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing block indices", 0)
-		},
-		PruneCommitsPbar: func() pbar.Bar {
-			return pbar.NewProgressBar(cmd.OutOrStdout(), -1, "removing commits", 0)
-		},
+	return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
+		findCommitsBar := barContainer.NewBar(-1, "finding commits to remove", 0)
+		pruneTablesBar := barContainer.NewBar(-1, "removing small tables", 0)
+		pruneBlocksBar := barContainer.NewBar(-1, "removing blocks", 0)
+		pruneBlockIndicesBar := barContainer.NewBar(-1, "removing block indices", 0)
+		pruneCommitsBar := barContainer.NewBar(1, "removing commits", 0)
+		return prune.Prune(db, rs, &prune.PruneOptions{
+			FindCommitsPbar: func() pbar.Bar {
+				return findCommitsBar
+			},
+			PruneTablesPbar: func() pbar.Bar {
+				return pruneTablesBar
+			},
+			PruneBlocksPbar: func() pbar.Bar {
+				return pruneBlocksBar
+			},
+			PruneBlockIndicesPbar: func() pbar.Bar {
+				return pruneBlockIndicesBar
+			},
+			PruneCommitsPbar: func() pbar.Bar {
+				return pruneCommitsBar
+			},
+		})
 	})
 }

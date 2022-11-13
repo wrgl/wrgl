@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/ingest"
@@ -117,7 +118,7 @@ func CopyCommitsToNewStore(t *testing.T, src, dst objects.Store, commits [][]byt
 		require.NoError(t, err)
 		_, err = objects.SaveCommit(dst, buf.Bytes())
 		require.NoError(t, err)
-		require.NoError(t, ingest.IndexTable(dst, c.Table, tbl, nil))
+		require.NoError(t, ingest.IndexTable(dst, c.Table, tbl, testr.New(t)))
 		require.NoError(t, ingest.ProfileTable(dst, c.Table, tbl))
 	}
 }

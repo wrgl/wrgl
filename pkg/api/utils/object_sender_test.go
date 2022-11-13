@@ -8,6 +8,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apiutils "github.com/wrgl/wrgl/pkg/api/utils"
@@ -54,7 +55,7 @@ func TestObjectSender(t *testing.T) {
 	}
 	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c2, c3}, tables, [][]byte{sum1}, uint64(10*1024))
 	require.NoError(t, err)
-	r := apiutils.NewObjectReceiver(db2, [][]byte{sum3})
+	r := apiutils.NewObjectReceiver(db2, [][]byte{sum3}, testr.New(t))
 	sendAll(t, s, r)
 	factory.AssertCommitsPersisted(t, db2, [][]byte{sum2, sum3})
 }
@@ -73,7 +74,7 @@ func TestSendCommitsWithIdenticalTable(t *testing.T) {
 	}
 	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c1, c2, c3}, tables, nil, uint64(10*1024))
 	require.NoError(t, err)
-	r := apiutils.NewObjectReceiver(db2, [][]byte{sum1, sum3})
+	r := apiutils.NewObjectReceiver(db2, [][]byte{sum1, sum3}, testr.New(t))
 	sendAll(t, s, r)
 	factory.AssertCommitsPersisted(t, db2, [][]byte{sum1, sum2, sum3})
 }
@@ -91,7 +92,7 @@ func TestSendCommitButNotTable(t *testing.T) {
 	}
 	s, err := apiutils.NewObjectSender(db1, []*objects.Commit{c2}, tables, nil, uint64(10*1024))
 	require.NoError(t, err)
-	r := apiutils.NewObjectReceiver(db2, [][]byte{sum2})
+	r := apiutils.NewObjectReceiver(db2, [][]byte{sum2}, testr.New(t))
 	sendAll(t, s, r)
 	factory.AssertCommitsPersisted(t, db2, [][]byte{sum1, sum2})
 }

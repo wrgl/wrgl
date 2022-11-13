@@ -2,7 +2,7 @@ package migrate
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,7 +35,7 @@ func readVersion(dir string) (*SemVer, error) {
 		return v, nil
 	}
 	defer f.Close()
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
