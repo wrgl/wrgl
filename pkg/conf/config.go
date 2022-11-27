@@ -57,8 +57,7 @@ type AuthKeycloak struct {
 }
 
 type Auth struct {
-	// AnonymousRead when set to true, allow anonymous users (users without an access token)
-	// to be assigned auth.ScopeRepoRead scope, thus are able to read the data from this repo.
+	// AnonymousRead when set to true, gives anonymous users "read" scope
 	AnonymousRead bool `yaml:"anonymousRead,omitempty" json:"anonymousRead,omitempty"`
 
 	// Keycloak contains Keycloak credentials of this repo as a resource server
