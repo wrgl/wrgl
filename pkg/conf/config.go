@@ -95,6 +95,10 @@ type Merge struct {
 	FastForward FastForward `yaml:"fastForward,omitempty" json:"fastForward,omitempty"`
 }
 
+type Cors struct {
+	AllowedOrigins []string `yaml:"allowedOrigins,omitempty" json:"allowedOrigins,omitempty"`
+}
+
 type Config struct {
 	User    *User              `yaml:"user,omitempty" json:"user,omitempty"`
 	Remote  map[string]*Remote `yaml:"remote,omitempty" json:"remote,omitempty"`
@@ -111,6 +115,9 @@ type Config struct {
 
 	// wrgld send events to Webhooks according to registered event types
 	Webhooks []Webhook `yaml:"webhooks,omitempty" json:"webhooks,omitempty"`
+
+	// CORS settings
+	Cors *Cors `yaml:"cors,omitempty" json:"cors,omitempty"`
 }
 
 func (c *Config) MaxPackFileSize() uint64 {
