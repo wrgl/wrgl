@@ -36,7 +36,7 @@ require (
 	github.com/go-logr/stdr v1.2.2
 	github.com/mattn/go-sqlite3 v1.14.14
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
-	github.com/pckhoi/uma v0.4.0
+	github.com/pckhoi/uma v0.4.1
 	github.com/spf13/pflag v1.0.5
 	github.com/vbauerster/mpb/v8 v8.1.4
 )
@@ -82,5 +82,3 @@ require (
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/pckhoi/uma => ../uma

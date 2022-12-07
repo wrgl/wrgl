@@ -235,6 +235,8 @@ github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyua
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/pckhoi/meow v0.0.0-20211009023351-e1fff1d3c870 h1:0NDfF1L76RfwUnynO8bPg3NM9HSxvFfI0ULGBzIpLMU=
 github.com/pckhoi/meow v0.0.0-20211009023351-e1fff1d3c870/go.mod h1:f6wtIKwBWDl7Q3pavevwQbwasOADIcyBtdXBRWgpLJ8=
+github.com/pckhoi/uma v0.4.1 h1:lXcd1MzSAm6bv5EhpAXjRcOZ69J6UmePPVTBgRkEt5g=
+github.com/pckhoi/uma v0.4.1/go.mod h1:z+mvDIQXMg3QNOvUxPLKGz5nlFs06FNO5mkwW4WccaM=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
 github.com/pelletier/go-toml v1.9.5/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
