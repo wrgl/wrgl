@@ -18,7 +18,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.14
 	github.com/pckhoi/meow v0.0.0-20211009023351-e1fff1d3c870
 	github.com/rivo/tview v0.0.0-20220812085834-0e6b21a48e96
-	github.com/rivo/uniseg v0.3.4
+	github.com/rivo/uniseg v0.4.3
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
