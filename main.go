@@ -13,6 +13,7 @@ import (
 func main() {
 	rootCmd := wrgl.RootCmd()
 	rootCmd.SetOut(os.Stdout)
+	rootCmd.SetErr(os.Stderr)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 		os.Exit(1)

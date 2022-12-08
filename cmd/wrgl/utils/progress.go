@@ -1,9 +1,6 @@
 package utils
 
 import (
-	"bytes"
-	"io"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/wrgl/wrgl/pkg/pbar"
@@ -33,18 +30,6 @@ func WithProgressBar(cmd *cobra.Command, quiet bool, run func(cmd *cobra.Command
 		defer func() {
 			barContainer.Wait()
 			barContainer = nil
-		}()
-		origOut := cmd.OutOrStdout()
-		origErr := cmd.ErrOrStderr()
-		outW := bytes.NewBuffer(nil)
-		errW := bytes.NewBuffer(nil)
-		cmd.SetOut(outW)
-		cmd.SetErr(errW)
-		defer func() {
-			io.Copy(origOut, outW)
-			io.Copy(origErr, errW)
-			cmd.SetOut(origOut)
-			cmd.SetErr(origErr)
 		}()
 	} else {
 		restore := barContainer.OverideQuiet(quiet)

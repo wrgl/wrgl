@@ -47,6 +47,9 @@ func postForm(cmd *cobra.Command, path string, form url.Values, respData interfa
 		return
 	}
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	r = r.WithContext(ctx)
 	resp, err := cli.Do(r)
 	if err != nil {
 		return
