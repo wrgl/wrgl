@@ -16,8 +16,8 @@ import (
 func authenticateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "authenticate { REMOTE_URI | REMOTE_NAME } TOKEN_FILE",
-		Short: "Authenticate for one or more remotes with email/password.",
-		Long:  "Authenticate for one or more remotes with email/password and save credentials for future use. If REMOTE_NAME is given, then login and save credentials for that remote. If REMOTE_URI is given, login at REMOTE_URI/authenticate/ and save credentials for all remotes that have REMOTE_URI as prefix.",
+		Short: "Authenticate for one or more remotes with an access token file.",
+		Long:  "Authenticate for one or more remotes with an access token file and save for future use. If REMOTE_NAME is given, then login and save credentials for that remote. If REMOTE_URI is given, then remote name is looked up from it.",
 		Example: utils.CombineExamples([]utils.Example{
 			{
 				Comment: "authenticate origin using token",

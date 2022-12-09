@@ -14,21 +14,32 @@ const (
 
 type Container struct {
 	p     *mpb.Progress
+	out   io.Writer
 	quiet bool
 }
 
 func NewContainer(out io.Writer, quiet bool) *Container {
-	p := &Container{
-		p:     mpb.New(mpb.WithOutput(out)),
+	c := &Container{
+		out:   out,
 		quiet: quiet,
 	}
-	return p
+	return c
 }
 
-func (p *Container) NewBar(total int64, name string, unit int) Bar {
-	if p.quiet {
+func (c *Container) ensureProgress() {
+	if c.p == nil {
+		c.p = mpb.New(mpb.WithOutput(c.out))
+	}
+}
+
+func (c *Container) NewBar(total int64, name string, unit int) Bar {
+	if c.quiet {
 		return &noopBar{}
 	}
+	return newBar(c, total, name, unit)
+}
+
+func (c *Container) addBar(total int64, name string, unit int) *mpb.Bar {
 	pairFmt := "%d / %d"
 	if unit != 0 {
 		pairFmt = "% .2f / % .2f"
@@ -46,25 +57,26 @@ func (p *Container) NewBar(total int64, name string, unit int) Bar {
 			mpb.AppendDecorators(decor.Elapsed(decor.ET_STYLE_GO)),
 		)
 	}
-	var b = p.p.New(total,
+	b := c.p.New(total,
 		mpb.BarStyle().Lbound("[").Filler("=").Tip(">").Padding(" ").Rbound("]"),
 		options...,
 	)
 	b.EnableTriggerComplete()
-	return &bar{
-		b:     b,
-		total: total,
+	return b
+}
+
+func (c *Container) Wait() {
+	if c.p == nil {
+		return
 	}
+	c.p.Wait()
+	c.p = nil
 }
 
-func (p *Container) Wait() {
-	p.p.Wait()
-}
-
-func (p *Container) OverideQuiet(quiet bool) (restore func()) {
-	orig := p.quiet
-	p.quiet = quiet
+func (c *Container) OverideQuiet(quiet bool) (restore func()) {
+	orig := c.quiet
+	c.quiet = quiet
 	return func() {
-		p.quiet = orig
+		c.quiet = orig
 	}
 }
