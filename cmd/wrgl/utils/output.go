@@ -21,7 +21,7 @@ func discardCredentials(cmd *cobra.Command, cs *credentials.Store, remoteURI str
 	if err != nil {
 		return err
 	}
-	if cs.Delete(*uri) {
+	if cs.DeleteRepo(*uri) {
 		cmd.Printf("Discarded credentials for %s\n", uri.String())
 	}
 	return cs.Flush()

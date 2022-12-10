@@ -89,7 +89,7 @@ func RootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cm := utils.NewClientMap(cs)
+			cm := utils.NewClientMap(cs, *logger)
 			return utils.WithProgressBar(cmd, false, func(cmd *cobra.Command, barContainer *pbar.Container) error {
 				if all {
 					for k, v := range c.Remote {

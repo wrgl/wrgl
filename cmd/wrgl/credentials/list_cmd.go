@@ -18,7 +18,11 @@ func listCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			for _, u := range s.URIs() {
+			uris, err := s.RepoURIs()
+			if err != nil {
+				return err
+			}
+			for _, u := range uris {
 				cmd.Println(u.String())
 			}
 			return nil

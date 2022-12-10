@@ -25,13 +25,13 @@ func TestCredentialsListCmd(t *testing.T) {
 	defer confhelpers.MockGlobalConf(t, true)()
 	cs, err := credentials.NewStore()
 	require.NoError(t, err)
-	cs.Set(parseURL(t, "http://repo1.com"), "abc")
-	cs.Set(parseURL(t, "http://repo2.com"), "def")
+	cs.SetRPT(parseURL(t, "http://repo1.com"), "abc")
+	cs.SetRPT(parseURL(t, "http://repo2.com"), "def")
 	require.NoError(t, cs.Flush())
 
 	cmd := rootCmd()
 	cmd.SetArgs([]string{"credentials", "list"})
-	assertCmdOutput(t, cmd, "http://repo2.com\nhttp://repo1.com\n")
+	assertCmdOutput(t, cmd, "http://repo1.com\nhttp://repo2.com\n")
 
 	cmd = rootCmd()
 	cmd.SetArgs([]string{"credentials", "remove", "http://repo1.com", "http://repo2.com"})

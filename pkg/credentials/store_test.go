@@ -4,11 +4,11 @@
 package credentials
 
 import (
-	"fmt"
 	"net/url"
 	"os"
 	"testing"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wrgl/wrgl/pkg/testutils"
@@ -44,74 +44,42 @@ func TestStore(t *testing.T) {
 	defer mockConfigHome(t)()
 	s, err := NewStore()
 	require.NoError(t, err)
-
 	assert.NotEmpty(t, s.Path())
 
-	m := map[string]string{}
-	for i := 0; i < 10; i++ {
-		rem := fmt.Sprintf("https://%s.com", testutils.BrokenRandomLowerAlphaString(6))
-		tok := testutils.BrokenRandomLowerAlphaString(20)
-		m[rem] = tok
-		s.Set(parseURL(t, rem), tok)
-	}
-	assert.Equal(t, 10, s.Len())
-	for rem, tok := range m {
-		s.Set(parseURL(t, rem), tok)
-	}
-	assert.Equal(t, 10, s.Len())
-	uris := s.URIs()
-	for _, u := range uris {
-		_, ok := m[u.String()]
-		assert.True(t, ok)
-	}
-	require.NoError(t, s.Flush())
+	asURI := parseURL(t, gofakeit.URL())
+	accessToken := gofakeit.Sentence(20)
+	refreshToken := gofakeit.Sentence(20)
+	s.SetAccessToken(asURI, accessToken, refreshToken)
+	assert.Equal(t, accessToken, s.GetAccessToken(asURI))
+	assert.Equal(t, refreshToken, s.GetRefreshToken(asURI))
 
+	repoURI := parseURL(t, gofakeit.URL())
+	rpt := gofakeit.Sentence(20)
+	s.SetRPT(repoURI, rpt)
+	assert.Equal(t, rpt, s.GetRPT(repoURI))
+	uris, err := s.RepoURIs()
+	require.NoError(t, err)
+	assert.Equal(t, []url.URL{repoURI}, uris)
+
+	require.NoError(t, s.Flush())
 	s, err = NewStore()
 	require.NoError(t, err)
-	for rem, ts := range m {
-		uri := parseURL(t, rem)
-		tok := s.GetTokenMatching(uri)
-		assert.Equal(t, ts, tok)
-		assert.True(t, s.Delete(uri))
-		assert.False(t, s.Delete(uri))
-	}
-	require.NoError(t, s.Flush())
+	assert.Equal(t, accessToken, s.GetAccessToken(asURI))
+	assert.Equal(t, refreshToken, s.GetRefreshToken(asURI))
+	uris, err = s.RepoURIs()
+	require.NoError(t, err)
+	assert.Equal(t, []url.URL{repoURI}, uris)
+	assert.Equal(t, rpt, s.GetRPT(repoURI))
 
+	assert.True(t, s.DeleteAuthServer(asURI))
+	assert.True(t, s.DeleteRepo(repoURI))
+	assert.False(t, s.DeleteAuthServer(asURI))
+	assert.False(t, s.DeleteRepo(repoURI))
+
+	require.NoError(t, s.Flush())
 	s, err = NewStore()
 	require.NoError(t, err)
-	for rem := range m {
-		tok := s.GetTokenMatching(parseURL(t, rem))
-		assert.Empty(t, tok)
-	}
-}
-
-func TestMatchURIExactly(t *testing.T) {
-	defer mockConfigHome(t)()
-	s, err := NewStore()
-	require.NoError(t, err)
-
-	tokens := make([]string, 5)
-	for i := range tokens {
-		tokens[i] = testutils.BrokenRandomAlphaNumericString(20)
-	}
-	s.Set(parseURL(t, "https://my-host2.com"), tokens[0])
-	s.Set(parseURL(t, "https://my-host2.com/repos/repo1"), tokens[1])
-	s.Set(parseURL(t, "https://my-host2.com/repos/repo2"), tokens[2])
-	s.Set(parseURL(t, "https://my-host3.com"), tokens[3])
-	s.Set(parseURL(t, "https://my-host1.com"), tokens[4])
-
-	tok := s.GetTokenMatching(parseURL(t, "https://my-host1.com"))
-	assert.Equal(t, tokens[4], tok)
-
-	tok = s.GetTokenMatching(parseURL(t, "https://my-host3.com/abc/edf/"))
-	assert.Equal(t, "", tok)
-
-	tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo1"))
-	assert.Equal(t, tokens[1], tok)
-
-	tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo2/abc/"))
-	assert.Equal(t, "", tok)
-
-	tok = s.GetTokenMatching(parseURL(t, "https://my-host2.com/repos/repo3"))
-	assert.Equal(t, "", tok)
+	assert.Empty(t, s.GetAccessToken(asURI))
+	assert.Empty(t, s.GetRefreshToken(asURI))
+	assert.Empty(t, s.GetRPT(repoURI))
 }

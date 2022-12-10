@@ -44,7 +44,7 @@ func authenticateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cs.Set(*uri, strings.TrimSpace(string(token)))
+			cs.SetRPT(*uri, strings.TrimSpace(string(token)))
 			return cs.Flush()
 		},
 	}

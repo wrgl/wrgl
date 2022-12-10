@@ -47,11 +47,12 @@ func printCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("getRemoteURI err: %w", err)
 			}
-			if tok := cs.GetTokenMatching(*uri); tok != "" {
+			if tok := cs.GetRPT(*uri); tok != "" {
 				cmd.Println(tok)
 			}
 
-			cm := utils.NewClientMap(cs)
+			logger := utils.GetLogger(cmd)
+			cm := utils.NewClientMap(cs, *logger)
 			client, err := cm.GetClient(cmd, uriS,
 				apiclient.WithForceAuthenticate(),
 			)

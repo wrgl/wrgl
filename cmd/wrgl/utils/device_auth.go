@@ -6,6 +6,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,12 +14,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+	"github.com/pckhoi/uma/pkg/httputil"
 	"github.com/pckhoi/uma/pkg/rp"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/pkg/credentials"
 )
 
-const umaClientID = "wrgl"
+const oauth2ClientID = "wrgl"
 
 type DeviceCodeResponse struct {
 	DeviceCode      string `json:"device_code"`
@@ -29,15 +32,53 @@ type DeviceCodeResponse struct {
 }
 
 type TokenResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
 }
 
 type deviceFlowAuthServer struct {
+	cmd            *cobra.Command
+	cs             *credentials.Store
+	logger         logr.Logger
 	issuer         string
+	issuerURL      url.URL
 	deviceEndpoint string
 	tokenEndpoint  string
 	ticket         string
+}
+
+func discoverAuthServer(cmd *cobra.Command, cs *credentials.Store, asURI, ticket string, logger logr.Logger) (*deviceFlowAuthServer, error) {
+	client := GetClient(cmd.Context())
+	issuerURL, err := url.Parse(asURI)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Get(asURI + "/.well-known/openid-configuration")
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 || !strings.Contains(resp.Header.Get("Content-Type"), "application/json") {
+		return nil, httputil.NewErrUnanticipatedResponse(resp)
+	}
+	cfg := &openidConfig{}
+	if err := decodeJSONResponse(resp, cfg); err != nil {
+		return nil, err
+	}
+	logger.Info("discover", "openidConfig", cfg)
+	if cfg.DeviceAuthorizationEndpoint == "" {
+		return nil, fmt.Errorf("authorization server does not support device grant flow")
+	}
+	return &deviceFlowAuthServer{
+		logger:         logger,
+		cmd:            cmd,
+		cs:             cs,
+		issuer:         asURI,
+		issuerURL:      *issuerURL,
+		deviceEndpoint: cfg.DeviceAuthorizationEndpoint,
+		tokenEndpoint:  cfg.TokenEndpoint,
+		ticket:         ticket,
+	}, nil
 }
 
 func postForm(cmd *cobra.Command, path string, form url.Values, respData interface{}) (err error) {
@@ -72,18 +113,18 @@ func postForm(cmd *cobra.Command, path string, form url.Values, respData interfa
 	return json.Unmarshal(b, respData)
 }
 
-func (s *deviceFlowAuthServer) Authenticate(cmd *cobra.Command, clientID string) (accessToken string, err error) {
+func (s *deviceFlowAuthServer) Authenticate() (resp *TokenResponse, err error) {
 	form := url.Values{}
-	form.Set("client_id", clientID)
+	form.Set("client_id", oauth2ClientID)
 	dcResp := &DeviceCodeResponse{}
-	if err = postForm(cmd, s.deviceEndpoint, form, dcResp); err != nil {
+	if err = postForm(s.cmd, s.deviceEndpoint, form, dcResp); err != nil {
 		return
 	}
 
-	cmd.Printf("Visit %s in your browser and enter user code %q to login\n", dcResp.VerificationURI, dcResp.UserCode)
+	s.cmd.Printf("Visit %s in your browser and enter user code %q to login\n", dcResp.VerificationURI, dcResp.UserCode)
 
 	form = url.Values{}
-	form.Set("client_id", clientID)
+	form.Set("client_id", oauth2ClientID)
 	form.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
 	form.Set("device_code", dcResp.DeviceCode)
 	tokResp := &TokenResponse{}
@@ -97,16 +138,52 @@ func (s *deviceFlowAuthServer) Authenticate(cmd *cobra.Command, clientID string)
 			err = fmt.Errorf("login timeout. Last error: %v", err)
 			return
 		case <-ticker.C:
-			if err = postForm(cmd, s.tokenEndpoint, form, tokResp); err == nil {
-				cmd.Printf("")
-				return tokResp.AccessToken, nil
+			if err = postForm(s.cmd, s.tokenEndpoint, form, tokResp); err == nil {
+				s.cmd.Printf("")
+				return tokResp, nil
 			}
 		}
 	}
 }
 
-func (s *deviceFlowAuthServer) RequestRPT(cmd *cobra.Command, accessToken, clientID, oldRPT string) (rpt string, err error) {
-	kc, err := rp.NewKeycloakClient(s.issuer, clientID, "", GetClient(cmd.Context()))
+func (s *deviceFlowAuthServer) Refresh(refreshToken string) (resp *TokenResponse, err error) {
+	form := url.Values{}
+	form.Set("client_id", oauth2ClientID)
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", refreshToken)
+	tokResp := &TokenResponse{}
+	if err = postForm(s.cmd, s.tokenEndpoint, form, tokResp); err != nil {
+		return nil, err
+	}
+	return tokResp, nil
+}
+
+func (s *deviceFlowAuthServer) GetAccessToken() (accessToken string, err error) {
+	accessToken = s.cs.GetAccessToken(s.issuerURL)
+	if jwtIsValid(accessToken) {
+		s.logger.Info("using saved access token")
+		return
+	}
+	if refreshToken := s.cs.GetRefreshToken(s.issuerURL); refreshToken != "" {
+		resp, err := s.Refresh(refreshToken)
+		if err != nil {
+			return "", err
+		}
+		s.cs.SetAccessToken(s.issuerURL, resp.AccessToken, resp.RefreshToken)
+		s.logger.Info("refreshed access token")
+		return resp.AccessToken, nil
+	}
+	resp, err := s.Authenticate()
+	if err != nil {
+		return "", err
+	}
+	s.cs.SetAccessToken(s.issuerURL, resp.AccessToken, resp.RefreshToken)
+	s.logger.Info("acquired access token via authentication")
+	return resp.AccessToken, nil
+}
+
+func (s *deviceFlowAuthServer) RequestRPT(accessToken, oldRPT string) (rpt string, err error) {
+	kc, err := rp.NewKeycloakClient(s.issuer, oauth2ClientID, "", GetClient(s.cmd.Context()))
 	if err != nil {
 		return "", err
 	}
@@ -121,15 +198,6 @@ type openidConfig struct {
 	TokenEndpoint               string `json:"token_endpoint,omitempty"`
 }
 
-func errUnanticipatedResponse(resp *http.Response) error {
-	defer resp.Body.Close()
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	return fmt.Errorf("unanticipated response %d (%s) %s", resp.StatusCode, resp.Header.Get("Content-Type"), string(b))
-}
-
 func decodeJSONResponse(resp *http.Response, obj any) error {
 	defer resp.Body.Close()
 	b, err := io.ReadAll(resp.Body)
@@ -139,44 +207,39 @@ func decodeJSONResponse(resp *http.Response, obj any) error {
 	return json.Unmarshal(b, obj)
 }
 
-func discoverAuthServer(cmd *cobra.Command, asURI, ticket string) (*deviceFlowAuthServer, error) {
-	client := GetClient(cmd.Context())
-	resp, err := client.Get(asURI + "/.well-known/openid-configuration")
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode >= 300 || !strings.Contains(resp.Header.Get("Content-Type"), "application/json") {
-		return nil, errUnanticipatedResponse(resp)
-	}
-	cfg := &openidConfig{}
-	if err := decodeJSONResponse(resp, cfg); err != nil {
-		return nil, err
-	}
-	if cfg.DeviceAuthorizationEndpoint == "" {
-		return nil, fmt.Errorf("authorization server does not support device grant flow")
-	}
-	return &deviceFlowAuthServer{
-		issuer:         asURI,
-		deviceEndpoint: cfg.DeviceAuthorizationEndpoint,
-		tokenEndpoint:  cfg.TokenEndpoint,
-		ticket:         ticket,
-	}, nil
-}
-
-func handleUMATicket(cmd *cobra.Command, cs *credentials.Store, repoURI url.URL, asURI, ticket, oldRPT string) (rpt string, err error) {
-	s, err := discoverAuthServer(cmd, asURI, ticket)
+func handleUMATicket(cmd *cobra.Command, cs *credentials.Store, repoURI url.URL, asURI, ticket, oldRPT string, logger logr.Logger) (rpt string, err error) {
+	logger = logger.WithValues(
+		"repoURI", repoURI.String(),
+		"asURI", asURI,
+		"oldRPTExists", oldRPT != "",
+	)
+	s, err := discoverAuthServer(cmd, cs, asURI, ticket, logger)
 	if err != nil {
 		return
 	}
-	accessToken, err := s.Authenticate(cmd, umaClientID)
+	accessToken, err := s.GetAccessToken()
 	if err != nil {
 		return
 	}
-	rpt, err = s.RequestRPT(cmd, accessToken, umaClientID, oldRPT)
+	rpt, err = s.RequestRPT(accessToken, oldRPT)
 	if err != nil {
-		return
+		var respErr *httputil.ErrUnanticipatedResponse
+		if errors.As(err, &respErr) && respErr.Status == 401 {
+			logger.Info("unauthorized client, renewing access token")
+			cs.DeleteAuthServer(s.issuerURL)
+			accessToken, err := s.GetAccessToken()
+			if err != nil {
+				return "", err
+			}
+			rpt, err = s.RequestRPT(accessToken, oldRPT)
+			if err != nil {
+				return "", err
+			}
+		} else {
+			return
+		}
 	}
-	cs.Set(repoURI, rpt)
+	cs.SetRPT(repoURI, rpt)
 	if err = cs.Flush(); err != nil {
 		return
 	}

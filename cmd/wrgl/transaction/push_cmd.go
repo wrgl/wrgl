@@ -62,7 +62,8 @@ func pushCmd() *cobra.Command {
 				return err
 			}
 			cmd.Printf("To %s\n", rem.URL)
-			cm := utils.NewClientMap(cs)
+			logger := utils.GetLogger(cmd)
+			cm := utils.NewClientMap(cs, *logger)
 			client, err := cm.GetClient(cmd, rem.URL)
 			if err != nil {
 				return err

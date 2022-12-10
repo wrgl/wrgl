@@ -36,7 +36,7 @@ require (
 	github.com/go-logr/stdr v1.2.2
 	github.com/mattn/go-sqlite3 v1.14.14
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
-	github.com/pckhoi/uma v0.4.1
+	github.com/pckhoi/uma v0.4.2
 	github.com/spf13/pflag v1.0.5
 	github.com/vbauerster/mpb/v8 v8.1.4
 )
@@ -52,6 +52,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.4.3 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/mock v1.6.0 // indirect

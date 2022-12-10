@@ -25,7 +25,7 @@ func removeCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if ok := s.Delete(*u); ok {
+				if ok := s.DeleteRepo(*u); ok {
 					cmd.Printf("Removed credentials for %s\n", v)
 				}
 			}

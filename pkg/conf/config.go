@@ -52,6 +52,7 @@ type Branch struct {
 
 type AuthKeycloak struct {
 	Issuer       string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	ExternalURL  string `json:"externalUrl,omitempty" yaml:"externalUrl,omitempty"`
 	ClientID     string `json:"clientId,omitempty" yaml:"clientId,omitempty"`
 	ClientSecret string `json:"clientSecret,omitempty" yaml:"clientSecret,omitempty"`
 	ResourceID   string `json:"resourceId,omitempty" yaml:"resourceId,omitempty"`

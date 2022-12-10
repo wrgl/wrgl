@@ -80,6 +80,6 @@ func GetCredentials(cmd *cobra.Command, cs *credentials.Store, remote string) (t
 	if err != nil {
 		return
 	}
-	token = cs.GetTokenMatching(*u)
+	token = cs.GetRPT(*u)
 	return
 }

@@ -60,7 +60,8 @@ func newTablesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cm := utils.NewClientMap(cs)
+			logger := utils.GetLogger(cmd)
+			cm := utils.NewClientMap(cs, *logger)
 
 			if missing {
 				rs := rd.OpenRefStore()

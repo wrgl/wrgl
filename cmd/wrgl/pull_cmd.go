@@ -74,7 +74,8 @@ func pullCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cm := utils.NewClientMap(cs)
+			logger := utils.GetLogger(cmd)
+			cm := utils.NewClientMap(cs, *logger)
 
 			if all {
 				return pullAll(cmd, c, db, rs, cs, cm, wrglDir)

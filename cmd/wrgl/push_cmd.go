@@ -98,7 +98,8 @@ func newPushCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clients := utils.NewClientMap(cs)
+			logger := utils.GetLogger(cmd)
+			clients := utils.NewClientMap(cs, *logger)
 
 			if all {
 				names := []string{}

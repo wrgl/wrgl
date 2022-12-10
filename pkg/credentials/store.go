@@ -9,41 +9,37 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-type URL struct {
-	url.URL
+type RepoCredentials struct {
+	RelyingPartyToken string `yaml:"relyingPartyToken,omitempty"`
 }
 
-func (u *URL) MarshalYAML() (interface{}, error) {
-	b, err := u.URL.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	return string(b), nil
-}
-
-func (u *URL) UnmarshalYAML(value *yaml.Node) error {
-	return u.URL.UnmarshalBinary([]byte(value.Value))
+type AuthServerCredentials struct {
+	AccessToken  string `yaml:"accessToken,omitempty"`
+	RefreshToken string `yaml:"refreshToken,omitempty"`
 }
 
 type Credentials struct {
-	URI   *URL   `yaml:"uri,omitempty"`
-	Token string `yaml:"token,omitempty"`
+	Repos       map[string]*RepoCredentials       `yaml:"repos,omitempty"`
+	AuthServers map[string]*AuthServerCredentials `yaml:"authServers,omitempty"`
 }
 
 type Store struct {
 	fp    string
-	creds []*Credentials
+	creds *Credentials
 }
 
 func NewStore() (*Store, error) {
 	fp := credsLocation()
 	s := &Store{
 		fp: fp,
+		creds: &Credentials{
+			AuthServers: map[string]*AuthServerCredentials{},
+			Repos:       map[string]*RepoCredentials{},
+		},
 	}
 	f, err := os.Open(fp)
 	if err == nil {
@@ -52,17 +48,7 @@ func NewStore() (*Store, error) {
 		if err != nil {
 			return nil, err
 		}
-		creds := []*Credentials{}
-		if err := yaml.Unmarshal(b, &creds); err != nil {
-			return nil, err
-		}
-		for _, c := range creds {
-			if c.URI == nil {
-				continue
-			}
-			s.creds = append(s.creds, c)
-		}
-		sort.Sort(s)
+		yaml.Unmarshal(b, s.creds)
 	} else {
 		if err := os.MkdirAll(filepath.Dir(fp), 0755); err != nil {
 			return nil, err
@@ -75,83 +61,75 @@ func (s *Store) Path() string {
 	return s.fp
 }
 
-func (s *Store) Len() int {
-	return len(s.creds)
-}
-
-func (s *Store) Less(i, j int) bool {
-	ui, uj := s.creds[i].URI, s.creds[j].URI
-	return ui.Host > uj.Host || (ui.Host == uj.Host && ui.Path > uj.Path)
-}
-
-func (s *Store) Swap(i, j int) {
-	s.creds[i], s.creds[j] = s.creds[j], s.creds[i]
-}
-
-func (s *Store) URIs() []url.URL {
-	sl := make([]url.URL, s.Len())
-	for i, cred := range s.creds {
-		sl[i] = cred.URI.URL
+func (s *Store) RepoURIs() ([]url.URL, error) {
+	sl := make([]url.URL, 0, len(s.creds.Repos))
+	for s := range s.creds.Repos {
+		u, err := url.Parse(s)
+		if err != nil {
+			return nil, err
+		}
+		sl = append(sl, *u)
 	}
-	return sl
-}
-
-func (s *Store) search(uri url.URL) int {
-	return sort.Search(len(s.creds), func(i int) bool {
-		u := s.creds[i].URI
-		return u.Host < uri.Host || (u.Host == uri.Host && u.Path <= uri.Path)
+	sort.Slice(sl, func(i, j int) bool {
+		if sl[i].Host < sl[j].Host {
+			return true
+		} else if sl[i].Host > sl[j].Host {
+			return false
+		} else if sl[i].Path < sl[j].Path {
+			return true
+		} else if sl[i].Path > sl[j].Path {
+			return false
+		}
+		return false
 	})
+	return sl, nil
 }
 
-func (s *Store) indexOfURI(uri url.URL) int {
-	i := s.search(uri)
-	if i < s.Len() && s.creds[i].URI.String() == uri.String() {
-		return i
-	}
-	return -1
-}
-
-func ensureTrailingSlash(p string) string {
-	if !strings.HasSuffix(p, "/") {
-		return p + "/"
-	}
-	return p
-}
-
-func (s *Store) Set(uri url.URL, token string) {
-	i := s.search(uri)
-	if i < s.Len() && s.creds[i].URI.String() == uri.String() {
-		s.creds[i].Token = token
-		return
-	}
-	tok := &Credentials{
-		URI:   &URL{uri},
-		Token: token,
-	}
-	if i < s.Len() {
-		s.creds = append(s.creds[:i+1], s.creds[i:]...)
-		s.creds[i] = tok
-	} else {
-		s.creds = append(s.creds, tok)
+func (s *Store) SetAccessToken(asURI url.URL, accessToken, refreshToken string) {
+	s.creds.AuthServers[asURI.String()] = &AuthServerCredentials{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}
 }
 
-// GetTokenMatching returns the (uri, token) pair with longest path that
-// is a prefix of input uri.
-func (s *Store) GetTokenMatching(uri url.URL) string {
-	if i := s.indexOfURI(uri); i != -1 {
-		return s.creds[i].Token
+func (s *Store) SetRPT(repoURI url.URL, rpt string) {
+	s.creds.Repos[repoURI.String()] = &RepoCredentials{
+		RelyingPartyToken: rpt,
+	}
+}
+
+func (s *Store) GetAccessToken(asURI url.URL) string {
+	if c, ok := s.creds.AuthServers[asURI.String()]; ok {
+		return c.AccessToken
 	}
 	return ""
 }
 
-func (s *Store) Delete(uri url.URL) bool {
-	if i := s.indexOfURI(uri); i != -1 {
-		if i < s.Len()-1 {
-			s.creds = append(s.creds[:i], s.creds[i+1:]...)
-		} else {
-			s.creds = s.creds[:i]
-		}
+func (s *Store) GetRefreshToken(asURI url.URL) string {
+	if c, ok := s.creds.AuthServers[asURI.String()]; ok {
+		return c.RefreshToken
+	}
+	return ""
+}
+
+func (s *Store) GetRPT(repoURI url.URL) string {
+	if c, ok := s.creds.Repos[repoURI.String()]; ok {
+		return c.RelyingPartyToken
+	}
+	return ""
+}
+
+func (s *Store) DeleteRepo(repoURI url.URL) bool {
+	if _, ok := s.creds.Repos[repoURI.String()]; ok {
+		delete(s.creds.Repos, repoURI.String())
+		return true
+	}
+	return false
+}
+
+func (s *Store) DeleteAuthServer(asURI url.URL) bool {
+	if _, ok := s.creds.AuthServers[asURI.String()]; ok {
+		delete(s.creds.AuthServers, asURI.String())
 		return true
 	}
 	return false

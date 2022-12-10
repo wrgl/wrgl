@@ -53,7 +53,7 @@ func WithTransport(transport http.RoundTripper) ClientOption {
 	}
 }
 
-func WithUMATicketHandler(cb func(asURI, ticket, oldRPT string) (rpt string, err error)) ClientOption {
+func WithUMATicketHandler(cb func(asURI, ticket, oldRPT string, logger logr.Logger) (rpt string, err error)) ClientOption {
 	return func(c *Client) {
 		c.umaTicketHandler = cb
 	}
@@ -78,7 +78,7 @@ type Client struct {
 	requestOptions   []RequestOption
 	logger           logr.Logger
 	rpt              string
-	umaTicketHandler func(asURI, ticket, oldRPT string) (rpt string, err error)
+	umaTicketHandler func(asURI, ticket, oldRPT string, logger logr.Logger) (rpt string, err error)
 	bufPool          *sync.Pool
 }
 
@@ -139,23 +139,28 @@ func parseJSONPayload(resp *http.Response, obj interface{}) (err error) {
 }
 
 func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http.Response, err error) {
-	if c.rpt != "" {
-		req.Header.Set("Authorization", "Bearer "+c.rpt)
-	}
 	for _, opt := range c.requestOptions {
 		opt(req)
 	}
 	for _, opt := range opts {
 		opt(req)
 	}
+	logger := c.logger.WithValues(
+		"method", req.Method,
+		"path", req.URL.Path,
+	)
+	if c.rpt != "" {
+		logger.Info("using existing rpt")
+		req.Header.Set("Authorization", "Bearer "+c.rpt)
+	} else {
+		logger.Info("no existing rpt")
+	}
 	start := time.Now()
 	resp, err = c.client.Do(req)
 	if err != nil {
 		return
 	}
-	c.logger.Info("response",
-		"method", req.Method,
-		"path", req.URL.Path,
+	logger.Info("response",
 		"code", resp.StatusCode,
 		"elapsed", time.Since(start),
 	)
@@ -168,13 +173,11 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 		}
 		var rpt string
 		start := time.Now()
-		rpt, err = c.umaTicketHandler(asURI, ticket, c.rpt)
+		rpt, err = c.umaTicketHandler(asURI, ticket, c.rpt, logger)
 		if err != nil {
 			return nil, err
 		}
-		c.logger.Info("fetched new rpt",
-			"method", req.Method,
-			"path", req.URL.Path,
+		logger.Info("fetched new rpt",
 			"elapsed", time.Since(start),
 		)
 		c.rpt = rpt
@@ -194,9 +197,7 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 		if err != nil {
 			return nil, err
 		}
-		c.logger.Info("retry response",
-			"method", req.Method,
-			"path", req.URL.Path,
+		logger.Info("retry response",
 			"code", resp.StatusCode,
 			"elapsed", time.Since(start),
 		)
