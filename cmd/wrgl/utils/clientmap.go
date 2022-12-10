@@ -72,5 +72,15 @@ func (m *ClientMap) GetRefs(cmd *cobra.Command, remoteURI string, opts ...apicli
 	if err != nil {
 		return nil, HandleHTTPError(cmd, m.CredsStore, remoteURI, err)
 	}
+	m.refs[remoteURI] = refs
 	return
+}
+
+func (m *ClientMap) ResetCookies() error {
+	for _, c := range m.clients {
+		if err := c.ResetCookies(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

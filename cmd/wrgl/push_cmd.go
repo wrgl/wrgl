@@ -5,10 +5,12 @@ package wrgl
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/mitchellh/colorstring"
 	"github.com/spf13/cobra"
 	"github.com/wrgl/wrgl/cmd/wrgl/fetch"
@@ -77,15 +79,7 @@ func newPushCmd() *cobra.Command {
 			}
 			defer db.Close()
 			rs := rd.OpenRefStore()
-			force, err := cmd.Flags().GetBool("force")
-			if err != nil {
-				return err
-			}
 			setUpstream, err := cmd.Flags().GetBool("set-upstream")
-			if err != nil {
-				return err
-			}
-			mirror, err := cmd.Flags().GetBool("mirror")
 			if err != nil {
 				return err
 			}
@@ -113,9 +107,8 @@ func newPushCmd() *cobra.Command {
 				for _, name := range names {
 					branch := c.Branch[name]
 					colorstring.Fprintf(cmd.OutOrStdout(), "pushing [bold]%s[reset]\n", name)
-					if err := pushSingleRepo(
-						cmd, c, db, rs, clients, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)},
-						mirror, force, false, wrglDir,
+					if err := retryPushSingleRepo(
+						cmd, c, db, rs, clients, []string{branch.Remote, fmt.Sprintf("refs/heads/%s:%s", name, branch.Merge)}, false, wrglDir,
 					); err != nil {
 						if apiclient.IsHTTPError(err, 404, "Not Found") {
 							cmd.Println("Repository not found, skipping.")
@@ -127,7 +120,7 @@ func newPushCmd() *cobra.Command {
 				return nil
 			}
 
-			return pushSingleRepo(cmd, c, db, rs, clients, args, mirror, force, setUpstream, wrglDir)
+			return retryPushSingleRepo(cmd, c, db, rs, clients, args, setUpstream, wrglDir)
 		},
 	}
 	cmd.Flags().BoolP("force", "f", false, "force update remote branch in certain conditions.")
@@ -387,10 +380,43 @@ func reportUpdateStatus(cmd *cobra.Command, updates []*receivePackUpdate) {
 	}
 }
 
+// retryPushSingleRepo like pushSingleRepo but retry with exponential backoff
+func retryPushSingleRepo(
+	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, clients *utils.ClientMap,
+	args []string, setUpstream bool, wrglDir string,
+) error {
+	logger := utils.GetLogger(cmd)
+	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
+	defer ticker.Stop()
+	for range ticker.C {
+		if err := pushSingleRepo(cmd, c, db, rs, clients, args, setUpstream, wrglDir); err != nil {
+			var httpErr *apiclient.HTTPError
+			if errors.As(err, &httpErr) && httpErr.Code >= 500 {
+				logger.Error(err, "retrying push")
+				if err := clients.ResetCookies(); err != nil {
+					return err
+				}
+				continue
+			}
+			return err
+		}
+		break
+	}
+	return nil
+}
+
 func pushSingleRepo(
 	cmd *cobra.Command, c *conf.Config, db objects.Store, rs ref.Store, clients *utils.ClientMap,
-	args []string, mirror, force, setUpstream bool, wrglDir string,
+	args []string, setUpstream bool, wrglDir string,
 ) error {
+	mirror, err := cmd.Flags().GetBool("mirror")
+	if err != nil {
+		return err
+	}
+	force, err := cmd.Flags().GetBool("force")
+	if err != nil {
+		return err
+	}
 	remote, cr, args, err := getRepoToPush(c, args)
 	if err != nil {
 		return err

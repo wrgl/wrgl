@@ -83,14 +83,8 @@ type Client struct {
 }
 
 func NewClient(origin string, logger logr.Logger, opts ...ClientOption) (*Client, error) {
-	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
-	if err != nil {
-		return nil, err
-	}
 	c := &Client{
-		client: &http.Client{
-			Jar: jar,
-		},
+		client: &http.Client{},
 		origin: origin,
 		bufPool: &sync.Pool{
 			New: func() any {
@@ -99,10 +93,18 @@ func NewClient(origin string, logger logr.Logger, opts ...ClientOption) (*Client
 		},
 		logger: logger.WithName("Client"),
 	}
+	if err := c.ResetCookies(); err != nil {
+		return nil, err
+	}
 	for _, opt := range opts {
 		opt(c)
 	}
 	return c, nil
+}
+
+func (c *Client) ResetCookies() (err error) {
+	c.client.Jar, err = cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	return
 }
 
 var authHeaderRegex = regexp.MustCompile(`UMA\s+realm="([^"]+)",\s+as_uri="([^"]+)",\s+ticket="([^"]+)"`)
