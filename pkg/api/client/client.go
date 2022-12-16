@@ -109,7 +109,7 @@ func (c *Client) ResetCookies() (err error) {
 
 var authHeaderRegex = regexp.MustCompile(`UMA\s+realm="([^"]+)",\s+as_uri="([^"]+)",\s+ticket="([^"]+)"`)
 
-func extractTicketFrom401(resp *http.Response) (asUri, ticket string) {
+func ExtractTicketFrom401(resp *http.Response) (asUri, ticket string) {
 	if http.StatusUnauthorized == resp.StatusCode {
 		matches := authHeaderRegex.FindStringSubmatch(resp.Header.Get("WWW-Authenticate"))
 		if matches != nil {
@@ -166,7 +166,7 @@ func (c *Client) doRequest(req *http.Request, opts ...RequestOption) (resp *http
 		"code", resp.StatusCode,
 		"elapsed", time.Since(start),
 	)
-	if asURI, ticket := extractTicketFrom401(resp); ticket != "" {
+	if asURI, ticket := ExtractTicketFrom401(resp); ticket != "" {
 		if c.umaTicketHandler == nil {
 			return nil, &ErrUnauthorized{asURI, ticket}
 		}
