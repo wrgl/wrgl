@@ -122,24 +122,24 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, bar pbar.Bar) (don
 	for {
 		ot, b, err := pr.ReadObject()
 		if err != nil && err != io.EOF {
-			return false, fmt.Errorf("pr.ReadObject error: %w", err)
+			return false, fmt.Errorf("read object error: %w", err)
 		}
 		var sum []byte
 		switch ot {
 		case packfile.ObjectBlock:
 			sum, err = r.saveBlock(b)
 			if err != nil {
-				return false, fmt.Errorf("r.saveBlock error: %w", err)
+				return false, fmt.Errorf("save block error: %w", err)
 			}
 		case packfile.ObjectTable:
 			sum, err = r.saveTable(b)
 			if err != nil {
-				return false, fmt.Errorf("pr.ReadObject error: %w", err)
+				return false, fmt.Errorf("save table error: %w", err)
 			}
 		case packfile.ObjectCommit:
 			sum, err = r.saveCommit(b)
 			if err != nil {
-				return false, fmt.Errorf("r.saveTable error: %w", err)
+				return false, fmt.Errorf("save commit error: %w", err)
 			}
 		default:
 			if ot != 0 || len(b) != 0 {
@@ -148,7 +148,7 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, bar pbar.Bar) (don
 		}
 		if ot != 0 {
 			if err = pr.Info.AddObject(ot, sum); err != nil {
-				return false, fmt.Errorf("pr.Info.AddObject error: %w", err)
+				return false, fmt.Errorf("add object error: %w", err)
 			}
 		}
 		if ot != 0 && bar != nil {

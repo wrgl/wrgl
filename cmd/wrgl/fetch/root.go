@@ -383,21 +383,19 @@ func Fetch(
 	if err != nil {
 		return fmt.Errorf("error creating new client: %w", err)
 	}
-	refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(cmd, cm, cr, specs)
-	if err != nil {
-		return fmt.Errorf("error fetching refs: %w", err)
-	}
-	var fetchedCommits [][]byte
 	for {
-		fetchedCommits, err = fetchObjects(cmd, db, rs, client, advertised, depth, container)
+		refs, dstRefs, maybeSaveTags, advertised, err := identifyRefsToFetch(cmd, cm, cr, specs)
+		if err != nil {
+			return fmt.Errorf("error fetching refs: %w", err)
+		}
+		fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised, depth, container)
 		if err != nil {
 			if isStreamError(err) {
 				continue
 			}
 			return fmt.Errorf("error fetching objects: %w", err)
 		}
-		break
+		_, err = saveFetchedRefs(cmd, u, db, rs, remote, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
+		return err
 	}
-	_, err = saveFetchedRefs(cmd, u, db, rs, remote, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
-	return err
 }
