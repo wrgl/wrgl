@@ -5,6 +5,7 @@ package apiutils
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"time"
@@ -50,15 +51,15 @@ func NewObjectReceiver(db objects.Store, expectedCommits [][]byte, logger logr.L
 	return r
 }
 
-func (r *ObjectReceiver) logDuration(msg string) func() {
+func (r *ObjectReceiver) logDuration(msg string) func(keysAndValues ...any) {
 	start := time.Now()
-	return func() {
-		r.logger.Info(msg, "duration", time.Since(start))
+	return func(keysAndValues ...any) {
+		r.logger.WithValues(keysAndValues...).Info(msg, "duration", time.Since(start))
 	}
 }
 
 func (r *ObjectReceiver) saveBlock(b []byte) (sum []byte, err error) {
-	defer r.logDuration("save block")()
+	f := r.logDuration("save block")
 	r.buf, err = s2.Decode(r.buf, b)
 	if err != nil {
 		return
@@ -67,14 +68,18 @@ func (r *ObjectReceiver) saveBlock(b []byte) (sum []byte, err error) {
 		return
 	}
 	sum, err = objects.SaveCompressedBlock(r.db, r.buf, b)
+	if err != nil {
+		return
+	}
 	if r.saveObjHook != nil {
 		r.saveObjHook(packfile.ObjectBlock, sum)
 	}
+	f("sum", hex.EncodeToString(sum))
 	return
 }
 
 func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
-	defer r.logDuration("save table")()
+	f := r.logDuration("save table")
 	_, tbl, err := objects.ReadTableFrom(bytes.NewReader(b))
 	if err != nil {
 		return
@@ -83,7 +88,7 @@ func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
 	if err != nil {
 		return
 	}
-	if err = ingest.IndexTable(r.db, sum, tbl, r.logger); err != nil {
+	if err = ingest.IndexTable(r.db, sum, tbl, r.logger.V(1)); err != nil {
 		return
 	}
 	if err = ingest.ProfileTable(r.db, sum, tbl); err != nil {
@@ -92,11 +97,12 @@ func (r *ObjectReceiver) saveTable(b []byte) (sum []byte, err error) {
 	if r.saveObjHook != nil {
 		r.saveObjHook(packfile.ObjectTable, sum)
 	}
+	f("sum", hex.EncodeToString(sum))
 	return
 }
 
 func (r *ObjectReceiver) saveCommit(b []byte) (sum []byte, err error) {
-	defer r.logDuration("save commit")()
+	f := r.logDuration("save commit")
 	_, com, err := objects.ReadCommitFrom(bytes.NewReader(b))
 	if err != nil {
 		return
@@ -115,6 +121,7 @@ func (r *ObjectReceiver) saveCommit(b []byte) (sum []byte, err error) {
 	if r.saveObjHook != nil {
 		r.saveObjHook(packfile.ObjectCommit, sum)
 	}
+	f("sum", hex.EncodeToString(sum))
 	return
 }
 
