@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -331,6 +332,12 @@ func saveFetchedRefs(
 	return savedRefs, nil
 }
 
+var streamErrorRe = regexp.MustCompile(`.*stream error: stream ID \d+; INTERNAL_ERROR; received from peer$`)
+
+func isStreamError(err error) bool {
+	return streamErrorRe.MatchString(err.Error())
+}
+
 func fetchObjects(
 	cmd *cobra.Command,
 	db objects.Store,
@@ -380,9 +387,16 @@ func Fetch(
 	if err != nil {
 		return fmt.Errorf("error fetching refs: %w", err)
 	}
-	fetchedCommits, err := fetchObjects(cmd, db, rs, client, advertised, depth, container)
-	if err != nil {
-		return fmt.Errorf("error fetching objects: %w", err)
+	var fetchedCommits [][]byte
+	for {
+		fetchedCommits, err = fetchObjects(cmd, db, rs, client, advertised, depth, container)
+		if err != nil {
+			if isStreamError(err) {
+				continue
+			}
+			return fmt.Errorf("error fetching objects: %w", err)
+		}
+		break
 	}
 	_, err = saveFetchedRefs(cmd, u, db, rs, remote, cr.URL, fetchedCommits, refs, dstRefs, maybeSaveTags, force)
 	return err
