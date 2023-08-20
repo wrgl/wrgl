@@ -4,6 +4,7 @@
 package objects
 
 import (
+	"errors"
 	"io"
 	"math"
 
@@ -132,7 +133,7 @@ func (t *Table) readBlock(r io.Reader) (int, []byte, error) {
 func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 	n, err := t.readMeta(r)
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			err = io.ErrUnexpectedEOF
 		}
 		return 0, err
@@ -144,7 +145,7 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 	for i := range t.Blocks {
 		n, b, err := t.readBlock(r)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				err = io.ErrUnexpectedEOF
 			}
 			return 0, err
@@ -155,7 +156,7 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 	for i := range t.BlockIndices {
 		n, b, err := t.readBlock(r)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				err = io.ErrUnexpectedEOF
 			}
 			return 0, err

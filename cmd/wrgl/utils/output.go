@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -49,7 +50,7 @@ func ErrTableNotFound(db objects.Store, rs ref.Store, commit *objects.Commit) er
 func GetTable(db objects.Store, rs ref.Store, commit *objects.Commit) (*objects.Table, error) {
 	tbl, err := objects.GetTable(db, commit.Table)
 	if err != nil {
-		if err == objects.ErrKeyNotFound {
+		if errors.Is(err, objects.ErrKeyNotFound) {
 			return nil, ErrTableNotFound(db, rs, commit)
 		}
 		return nil, fmt.Errorf("objects.GetTable err: %v", err)

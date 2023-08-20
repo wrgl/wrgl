@@ -134,11 +134,11 @@ func (i *Inserter) IngestTableFromSorter(columns []string, pk []uint32) ([]byte,
 	sorterErrChan := make(chan error, 1)
 	i.blocks = i.sorter.SortedBlocks(ctx, nil, sorterErrChan)
 	sum, err := i.ingestTableFromBlocks(columns, pk)
-	if err != nil {
-		return nil, err
-	}
 	close(sorterErrChan)
-	if err, ok := <-sorterErrChan; ok {
+	if sortErr, ok := <-sorterErrChan; ok {
+		return nil, sortErr
+	}
+	if err != nil {
 		return nil, err
 	}
 	return sum, nil
@@ -217,7 +217,7 @@ func (i *Inserter) ingestTableFromBlocks(columns []string, pk []uint32) ([]byte,
 		return nil, err
 	}
 
-	// write and save table summary
+	// write and save table profile
 	buf.Reset()
 	ts := i.sorter.TableSummary()
 	if ts != nil {

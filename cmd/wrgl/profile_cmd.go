@@ -5,6 +5,7 @@ package wrgl
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -81,7 +82,7 @@ func profileCmd() *cobra.Command {
 					}
 					for {
 						sum, commit, err := cq.PopInsertParents()
-						if err == io.EOF {
+						if errors.Is(err, io.EOF) {
 							break
 						}
 						start := time.Now()
@@ -102,7 +103,7 @@ func profileCmd() *cobra.Command {
 			}
 			tblProf, err := objects.GetTableProfile(db, commit.Table)
 			if err != nil {
-				if err == objects.ErrKeyNotFound {
+				if errors.Is(err, objects.ErrKeyNotFound) {
 					return utils.ErrTableNotFound(db, rs, commit)
 				}
 				if err = profileTable(db, rs, commit); err != nil {
@@ -128,7 +129,7 @@ func profileCmd() *cobra.Command {
 func profileTable(db objects.Store, rs ref.Store, commit *objects.Commit) error {
 	tbl, err := objects.GetTable(db, commit.Table)
 	if err != nil {
-		if err == objects.ErrKeyNotFound {
+		if errors.Is(err, objects.ErrKeyNotFound) {
 			return utils.ErrTableNotFound(db, rs, commit)
 		}
 		return err

@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -149,7 +150,7 @@ func (d *Doctor) diagnoseTree(tableIssues map[string]Issue, refname string, head
 				issues = append(issues, iss)
 			}
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		prevCom = com

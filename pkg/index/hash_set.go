@@ -4,6 +4,7 @@
 package index
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -48,7 +49,7 @@ func NewHashSet(r ReadWriteSeekCloser, batchSize uint32) (s *HashSet, err error)
 	getSize := true
 	for i := 0; i < 256; i++ {
 		s.fanout[i], err = readUint32(s.r, s.buf, 0, i)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			getSize = false
 			break
 		}

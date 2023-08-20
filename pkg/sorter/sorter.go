@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/csv"
+	"errors"
 	"io"
 	"os"
 	"sort"
@@ -191,7 +192,7 @@ func (s *Sorter) SortFile(f io.ReadCloser, pk []string) (err error) {
 	s.size = 0
 	for {
 		row, err = r.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return
@@ -279,7 +280,7 @@ func (s *Sorter) SortedBlocks(ctx context.Context, removedCols map[int]struct{},
 				}
 				if len(chunkRows[i]) == 0 {
 					n, b, err := dec.ReadBytes(chunk)
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						chunkEOF[i] = true
 					} else if err != nil {
 						errChan <- err
@@ -417,7 +418,7 @@ func (s *Sorter) SortedRows(ctx context.Context, removedCols map[int]struct{}, e
 				}
 				if chunkRows[i] == nil {
 					_, row, err := dec.Read(chunk)
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						chunkEOF[i] = true
 					} else if err != nil {
 						errChan <- err

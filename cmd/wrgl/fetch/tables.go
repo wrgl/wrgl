@@ -5,6 +5,7 @@ package fetch
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 
@@ -82,7 +83,7 @@ func newTablesCmd() *cobra.Command {
 								coms = append(coms, com)
 							}
 							if err != nil {
-								if err == io.EOF {
+								if errors.Is(err, io.EOF) {
 									break
 								}
 								return err

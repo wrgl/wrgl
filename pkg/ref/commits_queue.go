@@ -4,6 +4,7 @@
 package ref
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -156,7 +157,7 @@ func (q *CommitsQueue) PopInsertParents() (sum []byte, commit *objects.Commit, e
 func (q *CommitsQueue) PopUntil(b []byte) (sum []byte, commit *objects.Commit, err error) {
 	for {
 		sum, commit, err = q.PopInsertParents()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return
 		}
 		if err != nil {
@@ -183,7 +184,7 @@ func (q *CommitsQueue) RemoveAncestors(sums [][]byte) error {
 		}
 		for {
 			ancestor, _, err := q2.PopInsertParents()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {
@@ -227,7 +228,7 @@ func IsAncestorOf(db objects.Store, commit1, commit2 []byte) (ok bool, err error
 	}
 	for {
 		sum, _, err := q.PopInsertParents()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return false, nil
 		}
 		if err != nil {

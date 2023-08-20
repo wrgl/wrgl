@@ -6,6 +6,7 @@ package apiutils
 import (
 	"bytes"
 	"container/list"
+	"errors"
 	"io"
 
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
@@ -48,7 +49,7 @@ func getCommonBlocks(db objects.Store, commonTables map[string]struct{}) (map[st
 	commonBlocks := map[string]struct{}{}
 	for b := range commonTables {
 		t, err := objects.GetTable(db, []byte(b))
-		if err == objects.ErrKeyNotFound {
+		if errors.Is(err, objects.ErrKeyNotFound) {
 			continue
 		}
 		if err != nil {
@@ -116,7 +117,7 @@ func (s *ObjectSender) enqueueNextCommit() (err error) {
 
 func (s *ObjectSender) enqueueTable(sum []byte) (err error) {
 	tbl, err := objects.GetTable(s.db, sum)
-	if err == objects.ErrKeyNotFound {
+	if errors.Is(err, objects.ErrKeyNotFound) {
 		return nil
 	}
 	if err != nil {

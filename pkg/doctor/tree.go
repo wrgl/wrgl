@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -134,7 +135,7 @@ func (t *Tree) updateCommit(oldSum []byte, com *objects.Commit) ([]byte, error) 
 func (t *Tree) EditCommit(commit []byte, edit func(com *objects.Commit) (remove, update bool, err error)) error {
 	for {
 		com, err := t.Down()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return fmt.Errorf("commit %x not found in tree: %v", commit, io.ErrUnexpectedEOF)
 		}
 		oldSum := com.Sum
@@ -173,7 +174,7 @@ func (t *Tree) UpdateAllDescendants() ([]byte, error) {
 	var sum []byte
 	for {
 		com, err := t.Down()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			if sum == nil {
 				com, err = t.Head()
 				if err != nil {

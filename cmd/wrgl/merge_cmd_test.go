@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -188,7 +189,7 @@ func TestMergeCmdNoGUI(t *testing.T) {
 	r := csv.NewReader(f)
 	for {
 		row, err := r.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

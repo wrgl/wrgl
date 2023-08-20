@@ -5,6 +5,7 @@ package ref
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 
@@ -56,7 +57,7 @@ func (rt *Traveller) readReflog() error {
 			return err
 		}
 		rt.nextLog = rl
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			rt.reader.Close()
 			rt.reader = nil
 		}

@@ -5,6 +5,7 @@ package objects
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"sort"
 	"testing"
@@ -61,7 +62,7 @@ func TestEncodeStrList(t *testing.T) {
 	r = bytes.NewReader(buf.Bytes())
 	for i := 0; ; i++ {
 		n, b, err := d.ReadBytes(r)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)

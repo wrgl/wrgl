@@ -5,6 +5,7 @@ package misc
 
 import (
 	"bytes"
+	"errors"
 	"io"
 )
 
@@ -69,7 +70,7 @@ func (s *BackwardScanner) ReadLine() (string, error) {
 			return res, nil
 		}
 		err := s.readMore()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			if len(s.buf) > 0 {
 				res := string(s.buf)
 				s.buf = s.buf[:0]

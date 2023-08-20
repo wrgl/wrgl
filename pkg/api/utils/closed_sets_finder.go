@@ -5,6 +5,7 @@ package apiutils
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
 	"io"
 
@@ -108,7 +109,7 @@ func (f *ClosedSetsFinder) ensureWantsAreReachable(queue *ref.CommitsQueue, want
 				confirmed[string(want)] = struct{}{}
 			}
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 	}
@@ -164,7 +165,7 @@ func (f *ClosedSetsFinder) findCommons(queue *ref.CommitsQueue, haves [][]byte) 
 			continue
 		}
 		_, _, err := queue.PopUntil(have)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

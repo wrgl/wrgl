@@ -217,10 +217,7 @@ func commit(
 		},
 	)
 	if err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error ingesting rows: %w", err)
 	}
 
 	commit := &objects.Commit{
@@ -236,14 +233,14 @@ func commit(
 	buf := bytes.NewBuffer(nil)
 	_, err = commit.WriteTo(buf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error writing commit: %w", err)
 	}
 	commitSum, err := objects.SaveCommit(db, buf.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error saving commit: %w", err)
 	}
 	if err = saveHead(rs, branchName, commitSum, commit, tid); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error saving branch: %w", err)
 	}
 	return commitSum, nil
 }

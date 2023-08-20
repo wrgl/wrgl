@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 
@@ -49,7 +50,7 @@ func (r *resolver) reset(iss *Issue, headCommit []byte) (err error) {
 				break
 			}
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return fmt.Errorf("commit %x not found in ref %q: %v", iss.Commit, iss.Ref, io.ErrUnexpectedEOF)
 		}
 	}

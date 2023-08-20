@@ -6,6 +6,7 @@ package packfile
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -59,7 +60,7 @@ func decodeObjTypeAndLen(r io.Reader) (objType int, u uint64, err error) {
 	bits := 4
 	for {
 		_, err = r.Read(b)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return 0, 0, fmt.Errorf("reading size: data corrupted")
 		}
 		if err != nil {
@@ -183,7 +184,7 @@ func (r *PackfileReader) ReadObject() (objType int, b []byte, err error) {
 			return 0, nil, err
 		}
 		read += uint64(n)
-		if err == io.EOF && read < u {
+		if errors.Is(err, io.EOF) && read < u {
 			return 0, nil, io.ErrUnexpectedEOF
 		}
 	}

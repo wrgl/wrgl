@@ -4,6 +4,7 @@
 package objline
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -67,7 +68,7 @@ func consumeStr(p *encoding.Parser, s string) (int64, error) {
 
 func ReadField(p *encoding.Parser, label string, f ReadFunc) (int64, error) {
 	total, err := consumeStr(p, fmt.Sprintf("%s ", label))
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return 0, io.EOF
 	}
 	if err != nil {

@@ -4,6 +4,7 @@
 package widgets
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -84,7 +85,7 @@ func (b *UsageBar) printRows(totalWidth int) {
 	maxColumn := len(b.widths) - 1
 	for {
 		err := b.computeColumnWidths(totalWidth, maxColumn)
-		if err == errCombinedColumnWidths {
+		if errors.Is(err, errCombinedColumnWidths) {
 			if len(b.colWidths) == 1 {
 				break
 			}

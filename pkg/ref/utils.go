@@ -4,6 +4,7 @@
 package ref
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -45,7 +46,7 @@ func SeekCommonAncestor(db objects.Store, commits ...[]byte) (baseCommit []byte,
 		eofs := 0
 		for i, q := range qs {
 			bases[i], _, err = q.PopInsertParents()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				eofs++
 			} else if err != nil {
 				return nil, err

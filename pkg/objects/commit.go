@@ -4,6 +4,7 @@
 package objects
 
 import (
+	"errors"
 	"io"
 	"time"
 
@@ -91,7 +92,7 @@ func (c *Commit) ReadFrom(r io.Reader) (int64, error) {
 	for {
 		b := make([]byte, 16)
 		n, err := objline.ReadField(parser, "parent", objline.ReadBytes(b))
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

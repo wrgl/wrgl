@@ -505,7 +505,7 @@ func ingestTable(
 			append(sorterOpts, sorter.WithProgressBar(sortPT))...,
 		)
 		if err != nil {
-			return err
+			return fmt.Errorf("error creating new sorter: %w", err)
 		}
 		tableSum, err = ingest.IngestTable(db, s, file, pk, logger,
 			append(inserterOpts, ingest.WithProgressBar(blkPT))...,

@@ -4,6 +4,7 @@
 package widgets
 
 import (
+	"errors"
 	"io"
 	"strings"
 
@@ -34,7 +35,7 @@ func (v *PaginatedTextView) PullText() error {
 		return nil
 	}
 	b, err := v.pullText()
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return nil
 	}
 	if err != nil {
@@ -93,7 +94,7 @@ func (v *PaginatedTextView) inputCapture(event *tcell.EventKey) *tcell.EventKey 
 	} else if pressedEnd {
 		for {
 			b, err := v.pullText()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			if err != nil {

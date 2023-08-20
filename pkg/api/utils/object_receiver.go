@@ -6,6 +6,7 @@ package apiutils
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -161,7 +162,7 @@ func (r *ObjectReceiver) Receive(pr *packfile.PackfileReader, bar pbar.Bar) (don
 		if ot != 0 && bar != nil {
 			bar.Incr()
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 	}

@@ -4,6 +4,7 @@
 package widgets
 
 import (
+	"errors"
 	"io"
 
 	"github.com/wrgl/wrgl/pkg/diff"
@@ -75,7 +76,7 @@ func (t *PreviewTable) readRowsFrom(start, end int) [][]*TableCell {
 	off := start
 	for off < end {
 		rowContent, err := t.rowReader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

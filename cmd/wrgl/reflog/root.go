@@ -5,6 +5,7 @@ package reflog
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -59,7 +60,7 @@ func RootCmd() *cobra.Command {
 			name = strings.TrimPrefix(name, "heads/")
 			for i := 0; ; i++ {
 				rec, err := r.Read()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				if err != nil {

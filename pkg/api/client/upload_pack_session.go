@@ -4,6 +4,7 @@
 package apiclient
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -106,7 +107,7 @@ func (n *UploadPackSession) popHaves() (haves [][]byte, done bool, err error) {
 	}
 	for i := 0; i < n.havesPerRoundTrip; {
 		sum, com, err := n.q.PopInsertParents()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			done = true
 			break
 		}

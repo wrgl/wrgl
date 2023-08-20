@@ -6,6 +6,7 @@ package objects
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -37,6 +38,9 @@ func (e *StrListEncoder) Encode(sl []string) []byte {
 	binary.BigEndian.PutUint32(e.buf, uint32(len(sl)))
 	var offset uint16 = 4
 	for _, s := range sl {
+		if len(s) > 65536 {
+			panic(fmt.Errorf("cell value %q is too long (%d > 65536)", s[:40]+"...", len(s)))
+		}
 		l := uint16(len(s))
 		binary.BigEndian.PutUint16(e.buf[offset:], l)
 		offset += 2
@@ -161,7 +165,7 @@ func (d *StrListDecoder) Read(r io.Reader) (int64, []string, error) {
 		n, err := io.ReadFull(r, d.buf[:l])
 		d.pos += n
 		sl = append(sl, string(d.buf[:n]))
-		if err == io.EOF && i == count-1 {
+		if errors.Is(err, io.EOF) && i == count-1 {
 			break
 		}
 		if err != nil {
@@ -171,12 +175,16 @@ func (d *StrListDecoder) Read(r io.Reader) (int64, []string, error) {
 	return int64(d.pos), sl, nil
 }
 
+// ReadBytes returns the number of bytes and the actual bytes of encoded StrList
 func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
+	// read number of strings in the list
 	_, err = io.ReadFull(r, d.buf[:4])
 	if err != nil {
+		err = fmt.Errorf("error reading number of strings: %w", err)
 		return
 	}
 	count := binary.BigEndian.Uint32(d.buf)
+
 	n = 4
 	var i uint32
 	var m int
@@ -184,17 +192,20 @@ func (d *StrListDecoder) ReadBytes(r io.Reader) (n int, b []byte, err error) {
 		d.ensureBufSize(n + 2)
 		_, err = io.ReadFull(r, d.buf[n:n+2])
 		if err != nil {
+			err = fmt.Errorf("error reading string length (2 bytes): %w", err)
 			return
 		}
 		l := binary.BigEndian.Uint16(d.buf[n:])
+
 		n += 2
 		d.ensureBufSize(n + int(l))
 		m, err = io.ReadFull(r, d.buf[n:n+int(l)])
 		n += m
-		if err == io.EOF && i == count-1 {
+		if errors.Is(err, io.EOF) && i == count-1 {
 			break
 		}
 		if err != nil {
+			err = fmt.Errorf("error reading string (%d bytes): %w", l, err)
 			return
 		}
 	}

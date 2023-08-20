@@ -4,6 +4,7 @@
 package objbadger
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/dgraph-io/badger/v3"
@@ -25,7 +26,7 @@ func NewTxn(db *badger.DB) *Txn {
 func (t *Txn) Get(k []byte) ([]byte, error) {
 	item, err := t.txn.Get(k)
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if errors.Is(err, badger.ErrKeyNotFound) {
 			return nil, objects.ErrKeyNotFound
 		}
 		return nil, err
@@ -44,7 +45,7 @@ func (t *Txn) Get(k []byte) ([]byte, error) {
 func (t *Txn) Set(k, v []byte) error {
 	err := t.txn.Set([]byte(k), v)
 	if err != nil {
-		if err == badger.ErrTxnTooBig {
+		if errors.Is(err, badger.ErrTxnTooBig) {
 			err := t.txn.Commit()
 			if err != nil {
 				return err

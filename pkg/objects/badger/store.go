@@ -4,6 +4,8 @@
 package objbadger
 
 import (
+	"errors"
+
 	"github.com/dgraph-io/badger/v3"
 	"github.com/wrgl/wrgl/pkg/objects"
 )
@@ -21,7 +23,7 @@ func (s *Store) Get(k []byte) ([]byte, error) {
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(k)
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
+			if errors.Is(err, badger.ErrKeyNotFound) {
 				return objects.ErrKeyNotFound
 			}
 			return err

@@ -6,6 +6,7 @@ package objects
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"hash"
 	"io"
 	"sort"
@@ -48,32 +49,40 @@ func IndexBlock(enc *StrListEncoder, hash hash.Hash, blk [][]string, pk []uint32
 	return idx, nil
 }
 
-func IndexBlockFromBytes(dec *StrListDecoder, hash *meow.Digest, e *StrListEditor, blk []byte, pk []uint32) (*BlockIndex, error) {
-	n := int(binary.BigEndian.Uint32(blk))
+// IndexBlockFromBytes creates BlockIndex from block bytes
+func IndexBlockFromBytes(dec *StrListDecoder, hash *meow.Digest, e *StrListEditor, blockBytes []byte, pk []uint32) (*BlockIndex, error) {
+	// read number of rows from the first 4 bytes
+	rowsNum := int(binary.BigEndian.Uint32(blockBytes))
 	idx := &BlockIndex{
-		sortedOff: make([]uint8, n),
-		Rows:      make([][]byte, n),
+		sortedOff: make([]uint8, rowsNum),
+		Rows:      make([][]byte, rowsNum),
 	}
-	r := bytes.NewReader(blk[4:])
+
+	blockBytesReader := bytes.NewReader(blockBytes[4:])
 	var pkb []byte
 	var sum = make([]byte, meow.Size)
 	var pkSum = make([]byte, meow.Size)
-	for i := 0; i < n; i++ {
-		_, b, err := dec.ReadBytes(r)
+	for i := 0; i < rowsNum; i++ {
+		// read row bytes
+		_, rowBytes, err := dec.ReadBytes(blockBytesReader)
 		if err != nil {
-			if err == io.EOF && i < n-1 {
+			if errors.Is(err, io.EOF) && i < rowsNum-1 {
 				return nil, io.ErrUnexpectedEOF
 			}
 			return nil, err
 		}
+
+		// hash row into sum
 		hash.Reset()
-		_, err = hash.Write(b)
+		_, err = hash.Write(rowBytes)
 		if err != nil {
 			return nil, err
 		}
 		hash.SumTo(sum)
+
+		// append row sums
 		if len(pk) > 0 {
-			pkb = e.PickFrom(pkb, b)
+			pkb = e.PickFrom(pkb, rowBytes)
 			hash.Reset()
 			_, err = hash.Write(pkb)
 			if err != nil {

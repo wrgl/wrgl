@@ -4,6 +4,7 @@
 package widgets
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -93,7 +94,7 @@ func (t *DiffTable) readRowsFrom(start, end int) [][][]*TableCell {
 	off := start
 	for off < end {
 		row, err := t.reader.Read()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

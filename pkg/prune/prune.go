@@ -4,6 +4,7 @@
 package prune
 
 import (
+	"errors"
 	"io"
 	"sort"
 
@@ -31,7 +32,7 @@ func findCommitsToRemove(db objects.Store, rs ref.Store, pbarAdd func()) (commit
 	commitFound := make([]bool, len(commitKeys))
 	for {
 		sum, _, err := q.PopInsertParents()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
