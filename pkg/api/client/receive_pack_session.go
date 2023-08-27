@@ -109,14 +109,14 @@ func (s *ReceivePackSession) negotiate(updates map[string]*payload.Update) (stat
 	}
 	resp, err := s.c.PostReceivePack(updates, tbls, s.opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error posting receive pack request: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, s.c.ErrHTTP(resp)
 	}
 	rpr, err := parseReceivePackResponse(resp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing receive pack response: %w", err)
 	}
 	if len(rpr.Updates) > 0 {
 		s.updates = rpr.Updates
@@ -128,11 +128,11 @@ func (s *ReceivePackSession) negotiate(updates map[string]*payload.Update) (stat
 		if s.candidateTables.Len() == 0 {
 			commits, err := s.finder.CommitsToSend()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error finding commits to send: %w", err)
 			}
 			s.sender, err = apiutils.NewObjectSender(s.db, commits, s.tablesToSend, s.finder.CommonCommmits(), s.maxPackfileSize)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error creating object sender: %w", err)
 			}
 			return s.sendObjects()
 		}
@@ -143,7 +143,7 @@ func (s *ReceivePackSession) negotiate(updates map[string]*payload.Update) (stat
 func (s *ReceivePackSession) readReport(resp *http.Response) (stateFn, error) {
 	r, err := parseReceivePackResponse(resp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error parsing receive pack response: %w", err)
 	}
 	s.updates = r.Updates
 	return nil, nil
@@ -154,11 +154,11 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 	gzw := gzip.NewWriter(reqBody)
 	done, _, err := s.sender.WriteObjects(gzw, s.objectsBar)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error writing objects: %w", err)
 	}
 	err = gzw.Close()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error closing gzip writer: %w", err)
 	}
 	resp, err := s.c.Request(http.MethodPost, "/receive-pack/", reqBody, map[string]string{
 		"Content-Type":     CTPackfile,
@@ -167,7 +167,7 @@ func (s *ReceivePackSession) sendObjects() (stateFn, error) {
 		WithRequestProgressBar(*s.barContainer, reqBody.Len(), "Sending packfile"),
 	}, s.opts...)...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error sending packfile: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

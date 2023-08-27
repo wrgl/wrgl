@@ -5,6 +5,7 @@ package objects
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"math"
 
@@ -134,7 +135,7 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 	n, err := t.readMeta(r)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			err = io.ErrUnexpectedEOF
+			err = fmt.Errorf("unexpected EOF reading meta")
 		}
 		return 0, err
 	}
@@ -146,7 +147,7 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 		n, b, err := t.readBlock(r)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				err = io.ErrUnexpectedEOF
+				err = fmt.Errorf("unexpected EOF reading block (%d/%d)", i, blocksCount)
 			}
 			return 0, err
 		}
@@ -157,7 +158,7 @@ func (t *Table) ReadFrom(r io.Reader) (int64, error) {
 		n, b, err := t.readBlock(r)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				err = io.ErrUnexpectedEOF
+				err = fmt.Errorf("unexpected EOF reading block index (%d/%d)", i, blocksCount)
 			}
 			return 0, err
 		}

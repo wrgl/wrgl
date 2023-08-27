@@ -5,6 +5,7 @@ package objects
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
@@ -17,6 +18,9 @@ func CombineRowBytesIntoBlock(blk [][]byte) []byte {
 	}
 	b := make([]byte, m)
 	n := len(blk)
+	if n > maxUint32 {
+		panic(fmt.Errorf("block length is too long (%d > 4294967296)", n))
+	}
 	binary.BigEndian.PutUint32(b, uint32(n))
 	off := 4
 	for _, row := range blk {
@@ -29,6 +33,9 @@ func CombineRowBytesIntoBlock(blk [][]byte) []byte {
 func WriteBlockTo(enc *StrListEncoder, w io.Writer, blk [][]string) (int64, error) {
 	n := len(blk)
 	b := make([]byte, 4)
+	if n > maxUint32 {
+		panic(fmt.Errorf("block length is too long (%d > 4294967296)", n))
+	}
 	binary.BigEndian.PutUint32(b, uint32(n))
 	_, err := w.Write(b)
 	if err != nil {

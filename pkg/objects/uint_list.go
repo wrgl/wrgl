@@ -5,8 +5,11 @@ package objects
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
+
+const maxUint32 = 1 << 32
 
 // UintListEncoder encodes string slice. Max bytes size for each string is 65536 bytes
 type UintListEncoder struct {
@@ -26,6 +29,9 @@ func (e *UintListEncoder) Encode(sl []uint32) []byte {
 		e.buf = make([]byte, bufLen)
 	} else {
 		e.buf = e.buf[:bufLen]
+	}
+	if len(sl) > maxUint32 {
+		panic(fmt.Errorf("slice length is too long (%d > 4294967296)", len(sl)))
 	}
 	binary.BigEndian.PutUint32(e.buf, l)
 	for i, u := range sl {

@@ -145,7 +145,7 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*conf.
 	s := conffs.NewStore(wrglDir, conffs.LocalSource, "")
 	c, err := s.Open()
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening config store: %w", err)
 	}
 	if c.Branch == nil {
 		c.Branch = map[string]*conf.Branch{}
@@ -171,7 +171,10 @@ func setBranchUpstream(cmd *cobra.Command, wrglDir, remote string, refs []*conf.
 			cmd.Printf("branch %q setup to track remote branch %q from %q\n", ref.Src()[6:], ref.Dst()[6:], remote)
 		}
 	}
-	return s.Save(c)
+	if err := s.Save(c); err != nil {
+		return fmt.Errorf("error saving config: %w", err)
+	}
+	return nil
 }
 
 func getRepoToPush(c *conf.Config, args []string) (remote string, cr *conf.Remote, rem []string, err error) {
@@ -429,20 +432,20 @@ func pushSingleRepo(
 	}
 	client, err := clients.GetClient(cmd, cr.URL)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting client: %w", err)
 	}
 	remoteRefs, err := clients.GetRefs(cmd, cr.URL)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting remote refs: %w", err)
 	}
 	cmd.Printf("To %s\n", cr.URL)
 	refspecs, err := getRefspecsToPush(cmd, rs, cr, args, remoteRefs, mirror)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting refspecs to push: %w", err)
 	}
 	upToDateRefspecs, updates, err := identifyUpdates(cmd, db, rs, refspecs, remoteRefs, force)
 	if err != nil {
-		return err
+		return fmt.Errorf("error identifying updates: %w", err)
 	}
 	if len(updates) > 0 {
 		um := map[string]*payload.Update{}
@@ -460,7 +463,7 @@ func pushSingleRepo(
 			um, err = ses.Start(barContainer)
 			return err
 		}); err != nil {
-			return err
+			return fmt.Errorf("error starting receive pack session: %w", err)
 		}
 		for _, u := range updates {
 			if v, ok := um[u.Dst]; ok {
@@ -490,7 +493,7 @@ func pushSingleRepo(
 				false, false,
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating up-to-date refspec: %w", err)
 			}
 			refs = append(refs, ref)
 		}
@@ -501,7 +504,7 @@ func pushSingleRepo(
 				false, false,
 			)
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating updated refspec: %w", err)
 			}
 			refs = append(refs, ref)
 		}

@@ -35,6 +35,9 @@ func (e *StrListEncoder) Encode(sl []string) []byte {
 	} else {
 		e.buf = e.buf[:bufLen]
 	}
+	if len(sl) > maxUint32 {
+		panic(fmt.Errorf("slice length is too long (%d > 4294967296)", len(sl)))
+	}
 	binary.BigEndian.PutUint32(e.buf, uint32(len(sl)))
 	var offset uint16 = 4
 	for _, s := range sl {

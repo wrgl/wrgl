@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"container/list"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/wrgl/wrgl/pkg/encoding/packfile"
@@ -76,17 +77,17 @@ func NewObjectSender(db objects.Store, toSend []*objects.Commit, tablesToSend ma
 	}
 	s.commonTables, err = getCommonTables(db, commonCommits)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting common tables: %w", err)
 	}
 	s.commonBlocks, err = getCommonBlocks(db, s.commonTables)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting common blocks: %w", err)
 	}
 	for _, com := range toSend {
 		s.commits.PushBack(com)
 	}
 	if err = s.enqueueNextCommit(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error enqueuing next commit: %w", err)
 	}
 	return s, nil
 }
@@ -99,6 +100,7 @@ func (s *ObjectSender) enqueueNextCommit() (err error) {
 	if _, ok := s.tables[string(com.Table)]; ok {
 		if _, ok := s.commonTables[string(com.Table)]; !ok {
 			if err = s.enqueueTable(com.Table); err != nil {
+				err = fmt.Errorf("error enqueuing table %x (commit %x): %w", com.Table, com.Sum, err)
 				return
 			}
 			s.commonTables[string(com.Table)] = struct{}{}
@@ -107,6 +109,7 @@ func (s *ObjectSender) enqueueNextCommit() (err error) {
 	s.buf.Reset()
 	_, err = com.WriteTo(s.buf)
 	if err != nil {
+		err = fmt.Errorf("error writing commit: %w", err)
 		return
 	}
 	b := make([]byte, s.buf.Len())
@@ -121,6 +124,7 @@ func (s *ObjectSender) enqueueTable(sum []byte) (err error) {
 		return nil
 	}
 	if err != nil {
+		err = fmt.Errorf("error getting table: %w", err)
 		return
 	}
 	for _, blk := range tbl.Blocks {
@@ -132,6 +136,7 @@ func (s *ObjectSender) enqueueTable(sum []byte) (err error) {
 	s.buf.Reset()
 	_, err = tbl.WriteTo(s.buf)
 	if err != nil {
+		err = fmt.Errorf("error writing table: %w", err)
 		return
 	}
 	b := make([]byte, s.buf.Len())

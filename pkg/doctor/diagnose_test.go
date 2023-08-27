@@ -69,7 +69,7 @@ func TestDiagnoseTree(t *testing.T) {
 			AncestorCount:   8,
 			Commit:          commits[8].Sum,
 			Table:           commits[8].Table,
-			Err:             "error fetching table: unexpected EOF",
+			Err:             "error fetching table: unexpected EOF reading block index (0/1)",
 			Resolution:      RemoveResolution,
 		},
 		{
@@ -78,7 +78,7 @@ func TestDiagnoseTree(t *testing.T) {
 			AncestorCount:   7,
 			Commit:          commits[7].Sum,
 			Table:           commits[7].Table,
-			Err:             "error fetching table: unexpected EOF",
+			Err:             "error fetching table: unexpected EOF reading block index (0/1)",
 			Resolution:      RemoveResolution,
 		},
 		{
@@ -116,7 +116,7 @@ func TestDiagnoseTree(t *testing.T) {
 			AncestorCount:   3,
 			Commit:          commits[3].Sum,
 			Table:           commits[3].Table,
-			Err:             "error fetching table: unexpected EOF",
+			Err:             "error fetching table: unexpected EOF reading block index (0/1)",
 			Resolution:      RemoveResolution,
 		},
 		{
