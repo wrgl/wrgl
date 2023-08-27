@@ -138,6 +138,7 @@ func newDiffCmd() *cobra.Command {
 	cmd.Flags().String("txid", "", "show diff summary for all changes with specified transaction id")
 	cmd.Flags().String("delimiter-1", "", "CSV delimiter of the first argument if the first argument is an external file. Defaults to comma.")
 	cmd.Flags().String("delimiter-2", "", "CSV delimiter of the second argument if the second argument is an external file. Defaults to comma.")
+	cmd.Flags().Bool("no-cache", false, "skip commit cache which by default keeps the command from ingesting the same file again if there has been no changes")
 	registerCommitFlags(cmd.Flags())
 	return cmd
 }

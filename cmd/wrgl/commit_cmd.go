@@ -142,6 +142,7 @@ func newCommitCmd() *cobra.Command {
 	cmd.Flags().Bool("all", false, "commit all branches that have branch.file configured.")
 	cmd.Flags().String("txid", "", "commit using specified transaction id")
 	cmd.Flags().String("delimiter", "", "CSV delimiter, defaults to comma")
+	cmd.Flags().Bool("no-cache", false, "skip commit cache which by default keeps the command from ingesting the same file again if there has been no changes")
 	return cmd
 }
 
@@ -270,7 +271,18 @@ func ensureTempCommit(
 	cmd *cobra.Command, db objects.Store, rs ref.Store, c *conf.Config, branch string, csvFilePath string,
 	primaryKey []string, quiet bool, delim rune,
 ) (sum []byte, err error) {
+	noCache, err := cmd.Flags().GetBool("no-cache")
+	if err != nil {
+		return
+	}
 	tmpBranch := branch + "-tmp"
+	if noCache {
+		sum, err = commitTempBranch(cmd, db, rs, c, tmpBranch, csvFilePath, primaryKey, quiet, delim)
+		if err != nil {
+			return nil, err
+		}
+		return sum, nil
+	}
 	com, tbl, err := getCommitTable(db, rs, tmpBranch)
 	if err != nil {
 		if errors.Is(err, objects.ErrKeyNotFound) || errors.Is(err, ref.ErrKeyNotFound) || errors.Is(err, io.ErrUnexpectedEOF) {
